@@ -7,7 +7,8 @@
 //   node tools/hyperkuy.mjs check        (integrity: unique ids/names/aliases, files exist, contract marker)
 //   node tools/hyperkuy.mjs gallery      (regenerates CATALOG.md from catalog.json)
 //   node tools/hyperkuy.mjs selftest
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve, basename } from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -40,8 +41,11 @@ function shot(html, png, w = 1080, h = 1920) {
   if (!CHROME) throw new Error("Chrome/Edge/Chromium not found — set CHROME_PATH");
   const tmp = png.replace(/\.png$/, ".tmp.html");
   writeFileSync(tmp, html);
-  execFileSync(CHROME, ["--headless=new", "--disable-gpu", "--hide-scrollbars", "--force-device-scale-factor=1", `--window-size=${w},${h}`,
-    "--virtual-time-budget=5000", `--screenshot=${png}`, pathToFileURL(tmp).href], { stdio: "ignore" });
+  const profile = mkdtempSync(join(tmpdir(), "hk-chrome-")); // own profile per shot so parallel renders never share one
+  try {
+    execFileSync(CHROME, ["--headless=new", "--disable-gpu", "--hide-scrollbars", "--force-device-scale-factor=1", `--window-size=${w},${h}`,
+      `--user-data-dir=${profile}`, "--no-first-run", "--virtual-time-budget=5000", `--screenshot=${png}`, pathToFileURL(tmp).href], { stdio: "ignore" });
+  } finally { rmSync(profile, { recursive: true, force: true }); }
   return png;
 }
 
