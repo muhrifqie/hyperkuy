@@ -28,6 +28,7 @@
 | `signature` | sentence | the content-driven move to animate in video |
 | `cover` | `covers/<id>.jpg` | 540×960, sample topic |
 | `template` | `templates/<id>.html` | `type: template` only |
+| `spec` | `spec/<id>.md` | optional — the design spec (palette, fonts, 2-second hook, loop ending, caption slot) an agent expands into a full video |
 | `frame` | path | `type: reference` only — the real frame used by `recommend` |
 | `references` | project names | `type: reference` only — videos that used it (for rotation history) |
 | `source` | `concepts/sources/<id>.html` | `type: concept` only, when a source exists |
