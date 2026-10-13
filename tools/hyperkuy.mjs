@@ -48,7 +48,7 @@ function shot(html, png, w = 1080, h = 1920) {
 export function render(q, dataFile) {
   const s = typeof q === "string" ? find(q) : q;
   if (s.type !== "template") throw new Error(`${s.name} is a ${s.type} (${s.type === "concept" ? "static cover — rebuild it to docs/CONTRACT.md first" : "real video frame, nothing to render"})`);
-  let html = readFileSync(join(ROOT, s.template), "utf8");
+  let html = readFileSync(resolve(ROOT, s.template), "utf8");
   if (!html.includes("<!--DATA-->")) throw new Error(`${s.id}: missing <!--DATA--> marker (docs/CONTRACT.md)`);
   html = html.replace("<!--DATA-->", `<script>window.D = ${readFileSync(dataFile, "utf8").trim()};</script>`);
   mkdirSync(OUT, { recursive: true });
@@ -154,7 +154,9 @@ try {
       console.log(`${s.name.padEnd(22)} ${s.id.padEnd(22)} ${s.author.padEnd(6)} ${s.type.padEnd(9)} ${s.tier}`);
   } else if (cmd === "render") {
     const data = resolve(arg("--data", join(ROOT, "data", "sample-tokens.json")));
-    const list = pos[0] === "all" ? CAT.styles.filter((s) => s.type === "template") : pos.map(find);
+    // a path to an .html file renders an unregistered draft (used while building new designs)
+    const asFile = (p) => ({ id: basename(p, ".html"), name: basename(p), type: "template", template: resolve(p) });
+    const list = pos[0] === "all" ? CAT.styles.filter((s) => s.type === "template") : pos.map((p) => (/\.html$/i.test(p) && existsSync(p) ? asFile(p) : find(p)));
     for (const s of list) { try { console.log("ok  ", render(s, data)); } catch (e) { console.log("FAIL", e.message); process.exitCode = 1; } }
   } else if (cmd === "recommend") {
     const dataFile = resolve(arg("--data", join(ROOT, "data", "sample-tokens.json")));
