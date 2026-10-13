@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Anotasi Data (hook)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,500;1,6..72,400;1,6..72,500&family=IBM+Plex+Sans:wght@500;700&family=IBM+Plex+Mono&display=swap" rel="stylesheet">
+<!--DATA-->
+<style>
+  /* Anotasi Data: one clean chart on paper with editorial annotations (The Pudding / NYT Graphics).
+     Tokens: paper, ink, grid hairline, cobalt (the only accent), muted. No cards, no borders, no chart chrome. */
+  :root {
+    --paper: #FBFBF8; --ink: #17181C; --hair: #E3E4E0; --cobalt: #1F4FD8; --muted: #6A6D76;
+    --serif: "Newsreader", Georgia, serif;
+    --sans: "IBM Plex Sans", Arial, sans-serif;
+    --mono: "IBM Plex Mono", Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--paper); color: var(--ink); }
+  body { position: relative; font-family: var(--sans); }
+
+  .top { position: absolute; left: 90px; right: 90px; top: 300px; display: flex; justify-content: space-between; align-items: baseline;
+    font: 400 28px/1.2 var(--mono); color: var(--muted); }
+
+  /* Title: Newsreader 500, optical size 60, italic emphasis for hl. line-height 1.1 keeps descenders unclipped. */
+  .title { position: absolute; left: 90px; width: 900px; top: 360px; font-family: var(--serif); font-weight: 500;
+    font-variation-settings: "opsz" 60; line-height: 1.1; letter-spacing: -0.01em; color: var(--ink); }
+  .title .hl { font-style: italic; font-weight: 500; }
+  .sub { position: absolute; left: 90px; width: 810px; font: 500 40px/1.3 var(--sans); color: var(--ink); }
+
+  /* The chart sits directly on the page, print-like. */
+  svg.chart { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; overflow: visible; }
+  .lbl { font: 500 36px var(--sans); fill: var(--ink); }
+  .val { font: 700 40px var(--sans); fill: var(--ink); }
+  .approx { font: 500 30px var(--sans); fill: var(--muted); }
+  .ann { font: italic 400 34px var(--serif); font-variation-settings: "opsz" 34; fill: var(--ink); }
+  .src { position: absolute; left: 90px; width: 810px; font: 400 26px/1.3 var(--mono); color: var(--muted); }
+
+  /* Signature move (video version, not in this still):
+     bars grow left to right one after another; the leader line draws itself to the dot;
+     the dot pulses once; the annotation types in. */
+</style>
+</head>
+<body>
+<div class="top"><span id="kicker"></span><span id="date"></span></div>
+<h1 class="title" id="title"></h1>
+<p class="sub" id="sub"></p>
+<svg class="chart" id="chart" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="src" id="source"></div>
+<script>
+  // Fallback sample so the file renders when opened directly in a browser.
+  const FALLBACK = {
+    series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" },
+            { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi, jumlah token beda tiap model", date: "per 14 Okt 2026"
+  };
+  const D = window.D && window.D.title ? window.D : FALLBACK;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const SVG_NS = "http://www.w3.org/2000/svg";
+
+  // --- Shared helper: parse a number out of an item value for sizing. ---
+  // Takes the first numeric token: "0,34 Wh" -> 0.34 (Indonesian decimal comma), "±1 dtk" -> 1,
+  // "2 token" -> 2, "1.500.000" -> 1500000 (dots as thousands separators).
+  // An item with no number (e.g. "miliaran") gets max(parsed) * 1.15 and is flagged `approx`
+  // so the chart can mark it with a small "≈". This is an honest approximation for a still:
+  // the bar says "bigger than the rest" without inventing a figure.
+  function parseNum(s) {
+    const m = String(s ?? "").match(/\d+(?:[.,]\d+)*/);
+    if (!m) return null;
+    let t = m[0];
+    if (/^\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, "");
+    else t = t.replace(/\./g, "").replace(",", ".");
+    const v = parseFloat(t);
+    return Number.isFinite(v) ? v : null;
+  }
+  function sizeItems(items) {
+    const parsed = items.map((it) => parseNum(it.value));
+    const known = parsed.filter((v) => v !== null);
+    const max = known.length ? Math.max(...known) : 1;
+    return items.map((it, i) => ({ ...it, n: parsed[i] === null ? max * 1.15 : parsed[i], approx: parsed[i] === null }));
+  }
+
+  // Pick the annotated item: label or value containing hl (longest bar among matches),
+  // else the item whose number equals hl's number, else the longest bar.
+  function pickAnnotated(items, hl) {
+    const h = String(hl ?? "").trim().toLowerCase();
+    const longest = (list) => list.reduce((a, b) => (b.n > a.n ? b : a));
+    if (h) {
+      const byLabel = items.filter((it) => String(it.label).toLowerCase().includes(h));
+      if (byLabel.length) return longest(byLabel);
+      const byValue = items.filter((it) => String(it.value).toLowerCase().includes(h));
+      if (byValue.length) return longest(byValue);
+      const hn = parseNum(h);
+      const byNum = items.filter((it) => !it.approx && hn !== null && it.n === hn);
+      if (byNum.length) return longest(byNum);
+    }
+    return longest(items);
+  }
+
+  // Annotation copy: optional D.anotasi; else the title clause that contains hl; else "label: value".
+  function annotationText(it) {
+    if (D.anotasi) return String(D.anotasi);
+    const h = String(D.hl ?? "").toLowerCase();
+    if (h) {
+      const clause = String(D.title).split(/(?<=[.!?,;:])\s+/).find((c) => c.toLowerCase().includes(h));
+      if (clause && clause.length <= 44) return clause.trim();
+    }
+    return it.label + ": " + it.value;
+  }
+  function wrap(text, maxChars, maxLines) {
+    const words = String(text).split(/\s+/).filter(Boolean), lines = [];
+    let cur = "";
+    for (const w of words) {
+      if (!cur) cur = w;
+      else if ((cur + " " + w).length <= maxChars) cur += " " + w;
+      else { lines.push(cur); cur = w; }
+    }
+    if (cur) lines.push(cur);
+    if (lines.length > maxLines) { lines.length = maxLines; lines[maxLines - 1] = lines[maxLines - 1].replace(/[\s.,;:]+$/, "") + "…"; }
+    return lines;
+  }
+
+  // Text measurement via canvas (re-run after fonts load).
+  const ctx = document.createElement("canvas").getContext("2d");
+  const measure = (text, font) => { ctx.font = font; return ctx.measureText(String(text)).width; };
+
+  function markTitle(t, hl) {
+    const i = hl ? t.toLowerCase().indexOf(String(hl).toLowerCase()) : -1;
+    if (i < 0) return esc(t);
+    return esc(t.slice(0, i)) + '<span class="hl">' + esc(t.slice(i, i + hl.length)) + "</span>" + esc(t.slice(i + hl.length));
+  }
+
+  const items = sizeItems((D.items || []).slice(0, 5));
+  const n = items.length;
+  $("kicker").textContent = D.kicker || [D.series, D.ep].filter(Boolean).join(" · ");
+  $("date").textContent = D.date || "";
+  $("title").innerHTML = markTitle(D.title || "", D.hl);
+  $("sub").textContent = D.sub || "";
+  $("source").textContent = D.source ? "Sumber: " + D.source : "";
+
+  function el(tag, attrs, text) {
+    const e = document.createElementNS(SVG_NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  function layout() {
+    // Title: 108px down to 80px until it fits in 3 lines.
+    const t = $("title");
+    let size = 108;
+    t.style.fontSize = size + "px";
+    while (t.offsetHeight > size * 1.1 * 3 + 4 && size > 80) { size -= 4; t.style.fontSize = size + "px"; }
+    const sub = $("sub");
+    sub.style.top = (360 + t.offsetHeight + 28) + "px";
+    const subBottom = 360 + t.offsetHeight + 28 + sub.offsetHeight;
+
+    // Chart geometry.
+    const X0 = 90, XMAX = 900;
+    // Rows fill the chart band (y 880..1460): bar stays 44px, the gap between rows breathes with n.
+    const labelSize = n >= 5 ? 34 : 36, barH = 44, labelGap = 12;
+    const bandH = 104;                       // annotation band (2 lines of 34px italic)
+    const minTop = Math.max(780, subBottom + 64);
+    const avail = 1470 - minTop;
+    const gap = Math.max(18, Math.min(72, Math.round((avail - bandH) / n - labelSize - labelGap - barH)));
+    const rowH = labelSize + labelGap + barH + gap;
+    // Center the chart in the leftover band (at most 120px down) so a short title does not leave a hole.
+    const leftover = avail - (bandH + n * rowH);
+    const chartTop = minTop + Math.max(0, Math.min(120, Math.round(leftover / 2)));
+    const svg = $("chart");
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+    const valFont = "700 40px " + getComputedStyle(document.body).getPropertyValue("--sans");
+    const lblFont = "500 " + labelSize + "px " + getComputedStyle(document.body).getPropertyValue("--sans");
+    const annFont = "italic 400 34px " + getComputedStyle(document.body).getPropertyValue("--serif");
+    const vmax = Math.max(...items.map((it) => it.n), 1e-9);
+    const vw = items.map((it) => measure(it.value, valFont) + (it.approx ? 26 : 0));
+    const lw = items.map((it) => measure(it.label, lblFont));
+    // Bar scale: every bar end + its value label must stay left of XMAX.
+    let maxW = 640;
+    items.forEach((it, i) => { const f = Math.max(it.n / vmax, 1e-6); maxW = Math.min(maxW, (XMAX - X0 - 18 - vw[i]) / f); });
+    maxW = Math.max(maxW, 320);
+
+    const ann = pickAnnotated(items, D.hl);
+    const a = items.indexOf(ann);
+    const bx = (i) => X0 + maxW * items[i].n / vmax;
+    // Direction of the annotation band: whichever side has fewer rows the leader would cross.
+    const crosses = (i) => {
+      const x = bx(a);
+      const hitsBarOrValue = x <= bx(i) + 18 + vw[i] + 6;
+      const hitsLabel = x <= X0 + 8 + lw[i] + 8;
+      return (hitsBarOrValue ? 1 : 0) + (hitsLabel ? 1 : 0);
+    };
+    let up = 0, down = 0;
+    for (let i = 0; i < a; i++) up += crosses(i);
+    for (let i = a + 1; i < n; i++) down += crosses(i);
+    if (a > 0 && bx(a) <= X0 + 8 + lw[a] + 8) up += 1;          // own label sits above the bar
+    const annAbove = up === down ? a < n / 2 : up < down;
+
+    const rowsTop = chartTop + (annAbove ? bandH : 0);
+    const rowY = (i) => rowsTop + i * rowH;
+    const barY = (i) => rowY(i) + labelSize + labelGap;
+    const barsBottom = barY(n - 1) + barH;
+
+    // Grid hairlines at 25/50/75/100 % plus a 1px ink baseline on the left.
+    for (const p of [0.25, 0.5, 0.75, 1]) {
+      svg.appendChild(el("line", { x1: X0 + maxW * p, x2: X0 + maxW * p, y1: rowsTop - 6, y2: barsBottom + 10, stroke: "#E3E4E0", "stroke-width": 1 }));
+    }
+    svg.appendChild(el("line", { x1: X0 + 0.5, x2: X0 + 0.5, y1: rowsTop - 6, y2: barsBottom + 10, stroke: "#17181C", "stroke-width": 1 }));
+
+    // Bars: label above, cobalt fill (85 % except the annotated one), value at the end.
+    items.forEach((it, i) => {
+      const w = maxW * it.n / vmax;
+      svg.appendChild(el("text", { class: "lbl", x: X0 + 8, y: rowY(i) + labelSize * 0.92, style: "font-size:" + labelSize + "px" }, it.label));
+      svg.appendChild(el("rect", { x: X0, y: barY(i), width: Math.max(w, 0), height: barH, fill: "#1F4FD8", opacity: i === a ? 1 : 0.85 }));
+      let vx = X0 + w + 18;
+      if (it.approx) { svg.appendChild(el("text", { class: "approx", x: vx, y: barY(i) + 32 }, "≈")); vx += 26; }
+      svg.appendChild(el("text", { class: "val", x: vx, y: barY(i) + 34 }, it.value));
+    });
+
+    // Annotation: dot at the bar end, 2px ink leader with one 90-degree bend, italic note.
+    const dx = bx(a), dy = barY(a) + barH / 2;
+    const lines = wrap(annotationText(ann), 22, 2);
+    const tw = Math.max(...lines.map((l) => measure(l, annFont)));
+    const lineH = 42;
+    const bandTop = annAbove ? chartTop : barsBottom + 30;
+    const textTop = bandTop + 14;                                  // first baseline below this
+    const midY = textTop + (lines.length * lineH) / 2 - 4;         // leader meets the block here
+    const leftAligned = dx + 60 + tw <= XMAX;
+    const tx = leftAligned ? dx + 60 : dx - 60;
+    const anchor = leftAligned ? "start" : "end";
+    const elbowX = leftAligned ? tx - 16 : tx + 16;
+    const startY = annAbove ? dy - 8 : dy + 8;
+    svg.appendChild(el("path", { d: `M ${dx} ${startY} V ${midY} H ${elbowX}`, fill: "none", stroke: "#17181C", "stroke-width": 2, "stroke-linejoin": "miter" }));
+    svg.appendChild(el("circle", { cx: dx, cy: dy, r: 5, fill: "#17181C" }));
+    lines.forEach((l, k) => {
+      svg.appendChild(el("text", { class: "ann", x: tx, y: textTop + 30 + k * lineH, "text-anchor": anchor }, l));
+    });
+
+    const chartBottom = annAbove ? barsBottom : bandTop + lines.length * lineH + 20;
+    $("source").style.top = (chartBottom + 40) + "px";
+  }
+  layout();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(layout);
+</script>
+</body>
+</html>

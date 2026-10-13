@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<title>Halaman Baca hook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,700;1,7..72,400;1,7..72,500&family=Source+Sans+3:wght@400;500;600;700&display=block" rel="stylesheet" />
+<style>
+  /* "Halaman Baca": generic e-ink reader page. Monochrome + one muted blue accent. */
+  :root {
+    --body: #1b1b1d;        /* device shell */
+    --bezel-hi: #2c2c2f;
+    --paper: #e9e8e4;       /* e-ink page tone */
+    --paper-2: #f2f1ed;     /* popover surface */
+    --ink: #2f2f2f;         /* e-ink black is never true black */
+    --ink-2: #55544f;       /* secondary text (5.5:1 on paper) */
+    --rule: #b9b8b2;
+    --sel: #c5c4be;         /* selection block */
+    --blue: #2c5a96;        /* the only colour: selection handles + popover accent */
+    --serif: "Literata", Georgia, serif;
+    --sans: "Source Sans 3", system-ui, sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; }
+  body { background: var(--body); color: var(--ink); font-family: var(--serif); -webkit-font-smoothing: antialiased; position: relative; }
+
+  /* device shell: thin bezel, soft edge highlight */
+  .shell { position: absolute; inset: 0; background: linear-gradient(160deg, var(--bezel-hi), var(--body) 40%, #161618); }
+  .screen { position: absolute; left: 34px; right: 34px; top: 34px; bottom: 196px; border-radius: 14px; background: var(--paper); overflow: hidden;
+    box-shadow: inset 0 0 0 2px rgba(0,0,0,.35), inset 0 3px 10px rgba(0,0,0,.18); }
+  .chin { position: absolute; left: 0; right: 0; bottom: 0; height: 196px; display: flex; align-items: center; justify-content: center; }
+  .chin i { width: 120px; height: 8px; border-radius: 4px; background: #2a2a2d; box-shadow: inset 0 1px 1px rgba(0,0,0,.6), 0 1px 0 rgba(255,255,255,.05); }
+  /* e-ink grain + faint ghosting from the previous refresh */
+  .grain { position: absolute; inset: 0; opacity: .07; mix-blend-mode: multiply; pointer-events: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); }
+
+  /* everything below uses absolute canvas coordinates (screen offset = 34px) */
+  .abs { position: absolute; }
+
+  /* status bar (decorative, inside TikTok top overlay) */
+  .status { left: 90px; right: 90px; top: 92px; display: flex; justify-content: space-between; align-items: center;
+    font-family: var(--sans); font-size: 26px; font-weight: 600; color: var(--ink-2); letter-spacing: .02em; }
+  .status .r { display: flex; gap: 22px; align-items: center; }
+
+  /* running header */
+  .runhead { left: 110px; right: 110px; top: 292px; display: flex; justify-content: space-between; align-items: baseline;
+    font-family: var(--sans); font-size: 28px; font-weight: 500; color: var(--ink-2); padding-bottom: 16px; border-bottom: 2px solid var(--rule); }
+  .runhead b { font-weight: 700; color: var(--ink); letter-spacing: .01em; }
+
+  .chap { left: 110px; right: 110px; top: 384px; display: flex; align-items: center; gap: 22px;
+    font-family: var(--sans); font-size: 30px; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; color: var(--ink-2); }
+  .chap::after { content: ""; flex: 1; height: 2px; background: var(--rule); }
+
+  /* page text: the title set as the opening paragraph at a large reading size */
+  .page { left: 110px; width: 860px; top: 384px; font-family: var(--serif); font-weight: 500; line-height: 1.34; letter-spacing: -.012em;
+    text-align: left; text-wrap: pretty; color: var(--ink); font-variation-settings: "opsz" 40; }
+  .page .dc-unused { float: left; font-weight: 700; line-height: .82; padding: .06em .08em 0 0; font-size: 2.05em; }
+  /* long-press selection: grey block + two teardrop handles */
+  .sel { position: relative; background: var(--sel); white-space: nowrap; padding: 0 .06em; box-shadow: 0 0 0 .02em var(--sel); }
+  .sel .bar { position: absolute; top: -.04em; bottom: -.04em; width: 3px; background: var(--blue); }
+  .sel .bar.l { left: -2px; } .sel .bar.r { right: -2px; }
+  .sel .hd { position: absolute; width: 34px; height: 34px; background: var(--blue); top: calc(100% + .04em); }
+  .sel .hd.l { left: -2px; transform: translateX(-100%); border-radius: 50% 0 50% 50%; }
+  .sel .hd.r { right: -2px; transform: translateX(100%); border-radius: 0 50% 50% 50%; }
+
+  /* dictionary popover */
+  .pop { left: 96px; width: 856px; background: var(--paper-2); border: 3px solid var(--ink); border-radius: 18px;
+    box-shadow: 0 10px 0 -4px rgba(0,0,0,.10); display: flex; flex-direction: column; }
+  .pop .notch { position: absolute; top: -21px; width: 38px; height: 38px; background: var(--paper-2);
+    border-left: 3px solid var(--ink); border-top: 3px solid var(--ink); transform: rotate(45deg); border-radius: 6px 0 0 0; }
+  .tabs { display: flex; gap: 40px; padding: 22px 56px 0 44px; border-bottom: 2px solid var(--rule); font-family: var(--sans); font-size: 30px; font-weight: 600; color: var(--ink-2); }
+  .tabs span { padding-bottom: 16px; }
+  .tabs .on { color: var(--blue); box-shadow: inset 0 -5px 0 var(--blue); }
+  .tabs .x { margin-left: auto; font-weight: 400; color: var(--ink-2); }
+  .pbody { flex: 1; display: flex; flex-direction: column; padding: 24px 56px 22px 44px; min-height: 0; }
+  .hw { display: flex; align-items: baseline; gap: 22px; flex-wrap: wrap; }
+  .hw .w { font-family: var(--serif); font-weight: 700; font-size: 62px; line-height: 1.05; letter-spacing: -.02em; color: var(--ink); }
+  .hw .pos { font-family: var(--serif); font-style: italic; font-size: 38px; color: var(--ink-2); }
+  .hw .tag { font-family: var(--sans); font-size: 26px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--blue);
+    border: 2px solid var(--blue); border-radius: 8px; padding: 2px 12px 1px; transform: translateY(-6px); }
+  .def { text-wrap: pretty; margin-top: 12px; font-family: var(--serif); font-size: 42px; line-height: 1.36; color: var(--ink); }
+  .lbl { margin-top: 20px; display: flex; align-items: center; gap: 18px; font-family: var(--sans); font-size: 30px; font-weight: 700;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--ink-2); }
+  .lbl::after { content: ""; flex: 1; height: 2px; background: var(--rule); }
+  .list { flex: 1; display: flex; flex-direction: column; justify-content: space-evenly; padding: 8px 0 4px; min-height: 0; }
+  .row { display: flex; align-items: baseline; gap: 20px; padding: 12px 0; border-bottom: 1px solid #d4d3cd; }
+  .row:last-child { border-bottom: 0; }
+  .row .n { flex: none; width: 46px; font-family: var(--serif); font-weight: 700; font-size: 40px; color: var(--blue); }
+  .row .l { font-family: var(--serif); font-size: 44px; font-weight: 500; white-space: nowrap; }
+  .row .dots { flex: 1; min-width: 30px; border-bottom: 3px dotted #9a9993; transform: translateY(-10px); }
+  .row .v { font-family: var(--sans); font-size: 42px; font-weight: 700; white-space: nowrap; color: var(--ink); }
+  .pfoot { display: flex; align-items: baseline; gap: 14px; padding-top: 12px; border-top: 2px solid var(--rule);
+    font-family: var(--sans); font-size: 26px; color: var(--ink-2); }
+  .pfoot .src { line-height: 1.3; }
+  .pfoot svg { flex: none; transform: translateY(4px); }
+  .pfoot .go { flex: none; color: var(--blue); font-weight: 700; font-size: 28px; }
+
+  /* reader footer: progress */
+  .foot { left: 110px; right: 110px; top: 1580px; font-family: var(--sans); color: var(--ink-2); }
+  .prog { position: relative; height: 4px; background: var(--rule); border-radius: 2px; }
+  .prog i { position: absolute; left: 0; top: -2px; height: 8px; background: var(--ink); border-radius: 4px; }
+  .prog b { position: absolute; top: -9px; width: 22px; height: 22px; border-radius: 50%; background: var(--paper); border: 4px solid var(--ink); }
+  .foot .t { display: flex; justify-content: space-between; margin-top: 18px; font-size: 28px; font-weight: 500; }
+  .foot .t strong { color: var(--ink); font-weight: 700; }
+</style>
+<!--DATA-->
+<script>
+  // Fallback sample so the file opens standalone in a browser.
+  const FALLBACK = {
+    series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [ { label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" } ],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026"
+  };
+  const D = window.D || FALLBACK;
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  function splitHL(t, hl) {
+    const i = hl ? t.toLowerCase().indexOf(String(hl).toLowerCase()) : -1;
+    return i < 0 ? [t, "", ""] : [t.slice(0, i), t.slice(i, i + hl.length), t.slice(i + hl.length)];
+  }
+  // Deterministic pseudo numbers for reader chrome (derived from the title, never random).
+  function hash(s) { let h = 2166136261; for (const c of String(s)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+
+  function render() {
+    const series = D.series || (D.kicker || "").split("·")[0].trim() || "Catatan";
+    const ep = String(D.ep || "").replace(/^#/, "");
+    document.getElementById("rh").innerHTML = `<span><b>${esc(series)}</b>${ep ? ` · Bab ${esc(ep)}` : ""}</span><span>${esc(D.date || "")}</span>`;
+
+    // Page paragraph = title, with the selected hl word.
+    const title = D.title || "";
+    const [a, h, b] = splitHL(title, D.hl);
+    const page = document.getElementById("page"), pop = document.getElementById("pop");
+    const selHtml = h ? `<span class="sel" id="sel"><i class="bar l"></i><i class="bar r"></i><i class="hd l"></i><i class="hd r"></i>${esc(h)}</span>` : "";
+    page.innerHTML = esc(a) + selHtml + esc(b);
+    const items = (D.items || []).slice(0, 5);
+    const list = document.getElementById("list"), def = document.getElementById("def"), lbl = document.getElementById("lbl");
+    document.getElementById("hw").innerHTML =
+      `<span class="w">${esc(h || D.hl || title.split(" ").pop())}</span><span class="pos">kb.</span><span class="tag">Kamus AI</span>`;
+    def.textContent = D.sub || "";
+    lbl.textContent = items.length ? `Contoh · ${items.length} entri` : "";
+    list.innerHTML = items.map((it, i) =>
+      `<div class="row"><span class="n">${i + 1}</span><span class="l">${esc(it.label)}</span><span class="dots"></span><span class="v">${esc(it.value)}</span></div>`).join("");
+
+    // Progressive tightening until the popover content fits (5 items + long sub + long title).
+    const LV = [
+      { pageMax: 345, rowPad: 12, rf: 44, vf: 42, df: 42, lbl: true, hw: 62 },
+      { pageMax: 345, rowPad: 6, rf: 40, vf: 40, df: 40, lbl: true, hw: 58 },
+      { pageMax: 345, rowPad: 4, rf: 40, vf: 40, df: 40, lbl: false, hw: 54 },
+      { pageMax: 300, rowPad: 4, rf: 40, vf: 40, df: 40, lbl: false, hw: 54 },
+      { pageMax: 270, rowPad: 2, rf: 40, vf: 40, df: 40, lbl: false, hw: 50 },
+    ];
+    for (const L of LV) {
+      let fs = 120;
+      page.style.fontSize = fs + "px";
+      while (page.offsetHeight > L.pageMax && fs > 76) { fs -= 2; page.style.fontSize = fs + "px"; }
+      // Popover hangs below the page paragraph, bottom pinned near y=1532.
+      const pageBottom = 384 + page.offsetHeight;
+      const top = Math.max(pageBottom + 62, 700);
+      pop.style.top = top + "px";
+      pop.style.height = (1532 - top) + "px";
+      list.querySelectorAll(".row").forEach((r) => { r.style.padding = L.rowPad + "px 0"; r.querySelector(".l").style.fontSize = L.rf + "px"; r.querySelector(".v").style.fontSize = L.vf + "px"; });
+      def.style.fontSize = L.df + "px";
+      lbl.style.display = L.lbl ? "" : "none";
+      document.querySelector(".hw .w").style.fontSize = L.hw + "px";
+      if (list.scrollHeight <= list.clientHeight + 1) break;
+    }
+    const sel = document.getElementById("sel");
+    const notch = document.getElementById("notch");
+    if (sel) {
+      const r = sel.getBoundingClientRect();
+      notch.style.left = Math.min(Math.max(r.left + r.width / 2 - 96 - 19, 40), 856 - 90) + "px";
+    } else notch.style.display = "none";
+    document.getElementById("src").textContent = D.source ? `Sumber: ${D.source}` : "";
+
+    // Reader progress (deterministic).
+    const hv = hash(title);
+    const pct = 8 + (hv % 31);
+    const total = 900 + (hv % 900), loc = Math.round(total * pct / 100);
+    document.getElementById("progi").style.width = pct + "%";
+    document.getElementById("progb").style.left = `calc(${pct}% - 11px)`;
+    document.getElementById("ft").innerHTML = `<span><strong>${pct}%</strong> dibaca</span><span>Lokasi ${loc} dari ${total}</span>`;
+    document.getElementById("clock").textContent = "09.41";
+  }
+  document.addEventListener("DOMContentLoaded", () => { render(); document.fonts && document.fonts.ready.then(render); });
+</script>
+</head>
+<body>
+  <div class="shell"></div>
+  <div class="screen"><div class="grain"></div></div>
+  <div class="chin"></div>
+
+  <div class="abs status">
+    <span>Perpustakaan</span>
+    <span id="clock"></span>
+    <span class="r">
+      <svg width="34" height="26" viewBox="0 0 34 26" fill="none" stroke="#55544f" stroke-width="3" stroke-linecap="round"><path d="M3 9a20 20 0 0 1 28 0"/><path d="M8 14a13 13 0 0 1 18 0"/><path d="M13 19a6 6 0 0 1 8 0"/><circle cx="17" cy="23" r="1.6" fill="#55544f"/></svg>
+      <svg width="50" height="24" viewBox="0 0 50 24" fill="none"><rect x="1.5" y="1.5" width="42" height="21" rx="4" stroke="#55544f" stroke-width="3"/><rect x="6" y="6" width="27" height="12" rx="1.5" fill="#55544f"/><rect x="45" y="8" width="4" height="8" rx="1.5" fill="#55544f"/></svg>
+    </span>
+  </div>
+
+  <div class="abs runhead" id="rh"></div>
+  <div class="abs page" id="page"></div>
+
+  <div class="abs pop" id="pop">
+    <div class="notch" id="notch"></div>
+    <div class="tabs"><span class="on">Kamus</span><span>Wikipedia</span><span>Terjemahan</span><span class="x">✕</span></div>
+    <div class="pbody">
+      <div class="hw" id="hw"></div>
+      <div class="def" id="def"></div>
+      <div class="lbl" id="lbl"></div>
+      <div class="list" id="list"></div>
+      <div class="pfoot"><svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="#2c5a96" stroke-width="2.6"><path d="M4 4h7a3 3 0 0 1 3 3v15a2.5 2.5 0 0 0-2.5-2.5H4z"/><path d="M22 4h-7a3 3 0 0 0-3 3"/><path d="M22 4v15.5h-7.5A2.5 2.5 0 0 0 12 22"/></svg><span class="src" id="src"></span></div>
+    </div>
+  </div>
+
+  <div class="abs foot">
+    <div class="prog"><i id="progi"></i><b id="progb"></b></div>
+    <div class="t" id="ft"></div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@800&family=Archivo+Narrow:wght@500;600&family=Fira+Code:wght@400;500&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Strata Geologi (g2-strata-geologi): a cross-section plate from a geological
+    survey. Every item is one rock layer: the label is the layer name written
+    inside the bed, the value sets the bed thickness (proportional when numeric)
+    and is written again next to the drill core on the right. Each bed has its
+    own SVG hatch (dots = sand, dashes = clay, bricks = limestone, diagonal =
+    sandstone, crosses = igneous) in a dim slate colour; ochre is reserved for
+    the highlighted bed, the drill rig and the core. A depth scale runs down the
+    left, a fault cuts the right third and drops that block a few pixels so the
+    highlighted bed is exposed. Deep matte navy, no glow.
+
+    Signature move (video, not animated here): beds settle bottom-up (clip
+    grows, ease-out), the drill descends from the rig and pulls the core column
+    out to the right where the values are read off, and the fault slips at the
+    end to expose the highlighted bed.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #1C2230; }
+  body { position: relative; color: #ECE9E2; font-family: "Archivo Narrow", sans-serif; }
+
+  .top { position: absolute; left: 90px; right: 90px; top: 300px; display: flex; justify-content: space-between; align-items: baseline;
+    font: 500 28px "Archivo Narrow", sans-serif; color: #9AA2B4; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
+  .top .ep { font: 400 26px "Fira Code", monospace; letter-spacing: 0; text-transform: none; }
+  .title { position: absolute; left: 90px; width: 900px; top: 356px; font: 800 92px/1.02 "Archivo", sans-serif; letter-spacing: -0.03em; color: #ECE9E2; }
+  .title .hl { color: #E0A83A; }
+
+  svg.plate { position: absolute; left: 0; top: 600px; width: 1080px; height: 820px; display: block; }
+
+  .sub { position: absolute; left: 90px; width: 810px; top: 1436px; font: 500 40px/1.3 "Archivo Narrow", sans-serif; color: #ECE9E2; }
+  .foot { position: absolute; left: 90px; right: 90px; top: 1572px; font: 400 26px/1.4 "Fira Code", monospace; color: #9AA2B4; }
+</style>
+</head>
+<body>
+<div class="top"><span id="kick"></span><span class="ep" id="date"></span></div>
+<div class="title" id="title"></div>
+<svg class="plate" id="plate" viewBox="0 0 1080 820" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="sub" id="sub"></div>
+<div class="foot" id="foot"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi, jumlah token beda tiap model", date: "per 14 Okt 2026" };
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const hlWrap = (t, h) => { const i = h ? t.toLowerCase().indexOf(h.toLowerCase()) : -1;
+    return i < 0 ? esc(t) : esc(t.slice(0, i)) + `<span class="hl">${esc(t.slice(i, i + h.length))}</span>` + esc(t.slice(i + h.length)); };
+  const num = (s) => { const m = String(s ?? "").match(/-?\d+(?:[.,]\d+)?/); return m ? Math.abs(parseFloat(m[0].replace(",", "."))) : null; };
+
+  const BG = "#1C2230", INK = "#ECE9E2", OCHRE = "#E0A83A", DIM = "#4A5367", GREY = "#9AA2B4", LINE = "#2E3647";
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+
+  /* ---------- text blocks ---------- */
+  document.getElementById("kick").textContent = D.kicker || [D.series, D.ep].filter(Boolean).join(" · ");
+  document.getElementById("date").textContent = D.date || "";
+  const titleEl = document.getElementById("title");
+  titleEl.innerHTML = hlWrap(D.title || "", D.hl);
+  document.getElementById("sub").textContent = D.sub || "";
+  document.getElementById("foot").textContent = D.source ? `sumber: ${D.source}` : "";
+
+  /* ---------- bed thickness: 100 px floor + the rest proportional to the numeric value ---------- */
+  const SEC_X = 160, SEC_W = 440, SEC_TOP = 100, SEC_BOT = 700;           // section body (plate-local coordinates)
+  const total = SEC_BOT - SEC_TOP, MIN_H = 100;
+  const raw = items.map((it) => num(it.value));
+  const allNum = n > 0 && raw.every((v) => v !== null && v > 0);
+  let w = allNum ? raw.slice() : items.map(() => 1);
+  if (allNum) { const mean = w.reduce((a, b) => a + b, 0) / n; w = w.map((v) => Math.min(Math.max(v, mean * 0.5), mean * 2.5)); }
+  const sumW = w.reduce((a, b) => a + b, 0) || 1;
+  const heights = w.map((v) => MIN_H + (total - MIN_H * n) * v / sumW);
+  const tops = []; let acc = SEC_TOP; heights.forEach((h) => { tops.push(acc); acc += h; });
+
+  /* ---------- which bed is highlighted: label match, unique value match, else the thickest ---------- */
+  const h = String(D.hl || "").toLowerCase();
+  const has = (s) => h && String(s ?? "").toLowerCase().includes(h);
+  let hlIdx = items.findIndex((it) => has(it.label));
+  if (hlIdx < 0) { const m = items.map((it, i) => has(it.value) ? i : -1).filter((i) => i >= 0); if (m.length === 1) hlIdx = m[0]; }
+  if (hlIdx < 0) hlIdx = heights.indexOf(Math.max(...heights));
+
+  /* ---------- hatch patterns, one per bed (dim set + ochre set) ---------- */
+  const pat = (id, col) => [
+    `<pattern id="${id}0" width="16" height="16" patternUnits="userSpaceOnUse"><circle cx="4" cy="4" r="1.8" fill="${col}"/><circle cx="12" cy="12" r="1.8" fill="${col}"/></pattern>`,                      // sand: dots
+    `<pattern id="${id}1" width="24" height="12" patternUnits="userSpaceOnUse"><path d="M0 6H16" stroke="${col}" stroke-width="1.6"/></pattern>`,                                                              // clay: broken dashes
+    `<pattern id="${id}2" width="36" height="20" patternUnits="userSpaceOnUse"><path d="M0 0H36M0 10H36M18 0V10M0 10V20M36 10V20" stroke="${col}" stroke-width="1.4" fill="none"/></pattern>`,                // limestone: bricks
+    `<pattern id="${id}3" width="14" height="14" patternUnits="userSpaceOnUse"><path d="M-2 16L16 -2M-2 2L2 -2M12 16L16 12" stroke="${col}" stroke-width="1.4"/></pattern>`,                                   // sandstone: diagonal
+    `<pattern id="${id}4" width="22" height="22" patternUnits="userSpaceOnUse"><path d="M11 5V17M5 11H17" stroke="${col}" stroke-width="1.6"/></pattern>`,                                                    // igneous: crosses
+  ].join("");
+
+  /* ---------- the section, drawn once as a function so the fault can show it twice (left block, dropped right block) ---------- */
+  const FX_TOP = 468, FX_BOT = 506;                                     // fault trace: x at the top and bottom of the section
+  const DROP = 22;                                                      // right block slips down by this much
+  const bedBody = (withText) => {
+    let s = "";
+    items.forEach((it, i) => {
+      const y = tops[i], hh = heights[i], hl = i === hlIdx;
+      s += `<rect x="${SEC_X}" y="${y}" width="${SEC_W}" height="${hh}" fill="${hl ? "#2A2A24" : (i % 2 ? "#202838" : "#242D3E")}"/>`;
+      s += `<rect x="${SEC_X}" y="${y}" width="${SEC_W}" height="${hh}" fill="url(#${hl ? "h" : "p"}${i % 5})"/>`;
+      s += `<path d="M${SEC_X} ${y}H${SEC_X + SEC_W}" stroke="${hl ? OCHRE : INK}" stroke-opacity="${hl ? 1 : 0.55}" stroke-width="${hl ? 3 : 1.5}"/>`;
+      if (hl) s += `<path d="M${SEC_X} ${y + hh}H${SEC_X + SEC_W}" stroke="${OCHRE}" stroke-width="3"/>`;
+    });
+    // bottom edge of the plate: a ragged break
+    s += `<path d="M${SEC_X} ${SEC_BOT}H${SEC_X + SEC_W}" stroke="${INK}" stroke-opacity="0.55" stroke-width="1.5"/>`;
+    // ground surface
+    s += `<path d="M${SEC_X - 30} ${SEC_TOP}H${SEC_X + SEC_W + 20}" stroke="${INK}" stroke-width="3"/>`;
+    if (withText) items.forEach((it, i) => {
+      const y = tops[i], hh = heights[i], hl = i === hlIdx, cy = y + hh / 2;
+      const tag = `LAPISAN ${String(i + 1).padStart(2, "0")}`;
+      s += `<text x="${SEC_X + 18}" y="${cy - 8}" font-family="Fira Code" font-size="26" fill="${hl ? OCHRE : GREY}" paint-order="stroke" stroke="${BG}" stroke-width="8" stroke-linejoin="round">${esc(tag)}</text>`;
+      const lab = String(it.label || "").toUpperCase();
+      const lfs = Math.max(30, Math.min(34, Math.floor(280 / (0.56 * Math.max(1, lab.length)))));
+      s += `<text x="${SEC_X + 18}" y="${cy + 30}" font-family="Archivo Narrow" font-weight="600" font-size="${lfs}" letter-spacing="0.04em" fill="${hl ? OCHRE : INK}" paint-order="stroke" stroke="${BG}" stroke-width="10" stroke-linejoin="round">${esc(lab)}</text>`;
+    });
+    return s;
+  };
+  const leftClip = `M0 0H${FX_TOP} L${FX_BOT} 820H0Z`;
+  const rightClip = `M${FX_TOP} 0H1080V820H${FX_BOT}Z`;
+
+  /* ---------- depth scale (left), drill rig + core (right), values ---------- */
+  let scale = `<path d="M150 ${SEC_TOP}V${SEC_BOT}" stroke="${GREY}" stroke-width="1.5"/>`;
+  scale += `<text x="140" y="${SEC_TOP - 14}" text-anchor="end" font-family="Fira Code" font-size="26" fill="${GREY}">m</text>`;
+  [...tops, SEC_BOT].forEach((y, i) => {
+    const depth = Math.round((y - SEC_TOP) * 2 / 10) * 10;                                      // 1 px = 2 m
+    scale += `<path d="M138 ${y}H150" stroke="${GREY}" stroke-width="1.5"/>`;
+    scale += `<text x="128" y="${y + 9}" text-anchor="end" font-family="Fira Code" font-size="26" fill="${GREY}">${depth}</text>`;
+  });
+
+  const CX = 640, CW = 60;                                              // core column
+  let core = "";
+  // rig: a small derrick on the surface
+  core += `<path d="M${CX + 6} ${SEC_TOP} L${CX + CW / 2} 64 L${CX + CW - 6} ${SEC_TOP}Z M${CX + 10} 90H${CX + CW - 10} M${CX + 18} 78H${CX + CW - 18}" fill="none" stroke="${OCHRE}" stroke-width="3" stroke-linejoin="round"/>`;
+  core += `<path d="M${CX - 10} ${SEC_TOP}H${CX + CW + 10}" stroke="${OCHRE}" stroke-width="3"/>`;
+  core += `<path d="M${CX + CW / 2} 64V${SEC_TOP}" stroke="${OCHRE}" stroke-width="2"/>`;
+  // core segments, same hatch as the bed they were pulled from
+  items.forEach((it, i) => {
+    const y = tops[i], hh = heights[i], hl = i === hlIdx;
+    core += `<rect x="${CX}" y="${y}" width="${CW}" height="${hh}" fill="${hl ? "#2A2A24" : "#242D3E"}"/>`;
+    core += `<rect x="${CX}" y="${y}" width="${CW}" height="${hh}" fill="url(#${hl ? "h" : "p"}${i % 5})"/>`;
+    core += `<path d="M${CX} ${y}H${CX + CW}" stroke="${OCHRE}" stroke-width="${hl ? 3 : 1.5}"/>`;
+  });
+  core += `<rect x="${CX}" y="${SEC_TOP}" width="${CW}" height="${SEC_BOT - SEC_TOP}" fill="none" stroke="${OCHRE}" stroke-width="3"/>`;
+  core += `<path d="M${CX + CW / 2 - 14} ${SEC_BOT + 18} L${CX + CW / 2} ${SEC_BOT + 2} L${CX + CW / 2 + 14} ${SEC_BOT + 18}" fill="${OCHRE}"/>`;   // drill bit
+  core += `<text x="${CX + CW / 2}" y="${SEC_BOT + 52}" text-anchor="middle" font-family="Fira Code" font-size="26" fill="${OCHRE}">INTI</text>`;
+
+  let vals = "";
+  items.forEach((it, i) => {
+    const y = tops[i], hh = heights[i], hl = i === hlIdx, cy = y + hh / 2;
+    const v = String(it.value ?? "");
+    const fs = v.length > 9 ? 28 : 34;
+    vals += `<path d="M${CX + CW} ${cy}H${CX + CW + 18}" stroke="${hl ? OCHRE : GREY}" stroke-width="2"/>`;
+    vals += `<text x="${CX + CW + 28}" y="${cy + 12}" font-family="Fira Code" font-weight="500" font-size="${fs}" fill="${hl ? OCHRE : INK}">${esc(v)}</text>`;
+  });
+
+  /* ---------- assemble the plate ---------- */
+  const plate = document.getElementById("plate");
+  plate.innerHTML = `
+    <defs>
+      ${pat("p", DIM)}${pat("h", OCHRE)}
+      <clipPath id="cl"><path d="${leftClip}"/></clipPath>
+      <clipPath id="cr"><path d="${rightClip}"/></clipPath>
+      <filter id="grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 0.93 0 0 0 0 0.91 0 0 0 0 0.88 0 0 0 0.07 0"/></filter>
+    </defs>
+    <!-- plate frame with its shadow (2.5D) -->
+    <rect x="104" y="30" width="896" height="770" fill="#141922"/>
+    <rect x="90" y="16" width="896" height="770" fill="${BG}" stroke="${LINE}" stroke-width="2"/>
+    <rect x="90" y="16" width="896" height="770" filter="url(#grain)" pointer-events="none"/>
+    <text x="160" y="56" font-family="Fira Code" font-size="26" fill="${GREY}" letter-spacing="0.06em">PENAMPANG LINTANG · SKALA 1:200</text>
+    <text x="960" y="56" text-anchor="end" font-family="Fira Code" font-size="26" fill="${GREY}" letter-spacing="0.06em">LEMBAR ${esc((D.ep || "").replace("#", "")) || "01"}</text>
+    ${scale}
+    <g clip-path="url(#cl)">${bedBody(true)}</g>
+    <g clip-path="url(#cr)" transform="translate(0 ${DROP})">${bedBody(false)}</g>
+    <!-- fault trace -->
+    <path d="M${FX_TOP} ${SEC_TOP - 6} L${FX_BOT} ${SEC_BOT + DROP + 6}" stroke="${INK}" stroke-width="3.5"/>
+    <text x="${FX_BOT + 8}" y="${SEC_BOT + DROP + 2}" font-family="Fira Code" font-size="26" fill="${GREY}">sesar</text>
+    ${core}${vals}
+  `;
+
+  /* ---------- fit the title into at most 3 lines (min 64 px) ---------- */
+  const fitTitle = () => {
+    let fs = 92; titleEl.style.fontSize = fs + "px";
+    while (titleEl.scrollHeight > fs * 1.02 * 3 + 4 && fs > 64) { fs -= 2; titleEl.style.fontSize = fs + "px"; }
+  };
+  fitTitle(); (document.fonts ? document.fonts.ready : Promise.resolve()).then(fitTitle);
+</script>
+</body>
+</html>

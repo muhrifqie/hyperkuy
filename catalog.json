@@ -1,0 +1,1783 @@
+{
+  "_doc": "Hyperkuy catalog: the single source of truth for every design. Fields are documented in docs/SCHEMA.md. Edit here, then run `node tools/check.mjs` and `node tools/gallery.mjs`.",
+  "series": {
+    "how-ai-works": {
+      "name": "How AI Works",
+      "about": "Abstract concepts made visible: tokens, attention, embeddings, temperature, context window, hallucination.",
+      "frame": "Series label + episode number top-left; closing 'next: <concept>'; one grid row of covers = 3 episodes.",
+      "pool": [
+        "frosted-orbs",
+        "design-canvas",
+        "cobalt-grid",
+        "cartesian",
+        "ide-nocturne",
+        "drafting-light",
+        "transit-map",
+        "architect-model",
+        "data-annotation",
+        "instrument-panel",
+        "rice-parcel",
+        "card-catalog",
+        "chess-notation",
+        "piano-roll",
+        "rock-strata",
+        "weather-chart",
+        "nautical-night",
+        "tree-rings",
+        "dartboard",
+        "chromatography",
+        "loom-weave",
+        "contact-sheet",
+        "engraved-score",
+        "assembly-manual",
+        "topo-trail",
+        "periodic-elements",
+        "e-reader",
+        "sewing-pattern",
+        "bubble-test"
+      ]
+    },
+    "ai-in-numbers": {
+      "name": "AI in Numbers",
+      "about": "One surprising number per video with an everyday comparison.",
+      "frame": "Giant number in the hook; source + date always on screen.",
+      "pool": [
+        "sticker-collage",
+        "caution-tape-pop",
+        "leaderboard",
+        "broadside",
+        "bold-poster",
+        "drafting-dark",
+        "nutrition-label",
+        "data-annotation",
+        "split-flap",
+        "postage-stamps",
+        "rock-strata",
+        "weather-chart",
+        "bento-box",
+        "nautical-night",
+        "tree-rings",
+        "dartboard",
+        "chromatography",
+        "fingerpost",
+        "woodcut",
+        "live-spreadsheet",
+        "bubble-test",
+        "lab-report"
+      ]
+    },
+    "ai-news": {
+      "name": "AI News This Week",
+      "about": "Five news items per week: model releases, new features, regulation.",
+      "frame": "'This week' ribbon + date; one item = one card.",
+      "pool": [
+        "caution-tape-pop",
+        "electric-sunburst",
+        "broadside",
+        "bold-poster",
+        "capsule",
+        "biennale-yellow",
+        "blockframe",
+        "split-flap",
+        "nutrition-label",
+        "postage-stamps",
+        "bento-box",
+        "tree-rings",
+        "fingerpost",
+        "woodcut",
+        "periodic-elements"
+      ]
+    },
+    "ai-tools": {
+      "name": "AI Tools & One Prompt",
+      "about": "Tool reviews, step-by-step tutorials, 'one prompt, done' demos.",
+      "frame": "A mock app UI as the stage; two-voice dialogue.",
+      "pool": [
+        "dusk-mode",
+        "lockscreen-story",
+        "ember-docs",
+        "midnight-chat",
+        "terminal-noir",
+        "marquee-select",
+        "code-editorial",
+        "blockframe",
+        "instrument-panel",
+        "nutrition-label",
+        "architect-model",
+        "rice-parcel",
+        "card-catalog",
+        "chess-notation",
+        "bento-box",
+        "fingerpost",
+        "contact-sheet",
+        "assembly-manual",
+        "live-spreadsheet",
+        "sewing-pattern"
+      ]
+    }
+  },
+  "styles": [
+    {
+      "id": "dusk-mode",
+      "name": "Dusk Mode",
+      "author": "opus",
+      "origin": "owner video",
+      "type": "reference",
+      "tier": "liked",
+      "axes": {
+        "background": "dark-to-light",
+        "type": "serif",
+        "depth": "2.5D",
+        "visual": "app-ui"
+      },
+      "series": [
+        "ai-tools"
+      ],
+      "metaphor": "A dark AI chat app that brightens as a one-prompt result is built and edited on screen.",
+      "signature": "Chat bubbles type in, the generated artifact assembles, then the scene flips from dark to light.",
+      "cover": "covers/dusk-mode.jpg",
+      "aliases": [
+        "mode-senja"
+      ],
+      "frame": "covers/dusk-mode.jpg",
+      "references": [
+        "claude-ux-dark"
+      ],
+      "note": "juara 28K views"
+    },
+    {
+      "id": "lockscreen-story",
+      "name": "Lockscreen Story",
+      "author": "opus",
+      "origin": "owner video",
+      "type": "reference",
+      "tier": "liked",
+      "axes": {
+        "background": "dark-and-light",
+        "type": "serif",
+        "depth": "2.5D",
+        "visual": "app-ui"
+      },
+      "series": [
+        "ai-tools"
+      ],
+      "metaphor": "Starts on a phone lock screen full of relatable notifications, then turns into a step-by-step result.",
+      "signature": "Notifications stack in, then a circle wipe opens onto a cream page where cards fill in step by step.",
+      "cover": "covers/lockscreen-story.jpg",
+      "aliases": [
+        "notif-ios"
+      ],
+      "frame": "covers/lockscreen-story.jpg",
+      "references": [
+        "prompt-kalkulator"
+      ]
+    },
+    {
+      "id": "design-canvas",
+      "name": "Design Canvas",
+      "author": "opus",
+      "origin": "owner video",
+      "type": "reference",
+      "tier": "liked",
+      "axes": {
+        "background": "light",
+        "type": "grotesque",
+        "depth": "2D",
+        "visual": "app-ui"
+      },
+      "series": [
+        "how-ai-works"
+      ],
+      "metaphor": "The whole explainer lives inside a design tool: selections, cursors, dotted connectors.",
+      "signature": "Cursor clicks a word and an 8-handle selection box snaps around it; lines rise from a text mask.",
+      "cover": "covers/design-canvas.jpg",
+      "aliases": [
+        "kanvas-editor"
+      ],
+      "frame": "covers/design-canvas.jpg",
+      "references": [
+        "claude-startups-2m"
+      ]
+    },
+    {
+      "id": "caution-tape-pop",
+      "name": "Caution Tape Pop",
+      "author": "opus",
+      "origin": "owner video",
+      "type": "reference",
+      "tier": "liked",
+      "axes": {
+        "background": "pastel",
+        "type": "grotesque",
+        "depth": "2D",
+        "visual": "poster"
+      },
+      "series": [
+        "ai-in-numbers",
+        "ai-news"
+      ],
+      "metaphor": "Loud news-style poster: caution tape running top and bottom, giant tight headline, stickers.",
+      "signature": "Caution tape scrolls, the headline stacks in word by word, stickers drop into place.",
+      "cover": "covers/caution-tape-pop.jpg",
+      "aliases": [
+        "pita-pop"
+      ],
+      "frame": "covers/caution-tape-pop.jpg",
+      "references": [
+        "claude-motion"
+      ]
+    },
+    {
+      "id": "frosted-orbs",
+      "name": "Frosted Orbs",
+      "author": "opus",
+      "origin": "owner video",
+      "type": "reference",
+      "tier": "liked",
+      "axes": {
+        "background": "light",
+        "type": "grotesque",
+        "depth": "2.5D",
+        "visual": "abstract"
+      },
+      "series": [
+        "how-ai-works"
+      ],
+      "metaphor": "Calm launch-film look: soft blurred colour orbs behind frosted glass cards.",
+      "signature": "Text rises out of blur onto a glass card while the orb behind it changes colour per scene.",
+      "cover": "covers/frosted-orbs.jpg",
+      "aliases": [
+        "kaca-kabut"
+      ],
+      "frame": "covers/frosted-orbs.jpg",
+      "references": [
+        "claude-design"
+      ]
+    },
+    {
+      "id": "sticker-collage",
+      "name": "Sticker Collage",
+      "author": "opus",
+      "origin": "owner video",
+      "type": "reference",
+      "tier": "liked",
+      "axes": {
+        "background": "pastel",
+        "type": "grotesque",
+        "depth": "2D",
+        "visual": "app-ui"
+      },
+      "series": [
+        "ai-in-numbers"
+      ],
+      "metaphor": "Pastel design board mixing a selection-boxed headline with 3D icon stickers and price cards.",
+      "signature": "Headline gets a selection box, 3D icons float in as accents, numbered steps appear in serif.",
+      "cover": "covers/sticker-collage.jpg",
+      "aliases": [
+        "kanvas-campur"
+      ],
+      "frame": "covers/sticker-collage.jpg",
+      "references": [
+        "konten-claude-hf"
+      ]
+    },
+    {
+      "id": "prompt-classroom",
+      "name": "Prompt Classroom",
+      "author": "opus",
+      "origin": "owner video",
+      "type": "reference",
+      "tier": "maybe",
+      "axes": {
+        "background": "pastel",
+        "type": "serif",
+        "depth": "2D",
+        "visual": "app-ui"
+      },
+      "series": [],
+      "metaphor": "A friendly prompt lesson: character chips, a chat box being filled, before/after cards.",
+      "signature": "The prompt box fills label by label (CONTEXT, GOAL…) and the bad vs good answer cards swap.",
+      "cover": "covers/prompt-classroom.jpg",
+      "aliases": [
+        "kelas-prompt"
+      ],
+      "frame": "covers/prompt-classroom.jpg",
+      "references": [
+        "prompt-4-bahan"
+      ]
+    },
+    {
+      "id": "repo-cards",
+      "name": "Repo Cards",
+      "author": "opus",
+      "origin": "owner carousel",
+      "type": "reference",
+      "tier": "liked",
+      "axes": {
+        "background": "dark",
+        "type": "grotesque",
+        "depth": "2D",
+        "visual": "data"
+      },
+      "series": [],
+      "metaphor": "Dark GitHub-style repo cards with stars, licence and activity, ranked #1, #2, #3.",
+      "signature": "Rank number slams in, the repo card slides up, contribution squares light up.",
+      "cover": "covers/repo-cards.jpg",
+      "aliases": [
+        "repo-card"
+      ],
+      "frame": "covers/repo-cards.jpg",
+      "references": [
+        "slide-repo-vibe",
+        "slide-code-agent",
+        "slide-hidden-gem"
+      ],
+      "format": "carousel"
+    },
+    {
+      "id": "electric-sunburst",
+      "name": "Electric Sunburst",
+      "author": "opus",
+      "origin": "owner carousel",
+      "type": "reference",
+      "tier": "liked",
+      "axes": {
+        "background": "full-colour",
+        "type": "condensed",
+        "depth": "2D",
+        "visual": "poster"
+      },
+      "series": [
+        "ai-news"
+      ],
+      "metaphor": "Electric-blue poster with tall condensed type and engraved sunburst lines.",
+      "signature": "Sunburst lines draw outward, the condensed title stacks up, a cycle diagram rotates into place.",
+      "cover": "covers/electric-sunburst.jpg",
+      "aliases": [
+        "hermes-blue"
+      ],
+      "frame": "covers/electric-sunburst.jpg",
+      "references": [
+        "slide-hermes"
+      ],
+      "format": "carousel"
+    },
+    {
+      "id": "ember-docs",
+      "name": "Ember Docs",
+      "author": "opus",
+      "origin": "owner carousel",
+      "type": "reference",
+      "tier": "liked",
+      "axes": {
+        "background": "dark",
+        "type": "serif",
+        "depth": "2D",
+        "visual": "app-ui"
+      },
+      "series": [
+        "ai-tools"
+      ],
+      "metaphor": "Warm charcoal docs page: cream serif headline with an ember-orange italic, terminal boxes.",
+      "signature": "Terminal command types out and a checkmark line answers it.",
+      "cover": "covers/ember-docs.jpg",
+      "aliases": [
+        "situs-claude"
+      ],
+      "frame": "covers/ember-docs.jpg",
+      "references": [
+        "slide-claude-code"
+      ],
+      "format": "carousel"
+    },
+    {
+      "id": "midnight-chat",
+      "name": "Midnight Chat",
+      "author": "opus",
+      "origin": "owner carousel",
+      "type": "reference",
+      "tier": "liked",
+      "axes": {
+        "background": "dark",
+        "type": "grotesque",
+        "depth": "2D",
+        "visual": "app-ui"
+      },
+      "series": [
+        "ai-tools"
+      ],
+      "metaphor": "Pure-black chat transcript where each slide is a question bubble followed by its answer.",
+      "signature": "Question bubble pops in on the right, the answer streams in below with a comparison box.",
+      "cover": "covers/midnight-chat.jpg",
+      "aliases": [
+        "situs-chatgpt"
+      ],
+      "frame": "covers/midnight-chat.jpg",
+      "references": [
+        "slide-chatgpt"
+      ],
+      "format": "carousel"
+    },
+    {
+      "id": "biennale-yellow",
+      "name": "Biennale Yellow",
+      "author": "opus",
+      "origin": "HyperFrames preset (adapted to 9:16)",
+      "type": "template",
+      "tier": "liked",
+      "axes": {
+        "background": "light",
+        "type": "serif",
+        "depth": "2D",
+        "visual": "poster"
+      },
+      "series": [
+        "ai-news"
+      ],
+      "metaphor": "Exhibition catalogue on warm paper with a yellow haze and thin navy serif.",
+      "signature": "Catalogue rows slide onto the yellow band one by one.",
+      "cover": "covers/biennale-yellow.jpg",
+      "aliases": [
+        "biennale-yellow"
+      ],
+      "template": "templates/biennale-yellow.html"
+    },
+    {
+      "id": "blockframe",
+      "name": "Blockframe",
+      "author": "opus",
+      "origin": "HyperFrames preset (adapted to 9:16)",
+      "type": "template",
+      "tier": "liked",
+      "axes": {
+        "background": "light",
+        "type": "grotesque",
+        "depth": "2D",
+        "visual": "physical-object"
+      },
+      "series": [
+        "ai-news",
+        "ai-tools"
+      ],
+      "metaphor": "Sharp neo-brutalist cards: thick black borders, hard offset shadows, slight tilts.",
+      "signature": "Cards drop in tilted and snap their hard shadow under them.",
+      "cover": "covers/blockframe.jpg",
+      "aliases": [
+        "blockframe"
+      ],
+      "template": "templates/blockframe.html"
+    },
+    {
+      "id": "bold-poster",
+      "name": "Bold Poster",
+      "author": "opus",
+      "origin": "HyperFrames preset (adapted to 9:16)",
+      "type": "template",
+      "tier": "liked",
+      "axes": {
+        "background": "light",
+        "type": "serif",
+        "depth": "2D",
+        "visual": "poster"
+      },
+      "series": [
+        "ai-in-numbers",
+        "ai-news"
+      ],
+      "metaphor": "Vintage sports-magazine poster: classical serif, tomato red, a ruled stats table.",
+      "signature": "The red headline slams in at an angle, stats fill the table row by row.",
+      "cover": "covers/bold-poster.jpg",
+      "aliases": [
+        "bold-poster"
+      ],
+      "template": "templates/bold-poster.html"
+    },
+    {
+      "id": "broadside",
+      "name": "Broadside",
+      "author": "opus",
+      "origin": "HyperFrames preset (adapted to 9:16)",
+      "type": "template",
+      "tier": "liked",
+      "axes": {
+        "background": "full-colour",
+        "type": "condensed",
+        "depth": "2D",
+        "visual": "poster"
+      },
+      "series": [
+        "ai-in-numbers",
+        "ai-news"
+      ],
+      "metaphor": "Fire-orange broadside with massive flat type and black slabs.",
+      "signature": "Black slabs wipe in from the left, values punch in large.",
+      "cover": "covers/broadside.jpg",
+      "aliases": [
+        "broadside"
+      ],
+      "template": "templates/broadside.html"
+    },
+    {
+      "id": "capsule",
+      "name": "Capsule",
+      "author": "opus",
+      "origin": "HyperFrames preset (adapted to 9:16)",
+      "type": "template",
+      "tier": "liked",
+      "axes": {
+        "background": "light",
+        "type": "serif",
+        "depth": "2D",
+        "visual": "poster"
+      },
+      "series": [
+        "ai-news"
+      ],
+      "metaphor": "High-contrast Bodoni with candy-coloured capsule pills.",
+      "signature": "Pills float in and settle; the highlight word drops into its pill. (Bodoni '1' reads like 'I'.)",
+      "cover": "covers/capsule.jpg",
+      "aliases": [
+        "capsule"
+      ],
+      "template": "templates/capsule.html"
+    },
+    {
+      "id": "cobalt-grid",
+      "name": "Cobalt Grid",
+      "author": "opus",
+      "origin": "HyperFrames preset (adapted to 9:16)",
+      "type": "template",
+      "tier": "liked",
+      "axes": {
+        "background": "light",
+        "type": "serif",
+        "depth": "2D",
+        "visual": "diagram"
+      },
+      "series": [
+        "how-ai-works"
+      ],
+      "metaphor": "Graph paper with electric cobalt riso printing and an indexed table.",
+      "signature": "Index rows print in two-colour riso style, the highlight block fills cobalt.",
+      "cover": "covers/cobalt-grid.jpg",
+      "aliases": [
+        "cobalt-grid"
+      ],
+      "template": "templates/cobalt-grid.html"
+    },
+    {
+      "id": "cartesian",
+      "name": "Cartesian",
+      "author": "opus",
+      "origin": "HyperFrames preset (adapted to 9:16)",
+      "type": "template",
+      "tier": "liked",
+      "axes": {
+        "background": "light",
+        "type": "serif",
+        "depth": "2D",
+        "visual": "diagram"
+      },
+      "series": [
+        "how-ai-works"
+      ],
+      "metaphor": "Quiet museum catalogue: specimen cards, hairlines, compass geometry.",
+      "signature": "Compass circles draw themselves, specimen cards fade up with roman numerals.",
+      "cover": "covers/cartesian.jpg",
+      "aliases": [
+        "cartesian"
+      ],
+      "template": "templates/cartesian.html"
+    },
+    {
+      "id": "code-editorial",
+      "name": "Code Editorial",
+      "author": "opus",
+      "origin": "HyperFrames preset (adapted to 9:16)",
+      "type": "template",
+      "tier": "liked",
+      "axes": {
+        "background": "light",
+        "type": "serif",
+        "depth": "2D",
+        "visual": "code"
+      },
+      "series": [
+        "ai-tools"
+      ],
+      "metaphor": "Editorial page in Garamond with a navy YAML code window and footnoted sources.",
+      "signature": "The code window types the data line by line; a footnote marker links to the source.",
+      "cover": "covers/code-editorial.jpg",
+      "aliases": [
+        "code-editorial"
+      ],
+      "template": "templates/code-editorial.html"
+    },
+    {
+      "id": "terminal-noir",
+      "name": "Terminal Noir",
+      "author": "opus",
+      "origin": "dark study",
+      "type": "template",
+      "tier": "liked",
+      "axes": {
+        "background": "dark",
+        "type": "mono",
+        "depth": "2D",
+        "visual": "code"
+      },
+      "series": [
+        "ai-tools"
+      ],
+      "metaphor": "A terminal window where each item is a line of command output.",
+      "signature": "Command types out, output lines print with dotted leaders, the cursor blinks on the summary.",
+      "cover": "covers/terminal-noir.jpg",
+      "aliases": [
+        "d20-terminal-noir"
+      ],
+      "template": "templates/terminal-noir.html"
+    },
+    {
+      "id": "marquee-select",
+      "name": "Marquee Select",
+      "author": "opus",
+      "origin": "dark study",
+      "type": "template",
+      "tier": "liked",
+      "axes": {
+        "background": "dark",
+        "type": "grotesque",
+        "depth": "2D",
+        "visual": "app-ui"
+      },
+      "series": [
+        "ai-tools"
+      ],
+      "metaphor": "Dark headline panel with a design-tool selection box on the key word and stat chips.",
+      "signature": "Cursor glides to the keyword, the selection box and handles snap on, chips light up.",
+      "cover": "covers/marquee-select.jpg",
+      "aliases": [
+        "d20-seleksi-gelap"
+      ],
+      "template": "templates/marquee-select.html"
+    },
+    {
+      "id": "leaderboard",
+      "name": "Leaderboard",
+      "author": "opus",
+      "origin": "dark study",
+      "type": "template",
+      "tier": "liked",
+      "axes": {
+        "background": "dark",
+        "type": "grotesque",
+        "depth": "2D",
+        "visual": "data"
+      },
+      "series": [
+        "ai-in-numbers"
+      ],
+      "metaphor": "A league standings table: position, name, value and a bar per row, plus a winner card.",
+      "signature": "Rows slot into rank order and bars grow (use real proportional values in videos).",
+      "cover": "covers/leaderboard.jpg",
+      "aliases": [
+        "d20-klasemen"
+      ],
+      "template": "templates/leaderboard.html"
+    },
+    {
+      "id": "ide-nocturne",
+      "name": "IDE Nocturne",
+      "author": "opus",
+      "origin": "dark study",
+      "type": "template",
+      "tier": "liked",
+      "axes": {
+        "background": "dark",
+        "type": "mono",
+        "depth": "2D",
+        "visual": "code"
+      },
+      "series": [
+        "how-ai-works"
+      ],
+      "metaphor": "A night-mode code editor: tabs, line numbers, minimap; items become an object literal.",
+      "signature": "The title line gets selected, then the object literal types out key by key.",
+      "cover": "covers/ide-nocturne.jpg",
+      "aliases": [
+        "d20-editor-kode"
+      ],
+      "template": "templates/ide-nocturne.html"
+    },
+    {
+      "id": "drafting-light",
+      "name": "Drafting Light",
+      "author": "opus",
+      "origin": "channel signature",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "light",
+        "type": "serif",
+        "depth": "2.5D",
+        "visual": "app-ui"
+      },
+      "series": [
+        "how-ai-works"
+      ],
+      "metaphor": "Engineering drawing sheet on millimetre grid: title block, crop marks, spec card, design-tool selection with dotted connectors.",
+      "signature": "Selection box lands on the keyword, the connector draws itself to the spec card, rows fill in.",
+      "cover": "covers/drafting-light.jpg",
+      "aliases": [
+        "signature-terang"
+      ],
+      "template": "templates/drafting-light.html"
+    },
+    {
+      "id": "drafting-dark",
+      "name": "Drafting Dark",
+      "author": "opus",
+      "origin": "channel signature",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "dark",
+        "type": "serif",
+        "depth": "2.5D",
+        "visual": "app-ui"
+      },
+      "series": [
+        "ai-in-numbers"
+      ],
+      "metaphor": "The dark twin of Drafting Light: deep blue-charcoal sheet, glassy spec card, terminal accents.",
+      "signature": "Same choreography as Drafting Light, with a terminal cursor on the meta line.",
+      "cover": "covers/drafting-dark.jpg",
+      "aliases": [
+        "signature-gelap"
+      ],
+      "template": "templates/drafting-dark.html"
+    },
+    {
+      "id": "split-flap",
+      "name": "Split-Flap Board",
+      "author": "fable",
+      "origin": "Gaya Fable",
+      "type": "template",
+      "tier": "liked",
+      "axes": {
+        "background": "dark",
+        "type": "condensed",
+        "depth": "2.5D",
+        "visual": "physical-object"
+      },
+      "series": [
+        "ai-in-numbers",
+        "ai-news"
+      ],
+      "metaphor": "A station split-flap departure board; news, numbers and status flip in line by line.",
+      "signature": "Cells flip left to right row by row with a soft clack per row; only changed cells re-flip.",
+      "cover": "covers/split-flap.jpg",
+      "aliases": [
+        "fable-papan-flap"
+      ],
+      "template": "templates/split-flap.html"
+    },
+    {
+      "id": "transit-map",
+      "name": "Transit Map",
+      "author": "fable",
+      "origin": "Gaya Fable",
+      "type": "template",
+      "tier": "liked",
+      "axes": {
+        "background": "light",
+        "type": "grotesque",
+        "depth": "2D",
+        "visual": "diagram"
+      },
+      "series": [
+        "how-ai-works"
+      ],
+      "metaphor": "A Beck-style transit diagram: one AI concept = one line, each step = a station.",
+      "signature": "The line draws itself from the left, pauses at each station, a train dot travels along it.",
+      "cover": "covers/transit-map.jpg",
+      "aliases": [
+        "fable-peta-jalur"
+      ],
+      "template": "templates/transit-map.html"
+    },
+    {
+      "id": "nutrition-label",
+      "name": "Nutrition Label",
+      "author": "fable",
+      "origin": "Gaya Fable",
+      "type": "template",
+      "tier": "maybe",
+      "axes": {
+        "background": "full-colour",
+        "type": "grotesque",
+        "depth": "2D",
+        "visual": "data"
+      },
+      "series": [
+        "ai-in-numbers",
+        "ai-news",
+        "ai-tools"
+      ],
+      "metaphor": "A 'Nutrition Facts' label reading out what a model, prompt or feature contains.",
+      "signature": "Heavy rules draw left to right by hierarchy, then each value types or counts up.",
+      "cover": "covers/nutrition-label.jpg",
+      "aliases": [
+        "fable-fakta-nutrisi"
+      ],
+      "template": "templates/nutrition-label.html"
+    },
+    {
+      "id": "instrument-panel",
+      "name": "Instrument Panel",
+      "author": "fable",
+      "origin": "Gaya Fable",
+      "type": "template",
+      "tier": "liked",
+      "axes": {
+        "background": "light",
+        "type": "mono",
+        "depth": "2.5D",
+        "visual": "physical-object"
+      },
+      "series": [
+        "how-ai-works",
+        "ai-tools"
+      ],
+      "metaphor": "A synth/instrument faceplate where AI parameters (temperature, top-p, context) are knobs and LCDs.",
+      "signature": "Knobs turn to their values one by one, LCD digits scramble then lock, an LED blinks once.",
+      "cover": "covers/instrument-panel.jpg",
+      "aliases": [
+        "fable-panel-alat"
+      ],
+      "template": "templates/instrument-panel.html"
+    },
+    {
+      "id": "data-annotation",
+      "name": "Data Annotation",
+      "author": "fable",
+      "origin": "Gaya Fable",
+      "type": "template",
+      "tier": "liked",
+      "axes": {
+        "background": "light",
+        "type": "serif",
+        "depth": "2D",
+        "visual": "data"
+      },
+      "series": [
+        "how-ai-works",
+        "ai-in-numbers"
+      ],
+      "metaphor": "Data-journalism chart: one clean graphic, one point that matters, one editorial note pointing at it.",
+      "signature": "Bars grow left to right, the leader line draws to the point, the point pulses once.",
+      "cover": "covers/data-annotation.jpg",
+      "aliases": [
+        "fable-anotasi-data"
+      ],
+      "template": "templates/data-annotation.html"
+    },
+    {
+      "id": "architect-model",
+      "name": "Architect's Model",
+      "author": "fable",
+      "origin": "Gaya Fable",
+      "type": "template",
+      "tier": "liked",
+      "axes": {
+        "background": "light",
+        "type": "grotesque",
+        "depth": "3D",
+        "visual": "physical-object"
+      },
+      "series": [
+        "how-ai-works",
+        "ai-tools"
+      ],
+      "metaphor": "A white cardboard architect's study model on a grey site board; block height = magnitude.",
+      "signature": "Each block extrudes up from its footprint in turn, shadows lengthen, a flag pin drops.",
+      "cover": "covers/architect-model.jpg",
+      "aliases": [
+        "fable-maket-putih"
+      ],
+      "template": "templates/architect-model.html"
+    },
+    {
+      "id": "rice-parcel",
+      "name": "Rice Parcel",
+      "author": "fable",
+      "origin": "Fable wave 2",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "light",
+        "type": "grotesque",
+        "depth": "3D",
+        "visual": "physical-object"
+      },
+      "series": [
+        "how-ai-works",
+        "ai-tools"
+      ],
+      "metaphor": "A folded rice parcel as the context window: it only holds so much; each fold opened = one part of the context.",
+      "signature": "The rubber band stretches and snaps, the four folds open one by one.",
+      "cover": "covers/rice-parcel.jpg",
+      "aliases": [
+        "g2-bungkus-nasi"
+      ],
+      "template": "templates/rice-parcel.html"
+    },
+    {
+      "id": "card-catalog",
+      "name": "Card Catalog",
+      "author": "fable",
+      "origin": "Fable wave 2",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "light",
+        "type": "mono",
+        "depth": "3D",
+        "visual": "physical-object"
+      },
+      "series": [
+        "how-ai-works",
+        "ai-tools"
+      ],
+      "metaphor": "A library card catalogue as RAG/embeddings: cards stored near their neighbours.",
+      "signature": "A drawer slides out toward the viewer and the cards inside fan forward.",
+      "cover": "covers/card-catalog.jpg",
+      "aliases": [
+        "g2-kartu-katalog"
+      ],
+      "template": "templates/card-catalog.html"
+    },
+    {
+      "id": "postage-stamps",
+      "name": "Postage Stamps",
+      "author": "fable",
+      "origin": "Fable wave 2",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "light",
+        "type": "serif",
+        "depth": "2.5D",
+        "visual": "physical-object"
+      },
+      "series": [
+        "ai-in-numbers",
+        "ai-news"
+      ],
+      "metaphor": "A sheet of stamps: one stamp = one token with a face value; the sheet = the context window.",
+      "signature": "A postmark slams onto the highlighted stamp with a little ink bleed.",
+      "cover": "covers/postage-stamps.jpg",
+      "aliases": [
+        "g2-lembar-perangko"
+      ],
+      "template": "templates/postage-stamps.html"
+    },
+    {
+      "id": "chess-notation",
+      "name": "Chess Notation",
+      "author": "fable",
+      "origin": "Fable wave 2",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "light",
+        "type": "serif",
+        "depth": "2D",
+        "visual": "diagram"
+      },
+      "series": [
+        "how-ai-works",
+        "ai-tools"
+      ],
+      "metaphor": "Chess diagram with move notation as chain-of-thought: thinking several moves ahead.",
+      "signature": "A piece glides to its square (no bounce), then the move is written in notation.",
+      "cover": "covers/chess-notation.jpg",
+      "aliases": [
+        "g2-notasi-catur"
+      ],
+      "template": "templates/chess-notation.html"
+    },
+    {
+      "id": "piano-roll",
+      "name": "Piano Roll",
+      "author": "fable",
+      "origin": "Fable wave 2",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "light",
+        "type": "mono",
+        "depth": "2.5D",
+        "visual": "physical-object"
+      },
+      "series": [
+        "how-ai-works"
+      ],
+      "metaphor": "A player-piano roll: the next hole not yet visible = the next token.",
+      "signature": "The paper scrolls up at a steady pace; holes that reach the reader bar light up.",
+      "cover": "covers/piano-roll.jpg",
+      "aliases": [
+        "g2-gulungan-piano"
+      ],
+      "template": "templates/piano-roll.html"
+    },
+    {
+      "id": "rock-strata",
+      "name": "Rock Strata",
+      "author": "fable",
+      "origin": "Fable wave 2",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "dark",
+        "type": "grotesque",
+        "depth": "2.5D",
+        "visual": "diagram"
+      },
+      "series": [
+        "how-ai-works",
+        "ai-in-numbers"
+      ],
+      "metaphor": "Rock layers as the stages of building a model: thick pre-training at the bottom, thin fine-tuning on top.",
+      "signature": "Layers settle from bottom to top, then a core drill descends through them.",
+      "cover": "covers/rock-strata.jpg",
+      "aliases": [
+        "g2-strata-geologi"
+      ],
+      "template": "templates/rock-strata.html"
+    },
+    {
+      "id": "weather-chart",
+      "name": "Weather Chart",
+      "author": "fable",
+      "origin": "Fable wave 2",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "pastel",
+        "type": "grotesque",
+        "depth": "2D",
+        "visual": "diagram"
+      },
+      "series": [
+        "how-ai-works",
+        "ai-in-numbers"
+      ],
+      "metaphor": "A synoptic weather chart: AI output is a probability forecast, not certainty.",
+      "signature": "Isobars draw outward from the low-pressure centre as concentric contours.",
+      "cover": "covers/weather-chart.jpg",
+      "aliases": [
+        "g2-peta-sinoptik"
+      ],
+      "template": "templates/weather-chart.html"
+    },
+    {
+      "id": "bento-box",
+      "name": "Bento Box",
+      "author": "fable",
+      "origin": "Fable wave 2",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "dark",
+        "type": "grotesque",
+        "depth": "2.5D",
+        "visual": "physical-object"
+      },
+      "series": [
+        "ai-in-numbers",
+        "ai-news",
+        "ai-tools"
+      ],
+      "metaphor": "A bento box as structured output / JSON: each compartment = a field.",
+      "signature": "The lid slides off, compartments fill one by one.",
+      "cover": "covers/bento-box.jpg",
+      "aliases": [
+        "g2-kotak-bento"
+      ],
+      "template": "templates/bento-box.html"
+    },
+    {
+      "id": "nautical-night",
+      "name": "Nautical Night",
+      "author": "fable",
+      "origin": "Fable wave 2",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "dark",
+        "type": "mono",
+        "depth": "2D",
+        "visual": "data"
+      },
+      "series": [
+        "how-ai-works",
+        "ai-in-numbers"
+      ],
+      "metaphor": "A night nautical chart: soundings = how confident the model is; shallows = hallucination risk.",
+      "signature": "Depth soundings print outward from the ship like a sonar sweep.",
+      "cover": "covers/nautical-night.jpg",
+      "aliases": [
+        "g2-peta-laut-malam"
+      ],
+      "template": "templates/nautical-night.html"
+    },
+    {
+      "id": "tree-rings",
+      "name": "Tree Rings",
+      "author": "fable",
+      "origin": "Fable wave 2",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "pastel",
+        "type": "grotesque",
+        "depth": "2D",
+        "visual": "data"
+      },
+      "series": [
+        "how-ai-works",
+        "ai-in-numbers",
+        "ai-news"
+      ],
+      "metaphor": "Tree rings as history: one ring per year or model release; thick = boom year, thin = AI winter.",
+      "signature": "Rings grow outward from the pith one by one, ring thickness = value.",
+      "cover": "covers/tree-rings.jpg",
+      "aliases": [
+        "g2-lingkar-tahun"
+      ],
+      "template": "templates/tree-rings.html"
+    },
+    {
+      "id": "dartboard",
+      "name": "Dartboard",
+      "author": "fable",
+      "origin": "Fable wave 2",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "dark",
+        "type": "condensed",
+        "depth": "3D",
+        "visual": "physical-object"
+      },
+      "series": [
+        "how-ai-works",
+        "ai-in-numbers"
+      ],
+      "metaphor": "Accuracy vs precision vs hallucination: tight but off-centre = consistent but wrong.",
+      "signature": "Darts land one by one with a short thunk.",
+      "cover": "covers/dartboard.jpg",
+      "aliases": [
+        "g2-papan-dart"
+      ],
+      "template": "templates/dartboard.html"
+    },
+    {
+      "id": "chromatography",
+      "name": "Chromatography Strip",
+      "author": "fable",
+      "origin": "Fable wave 2",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "pastel",
+        "type": "mono",
+        "depth": "2.5D",
+        "visual": "physical-object"
+      },
+      "series": [
+        "how-ai-works",
+        "ai-in-numbers"
+      ],
+      "metaphor": "A chromatography strip separating one mixture (prompt, dataset, trend) into its components.",
+      "signature": "The solvent line creeps up slowly and coloured bands separate as it passes.",
+      "cover": "covers/chromatography.jpg",
+      "aliases": [
+        "g2-strip-kromatografi"
+      ],
+      "template": "templates/chromatography.html"
+    },
+    {
+      "id": "fingerpost",
+      "name": "Fingerpost",
+      "author": "fable",
+      "origin": "Fable wave 2",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "full-colour",
+        "type": "condensed",
+        "depth": "2.5D",
+        "visual": "physical-object"
+      },
+      "series": [
+        "ai-in-numbers",
+        "ai-news",
+        "ai-tools"
+      ],
+      "metaphor": "A signpost with arms pointing to options: routing a prompt to a model, tool or plan; distance = cost.",
+      "signature": "Arms attach one by one and swing to their direction.",
+      "cover": "covers/fingerpost.jpg",
+      "aliases": [
+        "g2-papan-jarak"
+      ],
+      "template": "templates/fingerpost.html"
+    },
+    {
+      "id": "woodcut",
+      "name": "Woodcut Print",
+      "author": "fable",
+      "origin": "Fable wave 2",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "dark",
+        "type": "condensed",
+        "depth": "2.5D",
+        "visual": "physical-object"
+      },
+      "series": [
+        "ai-in-numbers",
+        "ai-news"
+      ],
+      "metaphor": "Carved wooden type as model weights fixed in training; each print pull = one inference.",
+      "signature": "Letters first show mirrored as wooden blocks, then the paper lowers and lifts to reveal the print.",
+      "cover": "covers/woodcut.jpg",
+      "aliases": [
+        "g2-cetak-kayu"
+      ],
+      "template": "templates/woodcut.html"
+    },
+    {
+      "id": "loom-weave",
+      "name": "Loom Weave",
+      "author": "fable",
+      "origin": "Fable wave 2",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "full-colour",
+        "type": "grotesque",
+        "depth": "2D",
+        "visual": "abstract"
+      },
+      "series": [
+        "how-ai-works"
+      ],
+      "metaphor": "A loom as attention: each token = a warp thread; each pass of the weft touches every thread.",
+      "signature": "The shuttle runs left to right and back, weaving one row per pass.",
+      "cover": "covers/loom-weave.jpg",
+      "aliases": [
+        "g2-tenun-lungsin"
+      ],
+      "template": "templates/loom-weave.html"
+    },
+    {
+      "id": "contact-sheet",
+      "name": "Contact Sheet",
+      "author": "opus",
+      "origin": "Gaya Opus",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "dark",
+        "type": "grotesque",
+        "depth": "2D",
+        "visual": "physical-object"
+      },
+      "series": [
+        "how-ai-works",
+        "ai-tools"
+      ],
+      "metaphor": "A photographer's contact sheet: film strips, edge printing, red grease-pencil picks. Metaphor: the AI picks one candidate out of many.",
+      "signature": "A loupe scans frame by frame, stops on the chosen one, and a red grease-pencil loop draws around it.",
+      "cover": "covers/contact-sheet.jpg",
+      "aliases": [
+        "opus-lembar-kontak"
+      ],
+      "template": "templates/contact-sheet.html"
+    },
+    {
+      "id": "engraved-score",
+      "name": "Engraved Score",
+      "author": "opus",
+      "origin": "Gaya Opus",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "light",
+        "type": "serif",
+        "depth": "2D",
+        "visual": "diagram"
+      },
+      "series": [
+        "how-ai-works"
+      ],
+      "metaphor": "Engraved sheet music with staves and lyrics. Metaphor: predicting the next note = predicting the next token.",
+      "signature": "A playhead sweeps the staff; in the ghost bar three candidate notes flicker and the blue one locks in.",
+      "cover": "covers/engraved-score.jpg",
+      "aliases": [
+        "opus-partitur"
+      ],
+      "template": "templates/engraved-score.html"
+    },
+    {
+      "id": "assembly-manual",
+      "name": "Assembly Manual",
+      "author": "opus",
+      "origin": "Gaya Opus",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "light",
+        "type": "grotesque",
+        "depth": "2D",
+        "visual": "physical-object"
+      },
+      "series": [
+        "how-ai-works",
+        "ai-tools"
+      ],
+      "metaphor": "A flat-pack assembly manual in black line art. Metaphor: how AI works, assembled part by part.",
+      "signature": "Parts slide along dashed arrows into their holes and get ticked off in the parts box.",
+      "cover": "covers/assembly-manual.jpg",
+      "aliases": [
+        "opus-manual-rakit"
+      ],
+      "template": "templates/assembly-manual.html"
+    },
+    {
+      "id": "live-spreadsheet",
+      "name": "Live Spreadsheet",
+      "author": "opus",
+      "origin": "Gaya Opus",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "light",
+        "type": "mono",
+        "depth": "2D",
+        "visual": "app-ui"
+      },
+      "series": [
+        "ai-in-numbers",
+        "ai-tools"
+      ],
+      "metaphor": "A spreadsheet with a formula bar, active cell and in-cell data bars. Metaphor: AI numbers and costs computed cell by cell.",
+      "signature": "The formula types into the bar, Enter, cells fill and the data bars grow row by row.",
+      "cover": "covers/live-spreadsheet.jpg",
+      "aliases": [
+        "opus-lembar-rumus"
+      ],
+      "template": "templates/live-spreadsheet.html"
+    },
+    {
+      "id": "topo-trail",
+      "name": "Topo Trail",
+      "author": "opus",
+      "origin": "Gaya Opus",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "light",
+        "type": "condensed",
+        "depth": "2.5D",
+        "visual": "diagram"
+      },
+      "series": [
+        "how-ai-works"
+      ],
+      "metaphor": "A topographic hiking map whose orange trail is a true steepest descent. Metaphor: training = walking downhill to the lowest point.",
+      "signature": "The trail draws itself downhill, a hiker dot walks it, labels appear as they are passed, the lake fills.",
+      "cover": "covers/topo-trail.jpg",
+      "aliases": [
+        "opus-peta-kontur"
+      ],
+      "template": "templates/topo-trail.html"
+    },
+    {
+      "id": "periodic-elements",
+      "name": "Periodic Elements",
+      "author": "opus",
+      "origin": "Gaya Opus",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "dark",
+        "type": "grotesque",
+        "depth": "2D",
+        "visual": "data"
+      },
+      "series": [
+        "how-ai-works",
+        "ai-news"
+      ],
+      "metaphor": "A navy periodic table where every AI term is an element. Metaphor: build a vocabulary of AI 'elements'.",
+      "signature": "The table fills row by row, item tiles light up by atomic number, the key element lifts into a detail card.",
+      "cover": "covers/periodic-elements.jpg",
+      "aliases": [
+        "opus-unsur-ai"
+      ],
+      "template": "templates/periodic-elements.html"
+    },
+    {
+      "id": "e-reader",
+      "name": "E-Reader Lookup",
+      "author": "opus",
+      "origin": "Gaya Opus",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "light",
+        "type": "serif",
+        "depth": "2D",
+        "visual": "app-ui"
+      },
+      "series": [
+        "how-ai-works"
+      ],
+      "metaphor": "An e-ink reader page: long-press a word, a dictionary popover explains it. Metaphor: tap an AI term, get its meaning.",
+      "signature": "The keyword gets a selection with teardrop handles, the popover rises with an e-ink flash, entries appear.",
+      "cover": "covers/e-reader.jpg",
+      "aliases": [
+        "opus-halaman-baca"
+      ],
+      "template": "templates/e-reader.html"
+    },
+    {
+      "id": "sewing-pattern",
+      "name": "Sewing Pattern",
+      "author": "opus",
+      "origin": "Gaya Opus",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "full-colour",
+        "type": "condensed",
+        "depth": "2D",
+        "visual": "physical-object"
+      },
+      "series": [
+        "how-ai-works",
+        "ai-tools"
+      ],
+      "metaphor": "A tissue sewing pattern on a slate cutting mat. Metaphor: tokenisation = cutting a pattern into pieces.",
+      "signature": "Scissors follow the cut line, each piece separates and shifts a little, its count appears.",
+      "cover": "covers/sewing-pattern.jpg",
+      "aliases": [
+        "opus-pola-potong"
+      ],
+      "template": "templates/sewing-pattern.html"
+    },
+    {
+      "id": "bubble-test",
+      "name": "Bubble Test",
+      "author": "opus",
+      "origin": "Gaya Opus",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "light",
+        "type": "condensed",
+        "depth": "2D",
+        "visual": "physical-object"
+      },
+      "series": [
+        "how-ai-works",
+        "ai-in-numbers"
+      ],
+      "metaphor": "A machine-graded multiple-choice answer sheet with 2B pencil bubbles. Metaphor: the AI chooses an answer by likelihood.",
+      "signature": "Pencil fills bubbles row by row; one row is erased and re-filled; a score is written in the margin.",
+      "cover": "covers/bubble-test.jpg",
+      "aliases": [
+        "opus-lembar-ljk"
+      ],
+      "template": "templates/bubble-test.html"
+    },
+    {
+      "id": "lab-report",
+      "name": "Lab Report",
+      "author": "opus",
+      "origin": "Gaya Opus",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "light",
+        "type": "grotesque",
+        "depth": "2D",
+        "visual": "data"
+      },
+      "series": [
+        "ai-in-numbers"
+      ],
+      "metaphor": "A clinical lab report with reference ranges and H/L flags. Metaphor: read AI numbers against a normal range. Ranges are illustrative.",
+      "signature": "Rows print one by one, a marker slides along each range bar, out-of-range rows tint and get an 'H'.",
+      "cover": "covers/lab-report.jpg",
+      "aliases": [
+        "opus-hasil-lab"
+      ],
+      "template": "templates/lab-report.html"
+    },
+    {
+      "id": "letterpress-desk",
+      "name": "Letterpress Desk",
+      "author": "astra",
+      "origin": "Astra concept (static cover)",
+      "type": "concept",
+      "tier": "new",
+      "axes": null,
+      "series": [
+        "how-ai-works"
+      ],
+      "metaphor": "Metal type blocks and a press compose the text a little at a time.",
+      "signature": "Concept only - animate as type blocks dropping into the chase line by line.",
+      "cover": "covers/letterpress-desk.jpg",
+      "aliases": [
+        "chatgpt-01"
+      ],
+      "palette": [
+        "#F1EBDD",
+        "#172D4E",
+        "#D7674B"
+      ],
+      "objects": "Meja cetak, blok huruf, kertas",
+      "source": "concepts/sources/letterpress-desk.html"
+    },
+    {
+      "id": "ticket-raffle",
+      "name": "Ticket Raffle",
+      "author": "astra",
+      "origin": "Astra concept (static cover)",
+      "type": "concept",
+      "tier": "new",
+      "axes": null,
+      "series": [
+        "how-ai-works"
+      ],
+      "metaphor": "A clear raffle box of tickets; one ticket is drawn to continue the sentence.",
+      "signature": "Concept only - a hand draws one ticket; the unequal pile shows some words are likelier.",
+      "cover": "covers/ticket-raffle.jpg",
+      "aliases": [
+        "chatgpt-02"
+      ],
+      "palette": [
+        "#183A63",
+        "#D7E5F0",
+        "#D9634F"
+      ],
+      "objects": "Kotak bening, tiket, baki",
+      "source": "concepts/sources/ticket-raffle.html"
+    },
+    {
+      "id": "receipt-printer",
+      "name": "Receipt Printer",
+      "author": "astra",
+      "origin": "Astra concept (full video exists)",
+      "type": "concept",
+      "tier": "new",
+      "axes": null,
+      "series": [
+        "how-ai-works"
+      ],
+      "metaphor": "A receipt printer printing the answer bit by bit, like the AI building a reply.",
+      "signature": "Paper feeds out line by line as each part of the answer is printed (full 56 s video exists).",
+      "cover": "covers/receipt-printer.jpg",
+      "aliases": [
+        "chatgpt-03"
+      ],
+      "palette": [
+        "#EFEDE6",
+        "#213750",
+        "#345AD9"
+      ],
+      "objects": "Printer, rol kertas, struk",
+      "note": "A finished 56 s video exists for this concept (not included in the repo)."
+    },
+    {
+      "id": "next-stitch",
+      "name": "Next Stitch",
+      "author": "astra",
+      "origin": "Astra concept (static cover)",
+      "type": "concept",
+      "tier": "new",
+      "axes": null,
+      "series": [
+        "how-ai-works"
+      ],
+      "metaphor": "Fabric, thread and tailor's chalk: each new stitch continues the previous ones.",
+      "signature": "Concept only - the needle makes the next stitch along a chalk line.",
+      "cover": "covers/next-stitch.jpg",
+      "aliases": [
+        "chatgpt-04"
+      ],
+      "palette": [
+        "#EDE4D4",
+        "#253E66",
+        "#BF624D"
+      ],
+      "objects": "Kain, benang, kapur jahit",
+      "source": "concepts/sources/next-stitch.html"
+    },
+    {
+      "id": "accordion-book",
+      "name": "Accordion Book",
+      "author": "astra",
+      "origin": "Astra concept (static cover)",
+      "type": "concept",
+      "tier": "new",
+      "axes": null,
+      "series": [
+        "how-ai-works"
+      ],
+      "metaphor": "A folding accordion book with tabs that unfold the explanation page by page.",
+      "signature": "Concept only - panels unfold one at a time.",
+      "cover": "covers/accordion-book.jpg",
+      "aliases": [
+        "chatgpt-05"
+      ],
+      "palette": [
+        "#F1EADD",
+        "#172C48",
+        "#CF4D37"
+      ],
+      "objects": "Buku lipat, tab, kertas",
+      "source": "concepts/sources/accordion-book.html"
+    },
+    {
+      "id": "tile-library",
+      "name": "Tile Library",
+      "author": "astra",
+      "origin": "Astra concept (static cover)",
+      "type": "concept",
+      "tier": "new",
+      "axes": null,
+      "series": [
+        "how-ai-works"
+      ],
+      "metaphor": "A ceramic tile sample library where each tile is a filed piece of knowledge.",
+      "signature": "Concept only - sample tiles slide out of the rack.",
+      "cover": "covers/tile-library.jpg",
+      "aliases": [
+        "chatgpt-06"
+      ],
+      "palette": [
+        "#ECE6DB",
+        "#244CC6",
+        "#BC6952"
+      ],
+      "objects": "Ubin keramik, baki sampel",
+      "source": "concepts/sources/tile-library.html"
+    },
+    {
+      "id": "measuring-glass",
+      "name": "Measuring Glass",
+      "author": "astra",
+      "origin": "Astra concept (static cover)",
+      "type": "concept",
+      "tier": "new",
+      "axes": null,
+      "series": [
+        "how-ai-works"
+      ],
+      "metaphor": "Graduated glasses filled to different levels: how likely each next word is.",
+      "signature": "Concept only - liquid levels rise to their marks.",
+      "cover": "covers/measuring-glass.jpg",
+      "aliases": [
+        "chatgpt-07"
+      ],
+      "palette": [
+        "#142638",
+        "#6595D2",
+        "#DA9B42"
+      ],
+      "objects": "Gelas ukur, cairan, baki",
+      "source": "concepts/sources/measuring-glass.html"
+    },
+    {
+      "id": "marble-gates",
+      "name": "Marble Gates",
+      "author": "astra",
+      "origin": "Astra concept (static cover)",
+      "type": "concept",
+      "tier": "new",
+      "axes": null,
+      "series": [
+        "how-ai-works"
+      ],
+      "metaphor": "One brass marble, many gates: the path it takes is the answer being chosen.",
+      "signature": "Concept only - the marble rolls and gates flip as it passes.",
+      "cover": "covers/marble-gates.jpg",
+      "aliases": [
+        "chatgpt-08"
+      ],
+      "palette": [
+        "#E9EDF2",
+        "#203656",
+        "#D49A52"
+      ],
+      "objects": "Kelereng kuningan, gerbang, rel",
+      "source": "concepts/sources/marble-gates.html"
+    },
+    {
+      "id": "open-kitchen",
+      "name": "Open Kitchen",
+      "author": "astra",
+      "origin": "Astra concept (static cover)",
+      "type": "concept",
+      "tier": "new",
+      "axes": null,
+      "series": [
+        "how-ai-works"
+      ],
+      "metaphor": "An open kitchen with order tickets and covered plates: the reply is cooked step by step.",
+      "signature": "Concept only - tickets clip onto the rail, cloches lift.",
+      "cover": "covers/open-kitchen.jpg",
+      "aliases": [
+        "chatgpt-09"
+      ],
+      "palette": [
+        "#EFE7D9",
+        "#254B70",
+        "#BB674B"
+      ],
+      "objects": "Tutup saji, piring, tiket pesanan",
+      "source": "concepts/sources/open-kitchen.html"
+    },
+    {
+      "id": "baggage-belt",
+      "name": "Baggage Belt",
+      "author": "astra",
+      "origin": "Astra concept (static cover)",
+      "type": "concept",
+      "tier": "new",
+      "axes": null,
+      "series": [
+        "how-ai-works"
+      ],
+      "metaphor": "A baggage conveyor with diverters routing sentence pieces to the right place.",
+      "signature": "Concept only - suitcases ride the belt and diverters swing.",
+      "cover": "covers/baggage-belt.jpg",
+      "aliases": [
+        "chatgpt-10"
+      ],
+      "palette": [
+        "#E6EAF0",
+        "#253D60",
+        "#C78948"
+      ],
+      "objects": "Koper, ban berjalan, pengalih",
+      "source": "concepts/sources/baggage-belt.html"
+    }
+  ]
+}

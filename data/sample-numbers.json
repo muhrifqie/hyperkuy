@@ -1,0 +1,25 @@
+{
+  "series_id": "ai-in-numbers",
+  "series": "AI dalam angka",
+  "ep": "#01",
+  "kicker": "AI dalam angka · #01",
+  "title": "1 chat ke AI = oven nyala 1 detik",
+  "hl": "1 detik",
+  "sub": "Kecil? Kalikan miliaran chat tiap hari.",
+  "items": [
+    {
+      "label": "Listrik per chat",
+      "value": "0,34 Wh"
+    },
+    {
+      "label": "Setara oven",
+      "value": "±1 dtk"
+    },
+    {
+      "label": "Chat per hari",
+      "value": "miliaran"
+    }
+  ],
+  "source": "klaim OpenAI, Jun 2025",
+  "date": "per 14 Okt 2026"
+}

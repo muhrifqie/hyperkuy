@@ -1,0 +1,15 @@
+Hyperkuy
+Copyright (c) 2026 Waroengku — MIT licence (see LICENSE).
+
+Third-party material:
+
+1. Eight templates (biennale-yellow, blockframe, bold-poster, broadside, capsule,
+   cobalt-grid, cartesian, code-editorial) are 9:16 adaptations of the official
+   HyperFrames frame presets by HeyGen, licensed under the Apache License 2.0.
+   https://github.com/heygen-com/hyperframes
+
+2. concepts/assets/manrope.ttf and concepts/assets/space-mono.ttf are licensed
+   under the SIL Open Font License 1.1 (see the accompanying *-OFL.txt files).
+
+3. Templates load fonts from Google Fonts at render time; each font keeps its own
+   licence (mostly SIL OFL 1.1).

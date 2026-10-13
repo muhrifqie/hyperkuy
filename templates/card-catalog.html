@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Kartu Katalog (hook)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Libre+Franklin:wght@600&display=block" rel="stylesheet">
+<!--DATA-->
+<style>
+  /*
+    Kartu Katalog (g2-kartu-katalog): an oak library card-catalog drawer pulled out towards
+    the camera (CSS 3D). Inside: 3x5 inch cream cards on the metal rod, typewriter text,
+    call number top-left, red rule under the heading. Items = one card each in the same
+    drawer; the hl card is raised 60 px above the rod and fully readable, the others lean
+    back in a frozen riffle so only their heading line shows. Brass label plate on the
+    drawer front carries the series + episode; the date is a red library stamp.
+
+    Metaphor: RAG / embeddings. The drawer = vector neighbourhood (close cards stored
+    together), call number = address in the vector store, the riffle = nearest-neighbour
+    search stopping at the best match.
+
+    Signature move (video, not animated in this still): the drawer slides out towards the
+    camera (0.7 s), the cards riffle back-to-front (rotateX rolling, 14 cards/s, slight
+    motion blur), stop, then the hl card rises 60 px and its text is re-typed with a
+    +-1 px baseline jitter and a key click every 3 characters.
+  */
+  :root {
+    --bg: #F3EEDF;        /* cream (page + cards) */
+    --card: #F6F1E2;
+    --ink: #2A2A2A;       /* typewriter ribbon */
+    --meta: #6F6758;
+    --red: #B7321F;       /* card rule + date stamp, the only accent */
+    --oak: #5A3E2B;       /* drawer wood */
+    --oak-dk: #3F2A1B;
+    --oak-lt: #6E4D35;
+    --brass: #B99650;
+    --brass-dk: #7D6230;
+    --mono: "Courier Prime", "Courier New", monospace;
+    --sans: "Libre Franklin", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--bg); color: var(--ink); }
+  body { position: relative; font-family: var(--mono); }
+  svg.bg { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  .top { position: absolute; left: 90px; right: 90px; top: 300px; display: flex; justify-content: space-between; align-items: baseline;
+    font: 400 28px/1.2 var(--mono); color: var(--meta); }
+  .title { position: absolute; left: 90px; width: 900px; top: 350px; font: 700 76px/1.12 var(--mono); color: var(--ink); letter-spacing: -0.01em; }
+  .title .ch { display: inline-block; position: relative; }      /* per-glyph baseline jitter set inline */
+  .title .hl { color: var(--red); }
+  .meta { position: absolute; left: 90px; right: 90px; top: 1560px; display: flex; justify-content: space-between; align-items: center;
+    font: 400 26px/1.3 var(--mono); color: var(--meta); }
+  .meta span:first-child { max-width: 600px; }
+  /* red library date stamp */
+  .stamp { font: 700 26px/1 var(--mono); color: var(--red); border: 3px solid var(--red); padding: 8px 12px 6px; letter-spacing: .04em;
+    transform: rotate(-3deg); filter: url(#inkrough); white-space: nowrap; }
+
+  /* ---------- 3D scene ---------- */
+  .scene { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; perspective: 1900px; perspective-origin: 50% 34%; }
+  .world { position: absolute; left: 480px; top: 1392px; width: 0; height: 0; transform-style: preserve-3d; transform: rotateX(-34deg); }
+  .world > * { position: absolute; transform-style: preserve-3d; }
+  .face { position: absolute; }
+  /* wood grain texture: rasterised background (an inline filtered SVG inside a 3D face leaks outside its box in Chrome) */
+  .wood { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='120'><filter id='w'><feTurbulence type='fractalNoise' baseFrequency='.01 .4' numOctaves='3' seed='8' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncA type='linear' slope='1.6' intercept='-.35'/></feComponentTransfer></filter><rect width='100%' height='100%' filter='url(%23w)' opacity='.5'/></svg>"); background-size: 400px 120px; }
+
+  /* cabinet front behind the drawer: the opening it slid out of, plus neighbouring drawer fronts */
+  .cabinet { background: var(--oak); }
+  .cabinet .hole { position: absolute; background: #1E1510; }
+  .cabinet .dfront { position: absolute; background: var(--oak-lt); border: 2px solid var(--oak-dk); }
+  .plate { position: absolute; background: var(--brass); border: 2px solid var(--brass-dk); display: flex; align-items: center; justify-content: center;
+    font: 600 22px var(--sans); color: #2E2410; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+  .plate::before, .plate::after { content: ""; position: absolute; top: 50%; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; background: var(--brass-dk); }
+  .plate::before { left: 8px; } .plate::after { right: 8px; }
+  .pull { position: absolute; background: var(--brass); border: 2px solid var(--brass-dk); border-radius: 12px; }
+
+  .floor { background: #2B1C12; }
+  .wall { background: var(--oak); }
+  .wall.l { background: #4A3222; } .wall.r { background: #6A4A33; } .wall.b { background: #4F3625; }
+  .rod { background: #B5B5B5; border-radius: 6px; box-shadow: inset 3px 0 0 #E2E2E2, inset -3px 0 0 #7A7A7A; }
+  .front { background: var(--oak); border: 3px solid var(--oak-dk); }
+  .front .plate { font-size: 26px; }
+
+  /* card: 3x5, red rule under the heading, faint ruled lines, rod hole at the bottom centre */
+  .card { background: var(--card); border: 1px solid #D9D2BF; box-shadow: 0 2px 0 #CFC7B2;
+    background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 45px, #DDD6C3 45px, #DDD6C3 46px);
+    background-position: 0 72px; background-size: 100% 46px; background-repeat: repeat-y; }
+  .card::before { content: ""; position: absolute; left: 0; right: 0; top: 70px; height: 3px; background: var(--red); opacity: .85; }
+  .card .hole { position: absolute; left: 50%; bottom: 0; width: 46px; height: 24px; margin-left: -23px; background: #6B6B6B; border-radius: 23px 23px 0 0; }
+  .card .cn { position: absolute; left: 18px; top: 12px; font: 400 30px/1.05 var(--mono); color: var(--ink); white-space: pre; }
+  .card .hd { position: absolute; left: 150px; right: 16px; top: 16px; font: 700 38px/1.05 var(--mono); color: var(--ink); text-transform: uppercase; white-space: nowrap; overflow: hidden; }
+  .card .sb { position: absolute; left: 24px; right: 24px; top: 92px; font: 400 40px/46px var(--mono); color: var(--ink); }
+  .card.hl .hd, .card.hl .cn, .card.hl .sb { color: #111; }
+  .card .ink { position: absolute; inset: 0; pointer-events: none; opacity: .12; mix-blend-mode: multiply; }
+</style>
+</head>
+<body>
+<svg class="bg" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="paper" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="2" seed="4" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+    </filter>
+    <filter id="wood" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency=".012 .35" numOctaves="3" seed="8" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+    </filter>
+    <filter id="inkrough" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="2" seed="5" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.5" xChannelSelector="R" yChannelSelector="G" result="d"/>
+      <feTurbulence type="fractalNoise" baseFrequency=".5" numOctaves="3" seed="9" result="n2"/>
+      <feColorMatrix in="n2" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1.6 0 0 0 -0.55" result="a"/>
+      <feComposite in="d" in2="a" operator="out"/>
+    </filter>
+  </defs>
+  <rect width="1080" height="1920" fill="#F3EEDF"/>
+  <rect width="1080" height="1920" filter="url(#paper)" opacity=".10"/>
+</svg>
+
+<div class="top"><span id="kicker"></span><span id="ep"></span></div>
+<h1 class="title" id="title"></h1>
+
+<div class="scene"><div class="world" id="world"></div></div>
+
+<div class="meta"><span id="source"></span><span class="stamp" id="date"></span></div>
+
+<script>
+  // Fallback sample so the file renders when opened directly in a browser.
+  const FALLBACK = {
+    series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" },
+            { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi, jumlah token beda tiap model", date: "per 14 Okt 2026"
+  };
+  const D = window.D && window.D.title ? window.D : FALLBACK;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  // hl item: label containing hl, else value containing hl, else value sharing hl's number, else the first item.
+  function pickHl(items, hl) {
+    const h = String(hl ?? "").trim().toLowerCase();
+    if (!h) return 0;
+    let i = items.findIndex((it) => String(it.label).toLowerCase().includes(h));
+    if (i < 0) i = items.findIndex((it) => String(it.value).toLowerCase().includes(h));
+    if (i < 0) { const m = h.match(/\d+(?:[.,]\d+)?/); if (m) i = items.findIndex((it) => String(it.value).includes(m[0])); }
+    return i < 0 ? 0 : i;
+  }
+  // Title as typewriter glyphs: each character gets a fixed +-1 px baseline offset (deterministic pattern).
+  function typeTitle(t, hl) {
+    const i = hl ? t.toLowerCase().indexOf(String(hl).toLowerCase()) : -1;
+    const jit = [0, 1, -1, 0, 0, 1, 0, -1, 0, 1];
+    const words = t.split(" ");
+    let pos = 0, out = "";
+    words.forEach((w, wi) => {
+      let html = "";
+      for (const c of w) {
+        const inHl = i >= 0 && pos >= i && pos < i + hl.length;
+        html += `<span class="ch${inHl ? " hl" : ""}" style="top:${jit[pos % jit.length]}px">${esc(c)}</span>`;
+        pos++;
+      }
+      out += `<span style="white-space:nowrap">${html}</span>`;
+      if (wi < words.length - 1) { out += " "; pos++; }
+    });
+    return out;
+  }
+
+  const items = (D.items || []).slice(0, 5);
+  const hlIdx = pickHl(items, D.hl);
+  const kicker = D.kicker || [D.series, D.ep].filter(Boolean).join(" · ");
+  $("kicker").textContent = D.series || kicker;
+  $("ep").textContent = D.ep || "";
+  $("title").innerHTML = typeTitle(D.title || "", D.hl);
+  $("source").textContent = D.source ? "sumber: " + D.source : "";
+  $("date").textContent = (D.date || "").toUpperCase();
+
+  // Title: 76px down to 60px until it fits in 3 lines.
+  const t = $("title");
+  let size = 76;
+  for (;;) { t.style.fontSize = size + "px"; if (t.scrollHeight <= size * 1.12 * 3 + 6 || size <= 60) break; size -= 2; }
+
+  // scene position: the cabinet top must clear the title (3 lines -> lower, smaller camera tilt keeps the front above the meta line)
+  const titleBottom = 350 + t.offsetHeight;
+  const world = $("world");
+
+  /* ---------- drawer geometry (world units = px; origin = drawer front, floor level, centre) ---------- */
+  const W = 640, DEPTH = 900, WALL = 230, FRONT = 150, CW = 580, CH = 348, SP = 150;
+  const grain = () => "";                       // grain comes from the .wood background texture
+  const face = (cls, w, h, style, inner = "") => `<div class="face ${cls}" style="width:${w}px;height:${h}px;${style}">${inner}</div>`;
+  let html = "";
+
+  // cabinet front: a panel at the back with the drawer opening and two neighbouring drawers above it
+  const CABW = 920, CABH = 540;
+  html += face("cabinet wood", CABW, CABH, `left:${-CABW / 2}px;top:${-CABH + 40}px;transform:translateZ(${-DEPTH - 24}px)`,
+    grain(.28) +
+    `<div class="hole" style="left:${(CABW - W) / 2 - 14}px;bottom:0;width:${W + 28}px;height:${WALL + 60}px"></div>` +
+    [0, 1, 2].map((i) => { const dw = (CABW - 40) / 3 - 10, x = 20 + i * (dw + 15);
+      const lbl = ["Aa-Az", "Ba-Bz", "Ca-Cz"][i];
+      return `<div class="dfront wood" style="left:${x}px;top:22px;width:${dw}px;height:${CABH - WALL - 60 - 40}px">${grain(.2)}
+        <div class="plate" style="left:50%;top:40%;width:170px;height:50px;margin-left:-85px;margin-top:-25px">${lbl}</div>
+        <div class="pull" style="left:50%;top:40%;width:100px;height:18px;margin-left:-50px;margin-top:44px"></div></div>`; }).join(""));
+
+  // drawer box: floor, three walls (the front is a separate taller panel)
+  html += face("floor", W, DEPTH, `left:${-W / 2}px;top:0;transform-origin:0 0;transform:rotateX(-90deg)`);
+  html += face("wall b wood", W, WALL, `left:${-W / 2}px;top:${-WALL}px;transform:translateZ(${-DEPTH}px)`, grain(.25));
+  html += face("wall l wood", DEPTH, WALL, `left:${-W / 2}px;top:${-WALL}px;transform-origin:0 0;transform:rotateY(90deg)`, grain(.25));
+  html += face("wall r wood", DEPTH, WALL, `left:${W / 2}px;top:${-WALL}px;transform-origin:0 0;transform:rotateY(90deg)`, grain(.25));
+  // rod through the cards, 56 px above the floor
+  html += face("rod", 14, DEPTH - 20, `left:-7px;top:0;transform:translateY(-56px) translateZ(-10px) rotateX(-90deg);transform-origin:0 0`);
+
+  /* ---------- cards ---------- */
+  const callNo = (v) => { const s = String(v ?? "").trim(); const sp = s.indexOf(" "); return sp < 0 ? [s, ""] : [s.slice(0, sp), s.slice(sp + 1)]; };
+  const card = (it, k, opts) => {
+    // k = slot from the front (0 = front); lean = rotateX about the bottom edge (riffle frozen); raise = hl lift
+    const z = -k * SP - 30, raise = opts.raise || 0;
+    // cap the lean so the card's top edge stays in front of the back wall (a card through the wall breaks Chrome's plane sorting)
+    const maxLean = Math.asin(Math.max(0, Math.min(1, (DEPTH - 50 + z) / CH))) * 180 / Math.PI;
+    const lean = Math.min(opts.lean, maxLean);
+    const [c1, c2] = it ? callNo(it.value) : ["", ""];
+    const tf = `translateZ(${z}px) translateY(${-raise}px) rotateX(${lean}deg)`;
+    const body = it ? `<div class="cn">${esc(c1)}\n${esc(c2)}</div><div class="hd">${esc(it.label)}</div>` +
+      (opts.hl ? `<div class="sb">${esc(D.sub || "")}</div>` : "") : "";
+    return `<div class="face card${opts.hl ? " hl" : ""}" style="left:${-CW / 2}px;top:${-CH}px;width:${CW}px;height:${CH}px;transform-origin:50% 100%;transform:${tf}">
+      ${body}<div class="hole"></div></div>`;
+  };
+  // order: hl card in front, the rest behind in their original order, then blank filler cards to the back wall
+  const order = [items[hlIdx], ...items.filter((_, i) => i !== hlIdx)];
+  const cards = [];
+  order.forEach((it, k) => cards.push(card(it, k, { hl: k === 0, lean: k === 0 ? 4 : 10 + k * 8, raise: k === 0 ? 60 : 0 })));
+  const fillerStart = order.length, lastLean = 10 + (fillerStart - 1) * 8, fillerN = Math.floor((DEPTH - 160 - fillerStart * SP) / 44);
+  for (let j = 0; j < fillerN; j++) {
+    const k = fillerStart + 0.3 + j * 44 / SP;
+    cards.push(card(null, k, { lean: Math.min(52, lastLean + 8 + j * 3) }));
+  }
+  html += cards.reverse().join("");   // back to front so the DOM order matches depth for any z-fighting
+
+  // drawer front: taller than the walls, brass label plate with the series, brass pull below it
+  const FW = W + 36, FH = FRONT + 30;
+  html += face("front wood", FW, FH, `left:${-FW / 2}px;top:${-FRONT}px;transform:translateZ(18px)`,
+    grain(.28) + `<div class="plate" style="left:50%;top:22px;width:420px;height:58px;margin-left:-210px">${esc(kicker)}</div>` +
+    `<div class="pull" style="left:50%;top:102px;width:150px;height:24px;margin-left:-75px"></div>`);
+
+  world.innerHTML = html;
+
+  // Fit the scene between the title and the meta line: push the world down until the cabinet
+  // clears the title, then if the drawer front would reach the meta line, trim the cabinet's top instead.
+  (function fit() {
+    const cab = world.querySelector(".cabinet"), front = world.querySelector(".front");
+    let top = 1392;
+    const need = titleBottom + 26 - cab.getBoundingClientRect().top;
+    if (need > 0) { top += need; world.style.top = top + "px"; }
+    const excess = front.getBoundingClientRect().bottom - 1526;
+    if (excess > 0) {
+      top -= excess; world.style.top = top + "px";
+      const cut = Math.round(excess / 0.6);           // screen px -> world px on the tilted back plane
+      cab.style.top = (-CABH + 40 + cut) + "px"; cab.style.height = (CABH - cut) + "px";
+      cab.querySelectorAll(".dfront").forEach((d) => { d.style.height = Math.max(90, CABH - cut - WALL - 100) + "px"; });
+    }
+  })();
+
+  // heading starts right of the call number; must not overflow the card: shrink to 32px, then clip (overflow hidden)
+  document.querySelectorAll(".card .cn").forEach((c) => { const h = c.parentNode.querySelector(".hd"); if (h) h.style.left = Math.max(150, c.offsetLeft + c.offsetWidth + 18) + "px"; });
+  document.querySelectorAll(".card .hd").forEach((h) => { let f = 38; while (h.scrollWidth > h.clientWidth && f > 32) { f -= 1; h.style.fontSize = f + "px"; } });
+  // plate text: shrink until it fits
+  document.querySelectorAll(".front .plate").forEach((p) => { let f = 26; while (p.scrollWidth > p.clientWidth - 40 && f > 20) { f -= 1; p.style.fontSize = f + "px"; } });
+</script>
+</body>
+</html>

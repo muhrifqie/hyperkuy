@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,500;0,600;1,500&family=Courier+Prime:wght@400;700&family=Inter:wght@500&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Notasi Catur (g2-notasi-catur): a page from a printed chess book (Chess
+    Informant tradition). The object is a real 8x8 diagram: dark squares are
+    ink-hatched (no colour), pieces are flat Staunton silhouettes, coordinates
+    a-h / 1-8 sit in the margin. Below the diagram runs the notation column:
+    every `item` is one move of a REAL opening sequence (Evans Gambit) whose
+    Indonesian label is the "name" of the move; the value is the evaluation in
+    the margin. The `hl` item gets the "!" and its move is drawn on the board
+    as a cobalt arrow (the only accent colour on the page).
+
+    Signature move (video, not animated here): the piece slides to its square
+    (0.4 s, no bounce); a second later the move types itself into the notation
+    column, the "!" appearing last. Scene change = the board flips 180 degrees.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #F4F1E8; }
+  body { position: relative; color: #1A1A1A; font-family: "Crimson Pro", Georgia, serif; }
+
+  .head { position: absolute; left: 90px; right: 90px; top: 296px; display: flex; justify-content: space-between; align-items: baseline;
+          font: 500 26px "Inter", sans-serif; letter-spacing: 0.1em; text-transform: uppercase; color: #6E6A60; padding-bottom: 10px; border-bottom: 2px solid #1A1A1A; }
+  .title { position: absolute; left: 90px; width: 900px; top: 350px; font-size: 88px; font-weight: 600; line-height: 1.02; letter-spacing: -0.012em; }
+  .title .hl { color: #1F4FD8; }
+  #board { position: absolute; left: 60px; top: 616px; width: 640px; height: 600px; display: block; }
+  .margin { position: absolute; left: 700px; width: 290px; top: 612px; text-align: right; }
+  .margin .bang { font-size: 190px; line-height: 0.82; font-weight: 600; color: #1F4FD8; }
+  .margin .mv { font: 700 30px "Courier Prime", monospace; margin-top: 14px; }
+  .margin .lb { font-size: 32px; font-weight: 600; line-height: 1.1; margin-top: 8px; }
+  .margin .val { font: 400 30px "Courier Prime", monospace; color: #6E6A60; margin-top: 4px; }
+  .caption { position: absolute; left: 90px; width: 800px; top: 1216px; font-size: 40px; font-style: italic; font-weight: 500; line-height: 1.25; }
+  .moves { position: absolute; left: 90px; width: 800px; top: 1340px; }
+  .row { display: grid; grid-template-columns: 56px 128px 1fr auto; align-items: baseline; height: 46px; }
+  .row .n { font: 400 34px "Courier Prime", monospace; color: #6E6A60; }
+  .row .mv { font: 700 34px "Courier Prime", monospace; }
+  .row .lb { font-size: 42px; font-weight: 600; white-space: nowrap; overflow: hidden; }
+  .row .val { font: 400 36px "Courier Prime", monospace; padding-left: 24px; white-space: nowrap; }
+  .row.hl .mv, .row.hl .lb, .row.hl .val { color: #1F4FD8; }
+  .tail { margin-top: 10px; padding-top: 10px; border-top: 1.5px solid #1A1A1A; font: 400 26px "Courier Prime", monospace; color: #6E6A60; }
+  .foot { position: absolute; left: 90px; right: 90px; top: 1596px; display: flex; justify-content: space-between; gap: 40px; font: 500 26px "Inter", sans-serif; color: #6E6A60; line-height: 1.4; }
+  .foot span:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="head"><span id="kick"></span><span id="ep"></span></div>
+<div class="title" id="title"></div>
+<svg id="board" viewBox="0 0 640 600" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="margin"><div class="bang">!</div><div class="mv" id="mmv"></div><div class="lb" id="mlb"></div><div class="val" id="mval"></div></div>
+<div class="caption" id="sub"></div>
+<div class="moves" id="moves"></div>
+<div class="foot"><span id="src"></span><span id="date"></span></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi, jumlah token beda tiap model", date: "per 14 Okt 2026" };
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const hlWrap = (t, h) => { const i = h ? t.toLowerCase().indexOf(h.toLowerCase()) : -1;
+    return i < 0 ? esc(t) : esc(t.slice(0, i)) + `<span class="hl">${esc(t.slice(i, i + h.length))}</span>` + esc(t.slice(i + h.length)); };
+  const items = (D.items || []).slice(0, 5);
+  const INK = "#1A1A1A", PAPER = "#F4F1E8", ACC = "#1F4FD8", HATCH = "#C9C4B4";
+
+  document.getElementById("kick").textContent = D.series || D.kicker || "";
+  document.getElementById("ep").textContent = D.ep || "";
+  document.getElementById("title").innerHTML = hlWrap(D.title || "", D.hl);
+  document.getElementById("sub").textContent = D.sub || "";
+  document.getElementById("src").textContent = D.source ? `sumber: ${D.source}` : "";
+  document.getElementById("date").textContent = D.date || "";
+
+  /* ---------- A real opening: Evans Gambit. White moves are the items, black replies keep the board honest. ---------- */
+  const W = [["e2", "e4", "e4"], ["g1", "f3", "Nf3"], ["f1", "c4", "Bc4"], ["b2", "b4", "b4"], ["c2", "c3", "c3"]];
+  const B = [["e7", "e5", "e5"], ["b8", "c6", "Nc6"], ["f8", "c5", "Bc5"], ["c5", "b4", "Bxb4"], ["g8", "f6", "Nf6"]];
+  const n = items.length;
+  const hlq = String(D.hl || "").toLowerCase();
+  let h = hlq ? items.findIndex((it) => String(it.label).toLowerCase().includes(hlq)) : -1;
+  if (h < 0) h = n - 1;                                   // the punchline move gets the "!" when no label matches
+
+  // Board state: "wK" = white king, "bp" = black pawn, etc. Rank 8 is row 0.
+  const pos = {};
+  const back = "rnbqkbnr";
+  for (let f = 0; f < 8; f++) {
+    const file = "abcdefgh"[f];
+    pos[file + "8"] = "b" + back[f]; pos[file + "7"] = "bp"; pos[file + "2"] = "wp"; pos[file + "1"] = "w" + back[f];
+  }
+  const mv = (m) => { pos[m[1]] = pos[m[0]]; delete pos[m[0]]; };
+  for (let i = 0; i < h; i++) { mv(W[i]); mv(B[i]); }   // position before the highlighted move
+
+  /* ---------- Pieces: flat Staunton silhouettes in a 100x100 box (y down). ---------- */
+  const BASE = "M24 80 H76 L80 92 H20 Z";
+  const P = {
+    p: [`M50 20 a12 12 0 1 1 -0.1 0 Z`, `M38 46 H62 V53 H38 Z`, `M41 53 H59 L66 80 H34 Z`, BASE],
+    r: [`M30 16 H40 V26 H46 V16 H54 V26 H60 V16 H70 V34 H30 Z`, `M36 34 H64 L66 80 H34 Z`, BASE],
+    b: [`M50 8 a5 5 0 1 1 -0.1 0 Z`, `M50 16 C33 26 31 44 41 52 H59 C69 44 67 26 50 16 Z`, `M36 52 H64 V59 H36 Z`, `M40 59 H60 L66 80 H34 Z`, BASE],
+    n: [`M30 80 C32 66 30 56 24 48 L21 41 C22 35 28 33 34 29 L40 20 L46 11 L50 20 L58 9 L61 22 C72 31 73 52 70 80 Z`, BASE],
+    q: [`M26 38 L21 14 L36 31 L42 7 L50 28 L58 7 L64 31 L79 14 L74 38 Z`, `M30 38 H70 V44 H30 Z`, `M35 44 H65 L68 80 H32 Z`, BASE],
+    k: [`M46 3 H54 V10 H61 V17 H54 V24 H46 V17 H39 V10 H46 Z`, `M30 42 C30 27 42 23 50 31 C58 23 70 27 70 42 L66 46 H34 Z`, `M35 46 H65 L68 80 H32 Z`, BASE]
+  };
+  const piece = (code, cx, cy, s) => {
+    const white = code[0] === "w", t = code[1];
+    const fill = white ? PAPER : INK, stroke = INK, detail = white ? INK : PAPER;
+    let g = `<g transform="translate(${cx - 50 * s} ${cy - 50 * s}) scale(${s})" fill="${fill}" stroke="${stroke}" stroke-width="4" stroke-linejoin="round">`;
+    g += P[t].map((d) => `<path d="${d}"/>`).join("");
+    if (t === "b") g += `<path d="M51 26 L59 44" stroke="${detail}" stroke-width="3.5" fill="none"/>`;        // mitre slit
+    if (t === "n") g += `<circle cx="44" cy="31" r="3" fill="${detail}" stroke="none"/><path d="M26 44 L34 40" stroke="${detail}" stroke-width="3" fill="none"/>`;
+    if (t === "k") g += `<path d="M36 52 H64" stroke="${detail}" stroke-width="3" fill="none"/>`;
+    return g + "</g>";
+  };
+
+  /* ---------- Diagram geometry: 8 squares of 68 px, left margin 56 for rank numbers. ---------- */
+  const SQ = 68, OX = 56, OY = 4, files = "abcdefgh";
+  const sqXY = (sq) => [OX + files.indexOf(sq[0]) * SQ, OY + (8 - +sq[1]) * SQ];
+  let svg = `<defs><pattern id="hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="7" stroke="${HATCH}" stroke-width="2.2"/></pattern>
+    <marker id="ah" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="3.2" markerHeight="3.2" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 Z" fill="${ACC}"/></marker></defs>`;
+  for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
+    const dark = (r + f) % 2 === 1;
+    svg += `<rect x="${OX + f * SQ}" y="${OY + r * SQ}" width="${SQ}" height="${SQ}" fill="${dark ? "url(#hatch)" : PAPER}"/>`;
+  }
+  svg += `<rect x="${OX}" y="${OY}" width="${SQ * 8}" height="${SQ * 8}" fill="none" stroke="${INK}" stroke-width="3"/>`;
+  for (let i = 0; i < 8; i++) {
+    svg += `<text x="${OX - 16}" y="${OY + i * SQ + SQ / 2 + 9}" text-anchor="end" font-family="Courier Prime" font-size="26" fill="#6E6A60">${8 - i}</text>`;
+    svg += `<text x="${OX + i * SQ + SQ / 2}" y="${OY + SQ * 8 + 34}" text-anchor="middle" font-family="Courier Prime" font-size="26" fill="#6E6A60">${files[i]}</text>`;
+  }
+  // Highlighted move: destination square outlined, arrow from origin to destination.
+  const move = W[h], [fx, fy] = sqXY(move[0]), [tx, ty] = sqXY(move[1]);
+  svg += `<rect x="${tx + 3}" y="${ty + 3}" width="${SQ - 6}" height="${SQ - 6}" fill="none" stroke="${ACC}" stroke-width="4"/>`;
+  for (const sq in pos) { const [x, y] = sqXY(sq); svg += piece(pos[sq], x + SQ / 2, y + SQ / 2 + 1, 0.68); }
+  {
+    const ax = fx + SQ / 2, ay = fy + SQ / 2, bx = tx + SQ / 2, by = ty + SQ / 2;
+    const dx = bx - ax, dy = by - ay, L = Math.hypot(dx, dy), k = (L - 22) / L;
+    svg += `<line x1="${ax}" y1="${ay}" x2="${ax + dx * k}" y2="${ay + dy * k}" stroke="${ACC}" stroke-width="9" stroke-linecap="round" marker-end="url(#ah)" opacity="0.92"/>`;
+  }
+  document.getElementById("board").innerHTML = svg;
+
+  /* ---------- Margin annotation + notation column. ---------- */
+  const hi = items[h] || { label: "", value: "" };
+  document.getElementById("mmv").textContent = `${h + 1}. ${move[2]}!`;
+  document.getElementById("mlb").textContent = hi.label;
+  document.getElementById("mval").textContent = hi.value;
+  const rows = items.map((it, i) => `<div class="row${i === h ? " hl" : ""}">
+      <span class="n">${i + 1}.</span><span class="mv">${W[i][2]}${i === h ? "!" : ""}</span>
+      <span class="lb">${esc(it.label)}</span><span class="val">${esc(it.value)}</span></div>`).join("");
+  const after = h > 0 ? `diagram setelah ${h}...${B[h - 1][2]}` : "diagram posisi awal";
+  document.getElementById("moves").innerHTML = rows + `<div class="tail">${after} · giliran Putih</div>`;
+
+  // Fit: title shrinks to stay above the diagram; caption/moves/foot flow down if the caption wraps to 3 lines.
+  const fit = () => {
+    const t = document.getElementById("title"); let fs = 88; t.style.fontSize = fs + "px";
+    while ((t.offsetHeight > fs * 3.1 || 350 + t.offsetHeight > 596) && fs > 60) { fs -= 2; t.style.fontSize = fs + "px"; }
+    const cap = document.getElementById("sub"), mv = document.getElementById("moves"), ft = document.querySelector(".foot");
+    const mvTop = Math.max(1300, 1216 + cap.offsetHeight + 40); mv.style.top = mvTop + "px";
+    ft.style.top = Math.max(1596, mvTop + mv.offsetHeight + 26) + "px";
+    document.querySelectorAll(".row .lb").forEach((el) => { let f = 42; while (el.scrollWidth > el.clientWidth && f > 32) { f -= 1; el.style.fontSize = f + "px"; } });
+  };
+  fit(); (document.fonts ? document.fonts.ready : Promise.resolve()).then(fit);
+</script>
+</body>
+</html>

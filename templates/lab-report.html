@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400..800&family=Archivo+Narrow:wght@500;600;700&family=Roboto+Mono:wght@500;600&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Hasil Lab (opus-hasil-lab): a generic clinical laboratory results report
+    (no real lab, no real names). A white report sheet on a cool grey desk:
+    thin blue header band with a neutral flask monogram, a patient/sample meta
+    grid (series / ep / date / source), "KESIMPULAN" headline (= `title`, `hl`
+    printed like a bold flagged value with an H tag), `sub` as the clinical
+    note, then the results table PEMERIKSAAN | HASIL | SATUAN | RUJUKAN* |
+    FLAG. Each item is a test row: label = test name, value split into number
+    + unit, a reference-range bar (normal band + marker dot) and an H/L flag
+    chosen deterministically; flagged rows get a faint tint. Reference ranges
+    and flags are explicitly marked as illustration. Footer: validation stamp
+    and signature line, no names.
+
+    Signature move (video): the table prints row by row like a thermal/laser
+    report; on each row the marker dot slides along its reference bar and
+    settles, and when it lands past the normal band the row tints and a bold
+    "H" thumps into the FLAG column, then the validation stamp presses down.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root { --blue: #1D4FB8; --blue-soft: #E8EFFB; --ink: #12161F; --muted: #5B6474; --rule: #CDD4DF; --red: #B8322A; --red-soft: #FCEEEC; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #E4E8EE; }
+  body { position: relative; color: var(--ink); font-family: "Archivo", sans-serif; }
+
+  .sheet { position: absolute; left: 44px; right: 44px; top: 224px; bottom: 196px; background: #fff; border-radius: 4px; box-shadow: 0 2px 0 rgba(20, 30, 50, 0.05), 0 24px 60px rgba(20, 30, 50, 0.12); }
+  .band { position: absolute; left: 44px; right: 44px; top: 262px; height: 92px; background: var(--blue); display: flex; align-items: center; gap: 22px; padding: 0 46px; color: #fff; }
+  .band svg { width: 58px; height: 58px; flex: none; }
+  .band .nm { font: 700 34px "Archivo Narrow", sans-serif; letter-spacing: 0.06em; line-height: 1; }
+  .band .nm small { display: block; font: 500 26px "Archivo", sans-serif; font-stretch: 100%; letter-spacing: 0.02em; opacity: 0.85; margin-top: 6px; }
+  .band .rk { margin-left: auto; text-align: right; font: 600 26px "Roboto Mono", monospace; line-height: 1.25; }
+
+  #doc { position: absolute; left: 90px; top: 378px; width: 900px; }
+  .meta { display: grid; grid-template-columns: 0.9fr 1.1fr; column-gap: 28px; row-gap: 10px; padding-bottom: 16px; border-bottom: 2px solid var(--rule); }
+  .meta .c { min-width: 0; }
+  .meta .c.full { grid-column: 1 / -1; }
+  .meta .l { font: 600 27px "Archivo Narrow", sans-serif; letter-spacing: 0.08em; color: var(--muted); }
+  .meta .v { font: 600 31px/1.2 "Archivo", sans-serif; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .meta .src .v { white-space: normal; font-weight: 500; font-size: 29px; }
+
+  .kes { margin-top: 20px; display: flex; align-items: center; gap: 14px; font: 700 30px "Archivo Narrow", sans-serif; letter-spacing: 0.14em; color: var(--blue); }
+  .kes::after { content: ""; flex: 1; height: 2px; background: var(--blue); opacity: 0.35; }
+  #title { margin-top: 6px; font-family: "Archivo", sans-serif; font-weight: 800; line-height: 1.04; letter-spacing: -0.015em; color: var(--ink); }
+  #title .hl { color: var(--red); background: var(--red-soft); padding: 0 0.1em; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+  #title .hl sup { font: 800 0.36em "Archivo", sans-serif; font-stretch: 100%; color: #fff; background: var(--red); padding: 0.06em 0.22em 0.02em; margin-left: 0.12em; vertical-align: 1.35em; letter-spacing: 0; }
+  #sub { margin-top: 14px; font: 500 40px/1.2 "Archivo", sans-serif; color: #343B49; }
+
+  .sect { margin-top: 26px; display: flex; justify-content: space-between; align-items: baseline; width: 810px; font: 700 30px "Archivo Narrow", sans-serif; letter-spacing: 0.12em; color: var(--ink); border-bottom: 3px solid var(--ink); padding-bottom: 6px; }
+  .sect span:last-child { font: 600 26px "Roboto Mono", monospace; letter-spacing: 0; color: var(--muted); }
+  table { width: 810px; border-collapse: collapse; table-layout: fixed; }
+  th { font: 700 30px "Archivo Narrow", sans-serif; letter-spacing: 0; color: var(--muted); text-align: left; padding: 10px 6px 8px; border-bottom: 2px solid var(--rule); background: #F4F6F9; white-space: nowrap; }
+  td { padding: 0 8px; border-bottom: 1.5px solid var(--rule); vertical-align: middle; }
+  td.nm { font: 600 38px/1.08 "Archivo", sans-serif; letter-spacing: -0.01em; padding-top: 8px; padding-bottom: 8px; padding-right: 16px; color: var(--ink); padding-left: 14px; }
+  td.hs { font: 800 44px "Archivo", sans-serif; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--ink); }
+  td.st { font: 500 31px "Archivo Narrow", sans-serif; color: var(--muted); white-space: nowrap; overflow: hidden; }
+  td.rj svg { display: block; }
+  td.fl { text-align: center; font: 800 42px "Archivo", sans-serif; }
+  tr.H td { background: var(--red-soft); }
+  tr.H td.hs, tr.H td.fl { color: var(--red); }
+  tr.L td { background: var(--blue-soft); }
+  tr.L td.hs, tr.L td.fl { color: var(--blue); }
+  tr.H td:first-child { box-shadow: inset 6px 0 0 var(--red); }
+  tr.L td:first-child { box-shadow: inset 6px 0 0 var(--blue); }
+
+  #foot { position: absolute; left: 90px; width: 810px; }
+  .note { font: 500 26px/1.3 "Archivo", sans-serif; color: var(--muted); }
+  .val { display: flex; align-items: flex-end; justify-content: space-between; margin-top: 8px; }
+  .sig { width: 380px; }
+  .sig svg { display: block; }
+  .sig .ln { border-top: 2px solid var(--ink); padding-top: 6px; font: 600 26px "Archivo", sans-serif; color: var(--muted); }
+  .stamp { width: 164px; height: 164px; margin-right: 16px; transform: rotate(-9deg); }
+</style>
+</head>
+<body>
+<div class="sheet"></div>
+<div class="band">
+  <svg viewBox="0 0 58 58" aria-hidden="true">
+    <rect x="1.5" y="1.5" width="55" height="55" rx="10" fill="none" stroke="#fff" stroke-width="3" />
+    <path d="M23 13 H35 M25 13 V25 L15 43 Q13.5 46 17 46 H41 Q44.5 46 43 43 L33 25 V13" fill="none" stroke="#fff" stroke-width="3" stroke-linejoin="round" />
+    <path d="M19.5 37 H38.5 L42 43.5 Q43 45 41 45 H17 Q15 45 16 43.5 Z" fill="#fff" />
+  </svg>
+  <div class="nm">LABORATORIUM KLINIK<small>Laporan hasil pemeriksaan</small></div>
+  <div class="rk" id="rk"></div>
+</div>
+
+<div id="doc">
+  <div class="meta">
+    <div class="c"><div class="l">SAMPEL / SERI</div><div class="v" id="seri"></div></div>
+    <div class="c src"><div class="l">SUMBER DATA</div><div class="v" id="src"></div></div>
+  </div>
+  <div class="kes">KESIMPULAN</div>
+  <div id="title"></div>
+  <div id="sub"></div>
+  <div class="sect"><span id="sect"></span><span id="cnt"></span></div>
+  <table>
+    <colgroup><col style="width:290px" /><col style="width:148px" /><col style="width:118px" /><col style="width:172px" /><col style="width:82px" /></colgroup>
+    <thead><tr><th>PEMERIKSAAN</th><th>HASIL</th><th>SATUAN</th><th>RUJUKAN*</th><th style="text-align:center">FLAG</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+</div>
+
+<div id="foot">
+  <div class="note">* Rentang rujukan &amp; flag hanya ilustrasi, bukan standar resmi.</div>
+  <div class="val">
+    <div class="sig">
+      <svg width="270" height="58" viewBox="0 0 300 70" aria-hidden="true"><path d="M8 52 C30 20 42 14 48 30 C54 46 40 60 34 50 C28 38 70 18 84 26 C96 33 82 52 96 50 C112 47 118 24 132 30 C144 36 136 52 150 50 C170 46 178 30 196 34 C214 38 230 46 262 30" fill="none" stroke="#1D4FB8" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+      <div class="ln" id="sigl"></div>
+    </div>
+    <svg class="stamp" viewBox="0 0 210 210" width="164" height="164" aria-hidden="true">
+      <defs><path id="ring" d="M105 105 m-78 0 a78 78 0 1 1 156 0 a78 78 0 1 1 -156 0" /></defs>
+      <g fill="none" stroke="#1D4FB8" opacity="0.82">
+        <circle cx="105" cy="105" r="100" stroke-width="5" />
+        <circle cx="105" cy="105" r="64" stroke-width="3" />
+      </g>
+      <text font-family="Archivo Narrow" font-weight="700" font-size="22" fill="#1D4FB8" opacity="0.82"><textPath href="#ring" startOffset="0" textLength="478" lengthAdjust="spacing">LAB KLINIK · HASIL TERVERIFIKASI ·</textPath></text>
+      <text x="105" y="102" text-anchor="middle" font-family="Archivo Narrow" font-weight="700" font-size="28" textLength="112" lengthAdjust="spacingAndGlyphs" fill="#1D4FB8" opacity="0.85">DIVALIDASI</text>
+      <text id="stampd" x="105" y="130" text-anchor="middle" font-family="Roboto Mono" font-weight="600" font-size="18" textLength="104" lengthAdjust="spacingAndGlyphs" fill="#1D4FB8" opacity="0.85"></text>
+    </svg>
+  </div>
+</div>
+
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "AI dalam angka", ep: "#01", kicker: "AI dalam angka · #01",
+    title: "1 chat ke AI = oven nyala 1 detik", hl: "1 detik",
+    sub: "Kecil? Kalikan miliaran chat tiap hari.",
+    items: [{ label: "Listrik per chat", value: "0,34 Wh" }, { label: "Setara oven", value: "±1 dtk" }, { label: "Chat per hari", value: "miliaran" }],
+    source: "klaim OpenAI, Jun 2025", date: "per 14 Okt 2026" };
+
+  Promise.all(['700 30px "Archivo Narrow"', '800 90px "Archivo"', '700 30px "Archivo"', '600 38px "Archivo"', '500 40px "Archivo"', '600 26px "Roboto Mono"'].map(f => document.fonts.load(f))).catch(() => {}).then(render);
+
+  function render() {
+    const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const hash = s => { let h = 2166136261; for (const ch of String(s)) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
+    const items = (D.items || []).slice(0, 5);
+    const n = items.length;
+    const epNum = (String(D.ep || "01").replace(/[^0-9]/g, "") || "1").padStart(2, "0");
+    const dateClean = String(D.date || "").replace(/^per\s+/i, "");
+
+    // Meta
+    document.getElementById("rk").innerHTML = "NO. LAB AI-" + esc(epNum.padStart(4, "0")) + "<br>" + esc(dateClean.toUpperCase());
+    document.getElementById("seri").textContent = (D.series || "") + (D.ep ? " " + D.ep : "");
+    document.getElementById("src").textContent = D.source || "—";
+    document.getElementById("sub").textContent = D.sub || "";
+    document.getElementById("sect").textContent = "HASIL PEMERIKSAAN";
+    document.getElementById("cnt").textContent = n + " parameter";
+    document.getElementById("sigl").textContent = "Divalidasi · " + dateClean;
+    document.getElementById("stampd").textContent = dateClean.toUpperCase();
+
+    // Title with hl as a flagged value.
+    const t = D.title || "", hl = D.hl || "";
+    const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    const titleEl = document.getElementById("title");
+    titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "<sup>H</sup></span>" + esc(t.slice(at + hl.length));
+
+    // Value -> number + unit. Non-numeric values stay whole in HASIL.
+    const parse = v => { const m = String(v == null ? "" : v).trim().match(/^([±~≈<>]?\s?\d+(?:[.,]\d+)?)\s*(.*)$/); return m ? { num: m[1].replace(/\s/g, ""), n: parseFloat(m[1].replace(/[^\d.,]/g, "").replace(",", ".")), u: m[2].trim() } : null; };
+    const P = items.map(it => parse(it.value));
+
+    // Deterministic flags: comparable numbers -> every maximum is "H" (and a single minimum "L" with 4+ rows);
+    // otherwise the row matching hl (else the first) is "H", plus one "L" with 4+ rows.
+    const comparable = n > 1 && P.every(Boolean) && P.every(p => p.u === P[0].u);
+    let flags = items.map(() => "");
+    if (comparable) {
+      const vals = P.map(p => p.n), mx = Math.max(...vals), mn = Math.min(...vals);
+      if (mx !== mn) {
+        flags = vals.map(v => v === mx ? "H" : "");
+        if (n >= 4 && vals.filter(v => v === mn).length === 1) flags[vals.indexOf(mn)] = "L";
+      } else flags[0] = "H";
+    } else {
+      let k = hl ? items.findIndex(it => (String(it.label) + " " + String(it.value)).toLowerCase().includes(hl.toLowerCase())) : -1;
+      if (k < 0) k = 0;
+      flags[k] = "H";
+      if (n >= 4) flags[(k + 2) % n] = "L";
+    }
+
+    // Reference-range bar: track, normal band (illustrative), marker dot.
+    const bar = (f, seed) => {
+      const W = 156, x0 = 4, w = W - 12, b0 = x0 + w * 0.28, b1 = x0 + w * 0.68;
+      const pos = f === "H" ? 0.88 : f === "L" ? 0.1 : 0.36 + 0.26 * ((seed % 97) / 97);
+      const mx = x0 + w * pos, col = f === "H" ? "#B8322A" : f === "L" ? "#1D4FB8" : "#12161F";
+      return '<svg width="' + W + '" height="40" viewBox="0 0 ' + W + ' 40">' +
+        '<rect x="' + x0 + '" y="16" width="' + w + '" height="8" rx="4" fill="#E1E6EE"/>' +
+        '<rect x="' + b0 + '" y="13" width="' + (b1 - b0) + '" height="14" rx="3" fill="#BCD0F3"/>' +
+        '<path d="M' + b0 + ',8 V32 M' + b1 + ',8 V32" stroke="#6E86B8" stroke-width="2"/>' +
+        '<circle cx="' + mx + '" cy="20" r="10" fill="' + col + '" stroke="#fff" stroke-width="3"/></svg>';
+    };
+
+    const tb = document.getElementById("rows");
+    tb.innerHTML = items.map((it, i) => {
+      const p = P[i];
+      const val = p ? p.num : String(it.value == null ? "" : it.value);
+      const unit = p ? p.u : "";
+      const hsCell = p && unit ? '<td class="hs">' + esc(val) + '</td><td class="st">' + esc(unit) + "</td>" : '<td class="hs" colspan="2">' + esc(val) + "</td>";
+      return '<tr class="' + flags[i] + '"><td class="nm">' + esc(it.label) + "</td>" + hsCell + '<td class="rj">' + bar(flags[i], hash(it.label)) + '</td><td class="fl">' + flags[i] + "</td></tr>";
+    }).join("");
+
+    // Fit cell text to its cell (names >= 32px, results >= 32px, units >= 28px... kept >= 30).
+    tb.querySelectorAll("td.hs").forEach(td => { let f = 44; td.style.overflow = "hidden"; while (td.scrollWidth > td.clientWidth && f > 32) { f -= 1; td.style.fontSize = f + "px"; } });
+    tb.querySelectorAll("td.st").forEach(td => { let f = 31; while (td.scrollWidth > td.clientWidth && f > 26) { f -= 1; td.style.fontSize = f + "px"; } });
+
+    // Names: prefer one line (shrink to 32px); if still too long, wrap at 34px.
+    tb.querySelectorAll("td.nm").forEach(td => {
+      let f = 38; td.style.whiteSpace = "nowrap";
+      while (td.scrollWidth > td.clientWidth && f > 32) { f -= 1; td.style.fontSize = f + "px"; }
+      if (td.scrollWidth > td.clientWidth) { td.style.whiteSpace = "normal"; td.style.fontSize = "34px"; }
+    });
+
+    // Vertical fit: title size first, then share leftover height among rows.
+    const doc = document.getElementById("doc"), foot = document.getElementById("foot");
+    const FOOT_H = foot.offsetHeight, FOOT_BOTTOM = 1628;
+    const tableLimit = FOOT_BOTTOM - FOOT_H - 24;
+    const trs = [...tb.querySelectorAll("tr")];
+    let fs = 92;
+    for (; fs >= 56; fs -= 2) {
+      titleEl.style.fontSize = fs + "px";
+      trs.forEach(tr => tr.style.height = "auto");
+      const natural = trs.reduce((a, tr) => a + tr.offsetHeight, 0);
+      const headBottom = 378 + doc.offsetHeight - natural;
+      if ((tableLimit - headBottom) / Math.max(n, 1) >= 98 && natural + headBottom <= tableLimit) break;
+    }
+    const headBottom = 378 + doc.offsetHeight - trs.reduce((a, tr) => a + tr.offsetHeight, 0);
+    const rowH = Math.min(150, Math.floor((tableLimit - headBottom) / Math.max(n, 1)));
+    trs.forEach(tr => tr.style.height = Math.max(rowH, tr.offsetHeight) + "px");
+    foot.style.top = Math.min(FOOT_BOTTOM - FOOT_H, 378 + doc.offsetHeight + 20) + "px";
+    // Never let the footer sit on the table (overflow = visible bug, not hidden).
+    if (378 + doc.offsetHeight + 12 > parseFloat(foot.style.top)) foot.style.top = (378 + doc.offsetHeight + 12) + "px";
+  }
+</script>
+</body>
+</html>

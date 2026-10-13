@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /* Klasemen (dark-20 #17) as a 9:16 hook: league table with bars, leader row in gold, leader card with the sub line. */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #0e1116; }
+  body { position: relative; color: #e6edf3; font-family: "Inter Tight", sans-serif; }
+  body::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 900px; background: radial-gradient(70% 60% at 20% 10%, rgba(91,97,201,0.20), transparent 70%); }
+  .top { position: absolute; left: 90px; right: 90px; top: 300px; display: flex; justify-content: space-between; font: 700 30px "JetBrains Mono", monospace; color: #7d8590; letter-spacing: 0.04em; text-transform: uppercase; }
+  .top b { color: #ffd23f; font-weight: 700; }
+  .col { position: absolute; left: 90px; right: 90px; top: 370px; bottom: 380px; display: flex; flex-direction: column; justify-content: center; gap: 46px; }
+  .title { font-size: 108px; font-weight: 800; letter-spacing: -0.04em; line-height: 1.02; }
+  .title .hl { color: #ffd23f; }
+  .tbl { border-top: 2px solid #30363d; margin-right: 90px; } /* values stay left of x 900 (TikTok buttons) */
+  .hd { display: grid; grid-template-columns: 70px 1fr 200px; gap: 20px; padding: 16px 0; font: 700 26px "JetBrains Mono", monospace; color: #7d8590; letter-spacing: 0.08em; border-bottom: 2px solid #30363d; }
+  .hd span:last-child { text-align: right; }
+  .rw { display: grid; grid-template-columns: 70px 1fr 200px; grid-template-rows: auto auto; column-gap: 20px; row-gap: 14px; align-items: center; padding: 22px 0; border-bottom: 2px solid #21262d; }
+  .rw .ps { grid-row: span 2; font: 800 50px "JetBrains Mono", monospace; color: #7d8590; }
+  .rw .nm { font-size: 44px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rw .vl { grid-row: span 2; text-align: right; font-size: 46px; font-weight: 800; }
+  .rw .tr { height: 30px; border-radius: 8px; background: #161b22; overflow: hidden; }
+  .rw .tr i { display: block; height: 100%; border-radius: 8px; background: #30363d; }
+  .rw.on .ps, .rw.on .nm, .rw.on .vl { color: #ffd23f; } .rw.on .tr i { background: #ffd23f; box-shadow: 0 0 24px rgba(255,210,63,0.35); }
+  .lead { background: #161b22; border: 2px solid #ffd23f; border-radius: 28px; padding: 30px 36px; display: flex; gap: 28px; align-items: center; margin-right: 90px; }
+  .lead .ic { flex: none; width: 96px; height: 96px; border-radius: 24px; background: #2a2410; display: grid; place-items: center; }
+  .lead .k { font: 700 28px "JetBrains Mono", monospace; color: #ffd23f; letter-spacing: 0.04em; }
+  .lead .s { font-size: 42px; font-weight: 600; line-height: 1.25; margin-top: 6px; }
+  .foot { position: absolute; left: 90px; right: 90px; top: 1566px; font: 500 27px "JetBrains Mono", monospace; color: #7d8590; line-height: 1.4; }
+</style>
+</head>
+<body>
+<div class="top"><span><b>★</b> <span id="kick"></span></span><span id="ep"></span></div>
+<div class="col" id="col">
+  <div class="title" id="title"></div>
+  <div class="tbl" id="tbl"></div>
+  <div class="lead">
+    <span class="ic"><svg width="58" height="58" viewBox="0 0 24 24" fill="none"><path d="M7 4h10v4a5 5 0 01-10 0V4z" fill="#ffd23f"/><path d="M7 6H4v1.5A3.5 3.5 0 007.5 11M17 6h3v1.5a3.5 3.5 0 01-3.5 3.5" stroke="#ffd23f" stroke-width="1.6"/><path d="M12 13v4M8.5 20h7M10 17h4v3h-4z" stroke="#ffd23f" stroke-width="1.6" stroke-linejoin="round"/></svg></span>
+    <div><div class="k" id="lk"></div><div class="s" id="sub"></div></div>
+  </div>
+</div>
+<div class="foot" id="foot"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "AI dalam angka", ep: "#01", title: "1 chat ke AI = oven nyala 1 detik", hl: "1 detik",
+    sub: "Kecil? Kalikan miliaran chat tiap hari.",
+    items: [{ label: "Listrik per chat", value: "0,34 Wh" }, { label: "Setara oven", value: "±1 dtk" }, { label: "Chat per hari", value: "miliaran" }],
+    source: "klaim OpenAI, Jun 2025", date: "per 14 Okt 2026" };
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const hlWrap = (t, h) => { const i = h ? t.toLowerCase().indexOf(h.toLowerCase()) : -1;
+    return i < 0 ? esc(t) : esc(t.slice(0, i)) + `<span class="hl">${esc(t.slice(i, i + h.length))}</span>` + esc(t.slice(i + h.length)); };
+  const items = (D.items || []).slice(0, 5);
+
+  // Bars: proportional only when every value is a number with the same unit; otherwise a descending staircase by row.
+  const parse = (v) => { const m = String(v).match(/^[^\d]*?(\d+(?:[.,]\d+)?)\s*(.*)$/); return m ? { n: parseFloat(m[1].replace(",", ".")), u: m[2].trim() } : null; };
+  const ps = items.map((it) => parse(it.value));
+  const same = ps.every((p) => p && p.u === ps[0].u && p.n > 0);
+  const max = same ? Math.max(...ps.map((p) => p.n)) : 0;
+  const widths = items.map((_, i) => same ? Math.max(8, ps[i].n / max * 100) : 100 - i * (60 / Math.max(1, items.length - 1)));
+  const leader = same ? ps.findIndex((p) => p.n === max) : 0;
+
+  document.getElementById("kick").textContent = D.series || D.kicker || "";
+  document.getElementById("ep").textContent = D.ep || "";
+  document.getElementById("title").innerHTML = hlWrap(D.title || "", D.hl);
+  document.getElementById("tbl").innerHTML = `<div class="hd"><span>POS</span><span>NAMA</span><span>NILAI</span></div>` + items.map((it, i) =>
+    `<div class="rw${i === leader ? " on" : ""}"><span class="ps">${i + 1}</span><span class="nm">${esc(it.label)}</span><span class="vl">${esc(it.value)}</span><span class="tr"><i style="width:${widths[i]}%"></i></span></div>`).join("");
+  document.getElementById("lk").textContent = `#${leader + 1} ${items[leader]?.label ?? ""}`;
+  document.getElementById("sub").textContent = D.sub || "";
+  document.getElementById("foot").innerHTML = [D.source && esc(`sumber: ${D.source}`), D.date && `<span style="white-space:nowrap">${esc(D.date)}</span>`].filter(Boolean).join(" · ");
+
+  const fit = () => { const col = document.getElementById("col"), t = document.getElementById("title");
+    let fs = 108; t.style.fontSize = fs + "px";
+    while ((col.scrollHeight > col.clientHeight || t.offsetHeight > 360) && fs > 68) { fs -= 4; t.style.fontSize = fs + "px"; } };
+  fit(); (document.fonts ? document.fonts.ready : Promise.resolve()).then(fit);
+</script>
+</body>
+</html>

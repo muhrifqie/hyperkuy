@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<title>Blockframe hook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+<style>
+  /* BlockFrame preset tokens (frame-presets/blockframe/FRAME.md) */
+  :root {
+    --black: #000; --white: #fff; --offwhite: #fffdf5;
+    --pink: #fe90e8; --blue: #c0f7fe; --green: #99e885; --yellow: #f7cb46; --cream: #ffdc8b;
+    --disp: "Inter", sans-serif; --mono: "Space Grotesk", sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; }
+  body { background: var(--blue); color: var(--black); font-family: var(--disp); -webkit-font-smoothing: antialiased; position: relative; }
+
+  /* ground: faint dot grid */
+  .dg { position: absolute; inset: 0; opacity: .22; background-image: radial-gradient(circle, var(--black) 2px, transparent 2px); background-size: 40px 40px; }
+
+  /* decorations (tilt-deco, star-burst, stripe-block) */
+  .star-wrap { position: absolute; top: 64px; right: 80px; width: 150px; height: 150px; transform: rotate(12deg); }
+  .star-wrap .s { position: absolute; inset: 0; clip-path: polygon(50% 0%,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%); }
+  .star-wrap .s.k { background: var(--black); transform: translate(8px, 8px); }
+  .star-wrap .s.f { background: var(--yellow); }
+  .star-wrap .s.f::after { content: ""; position: absolute; inset: 9px; clip-path: inherit; background: var(--yellow); }
+  .star-wrap .s.ring { background: var(--black); }
+  .star-wrap .s.inner { inset: 7px; background: var(--yellow); }
+  .rect-deco { position: absolute; top: 120px; right: 250px; width: 120px; height: 64px; background: var(--pink); border: 4px solid var(--black); box-shadow: 8px 8px 0 var(--black); transform: rotate(-8deg); }
+  .stripe { position: absolute; left: -40px; bottom: 150px; width: 470px; height: 86px; border: 4px solid var(--black);
+    background: repeating-linear-gradient(45deg, var(--black), var(--black) 8px, var(--yellow) 8px, var(--yellow) 22px); transform: rotate(-4deg); box-shadow: 8px 8px 0 var(--black); }
+
+  /* layout column: y 140 → 1620 */
+  .col { position: absolute; left: 90px; right: 90px; top: 150px; bottom: 300px; display: flex; flex-direction: column; }
+
+  .pill { display: inline-block; border: 3px solid var(--black); background: var(--white); box-shadow: 4px 4px 0 var(--black);
+    padding: 10px 20px 9px; font-family: var(--mono); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; font-size: 30px; line-height: 1.1; }
+  .head { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
+  .head .ep { background: var(--black); color: var(--white); box-shadow: 4px 4px 0 var(--pink); }
+
+  .title { margin-top: 56px; width: 900px; font-weight: 900; text-transform: uppercase; letter-spacing: -.035em; line-height: .96; overflow-wrap: normal; }
+  .title .hl { display: inline-block; background: var(--yellow); border: 5px solid var(--black); box-shadow: 9px 9px 0 var(--black);
+    padding: 0 .12em .04em; margin: .06em .04em .1em 0; transform: rotate(-2deg); line-height: 1; }
+
+  .items { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 34px; width: 790px; padding: 36px 0 30px; }
+  .card { display: flex; align-items: stretch; min-height: var(--ch, 120px); background: var(--white); border: 4px solid var(--black); box-shadow: 8px 8px 0 var(--black); position: relative; }
+  .card:nth-child(odd) { transform: rotate(-1.2deg); }
+  .card:nth-child(even) { transform: rotate(1.2deg); margin-left: 14px; margin-right: -14px; }
+  .card .no { flex: 0 0 104px; background: var(--black); color: var(--white); display: grid; place-items: center;
+    font-family: var(--mono); font-weight: 700; font-size: 36px; letter-spacing: .04em; }
+  .card .lb { flex: 1; padding: 18px 22px; display: flex; align-items: center; font-weight: 800; text-transform: uppercase; letter-spacing: -.01em; font-size: 42px; line-height: 1.05; }
+  .card .val { flex: 0 0 auto; min-width: 230px; max-width: 360px; border-left: 4px solid var(--black); padding: 14px 24px; display: flex; align-items: center; justify-content: center;
+    font-weight: 900; text-transform: uppercase; letter-spacing: -.03em; font-size: 52px; line-height: 1; text-align: center; }
+  .card .dot { position: absolute; top: -10px; right: -10px; width: 24px; height: 24px; border-radius: 50%; border: 3px solid var(--black); }
+
+  .sub { font-weight: 600; font-size: 42px; line-height: 1.3; width: 810px; padding-left: 26px; border-left: 8px solid var(--black); }
+  .meta { margin-top: 26px; display: flex; gap: 14px; flex-wrap: wrap; }
+  .meta .pill { font-size: 26px; padding: 7px 14px 6px; box-shadow: 3px 3px 0 var(--black); font-weight: 600; }
+  .meta .pill.d { background: var(--cream); }
+</style>
+<!--DATA-->
+<script>
+  // Fallback sample so the file opens standalone in a browser.
+  const FALLBACK = {
+    series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [ { label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" } ],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026"
+  };
+  const D = window.D || FALLBACK;
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  function splitHL(t, hl) {
+    const i = hl ? t.toLowerCase().indexOf(String(hl).toLowerCase()) : -1;
+    return i < 0 ? [t, "", ""] : [t.slice(0, i), t.slice(i, i + hl.length), t.slice(i + hl.length)];
+  }
+  // Largest font size (binary search) that keeps el within maxH and its own width.
+  function fit(el, maxH, hi, lo) {
+    let a = lo, b = hi;
+    while (b - a > 1) { const m = (a + b) >> 1; el.style.fontSize = m + "px"; (el.scrollHeight <= maxH && el.scrollWidth <= el.clientWidth + 1) ? (a = m) : (b = m); }
+    el.style.fontSize = a + "px";
+  }
+  const VAL_BG = ["var(--yellow)", "var(--pink)", "var(--cream)", "var(--yellow)", "var(--pink)"];
+  const DOT_BG = ["var(--pink)", "var(--yellow)", "var(--blue)", "var(--pink)", "var(--yellow)"];
+  function render() {
+    const series = D.series || (D.kicker || "").split("·")[0].trim();
+    const ep = D.ep || "";
+    document.getElementById("head").innerHTML =
+      `<span class="pill">${esc(series || D.kicker)}</span>` + (ep ? `<span class="pill ep">EP ${esc(ep)}</span>` : "");
+    const [a, h, b] = splitHL(D.title || "", D.hl);
+    const t = document.getElementById("title");
+    t.innerHTML = esc(a) + (h ? `<span class="hl">${esc(h)}</span>` : "") + esc(b);
+    fit(t, 470, 150, 72);
+    const items = (D.items || []).slice(0, 5);
+    const n = items.length;
+    const lbSize = n >= 5 ? 38 : n === 4 ? 42 : 48, valSize = n >= 5 ? 46 : n === 4 ? 54 : 62;
+    document.getElementById("items").style.setProperty("--ch", (n >= 5 ? 104 : n === 4 ? 122 : 156) + "px");
+    document.getElementById("items").style.gap = (n >= 5 ? 26 : n === 4 ? 34 : 44) + "px";
+    document.getElementById("items").innerHTML = items.map((it, i) => `
+      <div class="card">
+        <div class="dot" style="background:${DOT_BG[i]}"></div>
+        <div class="no">${String(i + 1).padStart(2, "0")}</div>
+        <div class="lb" style="font-size:${lbSize}px">${esc(it.label)}</div>
+        <div class="val" style="background:${VAL_BG[i]};font-size:${valSize}px">${esc(it.value)}</div>
+      </div>`).join("");
+    document.getElementById("sub").textContent = D.sub || "";
+    document.getElementById("meta").innerHTML =
+      (D.source ? `<span class="pill">Sumber: ${esc(D.source)}</span>` : "") + (D.date ? `<span class="pill d">${esc(D.date)}</span>` : "");
+  }
+  document.addEventListener("DOMContentLoaded", () => { render(); document.fonts && document.fonts.ready.then(render); });
+</script>
+</head>
+<body>
+  <div class="dg"></div>
+  <div class="rect-deco"></div>
+  <div class="star-wrap"><div class="s k"></div><div class="s ring"></div><div class="s inner"></div></div>
+  <div class="stripe"></div>
+  <div class="col">
+    <div class="head" id="head"></div>
+    <div class="title" id="title"></div>
+    <div class="items" id="items"></div>
+    <div class="sub" id="sub"></div>
+    <div class="meta" id="meta"></div>
+  </div>
+</body>
+</html>

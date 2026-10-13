@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Code Editorial — hook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;1,400&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!--DATA-->
+<style>
+  :root {
+    --ink: #141413; --cream: #FAF9F5; --tile: #EFE9DE; --tile-strong: #ECE3D4; --coral: #CC785C;
+    --navy: #181715; --navy-soft: #1F1E1B; --navy-elev: #252320;
+    --teal: #5DB8A6; --amber: #E8A55A;
+    --serif: "EB Garamond", Georgia, serif;
+    --sans: "Inter", Arial, sans-serif;
+    --mono: "JetBrains Mono", Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--cream); color: var(--ink); }
+  body { position: relative; font-family: var(--sans); }
+
+  .page { position: absolute; left: 90px; right: 90px; top: 150px; bottom: 300px; display: flex; flex-direction: column; }
+
+  /* kicker-spike: mono uppercase eyebrow opened by the single coral ✱ */
+  .kicker { font: 500 30px/1 var(--mono); letter-spacing: .16em; text-transform: uppercase; display: flex; align-items: center; gap: 18px; }
+  .kicker .spike { color: var(--coral); font-size: 44px; letter-spacing: 0; }
+  .index { margin-top: 18px; font: 400 26px/1 var(--mono); letter-spacing: .02em; color: rgba(20,20,19,.66);
+    padding-bottom: 22px; border-bottom: 1px solid rgba(20,20,19,.14); }
+
+  .title { margin-top: 64px; font-family: var(--serif); font-weight: 400; line-height: 1.04; letter-spacing: -.022em; max-width: 900px; }
+  /* hl = italic stance on a half-step tile, hairline-edged (no coral: coral is rationed to the ✱) */
+  .title .hl { font-style: italic; white-space: nowrap; background: var(--tile-strong); border: 1px solid rgba(20,20,19,.2);
+    border-radius: 12px; padding: .04em .12em .1em; display: inline-block; line-height: .86; }
+  .lead { margin-top: 30px; font: 400 42px/1.42 var(--sans); color: rgba(20,20,19,.82); max-width: 860px; }
+
+  /* the object: warm-navy code surface with a footnoted listing */
+  .code { margin-top: auto; margin-bottom: auto; width: 800px; background: var(--navy); border: 1px solid rgba(250,249,245,.14);
+    border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(20,20,19,.08), 0 4px 16px rgba(20,20,19,.04); }
+  .bar { background: var(--navy-elev); border-bottom: 1px solid rgba(250,249,245,.14); display: flex; justify-content: space-between;
+    align-items: center; padding: 18px 26px; font: 400 28px/1 var(--mono); color: rgba(250,249,245,.86); }
+  .bar .tabs { color: rgba(250,249,245,.55); }
+  .lines { padding: 24px 0 26px; font: 400 40px/1.75 var(--mono); color: var(--cream); white-space: pre; }
+  .ln { display: flex; align-items: baseline; }
+  .ln .g { width: 78px; flex: none; text-align: right; padding-right: 26px; color: rgba(250,249,245,.38); font-size: .75em; }
+  .ln .c { color: rgba(250,249,245,.5); }
+  .ln .num { color: var(--amber); } .ln .str { color: var(--teal); }
+  .ln sup { font-size: .55em; color: rgba(250,249,245,.7); vertical-align: .7em; margin-left: .2em; }
+  .status { background: var(--navy-elev); border-top: 1px solid rgba(250,249,245,.14); padding: 14px 26px;
+    font: 400 26px/1 var(--mono); color: rgba(250,249,245,.66); display: flex; justify-content: space-between; }
+
+  .foot { display: flex; gap: 14px; border-top: 1px solid rgba(20,20,19,.14); padding-top: 16px; font: 400 28px/1.4 var(--sans); color: rgba(20,20,19,.75); }
+  .foot .m { font-family: var(--mono); font-size: 26px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="kicker"><span class="spike">✱</span><span id="kicker"></span></div>
+  <div class="index" id="index"></div>
+  <h1 class="title" id="title"></h1>
+  <p class="lead" id="sub"></p>
+  <div class="code" id="code">
+    <div class="bar"><span id="file"></span><span class="tabs">YAML</span></div>
+    <div class="lines" id="lines"></div>
+    <div class="status"><span id="stat"></span><span id="date"></span></div>
+  </div>
+  <div class="foot"><span class="m">¹</span><span id="source"></span></div>
+</div>
+<script>
+  // Fallback sample so the file renders when opened directly.
+  const FALLBACK = {
+    seri: "cara-kerja-ai", series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" },
+            { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026"
+  };
+  const D = window.D && window.D.title ? window.D : FALLBACK;
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = (id) => document.getElementById(id);
+  function markTitle(t, hl) {
+    const i = hl ? t.toLowerCase().indexOf(String(hl).toLowerCase()) : -1;
+    if (i < 0) return esc(t);
+    return esc(t.slice(0, i)) + '<span class="hl">' + esc(t.slice(i, i + hl.length)) + "</span>" + esc(t.slice(i + hl.length));
+  }
+  const slug = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+  const items = (D.items || []).slice(0, 5);
+  const epn = String(D.ep || "01").replace(/\D/g, "").padStart(2, "0");
+  const file = (D.series_id || D.seri || slug(D.series) || "hook") + ".yml";
+  $("kicker").textContent = D.kicker || [D.series, D.ep].filter(Boolean).join(" · ");
+  $("index").textContent = "seri/" + (D.series_id || D.seri || slug(D.series)) + " · ep-" + epn;
+  $("title").innerHTML = markTitle(D.title || "", D.hl);
+  $("sub").textContent = D.sub || "";
+  $("file").textContent = file;
+  $("stat").textContent = items.length + " item";
+  $("date").textContent = D.date || "";
+  $("source").textContent = D.source || "";
+
+  // Hand-set YAML listing: key padded to a common column; numbers amber, words teal.
+  const w = Math.max(...items.map((it) => [...String(it.label)].length));
+  const val = (v) => {
+    const s = esc(v); const m = s.match(/^([±+\-−~]?[\d.,]+%?)(.*)$/);
+    return m ? '<span class="num">' + m[1] + '</span><span class="str">' + m[2] + "</span>" : '<span class="str">' + s + "</span>";
+  };
+  const rows = [
+    '<span class="c"># ' + esc(D.series || "") + " " + esc(D.ep || "") + "</span>",
+    'items:<sup>¹</sup>',
+    ...items.map((it) => "  " + esc(it.label) + ":" + " ".repeat(w - [...String(it.label)].length + 1) + val(it.value)),
+  ];
+  $("lines").innerHTML = rows.map((r, i) => '<div class="ln"><span class="g">' + (i + 1) + "</span><span>" + r + "</span></div>").join("");
+
+  function fit() {
+    const el = $("title");
+    const len = (D.title || "").length;
+    let size = len <= 24 ? 150 : len <= 36 ? 128 : len <= 48 ? 112 : 100;
+    const maxH = items.length >= 5 ? 380 : items.length === 4 ? 430 : 480;
+    el.style.fontSize = size + "px";
+    while (el.offsetHeight > maxH && size > 80) { size -= 4; el.style.fontSize = size + "px"; }
+    // keep the listing inside the panel (and clear of the right-side UI)
+    const L = $("lines"); let cs = 46; L.style.fontSize = cs + "px";
+    while (L.scrollWidth > L.clientWidth && cs > 32) { cs -= 2; L.style.fontSize = cs + "px"; }
+    L.style.lineHeight = items.length <= 3 ? "2.05" : items.length === 4 ? "1.85" : "1.7";
+  }
+  fit();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+</script>
+</body>
+</html>

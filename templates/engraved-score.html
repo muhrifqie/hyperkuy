@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Noto+Music&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Partitur (opus-partitur): an engraved score page. Title block like a
+    published score ("Op. 01"), tempo marking, two systems of five-line staff
+    with treble clef. Each item is one note in its own measure: the label is
+    the lyric under the note, the value is an expression marking above it.
+    After the last real note sits a GHOST measure: three faint candidate notes
+    with percentages, the most likely one engraved in blue = the predicted next
+    note. Metaphor: predicting the next word = predicting the next note.
+    Staff lines fade out to the right after the ghost (the future is unwritten).
+
+    Signature move (video): a playhead sweeps the staff, each note "sounds"
+    (head darkens, lyric appears) in turn; at the ghost measure three candidate
+    notes flicker in with their percentages, then the blue one locks in and the
+    dashed slur draws from the last note to it.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #EFE9DB; }
+  body { position: relative; color: #1A1814; font-family: "EB Garamond", serif; }
+  .plate { position: absolute; left: 46px; top: 236px; width: 988px; height: 1480px; background: #F8F4EA; border: 1.5px solid #D6CDB8; box-shadow: inset 0 0 0 10px #F8F4EA, inset 0 0 0 11px #E4DCC9, 0 2px 0 #E2D9C4; }
+
+  .top { position: absolute; left: 90px; right: 90px; top: 290px; display: flex; justify-content: space-between; font-size: 32px; font-style: italic; color: #5E574A; }
+  .top b { font-style: normal; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; font-size: 28px; color: #1A1814; }
+  .title { position: absolute; left: 90px; width: 900px; top: 352px; font-size: 92px; font-weight: 500; letter-spacing: -.012em; line-height: 1.16; text-align: center; color: #15130F; }
+  .title .hl { font-style: italic; color: #1D4ED8; position: relative; }
+  .rule { position: absolute; left: 390px; width: 300px; height: 0; border-top: 1.5px solid #1A1814; }
+
+  #score { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; overflow: visible; }
+  .sub { position: absolute; left: 90px; width: 900px; top: 1452px; font-size: 42px; font-style: italic; line-height: 1.25; color: #2A2620; text-align: center; }
+  .foot { position: absolute; left: 90px; right: 90px; top: 1586px; display: flex; justify-content: space-between; gap: 36px; font-size: 28px; color: #6B6455; line-height: 1.3; }
+  .foot span:last-child { white-space: nowrap; }
+  .pg { position: absolute; left: 0; width: 1080px; top: 1652px; text-align: center; font-size: 28px; color: #8A8270; }
+</style>
+</head>
+<body>
+<div class="plate"></div>
+<div class="top"><span id="op"></span><span id="ser"></span></div>
+<div class="title" id="title"></div>
+<div class="rule" id="rule"></div>
+<svg id="score" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="sub" id="sub"></div>
+<div class="foot"><span id="src"></span><span id="date"></span></div>
+<div class="pg">— 1 —</div>
+<script>
+Promise.all(['500 92px "EB Garamond"', 'italic 500 92px "EB Garamond"', 'italic 400 36px "EB Garamond"', '600 36px "EB Garamond"', '400 100px "Noto Music"'].map(f => document.fonts.load(f, "𝄞♩"))).catch(() => 0).then(() => document.fonts.ready).then(function () {
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+  const NS = "http://www.w3.org/2000/svg";
+  const INK = "#1A1814", BLUE = "#1D4ED8", FAINT = "#A9A08C";
+
+  const epNum = String(D.ep || "01").replace(/\D/g, "") || "01";
+  $("op").innerHTML = "Op. " + esc(epNum.padStart(2, "0"));
+  $("ser").innerHTML = "<b>" + esc(D.series || D.kicker || "") + "</b>";
+  $("sub").textContent = D.sub || "";
+  $("src").textContent = D.source ? "Sumber: " + D.source : "";
+  $("date").textContent = D.date ? "© " + D.date : "";
+
+  const title = D.title || "", hl = D.hl || "";
+  const at = hl ? title.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  $("title").innerHTML = at < 0 ? esc(title)
+    : esc(title.slice(0, at)) + '<span class="hl" id="hl">' + esc(title.slice(at, at + hl.length)) + "</span>" + esc(title.slice(at + hl.length));
+  const T = $("title"); let fs = 92;
+  while (T.offsetHeight > 270 && fs > 64) { fs -= 4; T.style.fontSize = fs + "px"; }
+  const tb = 352 + T.offsetHeight;
+  $("rule").style.top = (tb + 22) + "px";
+
+  const svg = $("score");
+  const el = (tag, a, p) => { const e = document.createElementNS(NS, tag); for (const k in a) e.setAttribute(k, a[k]); (p || svg).appendChild(e); return e; };
+  const txt = (x, y, s, a, p) => { const t = el("text", Object.assign({ x, y, fill: INK, "font-family": "EB Garamond" }, a || {}), p); t.textContent = s; return t; };
+
+  // Slur over the highlighted title word (filled lens shape, engraved look).
+  const H = $("hl");
+  if (H) {
+    for (const r of H.getClientRects()) {
+      const x0 = r.left + 6, x1 = r.right - 2, mx = (x0 + x1) / 2, h = fs * 0.15;
+      const y = r.top + fs * 0.16;
+      el("path", { d: "M" + x0 + " " + y + " Q" + mx + " " + (y - h * 2) + " " + x1 + " " + y + " Q" + mx + " " + (y - h * 2 + 10) + " " + x0 + " " + y + " Z", fill: BLUE });
+    }
+  }
+
+  // Score geometry.
+  const SP = 28, STEP = SP / 2;               // staff space, half-space per pitch step
+  const sys1Top = Math.max(800, tb + 190), sys2Top = sys1Top + 396;
+  const yOf = (top, p) => top + 4 * SP - p * STEP; // p=0 bottom line (E4) .. 8 top line (F5)
+
+  // Tempo + measure numbers.
+  const tempoY = sys1Top - 112;
+  txt(90, tempoY, "Andante", { "font-size": 38, "font-weight": 600 });
+  txt(250, tempoY, "♩", { "font-family": "Noto Music", "font-size": 40 });
+  txt(276, tempoY, "= 72", { "font-size": 36 });
+  txt(990, tempoY, "kata demi kata", { "font-size": 34, "font-style": "italic", "text-anchor": "end", fill: "#5E574A" });
+
+  const fade = el("linearGradient", { id: "fade", x1: 0, x2: 1, y1: 0, y2: 0 }, el("defs", {}));
+  el("stop", { offset: "0", "stop-color": INK, "stop-opacity": 1 }, fade);
+  el("stop", { offset: ".72", "stop-color": INK, "stop-opacity": 1 }, fade);
+  el("stop", { offset: "1", "stop-color": INK, "stop-opacity": 0 }, fade);
+
+  const staff = (top, x0, x1, fadeOut) => {
+    const g = el("g", {});
+    for (let i = 0; i < 5; i++) el("rect", { x: x0, y: top + i * SP - 1, width: x1 - x0, height: 2, fill: fadeOut ? "url(#fade)" : INK }, g);
+    el("rect", { x: x0, y: top - 1, width: 2.5, height: 4 * SP + 2, fill: INK }, g);
+    // Treble clef.
+    txt(x0 + 10, top + 3 * SP + 2, "𝄞", { "font-family": "Noto Music", "font-size": 4 * SP }, g);
+    return g;
+  };
+  const bar = (x, top, dashed) => el("line", { x1: x, y1: top, x2: x, y2: top + 4 * SP, stroke: INK, "stroke-width": 2.5, "stroke-dasharray": dashed ? "6 6" : "none" });
+  const ledger = (x, top, p) => { // ledger lines for notes outside the staff
+    for (let q = (p >= 10 ? 10 : -2); p >= 10 ? q <= p : q >= p; q += p >= 10 ? 2 : -2) el("rect", { x: x - SP, y: yOf(top, q) - 1, width: 2 * SP, height: 2, fill: INK });
+  };
+  const note = (x, top, p, opt) => {
+    opt = opt || {};
+    const y = yOf(top, p), col = opt.color || INK, up = opt.up != null ? opt.up : p < 4;
+    if (p >= 10 || p <= -2) ledger(x, top, p);
+    const g = el("g", { opacity: opt.opacity == null ? 1 : opt.opacity });
+    el("ellipse", { cx: x, cy: y, rx: SP * 0.62, ry: SP * 0.43, transform: "rotate(-22 " + x + " " + y + ")", fill: opt.hollow ? "none" : col, stroke: col, "stroke-width": opt.hollow ? 3 : 0, "stroke-dasharray": opt.dash ? "4 4" : "none" }, g);
+    if (!opt.noStem) {
+      const sx = up ? x + SP * 0.56 : x - SP * 0.56;
+      el("rect", { x: sx - 1.3, y: up ? y - 3.5 * SP : y + 2, width: 2.6, height: 3.5 * SP - 2, fill: col }, g);
+    }
+    return { x, y, up };
+  };
+
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+  const PITCH = [3, 5, 4, 6, 2];
+  const split = n >= 5 ? 3 : 2;
+  const rows = [items.slice(0, split), items.slice(split)];
+
+  // System 1: clef, time signature, measures to the right margin.
+  staff(sys1Top, 90, 990, false);
+  txt(200, sys1Top + 2 * SP - 4, "4", { "font-size": 64, "font-weight": 600, "text-anchor": "middle" });
+  txt(200, sys1Top + 4 * SP - 4, "4", { "font-size": 64, "font-weight": 600, "text-anchor": "middle" });
+  txt(96, sys1Top - 18, "1", { "font-size": 28, "font-style": "italic", fill: "#6B6455" });
+  // System 2: clef, then measures; staff fades out after the ghost measure.
+  staff(sys2Top, 90, 1040, true);
+  txt(96, sys2Top - 18, String(split + 1), { "font-size": 28, "font-style": "italic", fill: "#6B6455" });
+
+  const placed = [];
+  const layRow = (row, top, x0, x1, extra, idx0) => {
+    const cells = row.length + extra, w = (x1 - x0) / cells;
+    row.forEach((it, j) => {
+      const i = idx0 + j, cx = x0 + w * j + w * 0.42, p = PITCH[i % PITCH.length];
+      const nt = note(cx, top, p);
+      placed.push(nt);
+      // Value as an expression marking above the staff.
+      const v = txt(cx - 20, top - 40, it.value, { "font-size": 38, "font-style": "italic", "font-weight": 500 });
+      // Label as the lyric under the staff (shrink to fit the measure, min 30px).
+      const ly = txt(cx, top + 4 * SP + 70, it.label, { "font-size": 40, "text-anchor": "middle" });
+      let f = 40; while (ly.getComputedTextLength() > w - 22 && f > 30) { f -= 2; ly.setAttribute("font-size", f); }
+      let fv = 38; while (v.getComputedTextLength() > w - 10 && fv > 30) { fv -= 2; v.setAttribute("font-size", fv); }
+      if (j < row.length - 1 || extra === 0) bar(x0 + w * (j + 1), top, false);
+    });
+    return { x0, w, cells };
+  };
+  layRow(rows[0], sys1Top, 250, 990, 0, 0);
+  // Final barline of system 1 sits at 990 already (drawn by layRow).
+  const r2 = layRow(rows[1], sys2Top, 160, 900, 1, split);
+
+  // Ghost measure: three candidate next notes with probabilities.
+  const gx0 = r2.x0 + r2.w * rows[1].length, gx = gx0 + r2.w * 0.36;
+  bar(gx0, sys2Top, true);
+  const CAND = [[9, "62%", true], [5, "27%", false], [1, "11%", false]];
+  let best = null;
+  CAND.forEach(([p, pc, win]) => {
+    const nt = note(gx, sys2Top, p, win ? { color: BLUE, up: true } : { color: FAINT, hollow: true, dash: true, noStem: true, opacity: .9 });
+    if (win) best = nt;
+    txt(gx + 30, yOf(sys2Top, p) + 11, pc, { "font-size": win ? 36 : 30, "font-weight": win ? 600 : 500, fill: win ? BLUE : "#8F8673", stroke: "#F8F4EA", "stroke-width": 10, "paint-order": "stroke" });
+  });
+  txt(gx + 26, sys2Top - 62, "prediksi", { "font-size": 34, "font-style": "italic", fill: BLUE });
+  txt(gx + 10, sys2Top + 4 * SP + 70, "berikutnya?", { "font-size": 36, "font-style": "italic", fill: BLUE, "text-anchor": "middle" });
+
+  // Dashed blue slur from the last real note to the predicted one.
+  const last = placed[placed.length - 1];
+  if (last && best) {
+    const ax = last.x + 6, ay = last.y + (last.up ? 18 : -18), bx = best.x - 6, by = best.y + 18;
+    const my = Math.max(ay, by) + 46;
+    el("path", { d: "M" + ax + " " + ay + " C" + (ax + 40) + " " + my + " " + (bx - 40) + " " + my + " " + bx + " " + by, fill: "none", stroke: BLUE, "stroke-width": 3, "stroke-dasharray": "7 6", "stroke-linecap": "round" });
+  }
+
+  // Keep the sub under the second system's lyrics.
+  $("sub").style.top = Math.max(1452, sys2Top + 4 * SP + 124) + "px";
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@500;600&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Peta Kontur (opus-peta-kontur): a topographic hiking map sheet.
+    Pale paper-grey base, a neatline frame, blue contour lines (index contours
+    thicker, with elevation labels along them), a summit triangle, a valley
+    lake marked "titik terendah", a north arrow and a scale bar. The orange
+    dashed trail is a real steepest-descent walk on the same elevation field
+    the contours come from (gradient descent, lightly steered to the valley),
+    so it crosses the contours the way a downhill path would.
+    Every item is a numbered waypoint on that trail, with its label and value
+    as a map-label box (like an elevation/distance reading).
+    Contours: a fixed analytic elevation field + marching squares + Chaikin
+    smoothing. Fully deterministic (no randomness).
+
+    Signature move (video): the orange trail draws downhill from the summit
+    (stroke-dashoffset); a hiker dot walks it, each waypoint box pops up as
+    the dot passes, and the lake fills when the dot reaches the lowest point.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #ECEDE7; }
+  body { position: relative; color: #18202C; font-family: "Barlow", sans-serif; }
+
+  .top { position: absolute; left: 90px; right: 90px; top: 296px; display: flex; justify-content: space-between; font: 600 28px "Barlow Condensed", sans-serif; letter-spacing: 0.14em; text-transform: uppercase; color: #3B4656; }
+  .top b { color: #18202C; font-weight: 700; }
+  .title { position: absolute; left: 90px; width: 900px; top: 350px; font-family: "Barlow Condensed", sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.005em; line-height: 0.98; }
+  .title .hl { text-decoration: underline; text-decoration-color: #E2621B; text-decoration-thickness: 0.1em; text-underline-offset: 0.08em; text-decoration-skip-ink: none; }
+
+  #map { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  .wp { position: absolute; background: #FBFBF8; border: 3px solid #18202C; padding: 8px 16px 10px; white-space: nowrap; }
+  .wp .lb { font: 600 32px "Barlow Condensed", sans-serif; line-height: 1.05; color: #3B4656; }
+  .wp .vl { font: 700 42px "Barlow Condensed", sans-serif; line-height: 1.05; color: #18202C; }
+  .wp.end { border-color: #E2621B; }
+  .wp.end .vl { color: #18202C; }
+
+  .sub { position: absolute; left: 90px; width: 900px; font-size: 40px; font-weight: 500; line-height: 1.24; }
+  .foot { position: absolute; left: 90px; right: 90px; top: 1582px; display: flex; justify-content: space-between; gap: 40px; font: 500 28px "Barlow Condensed", sans-serif; letter-spacing: 0.04em; color: #556070; line-height: 1.3; }
+  .foot span:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="top"><span id="kick"></span><span id="scale">Skala 1 : 25.000</span></div>
+<div class="title" id="title"></div>
+<svg id="map" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div id="labels"></div>
+<div class="sub" id="sub"></div>
+<div class="foot"><span id="src"></span><span id="date"></span></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  // Lay out only after the web fonts are in: all fitting below measures real glyph widths.
+  Promise.all(['700 100px "Barlow Condensed"', '600 32px "Barlow Condensed"', '800 32px "Barlow Condensed"', '500 40px Barlow'].map(f => document.fonts.load(f))).catch(() => {}).then(render);
+  function render() {
+
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const INK = "#18202C", PAPER = "#ECEDE7", C_LINE = "#7FA6D6", C_INDEX = "#2E64AE", ORANGE = "#E2621B";
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+
+  // Header + title.
+  const epNo = String(D.ep || "#01").replace(/^#/, "");
+  document.getElementById("kick").innerHTML = "Lembar <b>" + esc(epNo) + "</b> · " + esc(D.series || D.kicker || "");
+  const t = D.title || "", hl = D.hl || "";
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = document.getElementById("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  for (let fs = 118; fs >= 72; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (titleEl.offsetHeight <= 250) break; }
+
+  // Map frame (page coords).
+  const MX = 60, MW = 960, MY = Math.max(620, 350 + titleEl.offsetHeight + 46), MB = 1436, MH = MB - MY;
+
+  // Elevation field in map-local coords (deterministic, analytic).
+  const S = { x: 250, y: 170 }, VC = { x: 610, y: MH - 150 }, V = { x: VC.x, y: VC.y };
+  const gauss = (x, y, cx, cy, sx, sy) => Math.exp(-((x - cx) ** 2) / (2 * sx * sx) - ((y - cy) ** 2) / (2 * sy * sy));
+  const f = (x, y) => 380
+    + 1120 * gauss(x, y, S.x, S.y, 250, 220)
+    + 520 * gauss(x, y, 830, 250, 170, 190)
+    + 300 * gauss(x, y, 110, MH - 130, 190, 170)
+    + 220 * gauss(x, y, 900, MH - 60, 150, 160)
+    - 330 * gauss(x, y, VC.x, VC.y, 190, 150)
+    + 34 * Math.sin(x / 83 + 0.7) * Math.cos(y / 97 - 0.4)
+    + 18 * Math.sin((x + y) / 51);
+
+  // Marching squares on a regular grid.
+  const STEP = 8, NX = Math.ceil(MW / STEP), NY = Math.ceil(MH / STEP);
+  const grid = [];
+  for (let j = 0; j <= NY; j++) { const row = []; for (let i = 0; i <= NX; i++) row.push(f(i * STEP, j * STEP)); grid.push(row); }
+  function contour(L) {
+    const pts = new Map(), adj = new Map(), segs = [];
+    const lerp = (a, b) => (L - a) / (b - a);
+    const ept = (key, x0, y0, x1, y1, a, b) => { if (!pts.has(key)) { const tt = lerp(a, b); pts.set(key, [x0 + (x1 - x0) * tt, y0 + (y1 - y0) * tt]); } return key; };
+    for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) {
+      const tl = grid[j][i], tr = grid[j][i + 1], br = grid[j + 1][i + 1], bl = grid[j + 1][i];
+      const c = (tl >= L) << 3 | (tr >= L) << 2 | (br >= L) << 1 | (bl >= L);
+      if (c === 0 || c === 15) continue;
+      const x = i * STEP, y = j * STEP, X = x + STEP, Y = y + STEP;
+      const T = () => ept("h" + i + "," + j, x, y, X, y, tl, tr), R = () => ept("v" + (i + 1) + "," + j, X, y, X, Y, tr, br),
+            B = () => ept("h" + i + "," + (j + 1), x, Y, X, Y, bl, br), Lf = () => ept("v" + i + "," + j, x, y, x, Y, tl, bl);
+      const mid = (tl + tr + br + bl) / 4 >= L;
+      const table = { 1: [[Lf, B]], 2: [[B, R]], 3: [[Lf, R]], 4: [[T, R]], 5: mid ? [[Lf, T], [B, R]] : [[Lf, B], [T, R]], 6: [[T, B]], 7: [[Lf, T]],
+                      8: [[Lf, T]], 9: [[T, B]], 10: mid ? [[T, R], [Lf, B]] : [[Lf, T], [B, R]], 11: [[T, R]], 12: [[Lf, R]], 13: [[B, R]], 14: [[Lf, B]] };
+      for (const [ea, eb] of table[c]) {
+        const a = ea(), b = eb(), k = segs.length; segs.push({ a, b, u: false });
+        (adj.get(a) || adj.set(a, []).get(a)).push(k); (adj.get(b) || adj.set(b, []).get(b)).push(k);
+      }
+    }
+    const lines = [];
+    const walk = (start, k0) => {
+      const out = [pts.get(start)]; let cur = start, k = k0;
+      while (k != null) { const s = segs[k]; s.u = true; cur = s.a === cur ? s.b : s.a; out.push(pts.get(cur)); k = (adj.get(cur) || []).find(q => !segs[q].u); }
+      return { p: out, closed: cur === start };
+    };
+    for (const [key, list] of adj) if (list.length === 1 && !segs[list[0]].u) lines.push(walk(key, list[0]));
+    segs.forEach((s, k) => { if (!s.u) lines.push(walk(s.a, k)); });
+    return lines.filter(l => l.p.length > 3);
+  }
+  // Chaikin smoothing (2 passes).
+  function smooth(line) {
+    let p = line.p;
+    for (let it = 0; it < 2; it++) {
+      const q = line.closed ? [] : [p[0]];
+      const m = line.closed ? p.length - 1 : p.length - 1;
+      for (let i = 0; i < m; i++) { const a = p[i], b = p[i + 1]; q.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25], [a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75]); }
+      if (line.closed) q.push(q[0]); else q.push(p[p.length - 1]);
+      p = q;
+    }
+    return p;
+  }
+  const toD = (p, ox, oy) => "M" + p.map(q => (q[0] + ox).toFixed(1) + "," + (q[1] + oy).toFixed(1)).join("L");
+
+  // Trail: steepest descent from the summit, lightly steered toward the valley.
+  const grad = (x, y) => [(f(x + 1, y) - f(x - 1, y)) / 2, (f(x, y + 1) - f(x, y - 1)) / 2];
+  const trail = [];
+  { let p = [S.x + 10, S.y + 14];
+    for (let s = 0; s < 3000; s++) {
+      trail.push(p);
+      const g = grad(p[0], p[1]), gl = Math.hypot(g[0], g[1]) || 1;
+      const tv = [V.x - p[0], V.y - p[1]], tl = Math.hypot(tv[0], tv[1]);
+      if (tl < 8) break;
+      let d = [-g[0] / gl * 0.8 + tv[0] / tl * 0.2, -g[1] / gl * 0.8 + tv[1] / tl * 0.2];
+      const dl = Math.hypot(d[0], d[1]); const np = [p[0] + d[0] / dl * 3, p[1] + d[1] / dl * 3];
+      // stop at the bottom of the basin: no more descent once we are near the valley
+      if (tl < 70 && f(np[0], np[1]) >= f(p[0], p[1])) break;
+      p = np;
+    }
+  }
+  // the flag goes where the walk actually ended (true local minimum)
+  V.x = trail[trail.length - 1][0]; V.y = trail[trail.length - 1][1];
+  const trailS = smooth({ p: trail.filter((_, i) => i % 4 === 0 || i === trail.length - 1), closed: false });
+  // Cumulative length for placing waypoints.
+  const cum = [0]; for (let i = 1; i < trailS.length; i++) cum.push(cum[i - 1] + Math.hypot(trailS[i][0] - trailS[i - 1][0], trailS[i][1] - trailS[i - 1][1]));
+  const total = cum[cum.length - 1];
+  const at_ = d => { let i = cum.findIndex(c => c >= d); if (i <= 0) i = 1; const tt = (d - cum[i - 1]) / ((cum[i] - cum[i - 1]) || 1); return [trailS[i - 1][0] + (trailS[i][0] - trailS[i - 1][0]) * tt, trailS[i - 1][1] + (trailS[i][1] - trailS[i - 1][1]) * tt]; };
+  const wps = items.map((_, i) => at_(total * (0.13 + 0.66 * i / Math.max(1, n - 1))));
+
+  // Build SVG.
+  let g = "";
+  g += '<defs><clipPath id="mc"><rect x="' + MX + '" y="' + MY + '" width="' + MW + '" height="' + MH + '"/></clipPath></defs>';
+  g += '<rect x="' + MX + '" y="' + MY + '" width="' + MW + '" height="' + MH + '" fill="#F1F2EC"/>';
+  g += '<g clip-path="url(#mc)">';
+  // lake at the lowest point
+  // lake: everything below 200 m, filled before any contour is stroked
+  for (const ln of contour(200)) if (ln.closed) g += '<path d="' + toD(smooth(ln), MX, MY) + 'Z" fill="#CFE0F3" stroke="none"/>';
+  // contours every 50 m, index every 200 m
+  const indexLines = [];
+  for (let L = 100; L <= 1550; L += 50) {
+    const isIdx = L % 200 === 0;
+    for (const ln of contour(L)) {
+      const p = smooth(ln);
+      g += '<path d="' + toD(p, MX, MY) + '" fill="none" stroke="' + (isIdx ? C_INDEX : C_LINE) + '" stroke-width="' + (isIdx ? 3.2 : 1.7) + '" stroke-linejoin="round"/>';
+      if (isIdx) indexLines.push({ L, p });
+    }
+  }
+  g += '</g>';
+  // neatline: double frame + ticks
+  g += '<rect x="' + MX + '" y="' + MY + '" width="' + MW + '" height="' + MH + '" fill="none" stroke="' + INK + '" stroke-width="3"/>';
+  g += '<rect x="' + (MX - 10) + '" y="' + (MY - 10) + '" width="' + (MW + 20) + '" height="' + (MH + 20) + '" fill="none" stroke="' + INK + '" stroke-width="1.5"/>';
+  for (let x = MX + 80; x < MX + MW; x += 80) g += '<path d="M' + x + ',' + (MY - 10) + 'v10M' + x + ',' + MB + 'v10" stroke="' + INK + '" stroke-width="1.5"/>';
+  for (let y = MY + 80; y < MB; y += 80) g += '<path d="M' + (MX - 10) + ',' + y + 'h10M' + (MX + MW) + ',' + y + 'h10" stroke="' + INK + '" stroke-width="1.5"/>';
+
+  // Trail with a paper halo, dashed orange on top.
+  const trailD = toD(trailS, MX, MY);
+  g += '<path d="' + trailD + '" fill="none" stroke="#F1F2EC" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>';
+  g += '<path d="' + trailD + '" fill="none" stroke="' + ORANGE + '" stroke-width="8" stroke-dasharray="18 11" stroke-linecap="butt" stroke-linejoin="round"/>';
+
+  // Summit triangle + spot height.
+  const peak = Math.round(f(S.x, S.y) / 10) * 10;
+  const sx = MX + S.x, sy = MY + S.y;
+  g += '<path d="M' + sx + ',' + (sy - 26) + ' L' + (sx + 23) + ',' + (sy + 14) + ' L' + (sx - 23) + ',' + (sy + 14) + ' Z" fill="' + INK + '" stroke="#F1F2EC" stroke-width="4" paint-order="stroke"/>';
+  g += '<text x="' + (sx - 34) + '" y="' + (sy + 12) + '" text-anchor="end" font-family="Barlow Condensed" font-weight="700" font-size="34" fill="' + INK + '" stroke="#F1F2EC" stroke-width="7" paint-order="stroke">' + peak + '</text>';
+
+  // Flag at the valley.
+  const vx = MX + V.x, vy = MY + V.y;
+  g += '<path d="M' + vx + ',' + vy + ' V' + (vy - 78) + '" stroke="' + INK + '" stroke-width="5" stroke-linecap="round"/>';
+  g += '<path d="M' + (vx + 2) + ',' + (vy - 78) + ' L' + (vx + 52) + ',' + (vy - 64) + ' L' + (vx + 2) + ',' + (vy - 48) + ' Z" fill="' + ORANGE + '"/>';
+  g += '<circle cx="' + vx + '" cy="' + vy + '" r="8" fill="' + INK + '"/>';
+
+  // Waypoint markers.
+  wps.forEach((w, i) => {
+    const x = MX + w[0], y = MY + w[1];
+    g += '<circle cx="' + x + '" cy="' + y + '" r="27" fill="#FBFBF8" stroke="' + INK + '" stroke-width="4"/>' +
+         '<text x="' + x + '" y="' + (y + 11) + '" text-anchor="middle" font-family="Barlow Condensed" font-weight="800" font-size="32" fill="' + INK + '">' + (i + 1) + '</text>';
+  });
+
+  // North arrow (top-right, above the TikTok button zone) and scale bar (bottom-left).
+  const nx = MX + MW - 64, ny = MY + 82;
+  g += '<circle cx="' + nx + '" cy="' + ny + '" r="40" fill="#F1F2EC" stroke="' + INK + '" stroke-width="2"/>' +
+       '<path d="M' + nx + ',' + (ny - 34) + ' L' + (nx + 14) + ',' + (ny + 20) + ' L' + nx + ',' + (ny + 10) + ' Z" fill="' + INK + '"/>' +
+       '<path d="M' + nx + ',' + (ny - 34) + ' L' + (nx - 14) + ',' + (ny + 20) + ' L' + nx + ',' + (ny + 10) + ' Z" fill="#F1F2EC" stroke="' + INK + '" stroke-width="2"/>' +
+       '<text x="' + nx + '" y="' + (ny - 50) + '" text-anchor="middle" font-family="Barlow Condensed" font-weight="700" font-size="30" fill="' + INK + '">U</text>';
+  const bx = MX + 34, by = MB - 46, seg = 70;
+  g += '<rect x="' + (bx - 12) + '" y="' + (by - 44) + '" width="' + (seg * 4 + 80) + '" height="72" fill="#F1F2EC" opacity="0.92"/>';
+  for (let i = 0; i < 4; i++) g += '<rect x="' + (bx + i * seg) + '" y="' + by + '" width="' + seg + '" height="12" fill="' + (i % 2 ? "#F1F2EC" : INK) + '" stroke="' + INK + '" stroke-width="2"/>';
+  ["0", "250", "500", "750", "1 km"].forEach((s, i) => g += '<text x="' + (bx + i * seg) + '" y="' + (by - 12) + '" text-anchor="middle" font-family="Barlow Condensed" font-weight="600" font-size="26" fill="' + INK + '">' + s + '</text>');
+
+  const svg = document.getElementById("map");
+  svg.innerHTML = g;
+
+  // Waypoint label boxes: placed beside the marker on the side away from the trail, clamped to the safe zone.
+  const labels = document.getElementById("labels");
+  const boxes = [];
+  const mk = (cls, lb, vl) => { const el = document.createElement("div"); el.className = "wp" + cls; el.innerHTML = (lb ? '<div class="lb">' + esc(lb) + '</div>' : "") + '<div class="vl">' + esc(vl) + '</div>'; labels.appendChild(el); return el; };
+  wps.forEach((w, i) => {
+    const el = mk("", items[i].label, items[i].value);
+    const x = MX + w[0], y = MY + w[1], bw = el.offsetWidth, bh = el.offsetHeight;
+    // trail heads down-right: alternate left-below / right-above, but respect available room
+    let left = i % 2 === 0;
+    if (x - 46 - bw < 90) left = false; if (x + 46 + bw > 900) left = true;
+    // never cover the valley flag
+    const fx0 = MX + V.x - 10, fx1 = MX + V.x + 62, fy0 = MY + V.y - 90, fy1 = MY + V.y + 10;
+    const hits = l => { const x0 = l ? x - 46 - bw : x + 46, y0 = y - bh / 2; return x0 < fx1 && x0 + bw > fx0 && y0 < fy1 && y0 + bh > fy0; };
+    if (hits(left) && !hits(!left) && (left ? x + 46 + bw <= 900 : x - 46 - bw >= 90)) left = !left;
+    let bxp = left ? x - 46 - bw : x + 46;
+    bxp = Math.max(90, Math.min(900 - bw, bxp));
+    let byp = y - bh / 2 + (left ? 18 : -18);
+    boxes.push({ el, x: bxp, y: byp, w: bw, h: bh, mx: x, my: y });
+  });
+  // end box: lowest point
+  const endEl = mk(" end", "titik terendah", "lembah");
+  endEl.querySelector(".vl").textContent = "▼ " + Math.round(f(V.x, V.y) / 10) * 10 + " m";
+  const ew = endEl.offsetWidth, eh = endEl.offsetHeight;
+  // prefer the right of the flag (open ground), fall back to its left
+  let ex = vx + 26; if (ex + ew > 900) ex = Math.max(90, vx - 26 - ew);
+  boxes.push({ el: endEl, x: ex, y: Math.min(MB - eh - 14, vy + 14), w: ew, h: eh, mx: vx, my: vy, end: true });
+  // resolve vertical overlaps (simple sweep, top to bottom)
+  boxes.sort((a, b) => a.y - b.y);
+  for (let i = 1; i < boxes.length; i++) for (let j = 0; j < i; j++) {
+    const a = boxes[j], b = boxes[i];
+    if (a.x < b.x + b.w && b.x < a.x + a.w && b.y < a.y + a.h + 10) b.y = a.y + a.h + 10;
+  }
+  // bottom-up pass: nothing may leave the map frame
+  for (let i = boxes.length - 1; i >= 0; i--) {
+    const b = boxes[i]; let lim = MB - 14;
+    for (let j = i + 1; j < boxes.length; j++) { const c = boxes[j]; if (c.x < b.x + b.w && b.x < c.x + c.w) lim = Math.min(lim, c.y - 10); }
+    if (b.y + b.h > lim) b.y = lim - b.h;
+  }
+  let lead = "";
+  boxes.forEach(b => {
+    b.el.style.left = b.x + "px"; b.el.style.top = b.y + "px";
+    if (!b.end) {
+      const cx = Math.max(b.x, Math.min(b.x + b.w, b.mx)), cy = Math.max(b.y, Math.min(b.y + b.h, b.my));
+      lead += '<path d="M' + b.mx + ',' + b.my + ' L' + cx + ',' + cy + '" stroke="' + INK + '" stroke-width="3"/>';
+    }
+  });
+  svg.insertAdjacentHTML("beforeend", lead);
+  // keep markers above leader lines
+  svg.querySelectorAll("circle[r='27'], text").forEach(el => svg.appendChild(el));
+
+  // Elevation labels along index contours, kept away from the trail, boxes and frame edge.
+  const far = (x, y) => {
+    if (x < MX + 60 || x > MX + MW - 60 || y < MY + 50 || y > MB - 90) return false;
+    for (const q of trailS) if (Math.hypot(q[0] + MX - x, q[1] + MY - y) < 70) return false;
+    for (const b of boxes) if (x > b.x - 70 && x < b.x + b.w + 70 && y > b.y - 40 && y < b.y + b.h + 40) return false;
+    if (Math.hypot(x - nx, y - ny) < 110 || Math.hypot(x - sx, y - sy) < 90) return false;
+    return true;
+  };
+  let lab = "", used = [];
+  indexLines.sort((a, b) => b.p.length - a.p.length).forEach((ln, idx) => {
+    if (used.filter(u => u.L === ln.L).length >= 2) return;
+    const p = ln.p;
+    for (let k = Math.floor(p.length * 0.3), tries = 0; tries < p.length; tries++, k = (k + 7) % p.length) {
+      // take a ~90px run around k
+      let a = k, b = k, len = 0;
+      while (b < p.length - 1 && len < 90) { len += Math.hypot(p[b + 1][0] - p[b][0], p[b + 1][1] - p[b][1]); b++; }
+      if (len < 90) continue;
+      const run = p.slice(a, b + 1).map(q => [q[0] + MX, q[1] + MY]);
+      if (!run.every(q => far(q[0], q[1]))) continue;
+      const mid = run[Math.floor(run.length / 2)];
+      if (used.some(u => Math.hypot(u.x - mid[0], u.y - mid[1]) < 160)) continue;
+      const dir = run[run.length - 1][0] - run[0][0];
+      const slope = Math.abs((run[run.length - 1][1] - run[0][1]) / (dir || 0.001));
+      if (slope > 0.75) continue;
+      const pr = dir < 0 ? run.slice().reverse() : run;
+      const id = "cl" + used.length;
+      lab += '<path id="' + id + '" d="M' + pr.map(q => q[0].toFixed(1) + "," + q[1].toFixed(1)).join("L") + '" fill="none"/>' +
+             '<text font-family="Barlow Condensed" font-weight="600" font-size="27" fill="' + C_INDEX + '" stroke="#F1F2EC" stroke-width="8" paint-order="stroke" dy="9"><textPath href="#' + id + '" startOffset="50%" text-anchor="middle">' + ln.L + '</textPath></text>';
+      used.push({ L: ln.L, x: mid[0], y: mid[1] });
+      break;
+    }
+  });
+  // insert labels right after the contours (before the trail)
+  const firstTrail = svg.querySelector('path[stroke-width="16"]');
+  firstTrail.insertAdjacentHTML("beforebegin", lab);
+
+  const subEl = document.getElementById("sub");
+  subEl.textContent = D.sub || "";
+  subEl.style.top = (MB + 26) + "px";
+  document.getElementById("src").textContent = D.source ? "Sumber: " + D.source : "";
+  document.getElementById("date").textContent = D.date || "";
+  }
+</script>
+</body>
+</html>

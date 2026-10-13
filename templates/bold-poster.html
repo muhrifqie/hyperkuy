@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<title>Bold Poster hook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Shrikhand&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet" />
+<style>
+  /* Bold Poster preset tokens (frame-presets/bold-poster/FRAME.md) — four colours only */
+  :root {
+    --bg: #ffffff; --dark: #1c1410; --red: #d8000f; --light: #f5f2ef;
+    --disp: "Shrikhand", serif; --body: "Libre Baskerville", serif; --mono: "Space Grotesk", sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; }
+  body { background: var(--bg); color: var(--dark); -webkit-font-smoothing: antialiased; position: relative; }
+
+  .col { position: absolute; left: 90px; right: 90px; top: 150px; bottom: 300px; display: flex; flex-direction: column; }
+
+  /* masthead: red eyebrow + double rule */
+  .mast { display: flex; justify-content: space-between; align-items: baseline; padding-bottom: 16px;
+    font-family: var(--mono); font-weight: 600; text-transform: uppercase; letter-spacing: 3px; font-size: 30px; }
+  .mast .s { color: var(--red); }
+  .mast .e { color: var(--dark); font-weight: 700; }
+  .rule2 { border-top: 6px solid var(--dark); height: 9px; border-bottom: 2px solid var(--dark); }
+
+  /* hero-title-stack: ink line / red tilted line / ink counter-tilt line */
+  .stack { margin-top: 34px; width: 900px; }
+  .stack .a { font-family: var(--disp); line-height: .98; color: var(--dark); width: 900px; }
+  .stack .b { font-family: var(--disp); line-height: .9; color: var(--red); width: 900px; transform: rotate(-4deg); transform-origin: left center;
+    margin: 34px 0 8px -6px; white-space: nowrap; }
+  .stack .c { font-family: var(--disp); line-height: .98; color: var(--dark); width: 900px; transform: rotate(2deg); transform-origin: left center; }
+
+  /* fin-grid as a vintage sports-magazine stats table: 3px outer + 1.5px inner ink rules */
+  .table-wrap { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 30px 0 34px; }
+  .fin { width: 810px; border: 4px solid var(--dark); display: grid; grid-template-columns: 96px 1fr auto; }
+  .fin > div { border: 1.5px solid var(--dark); display: flex; align-items: center; }
+  .fin .th { background: var(--dark); color: var(--bg); font-family: var(--mono); font-weight: 600; text-transform: uppercase; letter-spacing: 3px; font-size: 26px; padding: 12px 18px; }
+  .fin .no { justify-content: center; font-family: var(--mono); font-weight: 700; font-size: 32px; letter-spacing: 1px; color: var(--dark); }
+  .fin .lb { font-family: var(--body); font-size: 42px; line-height: 1.25; padding: 20px 24px; }
+  .fin .v { justify-content: flex-end; background: var(--light); font-family: var(--disp); color: var(--red); line-height: 1; padding: 16px 26px 22px; min-width: 290px; white-space: nowrap; }
+  .fin .v span { display: inline-block; transform: rotate(-4deg); }
+
+  /* red-leftbar card for the sub line */
+  .sub { width: 810px; border-left: 8px solid var(--red); padding: 4px 0 6px 28px; font-family: var(--body); font-size: 40px; line-height: 1.5; font-style: italic; }
+  .meta { margin-top: 24px; display: flex; gap: 22px; flex-wrap: wrap; font-family: var(--mono); font-weight: 600; text-transform: uppercase; letter-spacing: 2px; font-size: 26px; color: var(--dark); }
+  .meta .dash { color: var(--red); }
+
+  /* red progress bar + counter (bottom chrome, outside the safe band) */
+  .progress { position: absolute; left: 0; bottom: 0; height: 22px; width: 38%; background: var(--red); }
+  .track { position: absolute; left: 0; right: 0; bottom: 0; height: 22px; background: var(--light); }
+  .big-no { position: absolute; right: 60px; bottom: 60px; font-family: var(--disp); font-size: 260px; line-height: .8; color: var(--light); transform: rotate(-6deg); }
+</style>
+<!--DATA-->
+<script>
+  // Fallback sample so the file opens standalone in a browser.
+  const FALLBACK = {
+    series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [ { label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" } ],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026"
+  };
+  const D = window.D || FALLBACK;
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  function splitHL(t, hl) {
+    const i = hl ? t.toLowerCase().indexOf(String(hl).toLowerCase()) : -1;
+    return i < 0 ? [t, "", ""] : [t.slice(0, i), t.slice(i, i + hl.length), t.slice(i + hl.length)];
+  }
+  function fit(el, maxH, hi, lo) {
+    let a = lo, b = hi;
+    while (b - a > 1) { const m = (a + b) >> 1; el.style.fontSize = m + "px"; (el.scrollHeight <= maxH && el.scrollWidth <= el.clientWidth + 1) ? (a = m) : (b = m); }
+    el.style.fontSize = a + "px";
+  }
+  function render() {
+    const series = D.series || (D.kicker || "").split("·")[0].trim();
+    document.getElementById("mast").innerHTML = `<span class="s">${esc(series || D.kicker)}</span>` + (D.ep ? `<span class="e">No. ${esc(String(D.ep).replace("#", ""))}</span>` : "");
+    let [a, h, c] = splitHL((D.title || "").trim(), D.hl);
+    // Trailing punctuation alone is not a line: glue it to the red line.
+    if (h && !/[\p{L}\p{N}]/u.test(c)) { h += c; c = ""; }
+    if (!h) { const w = a.trim().split(/\s+/); h = w.pop(); a = w.join(" "); } // no hl → last word goes red
+    const A = document.getElementById("ta"), B = document.getElementById("tb"), C = document.getElementById("tc");
+    A.textContent = a.trim(); B.textContent = h.trim(); C.textContent = c.trim();
+    A.style.display = a.trim() ? "" : "none"; C.style.display = c.trim() ? "" : "none";
+    fit(A, c.trim() ? 230 : 330, 120, 60);
+    fit(B, 250, 250, 80);
+    if (c.trim()) fit(C, 200, Math.round(parseFloat(A.style.fontSize)), 56);
+
+    const items = (D.items || []).slice(0, 5), n = items.length;
+    const lb = n >= 5 ? 38 : n === 4 ? 44 : 48, v = n >= 5 ? 54 : n === 4 ? 64 : 76, pad = n >= 5 ? 18 : n === 4 ? 28 : 40;
+    const fin = document.getElementById("fin");
+    fin.innerHTML = items.map((it, i) => `
+      <div class="no">${String(i + 1).padStart(2, "0")}</div>
+      <div class="lb" style="font-size:${lb}px;padding-top:${pad}px;padding-bottom:${pad}px">${esc(it.label)}</div>
+      <div class="v" style="font-size:${v}px"><span>${esc(it.value)}</span></div>`).join("");
+    document.getElementById("sub").textContent = D.sub || "";
+    document.getElementById("meta").innerHTML =
+      (D.source ? `<span><span class="dash">—</span> ${esc(D.source)}</span>` : "") + (D.date ? `<span><span class="dash">—</span> ${esc(D.date)}</span>` : "");
+    document.getElementById("bigno").textContent = String(D.ep || "").replace("#", "");
+  }
+  document.addEventListener("DOMContentLoaded", () => { render(); document.fonts && document.fonts.ready.then(render); });
+</script>
+</head>
+<body>
+  <div class="big-no" id="bigno"></div>
+  <div class="track"></div><div class="progress"></div>
+  <div class="col">
+    <div class="mast" id="mast"></div>
+    <div class="rule2"></div>
+    <div class="stack">
+      <div class="a" id="ta"></div>
+      <div class="b" id="tb"></div>
+      <div class="c" id="tc"></div>
+    </div>
+    <div class="table-wrap"><div class="fin" id="fin"></div></div>
+    <div class="sub" id="sub"></div>
+    <div class="meta" id="meta"></div>
+  </div>
+</body>
+</html>

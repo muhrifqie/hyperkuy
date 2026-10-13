@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Cutive+Mono&family=Fraunces:opsz,wght@9..144,600&family=DM+Mono:wght@400;500&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Gulungan Piano (g2-gulungan-piano): a player-piano (pianola) roll seen from
+    the front of the instrument. Cream paper runs vertically between the two
+    spool flanges, ruled into note columns; rectangular holes are punched in
+    the columns (the "music"). A metal tracker bar crosses the paper; the roll
+    has stopped with the `hl` hole exactly on the bar, ringed by a blue ink
+    stamp. Below the bar sits the keyboard, keys pressed under the holes that
+    touch the bar. The song title is stamped on the leader (top of the roll)
+    in Fraunces with the roll number, like the label of a QRS / Ampico roll.
+    Items = holes: label = token name stamped in Cutive Mono beside its hole,
+    value = duration / probability stamped after it.
+
+    Signature move (video, not animated here): the paper scrolls upward at
+    constant speed; each hole reaching the bar sounds a short piano note and
+    its key presses; the roll stops on the hl hole and the camera pushes in
+    (scale 1.06).
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #EFE6CF; }
+  body { position: relative; color: #2A2622; font-family: "Cutive Mono", monospace; }
+
+  /* spool flanges / cabinet sides: the paper is narrower than the frame */
+  .flange { position: absolute; top: 0; bottom: 0; width: 60px; background: #17150F; }
+  .flange.l { left: 0; box-shadow: inset -6px 0 10px rgba(0,0,0,.6); }
+  .flange.r { right: 0; box-shadow: inset 6px 0 10px rgba(0,0,0,.6); }
+  .flange::after { content: ""; position: absolute; top: 0; bottom: 0; width: 8px; background: #2A2622; }
+  .flange.l::after { right: 0; } .flange.r::after { left: 0; }
+
+  /* the paper: ruled note columns + faint bar lines */
+  .paper { position: absolute; left: 60px; right: 60px; top: 0; bottom: 0; background: #EFE6CF; }
+  .paper .cols { position: absolute; inset: 0; pointer-events: none; }
+  .paper .grain { position: absolute; inset: 0; opacity: .55; pointer-events: none; }
+  .paper .edge { position: absolute; top: 0; bottom: 0; width: 18px; }
+  .paper .edge.l { left: 0; background: linear-gradient(90deg, rgba(23,21,15,.28), rgba(23,21,15,0)); }
+  .paper .edge.r { right: 0; background: linear-gradient(270deg, rgba(23,21,15,.28), rgba(23,21,15,0)); }
+
+  /* leader: series + roll number stamped at the top */
+  .kick { position: absolute; left: 110px; right: 110px; top: 300px; display: flex; justify-content: space-between; align-items: baseline;
+    font: 500 28px "DM Mono", monospace; letter-spacing: 0.08em; text-transform: uppercase; color: #2A2622; white-space: nowrap; }
+  .kick .no { color: #2A2622; opacity: .8; }
+
+  /* take-up spool at the top: the paper unwinds from a dark wooden cylinder */
+  .spool { position: absolute; left: 0; right: 0; top: 0; height: 200px; background: #2A2622; box-shadow: inset 0 -40px 50px rgba(0,0,0,.55), 0 8px 14px rgba(23,21,15,.45); }
+  .spool::before { content: ""; position: absolute; left: 0; right: 0; top: 54px; height: 10px; background: #4A443A; }
+  .spool .disc { position: absolute; top: -40px; width: 120px; height: 280px; border-radius: 60px; background: #0E0D09; box-shadow: inset 0 0 0 10px #2E2A24; }
+  .spool .disc.l { left: 0; } .spool .disc.r { right: 0; }
+  .title { position: absolute; left: 110px; right: 110px; top: 356px; font: 600 86px/1.06 "Fraunces", serif; color: #2A2622; letter-spacing: -0.015em; }
+  .title .hl { color: #1D4ED8; }
+  .leaderRule { position: absolute; left: 110px; right: 110px; height: 0; border-top: 3px solid #2A2622; }
+  .sub { position: absolute; left: 110px; right: 110px; font: 400 40px/1.3 "Cutive Mono", monospace; color: #2A2622; }
+
+  /* holes and their stamped captions */
+  .hole { position: absolute; background: #17150F; border-radius: 3px; box-shadow: inset 0 2px 0 rgba(0,0,0,.6), 0 0 0 1px rgba(23,21,15,.25); }
+  .cap { position: absolute; white-space: nowrap; font: 500 40px/1 "DM Mono", monospace; color: #2A2622; letter-spacing: 0.01em; }
+  .cap .v { color: #2A2622; opacity: .7; margin-left: 18px; }
+  .cap .v::before { content: "·"; margin-right: 18px; }
+  .ring { position: absolute; pointer-events: none; }
+
+  /* tracker bar: brass bar with a slot per column; reads as the one metal thing on the page */
+  .bar { position: absolute; left: 60px; right: 60px; height: 64px; background: #8E8674; box-shadow: 0 3px 0 #5E5848, 0 10px 18px rgba(23,21,15,.35), inset 0 2px 0 #C9C1AC, inset 0 -3px 0 #6C6454; }
+  .bar .slots { position: absolute; left: 0; right: 0; top: 24px; height: 16px; }
+  .bar .lbl { position: absolute; right: 18px; top: 0; height: 64px; display: flex; align-items: center; font: 500 22px "DM Mono", monospace; letter-spacing: 0.18em; color: #2A2622; opacity: .7; }
+
+  /* keyboard across the bottom: white keys, black keys, pressed keys under the sounding columns */
+  .keys { position: absolute; left: 0; right: 0; bottom: 0; height: 290px; background: #17150F; }
+  .keys .felt { position: absolute; left: 0; right: 0; top: 0; height: 14px; background: #1D4ED8; opacity: .85; }
+  .keys .w { position: absolute; top: 14px; bottom: 16px; background: #F7F1E3; border-radius: 0 0 5px 5px; box-shadow: inset -2px 0 0 #D8D0BE, inset 0 -6px 0 #D8D0BE; }
+  .keys .w.on { background: #DCD3BF; box-shadow: inset -2px 0 0 #C4BAA4, inset 0 -3px 0 #C4BAA4; transform: translateY(5px); }
+  .keys .b { position: absolute; top: 14px; height: 166px; background: #17150F; border-radius: 0 0 4px 4px; box-shadow: inset 0 -8px 0 #2E2A24, inset 2px 0 0 #3A352D, 0 4px 6px rgba(0,0,0,.6); }
+  .keys .b.on { height: 160px; background: #0E0D09; }
+
+  .meta { position: absolute; left: 110px; right: 110px; display: flex; justify-content: space-between; gap: 30px; font: 400 26px/1.4 "DM Mono", monospace; color: #2A2622; opacity: .85; }
+  .meta .src { max-width: 600px; }
+  .meta span:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="paper" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" seed="21" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.25  0 0 0 0 0.2  0 0 0 0 0.1  0 0 0 0.12 0"/>
+    </filter>
+    <!-- ink stamp: rough edge for the blue ring and the stamped captions -->
+    <filter id="stamp" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.12" numOctaves="2" seed="9" result="t"/>
+      <feDisplacementMap in="SourceGraphic" in2="t" scale="2.4" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </defs>
+</svg>
+
+<div class="flange l"></div><div class="flange r"></div>
+<div class="paper" id="paper">
+  <svg class="cols" id="cols" width="960" height="1920"></svg>
+  <svg class="grain" width="960" height="1920"><rect width="960" height="1920" filter="url(#paper)"/></svg>
+  <div class="edge l"></div><div class="edge r"></div>
+</div>
+
+<div class="kick"><span id="kick"></span><span class="no" id="rollno"></span></div>
+<div class="title" id="title"></div>
+<div class="leaderRule" id="rule"></div>
+<div id="holes"></div>
+<div class="bar" id="bar"><svg class="slots" id="slots" width="960" height="16"></svg></div>
+<div class="spool"><div class="disc l"></div><div class="disc r"></div></div>
+<div class="sub" id="sub"></div>
+<div class="meta" id="meta"><span class="src" id="src"></span><span id="date"></span></div>
+<div class="keys" id="keys"><div class="felt"></div></div>
+
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi, jumlah token beda tiap model", date: "per 14 Okt 2026" };
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const hash = (s) => [...String(s)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+  // seeded PRNG (mulberry32) so background holes are the same on every render
+  const rng = (seed) => () => { seed |= 0; seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const items = (D.items || []).slice(0, 5);
+  const hl = String(D.hl || "");
+
+  /* ---------- geometry ---------- */
+  const PAPER_L = 60, PAPER_W = 960;                     // paper spans x 60..1020
+  const NCOL = 40, COL_W = PAPER_W / NCOL;               // note columns (24 px pitch)
+  const HOLE_W = 14;                                      // punched width inside a column
+  const colX = (c) => PAPER_L + c * COL_W + (COL_W - HOLE_W) / 2;   // left x of a hole in column c
+  const BAR_Y = 1286;                                     // tracker bar top
+  const KEYS_TOP = 1920 - 290;
+
+  /* ---------- paper ruling: one hairline per column, bar lines every 8 rows ---------- */
+  const cols = document.getElementById("cols");
+  let ruling = "";
+  for (let c = 0; c <= NCOL; c++) ruling += `<line x1="${c * COL_W}" y1="0" x2="${c * COL_W}" y2="1920" stroke="#2A2622" stroke-width="${c % 5 === 0 ? 1 : 0.6}" opacity="${c % 5 === 0 ? 0.22 : 0.12}"/>`;
+  for (let y = 0; y < 1920; y += 48) ruling += `<line x1="0" y1="${y}" x2="${PAPER_W}" y2="${y}" stroke="#2A2622" stroke-width="0.6" opacity="0.1"/>`;
+  cols.innerHTML = ruling;
+
+  /* ---------- leader: kicker, roll number, title, rule ---------- */
+  document.getElementById("kick").textContent = D.kicker || [D.series, D.ep].filter(Boolean).join(" · ");
+  document.getElementById("rollno").textContent = `ROLL No. ${String(hash(D.title) % 9000 + 1000)}`;
+  const titleHtml = (t, h) => { const i = h ? t.indexOf(h) : -1; if (i < 0) return esc(t); return esc(t.slice(0, i)) + `<span class="hl">${esc(h)}</span>` + esc(t.slice(i + h.length)); };
+  const title = document.getElementById("title");
+  title.innerHTML = titleHtml(String(D.title || ""), hl);
+  let fs = 86;
+  const fitTitle = () => { fs = 86; title.style.fontSize = fs + "px"; while (title.scrollHeight > 3 * fs * 1.06 + 4 && fs > 60) { fs -= 2; title.style.fontSize = fs + "px"; } };
+
+  /* ---------- which hole is the hl hole ---------- */
+  const low = (s) => String(s || "").toLowerCase();
+  let hlIdx = items.findIndex((it) => hl && (low(it.label).includes(low(hl)) || low(it.value).includes(low(hl))));
+  if (hlIdx < 0 && hl) { const num = (hl.match(/\d+/) || [])[0]; if (num) hlIdx = items.findIndex((it) => String(it.value).includes(num)); }
+  if (hlIdx < 0) hlIdx = items.length - 1;
+
+  /* ---------- holes for the items: a staircase of columns, the hl hole sitting on the tracker bar ---------- */
+  // Items are ordered top to bottom; the roll moves up, so the LAST item is the one at the bar unless hl says otherwise.
+  // We place the hl item on the bar and the others above it in order (items after hl are placed above too, but greyed as "sudah lewat"? no:
+  // keep it simple and honest: order = items in given order, hl is moved to the bar row, the rest stack above it keeping their order).
+  const order = items.map((it, i) => i).filter((i) => i !== hlIdx).concat([hlIdx]);
+  const holesEl = document.getElementById("holes");
+  const ITEM_W = 2 * COL_W - 10;                          // item holes are punched two columns wide (a sustained chord) so they stand out
+  const rowBands = [];                                    // y bands reserved for item rows (kept free of background holes)
+  const buildHoles = (ruleY) => {
+    holesEl.innerHTML = ""; rowBands.length = 0;
+    const n = order.length;
+    const top = ruleY + 90, bottom = BAR_Y + 6;           // the hl hole sits on the bar, its tail just past it
+    const step = n > 1 ? Math.min(n <= 3 ? 230 : 160, (bottom - top) / (n - 1)) : 0;
+    const firstY = bottom - step * (n - 1);
+    const colSeq = [2, 5, 3, 7, 4, 6];                     // melody-like staircase of columns
+    let html = "";
+    order.forEach((idx, k) => {
+      const it = items[idx];
+      const isHl = idx === hlIdx;
+      const cy = firstY + step * k;
+      const col = colSeq[k % colSeq.length];
+      const len = (isHl ? 140 : 76) + (hash(it.label) % 30);          // longer hole = token "held" longer
+      const x = PAPER_L + col * COL_W + 5, y = cy - len / 2;
+      html += `<div class="hole" style="left:${x}px;top:${y}px;width:${ITEM_W}px;height:${len}px"></div>`;
+      // caption stamped right after its hole; the hl caption sits just above the bar so the bar does not cover it
+      const capY = isHl ? BAR_Y - 64 : cy - 21;
+      html += `<div class="cap${isHl ? " hl" : ""}" id="cap${k}" style="left:${x + ITEM_W + 34}px;top:${capY}px"><span class="l">${esc(it.label)}</span><span class="v">${esc(it.value)}</span></div>`;
+      rowBands.push({ top: Math.min(y, capY) - 14, bottom: Math.max(y + len, capY + 56) + 14 });
+      if (isHl) {
+        // blue stamp ring around the hole on the bar
+        const rw = ITEM_W + 70, rh = len + 44;
+        html += `<svg class="ring" width="${rw + 20}" height="${rh + 20}" style="left:${x + ITEM_W / 2 - rw / 2 - 10}px;top:${cy - rh / 2 - 10}px" filter="url(#stamp)">
+          <ellipse cx="${rw / 2 + 10}" cy="${rh / 2 + 10}" rx="${rw / 2}" ry="${rh / 2}" fill="none" stroke="#1D4ED8" stroke-width="6" opacity=".92" transform="rotate(-6 ${rw / 2 + 10} ${rh / 2 + 10})"/>
+          <ellipse cx="${rw / 2 + 10}" cy="${rh / 2 + 10}" rx="${rw / 2 - 9}" ry="${rh / 2 - 9}" fill="none" stroke="#1D4ED8" stroke-width="2" opacity=".8" transform="rotate(-6 ${rw / 2 + 10} ${rh / 2 + 10})"/>
+        </svg>`;
+      }
+    });
+    holesEl.innerHTML = html;
+    // captions must stay left of x 900 (TikTok column): shrink if needed
+    document.querySelectorAll(".cap").forEach((el) => { let f = 42; el.style.fontSize = f + "px"; while (el.getBoundingClientRect().right > 900 && f > 32) { f -= 2; el.style.fontSize = f + "px"; } });
+    document.querySelectorAll(".cap.hl, .cap.hl .v").forEach((el) => { el.style.color = "#1D4ED8"; el.style.opacity = 1; });
+    return { top, firstY, step };
+  };
+
+  /* ---------- background holes: earlier and later "music", avoiding the captions and the title ---------- */
+  const scatter = (avoid) => {
+    const r = rng(hash(D.title + "|" + D.date));
+    let html = "";
+    const hit = (x, y, w, h) => avoid.some((b) => x < b.right && x + w > b.left && y < b.bottom && y + h > b.top);
+    for (let i = 0; i < 90; i++) {
+      const c = Math.floor(r() * NCOL), len = 16 + Math.floor(r() * 46);
+      const y = 230 + r() * (KEYS_TOP - 300);
+      const x = colX(c);
+      if (y + len > BAR_Y - 6 && y < BAR_Y + 70) continue;             // the bar hides nothing: skip it
+      if (rowBands.some((b) => y < b.bottom && y + len > b.top)) continue;   // item rows stay clean
+      if (hit(x - 6, y - 6, HOLE_W + 12, len + 12)) continue;
+      html += `<div class="hole" style="left:${x}px;top:${y}px;width:${HOLE_W}px;height:${len}px;opacity:.9"></div>`;
+    }
+    holesEl.insertAdjacentHTML("afterbegin", html);
+  };
+
+  /* ---------- tracker bar slots ---------- */
+  let slots = "";
+  for (let c = 0; c < NCOL; c++) slots += `<rect x="${c * COL_W + (COL_W - HOLE_W) / 2}" y="2" width="${HOLE_W}" height="12" rx="1" fill="#2A2622" opacity=".85"/>`;
+  document.getElementById("slots").innerHTML = slots;
+  document.getElementById("bar").style.top = BAR_Y + "px";
+
+  /* ---------- keyboard: 20 white keys across 1080, black keys in the usual 2+3 pattern ---------- */
+  const keys = document.getElementById("keys");
+  const NW = 20, KW = 1080 / NW;
+  const blackAfter = [0, 1, 3, 4, 5];                     // pattern C D E F G A B: black after C, D, F, G, A
+  // sounding columns = columns of item holes touching the bar; map the hl column to a white key under it
+  const hlCol = 7;                                        // last entry of colSeq for 4-5 items; recomputed below
+  let kh = "";
+  const pressed = new Set();
+  const press = (x) => pressed.add(Math.max(0, Math.min(NW - 1, Math.floor(x / KW))));
+  document.querySelectorAll(".hole").forEach(() => {});
+  for (let k = 0; k < NW; k++) kh += `<div class="w" data-k="${k}" style="left:${k * KW + 1}px;width:${KW - 2}px"></div>`;
+  for (let k = 0; k < NW; k++) { if (blackAfter.includes(k % 7)) kh += `<div class="b" style="left:${(k + 1) * KW - KW * 0.3}px;width:${KW * 0.6}px"></div>`; }
+  keys.insertAdjacentHTML("beforeend", kh);
+
+  /* ---------- layout ---------- */
+  const subEl = document.getElementById("sub"), meta = document.getElementById("meta"), rule = document.getElementById("rule");
+  document.getElementById("sub").textContent = D.sub || "";
+  document.getElementById("src").textContent = D.source ? `sumber: ${D.source}` : "";
+  document.getElementById("date").textContent = D.date || "";
+  const layout = () => {
+    fitTitle();
+    const ruleY = 356 + title.offsetHeight + 28;
+    rule.style.top = ruleY + "px";
+    const pos = buildHoles(ruleY);
+    // sub under the bar, meta under the sub, both above the keys
+    const SUB_Y = BAR_Y + 64 + 60;
+    subEl.style.top = SUB_Y + "px";
+    let sf = 40; subEl.style.fontSize = sf + "px";
+    while (SUB_Y + subEl.offsetHeight + 26 + 40 + 30 > KEYS_TOP && sf > 34) { sf -= 2; subEl.style.fontSize = sf + "px"; }
+    meta.style.top = (SUB_Y + subEl.offsetHeight + 20) + "px";
+    // avoid boxes for scatter: title block, captions, item holes, sub, meta
+    const avoid = [title, subEl, meta, document.querySelector(".kick"), ...document.querySelectorAll(".cap, .ring")].map((e) => e.getBoundingClientRect());
+    document.querySelectorAll("#holes .hole").forEach((h) => avoid.push(h.getBoundingClientRect()));
+    scatter(avoid);
+    // pressed keys: white keys under the holes that touch the bar (the hl hole + its chord)
+    pressed.clear();
+    document.querySelectorAll("#holes .hole").forEach((h) => { const b = h.getBoundingClientRect(); if (b.top < BAR_Y + 40 && b.bottom > BAR_Y + 20) press(b.left + b.width / 2); });
+    document.querySelectorAll(".keys .w").forEach((w) => w.classList.toggle("on", pressed.has(+w.dataset.k)));
+  };
+  layout();
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(layout);
+</script>
+</body>
+</html>

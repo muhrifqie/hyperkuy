@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Barlow:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&family=Kalam:wght@400;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Lembar LJK (opus-lembar-ljk): an Indonesian computer-graded multiple-choice
+    answer sheet. The whole frame is the sheet: very pale paper, every printed
+    element in ONE blue-violet ink, black corner registration squares and a
+    column of black timing marks down the left edge (one per answer row, as a
+    scanner would read them). Header: form name, the exam title (= `title`,
+    `hl` circled in pencil), and boxes MATA UJIAN / NO. PESERTA / TANGGAL
+    filled in pencil handwriting from series / ep / date. `sub` is the printed
+    PETUNJUK line. Each item is an answer row: question text = label, bubbles
+    A-E with one filled in dense 2B graphite (deterministic per label), and the
+    value pencilled at the right as a score note. One row carries an erased,
+    smudged earlier answer.
+
+    Signature move (video): row by row the pencil fills its bubble in quick
+    back-and-forth scribbles; on one row it first fills a different bubble,
+    the eraser rubs it out to a grey smudge, and the final answer is filled,
+    then the value note is pencilled in beside it.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root { --ink: #3B3E9C; --ink-soft: rgba(59, 62, 156, 0.07); --ink-line: rgba(59, 62, 156, 0.45); --lead: #34353B; --paper: #FBFBF7; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--paper); }
+  body { position: relative; color: var(--ink); font-family: "Barlow", sans-serif; }
+
+  /* paper: faint fibre tone, deterministic */
+  #paper { position: absolute; inset: 0; }
+
+  .reg { position: absolute; width: 34px; height: 34px; background: #111; }
+  .tm { position: absolute; left: 34px; width: 40px; height: 16px; background: #111; }
+  .code { position: absolute; top: 236px; left: 112px; right: 112px; display: flex; justify-content: space-between; font: 500 26px "IBM Plex Mono", monospace; color: var(--ink); letter-spacing: 0.04em; }
+
+  #form { position: absolute; left: 90px; top: 300px; width: 900px; }
+  .formname { display: flex; align-items: baseline; justify-content: space-between; border-bottom: 4px solid var(--ink); padding-bottom: 10px; }
+  .formname .n { font: 700 34px "Barlow Condensed", sans-serif; letter-spacing: 0.14em; }
+  .formname .k { font: 600 30px "Barlow Condensed", sans-serif; letter-spacing: 0.08em; }
+
+  .tlabel { margin-top: 22px; font: 600 30px "Barlow Condensed", sans-serif; letter-spacing: 0.12em; }
+  #title { position: relative; margin-top: 4px; font-family: "Barlow Condensed", sans-serif; font-weight: 800; line-height: 1.07; letter-spacing: -0.005em; color: var(--ink); text-transform: uppercase; }
+  #title .hl { position: relative; display: inline-block; }
+
+  .boxes { display: grid; grid-template-columns: 1.55fr 0.85fr 1.25fr; margin-top: 26px; border: 3px solid var(--ink); }
+  .box { padding: 10px 16px 8px; min-width: 0; }
+  .box + .box { border-left: 3px solid var(--ink); }
+  .box .l { font: 600 30px "Barlow Condensed", sans-serif; letter-spacing: 0.1em; }
+  .box .v { font: 400 44px/1.05 "Kalam", cursive; color: var(--lead); white-space: nowrap; overflow: hidden; margin-top: 2px; }
+  .digits { display: flex; gap: 8px; margin-top: 6px; }
+  .digits span { width: 54px; height: 56px; border: 2px solid var(--ink); display: flex; align-items: center; justify-content: center; font: 400 42px "Kalam", cursive; color: var(--lead); padding-top: 6px; }
+
+  .petunjuk { margin-top: 24px; display: flex; gap: 18px; align-items: flex-start; }
+  .petunjuk .l { flex: none; font: 700 30px "Barlow Condensed", sans-serif; letter-spacing: 0.1em; background: var(--ink); color: var(--paper); padding: 4px 12px 2px; margin-top: 4px; }
+  .petunjuk .t { font: 500 40px/1.18 "Barlow", sans-serif; color: var(--ink); }
+
+  #answers { position: relative; margin-top: 26px; width: 810px; border-top: 4px solid var(--ink); }
+  .ahead { display: flex; justify-content: space-between; font: 600 30px "Barlow Condensed", sans-serif; letter-spacing: 0.1em; padding: 8px 0 6px; border-bottom: 2px solid var(--ink-line); }
+  .row { position: relative; display: grid; grid-template-columns: 64px 1fr; column-gap: 8px; align-content: center; border-bottom: 2px dotted var(--ink-line); }
+  .row:nth-child(odd of .row) { background: var(--ink-soft); }
+  .row .no { font: 700 44px "Barlow Condensed", sans-serif; text-align: right; padding-right: 8px; align-self: start; line-height: 1.15; }
+  .row .q { font: 600 40px/1.15 "Barlow", sans-serif; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .opts { grid-column: 2; display: flex; align-items: center; margin-top: 10px; }
+  .row .opts svg { display: block; overflow: visible; }
+  .row .note { margin-left: auto; padding-right: 14px; font: 400 46px/1 "Kalam", cursive; color: var(--lead); white-space: nowrap; transform: rotate(-2.5deg); transform-origin: right center; }
+
+  #foot { position: absolute; left: 90px; width: 900px; display: flex; justify-content: space-between; gap: 24px; font: 500 26px "IBM Plex Mono", monospace; color: var(--ink); }
+  #foot .s { max-width: 640px; }
+
+  #overlay { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; pointer-events: none; overflow: visible; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <!-- 2B graphite: speckled alpha + slightly ragged edge (fixed seeds = deterministic) -->
+    <filter id="lead" x="-15%" y="-15%" width="130%" height="130%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.035 1.1" numOctaves="2" seed="7" result="n" />
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.5 1.72" result="a" />
+      <feComposite in="SourceGraphic" in2="a" operator="in" result="tex" />
+      <feTurbulence type="fractalNoise" baseFrequency="0.06" numOctaves="1" seed="3" result="w" />
+      <feDisplacementMap in="tex" in2="w" scale="5" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+    <filter id="smudge" x="-30%" y="-40%" width="160%" height="180%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="11" result="n" />
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.1 1.0" result="a" />
+      <feComposite in="SourceGraphic" in2="a" operator="in" result="tex" />
+      <feGaussianBlur in="tex" stdDeviation="2.2" />
+    </filter>
+    <linearGradient id="graphite" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2A2B31" />
+      <stop offset="0.55" stop-color="#3D3F46" />
+      <stop offset="1" stop-color="#55575F" />
+    </linearGradient>
+  </defs>
+</svg>
+
+<svg id="paper" viewBox="0 0 1080 1920" preserveAspectRatio="none">
+  <filter id="fibre"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" seed="21" /><feColorMatrix type="matrix" values="0 0 0 0 0.35  0 0 0 0 0.36  0 0 0 0 0.45  0 0 0 0.05 0" /></filter>
+  <rect width="1080" height="1920" fill="#FBFBF7" />
+  <rect width="1080" height="1920" filter="url(#fibre)" />
+</svg>
+
+<div class="reg" style="left:40px;top:222px"></div>
+<div class="reg" style="right:40px;top:222px"></div>
+<div class="reg" style="left:40px;top:1668px"></div>
+<div class="reg" style="right:40px;top:1668px"></div>
+<div class="code"><span id="fcode"></span><span>GUNAKAN PENSIL 2B</span></div>
+<div id="tms"></div>
+
+<div id="form">
+  <div class="formname"><span class="n">LEMBAR JAWABAN KOMPUTER</span><span class="k" id="kick"></span></div>
+  <div class="tlabel">UJIAN</div>
+  <div id="title"></div>
+  <div class="boxes">
+    <div class="box"><div class="l">MATA UJIAN</div><div class="v" id="mu"></div></div>
+    <div class="box"><div class="l">NO. PESERTA</div><div class="digits" id="np"></div></div>
+    <div class="box"><div class="l">TANGGAL</div><div class="v" id="tg"></div></div>
+  </div>
+  <div class="petunjuk"><span class="l">PETUNJUK</span><span class="t" id="sub"></span></div>
+  <div id="answers"><div class="ahead"><span>NO. &nbsp;SOAL &amp; JAWABAN</span><span>SKOR</span></div></div>
+</div>
+
+<div id="foot"><span class="s" id="src"></span><span id="date"></span></div>
+<svg id="overlay" viewBox="0 0 1080 1920"></svg>
+
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  Promise.all(['800 90px "Barlow Condensed"', '600 30px "Barlow Condensed"', '700 44px "Barlow Condensed"', '600 40px "Barlow"', '500 40px "Barlow"', '400 46px "Kalam"', '500 26px "IBM Plex Mono"'].map(f => document.fonts.load(f))).catch(() => {}).then(render);
+
+  function render() {
+    const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    // Small deterministic hash (FNV-1a) for per-label choices.
+    const hash = s => { let h = 2166136261; for (const ch of String(s)) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
+    const items = (D.items || []).slice(0, 5);
+    const n = items.length;
+    const LETTERS = ["A", "B", "C", "D", "E"];
+
+    const epNum = String(D.ep || "01").replace(/[^0-9]/g, "") || "01";
+    document.getElementById("fcode").textContent = "FORM AI-" + epNum.padStart(2, "0") + " · JANGAN DILIPAT";
+    document.getElementById("kick").textContent = String(D.ep || "").toUpperCase();
+    document.getElementById("mu").textContent = D.series || "";
+    document.getElementById("np").innerHTML = epNum.padStart(3, "0").split("").map(d => "<span>" + d + "</span>").join("");
+    document.getElementById("tg").textContent = String(D.date || "").replace(/^per\s+/i, "");
+    document.getElementById("sub").textContent = D.sub || "";
+    document.getElementById("src").textContent = D.source ? "Sumber: " + D.source : "";
+    document.getElementById("date").textContent = D.date || "";
+
+    // Fit handwriting into its box.
+    ["mu", "tg"].forEach(id => { const el = document.getElementById(id); let fs = 44; while (el.scrollWidth > el.clientWidth && fs > 30) { fs -= 1; el.style.fontSize = fs + "px"; } });
+
+    // Title (exam title) with hl wrapped for the pencil circle.
+    const t = D.title || "", hl = D.hl || "";
+    const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    const titleEl = document.getElementById("title");
+    titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl" id="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+
+    // Answer rows.
+    const ans = document.getElementById("answers");
+    const choice = items.map((it, i) => (hash(it.label) + i * 3) % 5);
+    const eraseRow = n > 1 ? 1 : 0; // the row that shows an erased earlier answer
+    const eraseOpt = (choice[eraseRow] + 2) % 5;
+    const BW = 70, BH = 52, GAP = 92; // bubble ellipse size + pitch
+    items.forEach((it, i) => {
+      let s = '<svg width="' + (GAP * 4 + BW + 12) + '" height="' + (BH + 12) + '" viewBox="-6 -6 ' + (GAP * 4 + BW + 12) + " " + (BH + 12) + '">';
+      LETTERS.forEach((L, j) => {
+        const cx = j * GAP + BW / 2, cy = BH / 2;
+        s += '<ellipse cx="' + cx + '" cy="' + cy + '" rx="' + BW / 2 + '" ry="' + BH / 2 + '" fill="none" stroke="#3B3E9C" stroke-width="3"/>';
+        s += '<text x="' + cx + '" y="' + (cy + 11) + '" text-anchor="middle" font-family="Barlow Condensed" font-weight="600" font-size="31" fill="#3B3E9C">' + L + "</text>";
+        if (i === eraseRow && j === eraseOpt) {
+          // erased earlier answer: grey haze + eraser streaks past the outline
+          s += '<g filter="url(#smudge)" opacity="0.42"><ellipse cx="' + (cx + 4) + '" cy="' + (cy + 2) + '" rx="' + (BW / 2 - 4) + '" ry="' + (BH / 2 - 6) + '" fill="#6B6D74"/>' +
+               '<path d="M' + (cx - 46) + "," + (cy + 14) + " C" + (cx - 14) + "," + (cy - 2) + " " + (cx + 16) + "," + (cy + 20) + " " + (cx + 50) + "," + (cy + 2) + " M" + (cx - 30) + "," + (cy - 12) + " C" + (cx - 4) + "," + (cy - 20) + " " + (cx + 20) + "," + (cy - 4) + " " + (cx + 40) + "," + (cy - 16) + '" stroke="#8A8C93" stroke-width="9" stroke-linecap="round" fill="none"/></g>';
+        }
+        if (j === choice[i]) {
+          // dense 2B fill, slightly overshooting the printed oval
+          const h = hash(it.label + j), rot = (h % 9) - 4, ox = (h % 5) - 2;
+          s += '<g filter="url(#lead)" transform="rotate(' + rot + " " + cx + " " + cy + ')">' +
+               '<ellipse cx="' + (cx + ox * 0.6) + '" cy="' + (cy + 1) + '" rx="' + (BW / 2 + 3) + '" ry="' + (BH / 2 + 2) + '" fill="url(#graphite)"/>' +
+               '<path d="M' + (cx - BW / 2 + 2) + "," + (cy - 6) + " L" + (cx + BW / 2 + 5) + "," + (cy - 14) + " M" + (cx - BW / 2 - 2) + "," + (cy + 9) + " L" + (cx + BW / 2 + 1) + "," + (cy + 3) + '" stroke="#2A2B31" stroke-width="4" stroke-linecap="round"/></g>';
+        }
+      });
+      s += "</svg>";
+      const row = document.createElement("div");
+      row.className = "row";
+      row.innerHTML = '<div class="no">' + (i + 1) + '</div><div class="q">' + esc(it.label) + '</div><div class="opts">' + s + '<span class="note">' + esc(it.value) + "</span></div>";
+      ans.appendChild(row);
+    });
+
+    // Vertical fit: shrink title until form + rows fit above the footer.
+    const form = document.getElementById("form");
+    const rows = [...ans.querySelectorAll(".row")];
+    const LIMIT = 1530; // bottom of answer block (page y)
+    let fs = 96, rowH = 0;
+    for (; fs >= 64; fs -= 2) {
+      titleEl.style.fontSize = fs + "px";
+      rows.forEach(r => r.style.height = "auto");
+      const avail = LIMIT - (300 + ans.offsetTop + ans.querySelector(".ahead").offsetHeight + 4);
+      rowH = Math.floor(avail / Math.max(n, 1));
+      if (rowH >= 124 || fs <= 64) break;
+    }
+    rowH = Math.min(rowH, 196);
+    rows.forEach(r => { r.style.height = rowH + "px"; r.style.paddingTop = "0"; });
+    // Fit long note values inside their row.
+    rows.forEach(r => { const note = r.querySelector(".note"), o = r.querySelector(".opts"); let f = 46; while (o.scrollWidth > o.clientWidth && f > 32) { f -= 1; note.style.fontSize = f + "px"; } const q = r.querySelector(".q"); let g = 40; while (q.scrollWidth > q.clientWidth && g > 32) { g -= 1; q.style.fontSize = g + "px"; } });
+
+    const formBottom = 300 + form.offsetHeight;
+    const foot = document.getElementById("foot");
+    foot.style.top = (formBottom + 22) + "px";
+
+    // Timing marks: one per answer row (centred), plus header marks.
+    let tm = "";
+    const ansTop = 300 + ans.offsetTop;
+    [330, 300 + titleEl.offsetTop + 30, 300 + form.querySelector(".boxes").offsetTop + 40, 300 + form.querySelector(".petunjuk").offsetTop + 22].forEach(y => tm += '<div class="tm" style="top:' + Math.round(y) + 'px"></div>');
+    rows.forEach(r => tm += '<div class="tm" style="top:' + Math.round(ansTop + r.offsetTop + r.offsetHeight / 2 - 8) + 'px"></div>');
+    document.getElementById("tms").innerHTML = tm;
+
+    // Pencil circle around hl (two overlapping loose passes, deterministic).
+    const hlEl = document.getElementById("hl");
+    if (hlEl) {
+      const r = hlEl.getBoundingClientRect();
+      const cx = r.left + r.width / 2, cy = r.top + r.height * 0.52;
+      const wide = r.width > 360; const rx = r.width / 2 + (wide ? 20 : 32), ry = r.height / 2 + (wide ? 6 : 10);
+      const pw = wide ? 2 / 3.2 : 1; // superellipse exponent: wide loops hug the word like a rounded box
+      const loop = (k, dx, dy, a0) => {
+        let d = "";
+        const steps = 48, sweep = Math.PI * 2 + 0.55;
+        for (let s = 0; s <= steps; s++) {
+          const a = a0 + sweep * s / steps;
+          const wob = 1 + (wide ? 0.012 : 0.035) * Math.sin(a * 3 + k);
+          const c = Math.cos(a), sn = Math.sin(a);
+          const x = cx + dx + Math.sign(c) * Math.pow(Math.abs(c), pw) * rx * wob, y = cy + dy + Math.sign(sn) * Math.pow(Math.abs(sn), pw) * ry * wob * (1 + 0.04 * k);
+          d += (s ? " L" : "M") + x.toFixed(1) + "," + y.toFixed(1);
+        }
+        return d;
+      };
+      document.getElementById("overlay").innerHTML =
+        '<g transform="rotate(' + (wide ? -1.2 : -3) + ' ' + cx + " " + cy + ')" filter="url(#lead)" fill="none" stroke="#34353B" stroke-linecap="round">' +
+        '<path d="' + loop(0, 0, 0, 2.6) + '" stroke-width="6" opacity="0.92"/>' +
+        '<path d="' + loop(1.7, 5, -3, 2.9) + '" stroke-width="4" opacity="0.7"/></g>';
+    }
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@500;800&family=Space+Mono:wght@400;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Peta Sinoptik (g2-peta-sinoptik): a surface analysis chart in the BMKG /
+    Met Office tradition. The object is the chart itself: a simplified
+    Sumatra, Java and south Kalimantan coastline, a faint lat/lon grid, thin
+    black isobars labelled in hPa, a cold front (triangles) and a warm front
+    (half discs), and station plots (circle + wind barb). Every `item` is a
+    station: label = place/event, value = the big station number. The `hl`
+    item sits at the centre of the Low: the giant cobalt "L" (the single
+    accent). No temperature colour gradients, ever.
+
+    Signature move (video, not animated here): isobars draw themselves outward
+    from the L centre (stroke-dash), the L drops into place, front markers
+    march along their line, stations appear with the barb rotating to its
+    direction.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #E6EDF3; }
+  body { position: relative; color: #1B222B; font-family: "Public Sans", sans-serif; }
+
+  .top { position: absolute; left: 90px; right: 90px; top: 300px; display: flex; justify-content: space-between; font: 400 26px "Space Mono", monospace; color: #5B6673; letter-spacing: 0.04em; text-transform: uppercase; }
+  .top b { font-weight: 700; color: #1E4FD8; }
+  .title { position: absolute; left: 90px; width: 900px; top: 356px; font-size: 94px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.0; }
+  .title .hl { color: #1E4FD8; }
+  svg { position: absolute; left: 0; top: 640px; width: 1080px; height: 760px; display: block; }
+  .sub { position: absolute; left: 90px; width: 810px; top: 1430px; font-size: 40px; font-weight: 500; line-height: 1.3; }
+  .foot { position: absolute; left: 90px; right: 90px; top: 1566px; display: flex; justify-content: space-between; gap: 40px; font: 400 26px "Space Mono", monospace; color: #5B6673; line-height: 1.4; }
+  .foot span:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="top"><span id="kick"></span><span id="ep"></span></div>
+<div class="title" id="title"></div>
+<svg id="map" viewBox="0 0 1080 760" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="sub" id="sub"></div>
+<div class="foot"><span id="src"></span><span id="date"></span></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi, jumlah token beda tiap model", date: "per 14 Okt 2026" };
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const hlWrap = (t, h) => { const i = h ? t.toLowerCase().indexOf(h.toLowerCase()) : -1;
+    return i < 0 ? esc(t) : esc(t.slice(0, i)) + `<span class="hl">${esc(t.slice(i, i + h.length))}</span>` + esc(t.slice(i + h.length)); };
+  const items = (D.items || []).slice(0, 5);
+  const INK = "#1B222B", ACC = "#1E4FD8", BG = "#E6EDF3", LAND = "#F5F7F9", GRID = "#C7D2DD", MUTED = "#5B6673";
+
+  document.getElementById("kick").textContent = D.series || D.kicker || "";
+  document.getElementById("ep").textContent = D.ep || "";
+  document.getElementById("title").innerHTML = hlWrap(D.title || "", D.hl);
+  document.getElementById("sub").textContent = D.sub || "";
+  document.getElementById("src").textContent = D.source ? `sumber: ${D.source}` : "";
+  document.getElementById("date").textContent = D.date || "";
+
+  /* ---------- helpers: smooth closed/open path through points (Catmull-Rom to cubic Bezier) ---------- */
+  const smooth = (pts, closed) => {
+    const P = closed ? [pts[pts.length - 1], ...pts, pts[0], pts[1]] : [pts[0], ...pts, pts[pts.length - 1]];
+    let d = `M ${P[1][0].toFixed(1)} ${P[1][1].toFixed(1)}`;
+    for (let i = 1; i < P.length - 2; i++) {
+      const [p0, p1, p2, p3] = [P[i - 1], P[i], P[i + 1], P[i + 2]];
+      const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6], c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+      d += ` C ${c1[0].toFixed(1)} ${c1[1].toFixed(1)} ${c2[0].toFixed(1)} ${c2[1].toFixed(1)} ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;
+    }
+    return d + (closed ? " Z" : "");
+  };
+  // An island from a centreline with per-side half-widths (east/right side first, then west/left side back).
+  const island = (line, wR, wL) => {
+    const out = [];
+    const at = (t) => { const k = t * (line.length - 1), i = Math.min(line.length - 2, Math.floor(k)), u = k - i;
+      const a = line[i], b = line[i + 1]; return [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, b[0] - a[0], b[1] - a[1]]; };
+    const N = 14;
+    for (let s = 0; s <= N; s++) { const t = s / N, [x, y, dx, dy] = at(t), L = Math.hypot(dx, dy), nx = dy / L, ny = -dx / L; const w = wR(t); out.push([x + nx * w, y + ny * w]); }
+    for (let s = N; s >= 0; s--) { const t = s / N, [x, y, dx, dy] = at(t), L = Math.hypot(dx, dy), nx = dy / L, ny = -dx / L; const w = wL(t); out.push([x - nx * w, y - ny * w]); }
+    return smooth(out, true);
+  };
+  const bump = (t, c, w, a) => a * Math.exp(-((t - c) * (t - c)) / (2 * w * w));
+
+  /* ---------- Coastline: Sumatra (NW to SE diagonal), Java (W to E), south Kalimantan (top right). ---------- */
+  const sumatra = island([[20, -60], [180, 110], [340, 260], [500, 400], [640, 530]],
+    (t) => 16 + 44 * Math.sin(Math.PI * t) + bump(t, 0.45, 0.12, 30) + bump(t, 0.2, 0.08, 14),   // east coast: Riau bulge
+    (t) => 12 + 36 * Math.sin(Math.PI * t) + bump(t, 0.7, 0.1, 8));                                // west coast: straighter
+  const java = island([[560, 614], [700, 600], [840, 606], [980, 620], [1130, 628]],
+    (t) => 8 + 22 * Math.sin(Math.PI * Math.min(1, t * 1.15)) + bump(t, 0.3, 0.1, 8),
+    (t) => 8 + 20 * Math.sin(Math.PI * t) + bump(t, 0.8, 0.1, 6));
+  const kalimantan = smooth([[720, -40], [1130, -40], [1130, 250], [1040, 300], [930, 280], [850, 210], [790, 120], [750, 40]], true);
+  const islets = `<ellipse cx="560" cy="320" rx="30" ry="18" transform="rotate(-20 560 320)"/><ellipse cx="640" cy="352" rx="22" ry="14"/>
+    <ellipse cx="1040" cy="582" rx="48" ry="12"/>`;
+
+  /* ---------- Isobars around the Low at (800,440): organic closed contours, 2 hPa apart. ---------- */
+  const LX = 800, LY = 440;
+  const ring = (r, k) => { const pts = [];
+    for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2;
+      const rr = r * (1 + 0.14 * Math.sin(2 * a + 0.6 + k * 0.3) + 0.07 * Math.sin(3 * a - 1.1) + 0.05 * Math.cos(a * 5 + k)) ;
+      pts.push([LX + rr * Math.cos(a) * 1.18, LY + rr * Math.sin(a)]); }
+    return pts; };
+  const halo = `paint-order="stroke" stroke="${BG}" stroke-width="12" stroke-linejoin="round"`;
+  let isobars = "", isoLabels = "";
+  [90, 165, 240, 315, 390, 470, 560].forEach((r, k) => {
+    const pts = ring(r, k); isobars += `<path d="${smooth(pts, true)}" fill="none" stroke="${INK}" stroke-width="2"/>`;
+    const p = pts[18];                                                   // straight above the L, labels stack upward
+    if (p[0] < 1040 && p[1] > 40) isoLabels += `<text x="${p[0]}" y="${p[1] + 9}" text-anchor="middle" font-family="Space Mono" font-size="26" fill="${INK}" ${halo}>${1000 + k * 2}</text>`;
+  });
+  // Two arcs of the High in the lower-left (Indian Ocean).
+  const HX = 150, HY = 690;
+  [120, 200].forEach((r, k) => { const pts = [];
+    for (let i = 0; i < 18; i++) { const a = i / 18 * Math.PI * 2; const rr = r * (1 + 0.1 * Math.sin(2 * a + 1 + k)); pts.push([HX + rr * Math.cos(a) * 1.25, HY + rr * Math.sin(a)]); }
+    isobars += `<path d="${smooth(pts, true)}" fill="none" stroke="${INK}" stroke-width="2"/>`;
+    const p = pts[14]; isoLabels += `<text x="${p[0]}" y="${p[1] + 9}" text-anchor="middle" font-family="Space Mono" font-size="26" fill="${INK}" ${halo}>${1016 - k * 2}</text>`; });
+
+  /* ---------- Fronts: cold (triangles) to the south-west, warm (half discs) to the east. ---------- */
+  const front = (pts, kind) => {
+    const d = smooth(pts, false); let marks = ""; const path = document.createElementNS("http://www.w3.org/2000/svg", "path"); path.setAttribute("d", d);
+    const L = path.getTotalLength();
+    for (let s = 46; s < L - 10; s += 58) { const p = path.getPointAtLength(s), q = path.getPointAtLength(s + 1);
+      const ang = Math.atan2(q.y - p.y, q.x - p.x) * 180 / Math.PI;
+      marks += kind === "cold" ? `<path d="M-12 0 L12 0 L0 -20 Z" transform="translate(${p.x} ${p.y}) rotate(${ang})"/>`
+                               : `<path d="M-12 0 A12 12 0 0 1 12 0 Z" transform="translate(${p.x} ${p.y}) rotate(${ang})"/>`; }
+    return `<path d="${d}" fill="none" stroke="${INK}" stroke-width="5" stroke-linecap="round"/><g fill="${INK}">${marks}</g>`;
+  };
+  const cold = front([[LX, LY], [700, 520], [560, 600], [420, 690], [300, 790]], "cold");
+  const warm = front([[LX, LY], [900, 400], [1000, 410], [1110, 450]], "warm");
+
+  /* ---------- Stations: the hl item is the Low centre; the rest are plotted at fixed slots. ---------- */
+  const hlq = String(D.hl || "").toLowerCase();
+  let h = hlq ? items.findIndex((it) => String(it.label).toLowerCase().includes(hlq)) : -1;
+  if (h < 0) h = items.length - 1;
+  const slots = [{ x: 200, y: 120, side: "r", dir: 215 }, { x: 440, y: 330, side: "r", dir: 250 }, { x: 320, y: 560, side: "r", dir: 160 }, { x: 650, y: 666, side: "l", dir: 300 }];
+  let stations = "";
+  items.forEach((it, i) => {
+    if (i === h) return;
+    const s = slots.shift(); if (!s) return;
+    const a = s.dir * Math.PI / 180, bx = s.x + Math.cos(a) * 58, by = s.y + Math.sin(a) * 58;        // wind barb shaft + 2 feathers
+    const fx = Math.cos(a + Math.PI / 2) * 16, fy = Math.sin(a + Math.PI / 2) * 16;
+    const anchor = s.side === "r" ? "start" : "end", tx = s.side === "r" ? s.x + 30 : s.x - 30;
+    stations += `<g><line x1="${s.x}" y1="${s.y}" x2="${bx}" y2="${by}" stroke="${INK}" stroke-width="3"/>
+      <line x1="${bx}" y1="${by}" x2="${bx + fx}" y2="${by + fy}" stroke="${INK}" stroke-width="3"/>
+      <line x1="${bx - Math.cos(a) * 14}" y1="${by - Math.sin(a) * 14}" x2="${bx - Math.cos(a) * 14 + fx}" y2="${by - Math.sin(a) * 14 + fy}" stroke="${INK}" stroke-width="3"/>
+      <circle cx="${s.x}" cy="${s.y}" r="13" fill="${LAND}" stroke="${INK}" stroke-width="3.5"/>
+      <text x="${tx}" y="${s.y - 12}" text-anchor="${anchor}" font-family="Public Sans" font-weight="500" font-size="32" fill="${INK}" ${halo}>${esc(it.label)}</text>
+      <text x="${tx}" y="${s.y + 36}" text-anchor="${anchor}" font-family="Public Sans" font-weight="800" font-size="46" fill="${INK}" ${halo}>${esc(it.value)}</text></g>`;
+  });
+  const hi = items[h] || { label: "", value: "" };
+  const low = `<text x="${LX}" y="${LY + 58}" text-anchor="middle" font-family="Public Sans" font-weight="800" font-size="170" fill="${ACC}" ${halo} stroke-width="16">L</text>
+    <text x="${LX - 120}" y="${LY - 6}" text-anchor="end" font-family="Public Sans" font-weight="500" font-size="32" fill="${INK}" ${halo}>${esc(hi.label)}</text>
+    <text x="${LX - 120}" y="${LY + 48}" text-anchor="end" font-family="Public Sans" font-weight="800" font-size="56" fill="${ACC}" ${halo}>${esc(hi.value)}</text>
+    <text x="${HX}" y="${HY + 40}" text-anchor="middle" font-family="Public Sans" font-weight="800" font-size="110" fill="${INK}" ${halo}>H</text>`;
+
+  /* ---------- Grid + frame + chart header. ---------- */
+  let grid = "";
+  for (let x = 190; x < 1080; x += 190) grid += `<line x1="${x}" y1="0" x2="${x}" y2="760" stroke="${GRID}" stroke-width="1.5"/><text x="${x + 8}" y="744" font-family="Space Mono" font-size="26" fill="${MUTED}">${95 + x / 190 * 5}°E</text>`;
+  for (let y = 190; y < 760; y += 190) grid += `<line x1="0" y1="${y}" x2="1080" y2="${y}" stroke="${GRID}" stroke-width="1.5"/><text x="1070" y="${y - 8}" text-anchor="end" font-family="Space Mono" font-size="26" fill="${MUTED}">${y / 190 * 5 - 5}°S</text>`;
+  const header = `<g transform="translate(16 16)"><rect x="0" y="0" width="420" height="58" fill="${BG}" stroke="${INK}" stroke-width="2"/>
+    <text x="16" y="38" font-family="Space Mono" font-size="26" fill="${INK}">ANALISIS PERMUKAAN · hPa</text></g>`;
+
+  document.getElementById("map").innerHTML = `
+    ${grid}
+    <g fill="${LAND}" stroke="${INK}" stroke-width="2.5" stroke-linejoin="round"><path d="${sumatra}"/><path d="${java}"/><path d="${kalimantan}"/>${islets}</g>
+    ${isobars}${isoLabels}
+    ${cold}${warm}
+    ${stations}${low}
+    ${header}
+    <rect x="1" y="1" width="1078" height="758" fill="none" stroke="${INK}" stroke-width="2"/>`;
+
+  // Title: shrink until it fits 3 lines and stays above the chart (y 620 on the frame).
+  const fit = () => {
+    const t = document.getElementById("title"); let fs = 94; t.style.fontSize = fs + "px";
+    while ((t.offsetHeight > fs * 3.1 || 356 + t.offsetHeight > 620) && fs > 64) { fs -= 2; t.style.fontSize = fs + "px"; }
+  };
+  fit(); (document.fonts ? document.fonts.ready : Promise.resolve()).then(fit);
+</script>
+</body>
+</html>

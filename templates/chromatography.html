@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Strip Kromatografi, hook</title>
+<!--
+  Style: "Strip Kromatografi" (paper / TLC chromatography in a lidded glass
+  chamber). A white strip hangs from the lid into a shallow solvent pool; a
+  pencil baseline with the sample origin, a solvent front that has crept up,
+  and 3-5 separated bands at different heights. A ruler stands beside the
+  chamber, Rf values are pencilled next to each band. Items become bands:
+  position = rank of value, the hl band is the top one and the only blue one;
+  all other bands share one grey hue (no rainbow).
+  Signature move (video version, not animated here): lid drops on, the solvent
+  front creeps up slowly, one dark spot splits into bands, the ruler sweeps
+  down and Rf numbers are written per band.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Hanken+Grotesk:wght@700&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<!--DATA-->
+<style>
+  :root {
+    --bg: #DCE4EC; --ink: #23272E; --acc: #1E4FD8; --strip: #F7F7F3; --pencil: #3E444C;
+    --mono: "Space Mono", Consolas, monospace;
+    --grot: "Hanken Grotesk", Arial, sans-serif;
+    --hand: "Caveat", "Segoe Print", cursive;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; }
+  body { position: relative; background: var(--bg); color: var(--ink); font-family: var(--mono); }
+  svg.scene { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  .kicker { position: absolute; left: 90px; right: 90px; top: 306px; display: flex; justify-content: space-between;
+    font: 400 28px/1 var(--mono); letter-spacing: .02em; text-transform: uppercase; }
+  .title { position: absolute; left: 90px; top: 364px; width: 900px; font-family: var(--grot); font-weight: 700; line-height: .98; letter-spacing: -.03em; }
+  .title .hl { color: var(--acc); }
+
+  /* pencil notes beside each band, placed by script */
+  .note { position: absolute; left: 604px; width: 296px; }
+  .note .lab { font: 500 42px/1 var(--hand); color: var(--pencil); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .note .val { margin-top: 6px; font: 400 30px/1 var(--mono); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .note .val b { font-weight: 400; opacity: .55; }
+  .note.hl .lab { color: var(--acc); }
+  .note.hl .val { color: var(--acc); }
+
+  .jarlab { position: absolute; left: 110px; top: 1434px; font: 400 26px/1 var(--mono); letter-spacing: .02em; text-transform: uppercase; opacity: .7; }
+  .sub { position: absolute; left: 90px; width: 900px; top: 1472px; font: 400 36px/1.3 var(--mono); }
+  .foot { position: absolute; left: 90px; right: 90px; top: 1575px; display: flex; justify-content: space-between; gap: 12px;
+    font: 400 26px/1.2 var(--mono); opacity: .65; }
+  .foot .src { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .foot .dt { white-space: nowrap; flex: 0 0 auto; }
+</style>
+</head>
+<body>
+<svg class="scene" id="scene" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="kicker"><span id="kicker"></span><span id="ep"></span></div>
+<h1 class="title" id="title"></h1>
+<div id="notes"></div>
+<div class="jarlab" id="jarlab"></div>
+<p class="sub" id="sub"></p>
+<div class="foot"><span class="src" id="source"></span><span class="dt" id="date"></span></div>
+<script>
+  // Fallback sample so the file renders when opened directly.
+  const FALLBACK = {
+    series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" },
+            { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi, jumlah token beda tiap model", date: "per 14 Okt 2026"
+  };
+  const D = window.D && window.D.title ? window.D : FALLBACK;
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = (id) => document.getElementById(id);
+  function markTitle(t, hl) {
+    const i = hl ? t.toLowerCase().indexOf(String(hl).toLowerCase()) : -1;
+    if (i < 0) return esc(t);
+    return esc(t.slice(0, i)) + '<span class="hl">' + esc(t.slice(i, i + hl.length)) + "</span>" + esc(t.slice(i + hl.length));
+  }
+  const num = (v) => { const m = String(v ?? "").replace(/\./g, "").match(/-?\d+(?:,\d+)?/); return m ? parseFloat(m[0].replace(",", ".")) : NaN; };
+  const rnd = (k) => { const x = Math.sin(k * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+  $("kicker").textContent = D.series || D.kicker || "";
+  $("ep").textContent = D.ep || "";
+  $("title").innerHTML = markTitle(D.title || "", D.hl);
+  $("sub").textContent = D.sub || "";
+  $("source").textContent = D.source || "";
+  $("date").textContent = D.date || "";
+
+  // hl band: item containing hl, else largest number, else first
+  const hlq = String(D.hl || "").toLowerCase();
+  let hlIdx = hlq ? items.findIndex((it) => (it.label + " " + it.value).toLowerCase().includes(hlq)) : -1;
+  if (hlIdx < 0) { let best = -1, bv = -Infinity; items.forEach((it, i) => { const v = num(it.value); if (v > bv) { bv = v; best = i; } }); hlIdx = best; }
+  if (hlIdx < 0) hlIdx = 0;
+  // band order top -> bottom: hl first, then by value descending (stable)
+  const rest = items.map((it, i) => i).filter((i) => i !== hlIdx)
+    .sort((a, b) => { const va = num(items[a].value), vb = num(items[b].value); return (isNaN(vb) ? -1 : vb) - (isNaN(va) ? -1 : va) || a - b; });
+  const order = [hlIdx, ...rest];
+
+  // ---- chamber geometry -----------------------------------------------------
+  const JX = 110, JY = 752, JW = 410, JH = 668;      // glass chamber
+  const SX = 230, SW = 170;                           // strip
+  const BASE = 1300, FRONT = 812;                     // pencil baseline, solvent front
+  const POOL = 1346;                                  // solvent level (below the baseline)
+  const RX = 536, RW = 38;                            // ruler beside the chamber
+  const run = BASE - FRONT;
+  const rf = order.map((_, k) => (k === 0 ? 0.84 : 0.66 - (k - 1) * (n > 2 ? 0.50 / (n - 2) : 0)));
+  const yOf = (f) => BASE - f * run;
+
+  let s = "";
+  s += '<defs>' +
+    '<filter id="soft" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="1.6"/></filter>' +
+    '<filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="10"/></filter>' +
+    '<filter id="paper" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="4"/><feColorMatrix type="matrix" values="0 0 0 0 .2  0 0 0 0 .2  0 0 0 0 .2  0 0 0 .045 0"/></filter>' +
+    '</defs>';
+  // bench line + contact shadow under the chamber
+  s += '<ellipse cx="' + (JX + JW / 2) + '" cy="' + (JY + JH + 4) + '" rx="' + (JW / 2 + 10) + '" ry="14" fill="#23272E" fill-opacity=".22" filter="url(#shadow)"/>';
+  s += '<line x1="60" y1="' + (JY + JH + 2) + '" x2="1020" y2="' + (JY + JH + 2) + '" stroke="#23272E" stroke-opacity=".35" stroke-width="2"/>';
+  // chamber back wall (glass tint) + solvent pool
+  s += '<rect x="' + JX + '" y="' + JY + '" width="' + JW + '" height="' + JH + '" rx="8" fill="#FFFFFF" fill-opacity=".30"/>';
+  s += '<rect x="' + (JX + 3) + '" y="' + POOL + '" width="' + (JW - 6) + '" height="' + (JY + JH - POOL - 3) + '" rx="5" fill="#1E4FD8" fill-opacity=".10"/>';
+  s += '<line x1="' + (JX + 3) + '" y1="' + POOL + '" x2="' + (JX + JW - 3) + '" y2="' + POOL + '" stroke="#1E4FD8" stroke-opacity=".35" stroke-width="2"/>';
+  // the strip: shadow on the back wall, then paper
+  const SY = JY + 26, SH = JY + JH - 18 - SY;
+  s += '<rect x="' + (SX + 10) + '" y="' + (SY + 12) + '" width="' + SW + '" height="' + SH + '" fill="#23272E" fill-opacity=".18" filter="url(#shadow)"/>';
+  s += '<rect x="' + SX + '" y="' + SY + '" width="' + SW + '" height="' + SH + '" fill="#F7F7F3" stroke="#C8CBC4" stroke-width="1"/>';
+  // wet zone between the pool and the solvent front, slightly greyer
+  s += '<rect x="' + SX + '" y="' + FRONT + '" width="' + SW + '" height="' + (SY + SH - FRONT) + '" fill="#F0F1EC"/>';
+  // wobbly solvent front
+  let fp = "M" + SX + " " + FRONT;
+  for (let x = SX + 10; x <= SX + SW; x += 10) fp += " L" + x + " " + (FRONT + 3 * Math.sin(x / 9) + 2 * (rnd(x) - 0.5)).toFixed(1);
+  s += '<path d="' + fp + '" fill="none" stroke="#8A939C" stroke-width="2"/>';
+  // paper grain over the strip
+  s += '<rect x="' + SX + '" y="' + SY + '" width="' + SW + '" height="' + SH + '" filter="url(#paper)"/>';
+  // pencil baseline, origin spot, small pencil x at the front
+  s += '<line x1="' + (SX + 8) + '" y1="' + BASE + '" x2="' + (SX + SW - 8) + '" y2="' + BASE + '" stroke="#3E444C" stroke-width="1.6" stroke-dasharray="7 4"/>';
+  s += '<ellipse cx="' + (SX + SW / 2) + '" cy="' + BASE + '" rx="13" ry="7" fill="#6B7480" fill-opacity=".45" filter="url(#soft)"/>';
+  // bands (all one hue: grey -> blue for hl), diffuse edge + denser core
+  const greys = ["#555D68", "#6E7682", "#8A929C", "#A3AAB3"];
+  const notesPos = [];
+  order.forEach((idx, k) => {
+    const y = yOf(rf[k]);
+    const isHl = idx === hlIdx;
+    const col = isHl ? "#1E4FD8" : greys[Math.min(k - 1, greys.length - 1)];
+    const ry = isHl ? 15 : 11 + 3 * rnd(k + 2);
+    const rx = SW / 2 - 14 - 6 * rnd(k + 7);
+    const cx = SX + SW / 2 + (rnd(k + 3) - 0.5) * 6;
+    s += '<ellipse cx="' + cx.toFixed(1) + '" cy="' + y.toFixed(1) + '" rx="' + rx.toFixed(1) + '" ry="' + (ry + 4).toFixed(1) + '" fill="' + col + '" fill-opacity=".45" filter="url(#soft)"/>';
+    s += '<ellipse cx="' + cx.toFixed(1) + '" cy="' + y.toFixed(1) + '" rx="' + (rx - 6).toFixed(1) + '" ry="' + ry.toFixed(1) + '" fill="' + col + '" fill-opacity=".9" filter="url(#soft)"/>';
+    notesPos.push({ idx, y, isHl, rfv: rf[k] });
+  });
+  // glass front: outline, left highlight streak, right inner shade, lid
+  s += '<rect x="' + JX + '" y="' + JY + '" width="' + JW + '" height="' + JH + '" rx="8" fill="none" stroke="#23272E" stroke-width="2.5"/>';
+  s += '<rect x="' + (JX + 14) + '" y="' + (JY + 30) + '" width="7" height="' + (JH - 70) + '" rx="3" fill="#FFFFFF" fill-opacity=".7"/>';
+  s += '<rect x="' + (JX + JW - 18) + '" y="' + (JY + 30) + '" width="6" height="' + (JH - 70) + '" rx="3" fill="#23272E" fill-opacity=".10"/>';
+  s += '<rect x="' + (JX - 14) + '" y="' + (JY - 30) + '" width="' + (JW + 28) + '" height="34" rx="5" fill="#B6C0CB" stroke="#23272E" stroke-width="2.5"/>';
+  s += '<rect x="' + (JX + JW / 2 - 34) + '" y="' + (JY - 52) + '" width="68" height="24" rx="5" fill="#8F9AA6" stroke="#23272E" stroke-width="2.5"/>';
+  // clip holding the strip under the lid
+  s += '<rect x="' + (SX + SW / 2 - 18) + '" y="' + (JY - 2) + '" width="36" height="34" rx="3" fill="#23272E"/>';
+  // ruler beside the chamber: 0 at the baseline, 1 cm = 100 px
+  const RTOP = JY + 24;
+  s += '<rect x="' + RX + '" y="' + RTOP + '" width="' + RW + '" height="' + (BASE + 20 - RTOP) + '" fill="#EDE8DC" stroke="#23272E" stroke-width="2"/>';
+  for (let mm = 0; BASE - mm * 10 >= RTOP + 6; mm++) {
+    const y = BASE - mm * 10, big = mm % 10 === 0, mid = mm % 5 === 0;
+    s += '<line x1="' + RX + '" y1="' + y + '" x2="' + (RX + (big ? 18 : mid ? 12 : 7)) + '" y2="' + y + '" stroke="#23272E" stroke-width="' + (big ? 2 : 1.2) + '"/>';
+    if (big) s += '<text x="' + (RX + RW - 5) + '" y="' + (y - 4) + '" text-anchor="end" font-family="Space Mono, monospace" font-size="26" fill="#23272E">' + (mm / 10) + '</text>';
+  }
+  // pencil leaders from each band out to its note
+  notesPos.forEach((p) => {
+    const col = p.isHl ? "#1E4FD8" : "#3E444C";
+    s += '<line x1="' + (SX + SW - 8) + '" y1="' + p.y.toFixed(1) + '" x2="' + (JX + JW - 4) + '" y2="' + p.y.toFixed(1) + '" stroke="' + col + '" stroke-width="1.8" stroke-dasharray="5 4"/>';
+  });
+  $("scene").innerHTML = s;
+
+  // ---- notes (pencil writing beside the chamber) ------------------------------
+  const notesEl = $("notes");
+  const fmt = (v) => v.toFixed(2).replace(".", ",");
+  const stack = notesPos.slice().sort((a, b) => a.y - b.y);
+  let prev = -999, extra = "";
+  stack.forEach((p) => {
+    const it = items[p.idx];
+    let ty = Math.max(p.y, prev + 92); prev = ty;
+    const el = document.createElement("div");
+    el.className = "note" + (p.isHl ? " hl" : "");
+    el.innerHTML = '<div class="lab">' + esc(it.label) + '</div><div class="val"><b>Rf ' + fmt(p.rfv) + '</b> ' + esc(it.value) + "</div>";
+    el.style.top = (ty - 44) + "px";
+    notesEl.appendChild(el);
+    const lab = el.querySelector(".lab"); let fs = 42;
+    while (lab.scrollWidth > lab.clientWidth && fs > 34) { fs -= 1; lab.style.fontSize = fs + "px"; }
+    // connector from the chamber wall to the note (continues the dashed leader)
+    extra += '<line x1="' + (JX + JW + 2) + '" y1="' + p.y.toFixed(1) + '" x2="' + (RX - 4) + '" y2="' + p.y.toFixed(1) + '" stroke="' + (p.isHl ? "#1E4FD8" : "#3E444C") + '" stroke-width="1.8" stroke-dasharray="5 4"/>';
+    extra += '<line x1="' + (RX + RW + 4) + '" y1="' + p.y.toFixed(1) + '" x2="596" y2="' + ty.toFixed(1) + '" stroke="' + (p.isHl ? "#1E4FD8" : "#3E444C") + '" stroke-width="1.8" stroke-dasharray="5 4"/>';
+  });
+  $("scene").innerHTML += extra;
+
+  $("jarlab").textContent = "Bejana 1 · " + n + " pita · Rf = jarak pita / jarak pelarut";
+
+  function fit() {
+    const el = $("title");
+    let size = 94; el.style.fontSize = size + "px";
+    while (el.offsetHeight > size * 2.95 && size > 74) { size -= 2; el.style.fontSize = size + "px"; }
+  }
+  fit();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+</script>
+</body>
+</html>

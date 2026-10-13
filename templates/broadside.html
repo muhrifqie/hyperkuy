@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<title>Broadside hook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
+<style>
+  /* Broadside preset tokens (frame-presets/broadside/FRAME.md) — orange register, fire-orange is the only colour */
+  :root {
+    --ink: #111111; --orange: #e85d26; --cream: #f0ece5;
+    --disp: "Barlow", sans-serif; --mono: "IBM Plex Mono", monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; }
+  body { background: var(--orange); color: var(--ink); font-family: var(--disp); -webkit-font-smoothing: antialiased; position: relative; }
+
+  /* giant catalogue numeral as graphic primitive, bleeding off the bottom edge */
+  .ghost { position: absolute; right: -30px; bottom: -250px; font-weight: 900; font-size: 720px; line-height: .8; letter-spacing: -.06em; color: rgba(17,17,17,.13); }
+
+  .col { position: absolute; left: 90px; right: 90px; top: 140px; bottom: 300px; display: flex; flex-direction: column; }
+
+  .chrome { display: flex; justify-content: space-between; align-items: center; font-family: var(--mono); font-weight: 600; text-transform: uppercase; letter-spacing: .14em; font-size: 28px; }
+  .rule { width: 96px; height: 6px; background: var(--ink); margin: 34px 0 22px; }
+  .kicker { font-family: var(--mono); font-weight: 600; text-transform: uppercase; letter-spacing: .14em; font-size: 30px; }
+
+  .title { margin-top: 22px; width: 900px; font-weight: 900; text-transform: lowercase; letter-spacing: -.045em; line-height: .9; }
+  /* the highlight is a knocked-out flat ink slab (orange type on ink) */
+  .title .hl { display: inline-block; background: var(--ink); color: var(--orange); padding: .02em .1em .08em .06em; margin: .08em 0 0 -.02em; line-height: .9; white-space: nowrap; }
+
+  .blocks { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 12px; width: 810px; padding: 40px 0 36px; }
+  .blk { background: var(--ink); display: grid; grid-template-columns: 74px 1fr auto; align-items: center; column-gap: 18px; padding: 0 34px 0 26px; }
+  .blk .i { font-family: var(--mono); font-weight: 600; font-size: 30px; letter-spacing: .1em; color: var(--orange); }
+  .blk .l { font-weight: 600; color: var(--cream); letter-spacing: -.01em; line-height: 1.05; }
+  .blk .v { font-weight: 900; color: var(--orange); letter-spacing: -.04em; line-height: 1; white-space: nowrap; text-align: right; }
+
+  .sub { width: 810px; font-weight: 600; font-size: 44px; line-height: 1.22; letter-spacing: -.01em; }
+  .meta { margin-top: 24px; padding-top: 18px; border-top: 2px solid rgba(17,17,17,.55); width: 810px; display: flex; justify-content: space-between; gap: 24px;
+    font-family: var(--mono); font-weight: 600; text-transform: uppercase; letter-spacing: .1em; font-size: 26px; line-height: 1.3; }
+  .meta span:first-child::before { content: "/ "; }
+  .meta span:last-child { white-space: nowrap; }
+</style>
+<!--DATA-->
+<script>
+  // Fallback sample so the file opens standalone in a browser.
+  const FALLBACK = {
+    series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [ { label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" } ],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026"
+  };
+  const D = window.D || FALLBACK;
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  function splitHL(t, hl) {
+    const i = hl ? t.toLowerCase().indexOf(String(hl).toLowerCase()) : -1;
+    return i < 0 ? [t, "", ""] : [t.slice(0, i), t.slice(i, i + hl.length), t.slice(i + hl.length)];
+  }
+  function fit(el, maxH, hi, lo) {
+    let a = lo, b = hi;
+    while (b - a > 1) { const m = (a + b) >> 1; el.style.fontSize = m + "px"; (el.scrollHeight <= maxH && el.scrollWidth <= el.clientWidth + 1) ? (a = m) : (b = m); }
+    el.style.fontSize = a + "px";
+  }
+  function render() {
+    const series = D.series || (D.kicker || "").split("·")[0].trim();
+    const ep = String(D.ep || "").replace("#", "");
+    document.getElementById("chrome").innerHTML = `<span>No. ${esc(ep || "01")}</span><span>${esc(D.date || "")}</span>`;
+    document.getElementById("kicker").textContent = series || D.kicker || "";
+    const [a, h, b] = splitHL(D.title || "", D.hl);
+    const t = document.getElementById("title");
+    t.innerHTML = esc(a) + (h ? `<span class="hl">${esc(h)}</span>` : "") + esc(b);
+    fit(t, 500, 190, 80);
+    const items = (D.items || []).slice(0, 5), n = items.length;
+    const h0 = n >= 5 ? 104 : n === 4 ? 128 : 160, lf = n >= 5 ? 40 : n === 4 ? 46 : 50, vf = n >= 5 ? 64 : n === 4 ? 80 : 96;
+    const box = document.getElementById("blocks");
+    box.innerHTML = items.map((it, i) => `
+      <div class="blk" style="min-height:${h0}px">
+        <span class="i">${String(i + 1).padStart(2, "0")}</span>
+        <span class="l" style="font-size:${lf}px">${esc(it.label)}</span>
+        <span class="v" style="font-size:${vf}px">${esc(it.value)}</span>
+      </div>`).join("");
+    // Shrink a value that would collide with its label.
+    box.querySelectorAll(".blk").forEach((r) => { const v = r.querySelector(".v"); let f = parseFloat(v.style.fontSize);
+      while (r.scrollWidth > r.clientWidth + 1 && f > 44) { f -= 4; v.style.fontSize = f + "px"; } });
+    document.getElementById("sub").textContent = D.sub || "";
+    document.getElementById("meta").innerHTML = D.source ? `<span>${esc(D.source)}</span>` : "";
+    document.getElementById("ghost").textContent = ep || "01";
+  }
+  document.addEventListener("DOMContentLoaded", () => { render(); document.fonts && document.fonts.ready.then(render); });
+</script>
+</head>
+<body>
+  <div class="ghost" id="ghost"></div>
+  <div class="col">
+    <div class="chrome" id="chrome"></div>
+    <div class="rule"></div>
+    <div class="kicker" id="kicker"></div>
+    <div class="title" id="title"></div>
+    <div class="blocks" id="blocks"></div>
+    <div class="sub" id="sub"></div>
+    <div class="meta" id="meta"></div>
+  </div>
+</body>
+</html>

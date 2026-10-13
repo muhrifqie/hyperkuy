@@ -1,0 +1,29 @@
+{
+  "series_id": "how-ai-works",
+  "series": "Cara kerja AI",
+  "ep": "#01",
+  "kicker": "Cara kerja AI · #01",
+  "title": "AI nggak baca kata. Dia baca token.",
+  "hl": "token",
+  "sub": "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+  "items": [
+    {
+      "label": "Ken·apa",
+      "value": "2 token"
+    },
+    {
+      "label": "AI",
+      "value": "1 token"
+    },
+    {
+      "label": "bisa",
+      "value": "1 token"
+    },
+    {
+      "label": "ng·arang",
+      "value": "2 token"
+    }
+  ],
+  "source": "ilustrasi — jumlah token beda tiap model",
+  "date": "per 14 Okt 2026"
+}

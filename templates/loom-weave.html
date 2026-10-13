@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@500;700&family=DM+Mono:wght@400;500&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Tenun Lungsin (g2-tenun-lungsin): cloth on a hand loom (alat tenun bukan
+    mesin), used as a strict line system, never as ornament. Warp threads
+    (lungsin) hang vertically from the top beam. The finished cloth at the top
+    is a dense plain weave; below it every `item` is one pass of the weft
+    (pakan): label at the left selvedge, value at the right selvedge, the
+    thread's thickness (6 to 24 px) comes from the number in the value. The
+    `hl` pass is the only yellow thread and still carries the shuttle
+    (teropong), which is the signature object. The bottom edge is unfinished:
+    loose warp threads of uneven length.
+
+    Signature move (video, not animated here): the shuttle slides left to
+    right and back (0.5 s per pass, linear then ease-out at the selvedge),
+    each pass adding one weft row; the yellow thread appears only on the pass
+    that carries `hl`; punchline = every warp thread twangs once (0.2 s) and
+    the pattern reads whole.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #1E2A52; }
+  body { position: relative; color: #E8E1D0; font-family: "Instrument Sans", sans-serif; }
+
+  .top { position: absolute; left: 90px; right: 90px; top: 300px; display: flex; justify-content: space-between; font: 400 26px "DM Mono", monospace; color: #A9AFC4; letter-spacing: 0.06em; text-transform: uppercase; }
+  .title { position: absolute; left: 90px; width: 900px; top: 356px; font-size: 92px; font-weight: 700; letter-spacing: -0.025em; line-height: 1.0; }
+  .title .hl { color: #D9A441; }
+  svg { position: absolute; left: 0; top: 620px; width: 1080px; height: 800px; display: block; }
+  .sub { position: absolute; left: 90px; width: 810px; top: 1440px; font-size: 40px; font-weight: 500; line-height: 1.3; }
+  .foot { position: absolute; left: 90px; right: 90px; top: 1576px; display: flex; justify-content: space-between; gap: 40px; font: 400 26px "DM Mono", monospace; color: #A9AFC4; line-height: 1.4; }
+  .foot span:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="top"><span id="kick"></span><span id="ep"></span></div>
+<div class="title" id="title"></div>
+<svg id="loom" viewBox="0 0 1080 800" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="sub" id="sub"></div>
+<div class="foot"><span id="src"></span><span id="date"></span></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi, jumlah token beda tiap model", date: "per 14 Okt 2026" };
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const hlWrap = (t, h) => { const i = h ? t.toLowerCase().indexOf(h.toLowerCase()) : -1;
+    return i < 0 ? esc(t) : esc(t.slice(0, i)) + `<span class="hl">${esc(t.slice(i, i + h.length))}</span>` + esc(t.slice(i + h.length)); };
+  const items = (D.items || []).slice(0, 5);
+  const BG = "#1E2A52", INK = "#E8E1D0", ACC = "#D9A441", WARP = "#3B4A7A";
+
+  document.getElementById("kick").textContent = D.series || D.kicker || "";
+  document.getElementById("ep").textContent = D.ep || "";
+  document.getElementById("title").innerHTML = hlWrap(D.title || "", D.hl);
+  document.getElementById("sub").textContent = D.sub || "";
+  document.getElementById("src").textContent = D.source ? `sumber: ${D.source}` : "";
+  document.getElementById("date").textContent = D.date || "";
+
+  /* ---------- Loom geometry (SVG units = px, band y 620..1420 on the frame). ---------- */
+  const X0 = 120, X1 = 860, PITCH = 12, WW = 3;                       // cloth edges, warp pitch, warp width
+  const warps = []; for (let x = X0; x <= X1; x += PITCH) warps.push(x);
+  const hlq = String(D.hl || "").toLowerCase();
+  let h = hlq ? items.findIndex((it) => String(it.label).toLowerCase().includes(hlq)) : -1;
+  if (h < 0) h = items.length - 1;
+
+  // Thread thickness from the number inside the value (6..24 px); no number = 12.
+  const num = (v) => { const m = String(v).replace(",", ".").match(/-?\d+(?:\.\d+)?/); return m ? Math.abs(parseFloat(m[0])) : null; };
+  const nums = items.map((it) => num(it.value)), have = nums.filter((x) => x !== null);
+  const lo = Math.min(...have), hi = Math.max(...have);
+  const thick = (v) => v === null ? 12 : (hi === lo ? 16 : 6 + 18 * (v - lo) / (hi - lo));
+
+  // One weft row: a horizontal band, then the warp threads that pass OVER it (alternating per row).
+  const weft = (y, t, xa, xb, color, parity, alpha) => {
+    let s = `<rect x="${xa}" y="${(y - t / 2).toFixed(1)}" width="${xb - xa}" height="${t.toFixed(1)}" fill="${color}" opacity="${alpha}"/>`;
+    warps.forEach((x, j) => { if (x < xa || x > xb) return; if ((j & 1) === parity) s += `<rect x="${x - WW / 2}" y="${(y - t / 2).toFixed(1)}" width="${WW}" height="${t.toFixed(1)}" fill="${WARP}"/>`; });
+    return s;
+  };
+
+  // Build the loom; runs again once the web fonts are ready so text widths are exact.
+  const build = () => {
+  let svg = "";
+  // Top beam the warp hangs from.
+  svg += `<rect x="${X0 - 30}" y="0" width="${X1 - X0 + 60}" height="20" fill="${WARP}"/><rect x="${X0 - 30}" y="0" width="${X1 - X0 + 60}" height="4" fill="${INK}" opacity="0.7"/>
+    <rect x="${X0 - 42}" y="-2" width="12" height="26" fill="${INK}" opacity="0.8"/><rect x="${X1 + 30}" y="-2" width="12" height="26" fill="${INK}" opacity="0.8"/>`;
+  // Warp threads, each ending in a loose tail of uneven length (unfinished cloth).
+  const lastY = 300 + (items.length > 1 ? 400 : 0);
+  const warpLayer = warps.map((x, j) => {
+    const tail = lastY + 70 + ((j * 37) % 23) * 2.2, sway = ((j * 13) % 7) - 3;
+    return `<path d="M${x} 20 V${lastY + 40} Q${x} ${tail - 20} ${x + sway} ${tail}" fill="none" stroke="${WARP}" stroke-width="${WW}" stroke-linecap="round"/>`;
+  }).join("");
+  svg += warpLayer;
+  // Selvedge: two tighter bone-coloured threads at each edge.
+  [X0 - 7, X0 - 3, X1 + 3, X1 + 7].forEach((x) => { svg += `<line x1="${x}" y1="20" x2="${x}" y2="${lastY + 40}" stroke="${INK}" stroke-width="2" opacity="0.8"/>`; });
+  // Finished cloth: dense plain weave.
+  for (let y = 40, r = 0; y < 232; y += 10, r++) svg += weft(y + 3, 6, X0 - 8, X1 + 8, INK, r & 1, 0.82);
+  // Item passes.
+  const ys = items.map((_, i) => items.length > 1 ? 300 + i * 400 / (items.length - 1) : 420);
+  const measure = document.createElementNS("http://www.w3.org/2000/svg", "svg"); document.body.appendChild(measure);
+  const textW = (txt, font) => { measure.innerHTML = `<text style="font:${font}">${txt}</text>`; return measure.firstChild.getBBox().width; };
+  let passes = "";
+  items.forEach((it, i) => {
+    const y = ys[i], t = thick(nums[i]), isHl = i === h, col = isHl ? ACC : INK;
+    // Measured width, with a per-character estimate as a floor in case the web font is not ready yet.
+    const lw = Math.max(textW(esc(it.label), "500 36px 'Instrument Sans'"), String(it.label).length * 36 * 0.46);
+    const vw = Math.max(textW(esc(it.value), "500 38px 'DM Mono'"), String(it.value).length * 38 * 0.6);
+    const la = X0 - 2, lb = la + lw + 18, vb = X1 + 2, va = vb - vw - 18;
+    const shuttleW = 170, bandEnd = isHl ? va - shuttleW - 14 : va - 8;
+    passes += `<rect x="${la - 6}" y="${y - 30}" width="${lw + 12}" height="60" fill="${BG}"/><rect x="${va - 6}" y="${y - 30}" width="${vw + 12}" height="60" fill="${BG}"/>`;
+    passes += weft(y, t, lb, bandEnd, col, i & 1, 1);
+    if (isHl) {                                                      // the shuttle rests at the end of the yellow pass
+      const sx = bandEnd + 8;
+      passes += `<path d="M${sx} ${y} Q${sx + shuttleW / 2} ${y - 24} ${sx + shuttleW} ${y} Q${sx + shuttleW / 2} ${y + 24} ${sx} ${y} Z" fill="${INK}"/>
+        <rect x="${sx + 50}" y="${y - 5}" width="${shuttleW - 100}" height="10" rx="5" fill="${BG}"/>
+        <rect x="${sx + 56}" y="${y - 3}" width="${shuttleW - 112}" height="6" rx="3" fill="${ACC}"/>`;
+    }
+    passes += `<text x="${la}" y="${y + 12}" font-family="Instrument Sans" font-weight="500" font-size="36" fill="${INK}">${esc(it.label)}</text>
+      <text x="${vb}" y="${y + 13}" text-anchor="end" font-family="DM Mono" font-weight="500" font-size="38" fill="${col}">${esc(it.value)}</text>`;
+  });
+  measure.remove();
+  svg += passes;
+  document.getElementById("loom").innerHTML = svg;
+  };
+  build();
+
+  // Title: shrink until it fits 3 lines and stays above the loom (y 600 on the frame).
+  const fit = () => {
+    const t = document.getElementById("title"); let fs = 92; t.style.fontSize = fs + "px";
+    while ((t.offsetHeight > fs * 3.1 || 356 + t.offsetHeight > 600) && fs > 64) { fs -= 2; t.style.fontSize = fs + "px"; }
+  };
+  fit(); (document.fonts ? document.fonts.ready : Promise.resolve()).then(() => { build(); fit(); });
+</script>
+</body>
+</html>

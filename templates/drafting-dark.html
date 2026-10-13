@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Lembar Kobalt — gelap</title>
+<!--DATA-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..700&family=Hanken+Grotesk:wght@400..700&family=JetBrains+Mono:wght@400..700&display=swap" rel="stylesheet">
+<style>
+/* Lembar Kobalt — signature style (dark). Tokens: docs/gaya-lembar-kobalt.md */
+:root{
+  --paper:#0B1122;            /* deep blue-charcoal */
+  --grid-minor:rgba(120,150,255,.045);
+  --grid-major:rgba(120,150,255,.10);
+  --ink:#E9EDF8;              /* paper-white ink */
+  --ink-2:#B4BDD6;
+  --ink-3:#8590B0;
+  --cobalt:#6F8BFF;           /* brighter cobalt for dark ground */
+  --cobalt-deep:#3B5BFF;
+  --cobalt-tint:rgba(111,139,255,.12);
+  --cobalt-tint-2:rgba(111,139,255,.24);
+  --card:rgba(22,31,58,.78);
+  --card-line:rgba(150,172,255,.20);
+  --card-shadow:inset 0 1px 0 rgba(255,255,255,.07), 0 24px 60px -24px rgba(0,0,0,.8);
+  --sheet:rgba(22,31,58,.45);
+  --handle-fill:#0B1122;
+  --tb-bg:rgba(15,22,44,.8);
+  --serif:"Newsreader",Georgia,serif;
+  --sans:"Hanken Grotesk",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:1080px;height:1920px;overflow:hidden}
+body{
+  position:relative;background:var(--paper);color:var(--ink);font-family:var(--sans);
+  -webkit-font-smoothing:antialiased;
+  background-image:
+    linear-gradient(to right,var(--grid-major) 1px,transparent 1px),
+    linear-gradient(to bottom,var(--grid-major) 1px,transparent 1px),
+    linear-gradient(to right,var(--grid-minor) 1px,transparent 1px),
+    linear-gradient(to bottom,var(--grid-minor) 1px,transparent 1px);
+  background-size:60px 60px,60px 60px,12px 12px,12px 12px;
+  background-position:0 0;
+}
+/* crop marks: the "sheet" frame */
+.crop{position:absolute;width:44px;height:44px;border-color:var(--cobalt);border-style:solid;border-width:0;opacity:.75}
+.crop.tl{left:54px;top:214px;border-left-width:2px;border-top-width:2px}
+.crop.tr{right:54px;top:214px;border-right-width:2px;border-top-width:2px}
+.crop.bl{left:54px;top:1618px;border-left-width:2px;border-bottom-width:2px}
+.crop.br{right:54px;top:1618px;border-right-width:2px;border-bottom-width:2px}
+
+/* top ruler (design-tool) */
+#ruler{position:absolute;left:90px;top:236px;width:900px;height:30px}
+#ruler .tick{position:absolute;bottom:0;width:1px;background:var(--ink-3);opacity:.55}
+#ruler .num{position:absolute;bottom:12px;font:500 16px/1 var(--mono);color:var(--ink-3);transform:translateX(4px)}
+#ruler .sel{position:absolute;bottom:0;height:4px;background:var(--cobalt)}
+#ruler .base{position:absolute;left:0;right:0;bottom:0;height:1px;background:var(--ink-3);opacity:.5}
+
+#kicker{position:absolute;left:90px;top:304px;display:flex;align-items:center;gap:16px;
+  font:600 30px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--cobalt)}
+#kicker .sq{width:16px;height:16px;background:var(--cobalt)}
+#kicker .ep{color:var(--ink-3);font-weight:500}
+
+#main{position:absolute;left:90px;top:380px;width:900px;height:1050px;display:flex;flex-direction:column}
+#title{font-family:var(--serif);font-weight:500;font-variation-settings:"opsz" 72;letter-spacing:-.025em;line-height:1.02;
+  color:var(--ink);width:880px;text-wrap:pretty}
+#title .w{display:inline}
+#title .hl{font-style:italic;font-weight:500;color:var(--cobalt);white-space:nowrap;margin:0 .07em}
+
+#figure{margin-top:auto;width:810px;position:relative}
+#flabel{display:inline-flex;align-items:center;gap:12px;height:40px;margin-bottom:10px;
+  font:500 26px/1 var(--mono);color:var(--cobalt);letter-spacing:.02em}
+#flabel svg{width:22px;height:22px}
+#flabel .cnt{color:var(--ink-3)}
+.stack{position:relative}
+.ghost{position:absolute;inset:0;border:1.5px solid var(--card-line);background:var(--sheet);border-radius:14px}
+.ghost.g1{transform:translate(12px,12px)}
+.ghost.g2{transform:translate(24px,24px);opacity:.6}
+#card{position:relative;background:var(--card);border:1.5px solid var(--card-line);border-radius:14px;box-shadow:var(--card-shadow);overflow:hidden}
+#card .hd{display:grid;grid-template-columns:76px 1fr auto;align-items:center;height:62px;padding:0 30px 0 26px;
+  border-bottom:1.5px solid var(--card-line);font:600 26px/1 var(--mono);letter-spacing:.08em;color:var(--ink-3);text-transform:uppercase}
+#card .row{display:grid;grid-template-columns:76px 1fr auto;align-items:center;padding:0 30px 0 26px;position:relative;
+  border-bottom:1.5px dashed var(--card-line)}
+#card .row:last-child{border-bottom:0}
+#card .idx{font:600 28px/1 var(--mono);color:var(--ink-3)}
+#card .lab{font:500 40px/1.15 var(--sans);color:var(--ink);display:flex;gap:6px;align-items:center;flex-wrap:wrap;min-width:0}
+#card .tok{font:500 38px/1 var(--mono);padding:8px 10px 10px;border-radius:6px;background:var(--cobalt-tint);color:var(--ink);
+  border:1.5px solid var(--cobalt-tint-2)}
+#card .tok:nth-child(2n){background:var(--cobalt-tint-2)}
+#card .val{font-family:var(--serif);font-variation-settings:"opsz" 72;font-weight:500;font-size:54px;letter-spacing:-.02em;color:var(--ink);white-space:nowrap;padding-left:20px}
+#card .row.on{background:var(--cobalt-tint)}
+#card .row.on::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--cobalt)}
+#card .row.on .idx,#card .row.on .val{color:var(--cobalt)}
+
+#sub{margin-top:30px;width:810px;padding-left:24px;border-left:3px solid var(--cobalt);
+  font:500 40px/1.28 var(--sans);color:var(--ink-2)}
+
+/* selection box with 8 handles */
+#selbox{position:absolute;border:2px solid var(--cobalt);pointer-events:none}
+#selbox i{position:absolute;width:16px;height:16px;background:var(--handle-fill);border:2px solid var(--cobalt);transform:translate(-50%,-50%)}
+#cursor{position:absolute;width:46px;height:56px}
+#dim{position:absolute;padding:6px 10px;background:var(--cobalt);color:#fff;font:600 26px/1 var(--mono);letter-spacing:.02em;border-radius:4px;white-space:nowrap;transform:translateX(-50%)}
+#wires{position:absolute;inset:0;width:1080px;height:1920px;pointer-events:none}
+
+/* title block (engineering drawing) — the series frame */
+#tblock{position:absolute;left:90px;top:1456px;width:810px;height:158px;display:grid;
+  grid-template-columns:112px 1fr 128px 250px;grid-template-rows:1fr 1fr;
+  border:2px solid var(--ink);background:var(--tb-bg)}
+#tblock>div{border-right:1.5px solid var(--ink);border-bottom:1.5px solid var(--ink);padding:9px 14px 0;overflow:hidden}
+#tblock .c-sumber{grid-column:2/5;border-bottom:0;border-right:0}
+#tblock .c-tgl{border-right:0}
+#tblock .brand{grid-row:1/3;background:var(--cobalt);border-bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:0}
+#tblock .brand b{font:italic 600 64px/0.9 var(--serif);color:#fff;letter-spacing:-.04em}
+#tblock .brand span{font:600 13px/1 var(--mono);color:#fff;opacity:.8;letter-spacing:.14em}
+#tblock .k{font:600 26px/1 var(--mono);letter-spacing:.1em;color:var(--cobalt);text-transform:uppercase}
+#tblock .v{font:600 30px/1.2 var(--sans);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:6px}
+#tblock .c-sumber{display:flex;align-items:center;gap:18px;padding-top:0}
+#tblock .c-sumber .v{margin-top:0;font-weight:500}
+
+#side{position:absolute;left:40px;top:1120px;transform-origin:left top;transform:rotate(-90deg);
+  font:600 20px/1 var(--mono);letter-spacing:.32em;color:var(--cobalt);opacity:.55;white-space:nowrap}
+/* dark-only */
+body::after{content:"";position:absolute;left:-200px;top:820px;width:1100px;height:900px;pointer-events:none;
+  background:radial-gradient(closest-side,rgba(59,91,255,.16),transparent);z-index:-1}
+body{isolation:isolate}
+#card{backdrop-filter:blur(14px)}
+#card .hd{background:rgba(255,255,255,.03)}
+#kicker .caret{width:16px;height:30px;background:var(--cobalt);margin-left:-6px}
+#kicker .sq{display:none}
+#kicker .pr{color:var(--ink-3)}
+#tblock{border-color:var(--card-line)}
+#tblock>div{border-color:var(--card-line)}
+#tblock .brand{background:var(--cobalt-deep)}
+#cursor path{fill:#fff;stroke:#0B1122}
+#dim{color:#0B1122}
+</style>
+</head>
+<body>
+<div class="crop tl"></div><div class="crop tr"></div><div class="crop bl"></div><div class="crop br"></div>
+<div id="ruler" data-qa-ignore></div>
+<div id="side" data-qa-ignore>LEMBAR KOBALT · WAROENGKU</div>
+<svg id="wires"></svg>
+<div id="kicker"><span class="pr">$</span><span class="sq"></span><span id="k-series"></span><span class="ep" id="k-ep"></span><span class="caret"></span></div>
+
+<div id="main">
+  <h1 id="title"></h1>
+  <div id="figure">
+    <div id="flabel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M7 2v20M17 2v20M2 7h20M2 17h20"/></svg><span id="fname">rincian</span><span class="cnt" id="fcnt"></span></div>
+    <div class="stack">
+      <div class="ghost g2"></div><div class="ghost g1"></div>
+      <div id="card"></div>
+    </div>
+    <p id="sub"></p>
+  </div>
+</div>
+
+<div id="selbox" data-qa="overlay"></div>
+<div id="dim" data-qa-ignore></div>
+<svg id="cursor" class="cursor" viewBox="0 0 46 56" data-qa="overlay"><path d="M4 3 L4 44 L15 34 L23 52 L31 48 L23 31 L39 31 Z" fill="var(--ink)" stroke="#fff" stroke-width="3" stroke-linejoin="round"/></svg>
+
+<div id="tblock">
+  <div class="brand"><b>Wk</b><span data-qa-ignore>LEMBAR</span></div>
+  <div><div class="k">Seri</div><div class="v" id="t-series"></div></div>
+  <div><div class="k">Ep</div><div class="v" id="t-ep"></div></div>
+  <div class="c-tgl"><div class="k">Tanggal</div><div class="v" id="t-date"></div></div>
+  <div class="c-sumber"><div class="k">Sumber</div><div class="v" id="t-source"></div></div>
+</div>
+
+<script>
+const DARK = true;
+const D = window.D || {
+  series:"AI dalam angka", ep:"#01", title:"1 chat ke AI = oven nyala 1 detik", hl:"1 detik",
+  sub:"Kecil? Kalikan miliaran chat tiap hari.",
+  items:[{label:"Listrik per chat",value:"0,34 Wh"},{label:"Setara oven",value:"±1 dtk"},{label:"Chat per hari",value:"miliaran"}],
+  source:"klaim OpenAI, Jun 2025", date:"per 14 Okt 2026"
+};
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+// --- text slots
+const series = D.series || (D.kicker || "").split("·")[0].trim();
+const ep = D.ep || "";
+$("#k-series").textContent = series;
+$("#k-ep").textContent = ep ? "· " + ep : "";
+$("#t-series").textContent = series;
+$("#t-ep").textContent = ep;
+$("#t-date").textContent = (D.date || "").replace(/^per\s+/i, "");
+$("#t-source").textContent = D.source || "";
+$("#sub").textContent = D.sub || "";
+
+// --- title with hl span (word spans for routing)
+function buildTitle() {
+  const t = D.title || "", hl = D.hl || "";
+  const i = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const words = (s) => s.split(/(\s+)/).map((w) => /^\s+$/.test(w) ? w : w ? `<span class="w">${esc(w)}</span>` : "").join("");
+  $("#title").innerHTML = i < 0 ? words(t)
+    : words(t.slice(0, i)) + `<span class="hl">${esc(t.slice(i, i + hl.length))}</span>` + words(t.slice(i + hl.length));
+}
+buildTitle();
+
+// --- object card: spec table rows; labels with "·" become token chips
+const items = (D.items || []).slice(0, 5);
+const rowH = { 3: 118, 4: 100, 5: 88 }[items.length] || 110;
+const hlWords = (D.hl || "").toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+let on = items.findIndex((it) => hlWords.some((w) => (it.label + " " + it.value).toLowerCase().includes(w)));
+if (on < 0) on = 0;
+$("#fname").textContent = DARK ? "~/rincian" : "rincian";
+$("#fcnt").textContent = `· ${items.length} baris`;
+$("#card").innerHTML =
+  `<div class="hd"><span>No</span><span>Komponen</span><span>Nilai</span></div>` +
+  items.map((it, k) => {
+    const parts = String(it.label).split("·");
+    const lab = parts.length > 1 ? parts.map((p) => `<span class="tok">${esc(p)}</span>`).join("") : esc(it.label);
+    return `<div class="row${k === on ? " on" : ""}" style="height:${rowH}px"><span class="idx">${DARK ? "›" : ""}${String(k + 1).padStart(2, "0")}</span><span class="lab">${lab}</span><span class="val">${esc(it.value)}</span></div>`;
+  }).join("");
+
+// --- ruler ticks
+(function ruler() {
+  const r = $("#ruler"); let h = '<div class="base"></div>';
+  for (let x = 0; x <= 900; x += 10) {
+    const big = x % 100 === 0, mid = x % 50 === 0;
+    h += `<div class="tick" style="left:${x}px;height:${big ? 14 : mid ? 9 : 5}px"></div>`;
+    if (big && x < 900) h += `<div class="num" style="left:${x}px">${x}</div>`;
+  }
+  r.innerHTML = h + '<div class="sel" id="rsel"></div>';
+})();
+
+function layout() {
+  const title = $("#title"), main = $("#main");
+  const figH = $("#figure").offsetHeight;
+  const maxH = Math.min(420, main.clientHeight - figH - 96);
+  let fs = 136;
+  title.style.fontSize = fs + "px";
+  while ((title.scrollHeight > maxH || title.scrollWidth > 900) && fs > 80) { fs -= 4; title.style.fontSize = fs + "px"; }
+
+  // selection box on hl
+  const hl = title.querySelector(".hl");
+  const sb = $("#selbox"), cur = $("#cursor");
+  if (!hl) { sb.style.display = cur.style.display = "none"; return; }
+  const r = hl.getBoundingClientRect();
+  const padX = 10, top = r.top + fs * 0.06, bot = r.bottom - fs * 0.06;
+  const L = r.left - padX, R = r.right + padX, T = top, B = bot;
+  Object.assign(sb.style, { left: L + "px", top: T + "px", width: R - L + "px", height: B - T + "px" });
+  const pts = [[0,0],[50,0],[100,0],[0,50],[100,50],[0,100],[50,100],[100,100]];
+  sb.innerHTML = pts.map(([x, y]) => `<i style="left:${x}%;top:${y}%"></i>`).join("");
+  Object.assign(cur.style, { left: R + 6 + "px", top: B + 6 + "px" });
+  const rs = $("#rsel"); rs.style.left = (L - 90) + "px"; rs.style.width = (R - L) + "px";
+
+  // dotted connector: hl box -> card top edge, routed through free space
+  const words = [...title.querySelectorAll(".w")].map((w) => w.getBoundingClientRect());
+  const tB = title.getBoundingClientRect().bottom;
+  const fl = $("#flabel").getBoundingClientRect(), card = $(".stack").getBoundingClientRect();
+  const gapY = Math.round(tB + (fl.top - tB) / 2);
+  const cx = (L + R) / 2, cy = (T + B) / 2;
+  const same = (w) => w.bottom > T + 10 && w.top < B - 10;
+  const downFree = !words.some((w) => w.top > B - 10 && w.left < cx + 12 && w.right > cx - 12);
+  const rightFree = !words.some((w) => same(w) && w.left > R - 4);
+  const leftFree = !words.some((w) => same(w) && w.right < L + 4);
+  let d, s, e;
+  const dim = $("#dim");
+  if (downFree) {
+    dim.textContent = `${Math.round(R - L)} × ${Math.round(B - T)}`;
+    Object.assign(dim.style, { left: cx + "px", top: B + 16 + "px" });
+  } else dim.style.display = "none";
+  const dB = downFree ? B + 16 + dim.offsetHeight : B;
+  const flY = (fl.top + fl.bottom) / 2, flX = fl.right + 22;
+  // preferred: elbow into the object's frame label (annotation feel); else drop onto the card top edge
+  if (downFree && cx > flX + 48) { s = [cx, dB]; e = [flX, flY]; d = `M${cx} ${dB} V${flY} H${flX}`; }
+  else if (downFree) {
+    // hl sits above the frame label: step around it and land on the card's top edge
+    const gy = Math.round((dB + fl.top) / 2), X = flX + 40;
+    s = [cx, dB]; e = [X, card.top]; d = `M${cx} ${dB} V${gy} H${X} V${card.top}`;
+  } else if (rightFree || !leftFree) {
+    const gx = Math.min(1010, Math.max(R + 56, flX + 56));
+    s = [R, cy]; e = [flX, flY]; d = `M${R} ${cy} H${gx} V${flY} H${flX}`;
+  } else {
+    const ry = card.top + 62 + rowH / 2;
+    s = [L, cy]; e = [card.left, ry]; d = `M${L} ${cy} H70 V${ry} H${card.left}`;
+  }
+  const c = getComputedStyle(document.documentElement).getPropertyValue("--cobalt").trim();
+  $("#wires").innerHTML =
+    `<path d="${d}" fill="none" stroke="${c}" stroke-width="3" stroke-dasharray="0.1 10" stroke-linecap="round" stroke-linejoin="round"/>` +
+    `<rect x="${e[0] - 8}" y="${e[1] - 8}" width="16" height="16" fill="${c}"/>`;
+}
+function fitSource() {
+  const v = $("#t-source");
+  let f = 30; v.style.fontSize = f + "px";
+  while (v.scrollWidth > v.clientWidth && f > 26) { f -= 1; v.style.fontSize = f + "px"; }
+}
+(document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(() => { fitSource(); layout(); });
+</script>
+</body>
+</html>

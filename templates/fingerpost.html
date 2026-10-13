@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Papan Jarak Jalur, hook</title>
+<!--
+  Style: "Papan Jarak Jalur" (national park / trail fingerpost). A post planted
+  in the ground against a flat sky, arrow-shaped arms on both sides each naming
+  a destination with its distance / time, bolts at the base of every arm, a
+  small yellow plate with the trail number, a hiker pictogram. Items become
+  arms (label = destination, value = distance); the hl arm is the only yellow
+  one and sits a touch closer to the camera with a deeper shadow on the post.
+  Flat vector only: 1 px bevel + contact shadow, no wood texture.
+  Signature move (video version, not animated here): arms mount one by one,
+  rotating from the post to their direction, text revealed base -> tip,
+  distances counting up.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700&family=Public+Sans:wght@500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!--DATA-->
+<style>
+  :root {
+    --bg: #4A3426; --ink: #F2E9D8; --acc: #E8A33D; --sky: #C9D3DA; --arm: #553B2C; --dark: #2B1E14;
+    --cond: "Big Shoulders Display", "Arial Narrow", sans-serif;
+    --sans: "Public Sans", Arial, sans-serif;
+    --mono: "DM Mono", Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; }
+  body { position: relative; background: var(--bg); color: var(--ink); font-family: var(--sans); }
+  svg.scene { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  .kicker { position: absolute; left: 90px; right: 90px; top: 306px; display: flex; justify-content: space-between;
+    font: 400 28px/1 var(--mono); letter-spacing: .04em; text-transform: uppercase; opacity: .85; }
+  .title { position: absolute; left: 90px; top: 360px; width: 900px; font-family: var(--cond); font-weight: 700;
+    text-transform: uppercase; line-height: .9; letter-spacing: .005em; }
+  .title .hl { color: var(--acc); }
+
+  .sub { position: absolute; left: 90px; width: 900px; top: 1472px; font: 500 36px/1.3 var(--sans); }
+  .foot { position: absolute; left: 90px; right: 90px; top: 1575px; display: flex; justify-content: space-between; gap: 12px;
+    font: 400 26px/1.2 var(--mono); opacity: .7; }
+  .foot .src { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .foot .dt { white-space: nowrap; flex: 0 0 auto; }
+</style>
+</head>
+<body>
+<svg class="scene" id="scene" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="kicker"><span id="kicker"></span><span id="ep"></span></div>
+<h1 class="title" id="title"></h1>
+<p class="sub" id="sub"></p>
+<div class="foot"><span class="src" id="source"></span><span class="dt" id="date"></span></div>
+<script>
+  // Fallback sample so the file renders when opened directly.
+  const FALLBACK = {
+    series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" },
+            { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi, jumlah token beda tiap model", date: "per 14 Okt 2026"
+  };
+  const D = window.D && window.D.title ? window.D : FALLBACK;
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = (id) => document.getElementById(id);
+  function markTitle(t, hl) {
+    const i = hl ? t.toLowerCase().indexOf(String(hl).toLowerCase()) : -1;
+    if (i < 0) return esc(t);
+    return esc(t.slice(0, i)) + '<span class="hl">' + esc(t.slice(i, i + hl.length)) + "</span>" + esc(t.slice(i + hl.length));
+  }
+  const num = (v) => { const m = String(v ?? "").replace(/\./g, "").match(/-?\d+(?:,\d+)?/); return m ? parseFloat(m[0].replace(",", ".")) : NaN; };
+  const SVGNS = "http://www.w3.org/2000/svg";
+
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+  $("kicker").textContent = D.series || D.kicker || "";
+  $("ep").textContent = D.ep || "";
+  $("title").innerHTML = markTitle(D.title || "", D.hl);
+  $("sub").textContent = D.sub || "";
+  $("source").textContent = D.source || "";
+  $("date").textContent = D.date || "";
+
+  // hl arm: item containing hl, else largest number, else first
+  const hlq = String(D.hl || "").toLowerCase();
+  let hlIdx = hlq ? items.findIndex((it) => (it.label + " " + it.value).toLowerCase().includes(hlq)) : -1;
+  if (hlIdx < 0) { let best = -1, bv = -Infinity; items.forEach((it, i) => { const v = num(it.value); if (v > bv) { bv = v; best = i; } }); hlIdx = best; }
+  if (hlIdx < 0) hlIdx = 0;
+
+  // ---- scene geometry ------------------------------------------------------
+  const SKY_T = 690, SKY_B = 1440, SOIL = 1392;
+  const PX = 500, PW = 48;                       // post centre + width
+  const AH = 104, TIP = 44;            // arm height, gap, arrow tip length
+  const ARM_MAXW = 406, ARM_MINW = 250;
+  const GAP = n <= 3 ? 34 : 16;
+  const top0 = 806, avail = SOIL - 12 - top0;
+  const total = n * AH + (n - 1) * GAP;
+  const y0 = top0 + Math.max(0, (avail - total) / 2);
+
+  const scene = $("scene");
+  const el = (tag, attrs, text) => { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; scene.appendChild(e); return e; };
+
+  // defs: soft shadow
+  const defs = el("defs", {});
+  defs.innerHTML = '<filter id="sh" x="-20%" y="-40%" width="140%" height="180%"><feGaussianBlur stdDeviation="5"/></filter>' +
+    '<filter id="sh2" x="-20%" y="-40%" width="140%" height="180%"><feGaussianBlur stdDeviation="9"/></filter>';
+  // flat sky panel + soil strip
+  el("rect", { x: 0, y: SKY_T, width: 1080, height: SKY_B - SKY_T, fill: "#C9D3DA" });
+  el("rect", { x: 0, y: SOIL, width: 1080, height: SKY_B - SOIL, fill: "#3A2819" });
+  el("rect", { x: 0, y: SOIL, width: 1080, height: 3, fill: "#2B1E14" });
+  // post: body, 1 px bevel edges, cap, base shadow on the soil
+  el("ellipse", { cx: PX, cy: SOIL + 6, rx: 60, ry: 10, fill: "#000", "fill-opacity": ".35", filter: "url(#sh)" });
+  el("rect", { x: PX - PW / 2, y: SKY_T + 24, width: PW, height: SOIL + 10 - (SKY_T + 24), fill: "#5E4231" });
+  el("rect", { x: PX - PW / 2, y: SKY_T + 24, width: 2, height: SOIL - (SKY_T + 24), fill: "#8B6A54" });
+  el("rect", { x: PX + PW / 2 - 3, y: SKY_T + 24, width: 3, height: SOIL - (SKY_T + 24), fill: "#2B1E14" });
+  el("path", { d: "M" + (PX - PW / 2 - 4) + " " + (SKY_T + 26) + " L" + PX + " " + (SKY_T + 4) + " L" + (PX + PW / 2 + 4) + " " + (SKY_T + 26) + " Z", fill: "#4A3426", stroke: "#2B1E14", "stroke-width": 1 });
+  // yellow trail-number plate under the cap
+  const plateW = 112, plateH = 62, plateY = SKY_T + 40;
+  el("rect", { x: PX - plateW / 2 + 3, y: plateY + 4, width: plateW, height: plateH, rx: 4, fill: "#000", "fill-opacity": ".3", filter: "url(#sh)" });
+  el("rect", { x: PX - plateW / 2, y: plateY, width: plateW, height: plateH, rx: 4, fill: "#E8A33D", stroke: "#2B1E14", "stroke-width": 1.5 });
+  el("circle", { cx: PX - plateW / 2 + 12, cy: plateY + plateH / 2, r: 4, fill: "#2B1E14" });
+  el("circle", { cx: PX + plateW / 2 - 12, cy: plateY + plateH / 2, r: 4, fill: "#2B1E14" });
+  el("text", { x: PX, y: plateY + plateH / 2 + 12, "text-anchor": "middle", "font-family": "DM Mono, monospace", "font-size": 34, "font-weight": 500, fill: "#2B1E14" }, D.ep || "");
+
+  // hiker pictogram (flat), drawn with the arm's ink colour
+  function hiker(x, y, col, flip) {
+    const g = el("g", { transform: "translate(" + x + " " + y + ")" + (flip ? " scale(-1 1)" : ""), fill: col, stroke: col, "stroke-width": 3.2, "stroke-linecap": "round", "stroke-linejoin": "round" });
+    g.innerHTML = '<circle cx="4" cy="-28" r="5.5" stroke="none"/>' +
+      '<path d="M2 -20 L0 0 L-7 14 M0 0 L8 10 L10 20" fill="none"/>' +      // body + legs
+      '<path d="M2 -16 L12 -8 L14 0 M2 -14 L-8 -6 L-12 6" fill="none"/>' +  // arms
+      '<path d="M-12 6 L-14 20" fill="none"/>';                             // stick
+    return g;
+  }
+
+  // one arm. side: 1 = points right, -1 = points left.
+  function arm(i, it, y, side, isHl) {
+    const fill = isHl ? "#E8A33D" : "#553B2C", ink = isHl ? "#2B1E14" : "#F2E9D8";
+    // measure label to size the arm
+    const probe = el("text", { "font-family": "Big Shoulders Display, sans-serif", "font-weight": 700, "font-size": 50, opacity: 0 }, String(it.label).toUpperCase());
+    let fs = 50, tw = probe.getComputedTextLength();
+    while (tw > ARM_MAXW - 90 && fs > 32) { fs -= 2; probe.setAttribute("font-size", fs); tw = probe.getComputedTextLength(); }
+    let label = String(it.label).toUpperCase();
+    while (tw > ARM_MAXW - 90 && label.length > 3) { label = label.slice(0, -2).trimEnd() + "…"; probe.textContent = label; tw = probe.getComputedTextLength(); }
+    probe.remove();
+    const W = Math.max(ARM_MINW, Math.min(ARM_MAXW, Math.round(tw + 90)));
+    // geometry in local coords (x grows away from the post), then mirrored for the left side
+    const x0 = side > 0 ? PX - 6 : PX + 6;
+    const pts = [[0, 0], [W - TIP, 0], [W, AH / 2], [W - TIP, AH], [0, AH]].map(([x, yy]) => (x0 + side * x) + "," + (y + yy)).join(" ");
+    const g = el("g", { transform: isHl ? "translate(" + (side * 4) + " -4)" : "" });
+    // contact shadow on the post and the sky
+    const shadow = document.createElementNS(SVGNS, "polygon");
+    shadow.setAttribute("points", [[0, 0], [W - TIP, 0], [W, AH / 2], [W - TIP, AH], [0, AH]].map(([x, yy]) => (x0 + side * x) + "," + (y + yy + (isHl ? 14 : 8))).join(" "));
+    shadow.setAttribute("fill", "#000"); shadow.setAttribute("fill-opacity", isHl ? ".45" : ".32"); shadow.setAttribute("filter", isHl ? "url(#sh2)" : "url(#sh)");
+    g.appendChild(shadow);
+    const body = document.createElementNS(SVGNS, "polygon");
+    body.setAttribute("points", pts); body.setAttribute("fill", fill); body.setAttribute("stroke", "#2B1E14"); body.setAttribute("stroke-width", "1.5"); body.setAttribute("stroke-linejoin", "round");
+    g.appendChild(body);
+    // 1 px bevel: light top edge, dark bottom edge
+    const bevelT = document.createElementNS(SVGNS, "line");
+    bevelT.setAttribute("x1", x0 + side * 2); bevelT.setAttribute("y1", y + 2); bevelT.setAttribute("x2", x0 + side * (W - TIP - 1)); bevelT.setAttribute("y2", y + 2);
+    bevelT.setAttribute("stroke", "#fff"); bevelT.setAttribute("stroke-opacity", isHl ? ".45" : ".22"); bevelT.setAttribute("stroke-width", "2"); g.appendChild(bevelT);
+    const bevelB = document.createElementNS(SVGNS, "line");
+    bevelB.setAttribute("x1", x0 + side * 2); bevelB.setAttribute("y1", y + AH - 2); bevelB.setAttribute("x2", x0 + side * (W - TIP - 1)); bevelB.setAttribute("y2", y + AH - 2);
+    bevelB.setAttribute("stroke", "#000"); bevelB.setAttribute("stroke-opacity", ".3"); bevelB.setAttribute("stroke-width", "2"); g.appendChild(bevelB);
+    // bolts at the base
+    [26, AH - 26].forEach((by) => {
+      const b = document.createElementNS(SVGNS, "circle");
+      b.setAttribute("cx", x0 + side * 22); b.setAttribute("cy", y + by); b.setAttribute("r", 6);
+      b.setAttribute("fill", isHl ? "#B57A1F" : "#2B1E14"); b.setAttribute("stroke", isHl ? "#2B1E14" : "#8B6A54"); b.setAttribute("stroke-width", "1.5"); g.appendChild(b);
+    });
+    // text: label (condensed, uppercase) + distance (mono), anchored at the post side
+    const tx = x0 + side * 44;
+    const t1 = document.createElementNS(SVGNS, "text");
+    t1.setAttribute("x", tx); t1.setAttribute("y", y + 50); t1.setAttribute("text-anchor", side > 0 ? "start" : "end");
+    t1.setAttribute("font-family", "Big Shoulders Display, sans-serif"); t1.setAttribute("font-weight", "700"); t1.setAttribute("font-size", fs); t1.setAttribute("fill", ink); t1.setAttribute("letter-spacing", fs < 40 ? "0" : "0.5");
+    t1.textContent = label; g.appendChild(t1);
+    const t2 = document.createElementNS(SVGNS, "text");
+    t2.setAttribute("x", tx); t2.setAttribute("y", y + 86); t2.setAttribute("text-anchor", side > 0 ? "start" : "end");
+    t2.setAttribute("font-family", "DM Mono, monospace"); t2.setAttribute("font-weight", "500"); t2.setAttribute("font-size", 30); t2.setAttribute("fill", ink); t2.setAttribute("fill-opacity", isHl ? "1" : ".9");
+    t2.textContent = String(it.value); g.appendChild(t2);
+    // distance string must not run into the tip: shrink if needed
+    let vw = t2.getComputedTextLength(), vfs = 30; while (vw > W - 44 - TIP - 52 && vfs > 24) { vfs -= 1; t2.setAttribute("font-size", vfs); vw = t2.getComputedTextLength(); }
+    // small hiker pictogram after the distance, walking in the arm's direction
+    const hk = hiker(0, 0, ink, side < 0);
+    hk.setAttribute("transform", "translate(" + (tx + side * (vw + 30)) + " " + (y + 84) + ") scale(.62)" + (side < 0 ? " scale(-1 1)" : ""));
+    return g;
+  }
+
+  // arms alternate sides starting right; the post is drawn first so arms sit on it
+  items.forEach((it, i) => {
+    const y = y0 + i * (AH + GAP);
+    const side = i % 2 === 0 ? 1 : -1;
+    if (i !== hlIdx) arm(i, it, y, side, false);
+  });
+  // hl arm last so it is on top (closer to camera)
+  if (items[hlIdx]) arm(hlIdx, items[hlIdx], y0 + hlIdx * (AH + GAP), hlIdx % 2 === 0 ? 1 : -1, true);
+
+  function fit() {
+    const el = $("title");
+    let size = 112; el.style.fontSize = size + "px";
+    while (el.offsetHeight > size * 2.75 && size > 84) { size -= 2; el.style.fontSize = size + "px"; }
+  }
+  fit();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+</script>
+</body>
+</html>

@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /* Seleksi Gelap (dark-20 #05) as a 9:16 hook: design-tool selection box on the highlight, items as chip cards. */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #0d0d12; }
+  body { position: relative; color: #f4f4f8; font-family: "Inter Tight", sans-serif; text-align: center; }
+  .up { position: absolute; left: 0; right: 0; top: 0; height: 980px; background: #191923; border-bottom: 3px solid #26263a; }
+  .up::after { content: ""; position: absolute; inset: 0; background-image: radial-gradient(rgba(255,255,255,0.06) 1.5px, transparent 1.6px); background-size: 36px 36px; }
+  .top { position: absolute; left: 90px; right: 90px; top: 300px; display: flex; justify-content: space-between; font: 700 30px "JetBrains Mono", monospace; color: #8a8aa0; letter-spacing: 0.04em; text-transform: uppercase; z-index: 2; }
+  .col { position: absolute; left: 90px; right: 90px; top: 380px; display: flex; flex-direction: column; align-items: center; z-index: 2; }
+  .tile { display: grid; place-items: center; width: 124px; height: 124px; border-radius: 30px; background: #26263a; box-shadow: inset 0 0 0 2px #33334a; }
+  .h { font-weight: 800; letter-spacing: -0.045em; line-height: 1.1; }
+  .title { margin-top: 44px; font-size: 128px; width: 900px; }
+  .selx { position: relative; display: inline-block; background: rgba(21,112,239,0.35); color: #d6e5ff; padding: 0 16px 6px; margin: 0 6px; }
+  .selx::before, .selx::after { content: ""; position: absolute; width: 5px; top: -6px; bottom: -6px; background: #3b8cff; }
+  .selx::before { left: -3px; } .selx::after { right: -3px; }
+  .selx i { position: absolute; width: 26px; height: 26px; border-radius: 50%; background: #3b8cff; }
+  .selx i:first-child { left: -13px; top: -26px; } .selx i:last-child { right: -13px; bottom: -26px; }
+  .chips { position: absolute; left: 90px; right: 150px; /* keeps chip text left of the TikTok button column */ display: flex; flex-wrap: wrap; justify-content: center; gap: 22px; z-index: 2; }
+  .chip { min-height: 150px; padding: 20px 22px; border-radius: 30px; display: flex; flex-direction: column; justify-content: center; gap: 10px; background: #1d1d28; border: 2px solid #2e2e40; }
+  .chip .lb { font: 700 30px "JetBrains Mono", monospace; color: #9a9ab4; }
+  .chip .vl { font-weight: 800; font-size: 58px; letter-spacing: -0.03em; line-height: 1.02; color: #f4f4f8; }
+  .chip.ac { background: #ffd23f; border-color: #ffd23f; } .chip.ac .lb { color: #5a4a00; } .chip.ac .vl { color: #111; }
+  .sub { position: absolute; left: 120px; right: 120px; font-size: 44px; font-weight: 600; line-height: 1.28; color: #b4b4c8; z-index: 2; }
+  .foot { position: absolute; left: 90px; right: 90px; top: 1570px; font: 500 27px "JetBrains Mono", monospace; color: #8a8aa0; line-height: 1.4; }
+</style>
+</head>
+<body>
+<div class="up" id="up"></div>
+<div class="top"><span id="kick"></span><span id="ep"></span></div>
+<div class="col" id="col">
+  <span class="tile"><svg width="70" height="70" viewBox="0 0 24 24" fill="none"><path d="M5 3.5l13 6.6-5.6 1.6-2.6 5.4L5 3.5z" fill="#a8b1ff" stroke="#5b61c9" stroke-width="1.2" stroke-linejoin="round"/><path d="M12.6 11.9l4.6 5.1" stroke="#a8b1ff" stroke-width="2.4" stroke-linecap="round"/></svg></span>
+  <div class="title h" id="title"></div>
+</div>
+<div class="chips" id="chips"></div>
+<div class="sub" id="sub"></div>
+<div class="foot" id="foot"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const hlWrap = (t, h) => { const i = h ? t.toLowerCase().indexOf(h.toLowerCase()) : -1;
+    return i < 0 ? esc(t) : esc(t.slice(0, i)) + `<span class="selx"><i></i>${esc(t.slice(i, i + h.length))}<i></i></span>` + esc(t.slice(i + h.length)); };
+  const items = (D.items || []).slice(0, 5);
+
+  document.getElementById("kick").textContent = D.series || D.kicker || "";
+  document.getElementById("ep").textContent = D.ep || "";
+  document.getElementById("title").innerHTML = hlWrap(D.title || "", D.hl);
+  const w = items.length >= 5 ? 265 : 409; // two columns (last one centred when odd); three columns for five items
+  document.getElementById("chips").innerHTML = items.map((it, i) =>
+    `<div class="chip${i ? "" : " ac"}" style="width:${w}px"><span class="lb">${esc(it.label)}</span><span class="vl">${esc(it.value)}</span></div>`).join("");
+  document.getElementById("sub").textContent = D.sub || "";
+  document.getElementById("foot").innerHTML = [D.source && esc(D.source), D.date && `<span style="white-space:nowrap">${esc(D.date)}</span>`].filter(Boolean).join(" · ");
+
+  // Fit title, then stack: panel ends under the title, chips + sub sit centred in the dark band below.
+  const place = (fs) => {
+    const t = document.getElementById("title"), col = document.getElementById("col");
+    t.style.fontSize = fs + "px";
+    const panelEnd = col.offsetTop + col.offsetHeight + 60;
+    document.getElementById("up").style.height = panelEnd + "px";
+    const chips = document.getElementById("chips"), sub = document.getElementById("sub");
+    const block = chips.offsetHeight + 48 + sub.offsetHeight, room = 1550 - panelEnd;
+    const y0 = panelEnd + Math.max(50, (room - block) / 2);
+    chips.style.top = y0 + "px"; sub.style.top = y0 + chips.offsetHeight + 48 + "px";
+    return { th: t.offsetHeight, end: y0 + block };
+  };
+  const layout = () => { let fs = 128, r = place(fs);
+    while ((r.th > 430 || r.end > 1550) && fs > 72) { fs -= 4; r = place(fs); } };
+  layout(); (document.fonts ? document.fonts.ready : Promise.resolve()).then(layout);
+</script>
+</body>
+</html>

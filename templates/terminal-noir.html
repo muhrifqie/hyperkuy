@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Mona+Sans:wght@400;600;800&family=JetBrains+Mono:wght@500;700;800&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /* Terminal Noir (dark-20 #01) as a 9:16 hook: glowing mono title + terminal window holding the items. */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #0d1117; }
+  body { position: relative; color: #e6edf3; font-family: "JetBrains Mono", monospace; }
+  body::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(255,255,255,0.025) 0 2px, transparent 2px 5px); }
+  .glow { position: absolute; left: -260px; top: 160px; width: 1100px; height: 1100px; border-radius: 50%; background: radial-gradient(circle, rgba(91,97,201,0.30), rgba(91,97,201,0) 65%); }
+  .glow2 { position: absolute; right: -380px; top: 1050px; width: 900px; height: 900px; border-radius: 50%; background: radial-gradient(circle, rgba(63,185,80,0.07), rgba(63,185,80,0) 65%); }
+  .top { position: absolute; left: 90px; right: 90px; top: 300px; display: flex; justify-content: space-between; font-weight: 700; font-size: 30px; letter-spacing: 0.06em; text-transform: uppercase; z-index: 3; }
+  .top .k { color: #a8b1ff; } .top .k b { color: #3fb950; font-weight: 700; } .top .pg { color: #7d8590; }
+  .col { position: absolute; left: 90px; right: 90px; top: 380px; bottom: 390px; display: flex; flex-direction: column; justify-content: center; gap: 56px; z-index: 3; }
+  .title { flex: none; font-weight: 800; letter-spacing: -0.04em; line-height: 1.04; color: #e6edf3; font-size: 104px; }
+  .title .hl { color: #a8b1ff; text-shadow: 0 0 36px rgba(168,177,255,0.65), 0 0 90px rgba(91,97,201,0.6); }
+  .term { flex: none; background: #161b22; border: 2px solid #30363d; border-radius: 18px; overflow: hidden; box-shadow: 0 40px 120px rgba(0,0,0,0.55), 0 0 0 1px rgba(168,177,255,0.06); }
+  .bar { display: flex; align-items: center; gap: 14px; padding: 20px 28px; border-bottom: 2px solid #30363d; background: #0f141b; font-size: 28px; color: #7d8590; }
+  .bar i { width: 20px; height: 20px; border-radius: 50%; background: #30363d; }
+  .bar span { margin-left: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .body { padding: 34px 88px 38px 38px; } /* right padding keeps values left of x 900 (TikTok buttons) */
+  .cmd { font-size: 40px; color: #e6edf3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cmd .p { color: #3fb950; } .cmd .f { color: #7d8590; }
+  .rows { margin-top: 22px; border-top: 2px dashed #30363d; }
+  .row { display: flex; align-items: baseline; gap: 18px; padding: 20px 0; border-bottom: 2px dashed #30363d; font-size: 42px; }
+  .row .ix { color: #7d8590; font-size: 30px; width: 52px; flex: none; }
+  .row .lb { color: #e6edf3; font-weight: 500; flex: none; max-width: 470px; }
+  .row .dots { flex: 1; border-bottom: 3px dotted #3b4350; transform: translateY(-10px); min-width: 30px; }
+  .row .vl { color: #a8b1ff; font-weight: 800; text-align: right; flex: none; max-width: 380px; }
+  .pn { margin-top: 30px; font-family: "Mona Sans", sans-serif; font-size: 42px; font-weight: 700; line-height: 1.28; color: #e6edf3; }
+  .pn::before { content: "> "; font-family: "JetBrains Mono", monospace; color: #7d8590; }
+  .pn::after { content: "▍"; color: #3fb950; text-shadow: 0 0 18px rgba(63,185,80,0.7); }
+  .ok { margin-top: 24px; font-size: 28px; color: #7d8590; } .ok b { color: #3fb950; font-weight: 700; }
+  .foot { position: absolute; left: 90px; right: 90px; top: 1560px; font-size: 27px; line-height: 1.4; color: #7d8590; z-index: 3; }
+</style>
+</head>
+<body>
+<div class="glow"></div><div class="glow2"></div>
+<div class="top"><span class="k"><b>~/</b><span id="kick"></span></span><span class="pg" id="ep"></span></div>
+<div class="col">
+  <div class="title" id="title"></div>
+  <div class="term">
+    <div class="bar"><i></i><i></i><i></i><span id="win"></span></div>
+    <div class="body">
+      <div class="cmd" id="cmd"></div>
+      <div class="rows" id="rows"></div>
+      <div class="pn" id="sub"></div>
+      <div class="ok" id="ok"></div>
+    </div>
+  </div>
+</div>
+<div class="foot" id="foot"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { seri: "cara-kerja-ai", series: "Cara kerja AI", ep: "#01", title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const hlWrap = (t, h) => { const i = h ? t.toLowerCase().indexOf(h.toLowerCase()) : -1;
+    return i < 0 ? esc(t) : esc(t.slice(0, i)) + `<span class="hl">${esc(t.slice(i, i + h.length))}</span>` + esc(t.slice(i + h.length)); };
+  const slug = D.series_id || D.seri || String(D.series || "hook").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const items = (D.items || []).slice(0, 5);
+
+  document.getElementById("kick").textContent = D.series || D.kicker || "";
+  document.getElementById("ep").textContent = D.ep || "";
+  document.getElementById("title").innerHTML = hlWrap(D.title || "", D.hl);
+  document.getElementById("win").textContent = `zsh — ~/${slug}`;
+  document.getElementById("cmd").innerHTML = `<span class="p">$</span> ${esc(slug)} <span class="f">--ep ${esc(String(D.ep || "").replace("#", ""))}</span>`;
+  document.getElementById("rows").innerHTML = items.map((it, i) =>
+    `<div class="row"><span class="ix">${String(i + 1).padStart(2, "0")}</span><span class="lb">${esc(it.label)}</span><span class="dots"></span><span class="vl">${esc(it.value)}</span></div>`).join("");
+  document.getElementById("sub").textContent = D.sub || "";
+  document.getElementById("ok").innerHTML = `<b>✓</b> ${items.length} baris · exit 0`;
+  document.getElementById("foot").innerHTML = [D.source && esc(`# sumber: ${D.source}`), D.date && `<span style="white-space:nowrap">${esc(D.date)}</span>`].filter(Boolean).join(" · ");
+
+  // Shrink title until the whole column fits its band (title 20–60 chars, 3–5 items).
+  const fit = () => { const col = document.querySelector(".col"), t = document.getElementById("title");
+    let fs = 104; t.style.fontSize = fs + "px";
+    while ((col.scrollHeight > col.clientHeight || t.offsetHeight > 470) && fs > 64) { fs -= 4; t.style.fontSize = fs + "px"; } };
+  fit(); (document.fonts ? document.fonts.ready : Promise.resolve()).then(fit);
+</script>
+</body>
+</html>

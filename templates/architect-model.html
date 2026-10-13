@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Maket Putih (hook)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!--DATA-->
+<style>
+  /* Maket Putih: an architect's white study model (cut card on a grey site board), seen from above
+     at an isometric angle. Concepts are massing blocks; the only colour is cobalt (hl word + flag pins). */
+  :root {
+    --board: #E9E9E5; --grid: #DCDCD7; --ink: #1B1B1F; --meta: #6B6B66; --cobalt: #1F4FD8;
+    --sans: "Manrope", Arial, sans-serif;
+    --mono: "JetBrains Mono", Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--board); color: var(--ink); }
+  body { position: relative; font-family: var(--sans); }
+  svg.board { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  .top { position: absolute; left: 90px; right: 90px; top: 300px; display: flex; justify-content: space-between; align-items: baseline;
+    font: 400 28px/1.2 var(--mono); color: var(--meta); }
+  .title { position: absolute; left: 90px; width: 900px; top: 350px; font-family: var(--sans); font-weight: 800;
+    line-height: 1.04; letter-spacing: -0.02em; color: var(--ink); }
+  .title .hl { color: var(--cobalt); }
+  .sub { position: absolute; left: 90px; width: 810px; font: 500 40px/1.3 var(--sans); color: var(--ink); }
+  .meta { position: absolute; left: 90px; right: 90px; display: flex; justify-content: space-between; align-items: baseline;
+    font: 400 26px/1.3 var(--mono); color: var(--meta); }
+  .meta span:first-child { max-width: 640px; }
+
+  .flag { font: 500 28px var(--mono); fill: #FFFFFF; }
+  .val { font: 700 40px var(--sans); fill: var(--ink); }
+  .approx { font: 600 30px var(--sans); fill: var(--meta); }
+  .conv { font: 400 26px var(--mono); fill: var(--meta); }
+
+  /* Signature move (video version, not in this still):
+     each block extrudes upward from its footprint with ease-out, one after another;
+     the flag pin drops in; a scale figure walks across the board. */
+</style>
+</head>
+<body>
+<svg class="board" id="board" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="top"><span id="kicker"></span><span id="ep"></span></div>
+<h1 class="title" id="title"></h1>
+<p class="sub" id="sub"></p>
+<div class="meta"><span id="source"></span><span id="date"></span></div>
+<script>
+  // Fallback sample so the file renders when opened directly in a browser.
+  const FALLBACK = {
+    series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" },
+            { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi, jumlah token beda tiap model", date: "per 14 Okt 2026"
+  };
+  const D = window.D && window.D.title ? window.D : FALLBACK;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const SVG_NS = "http://www.w3.org/2000/svg";
+
+  // --- Shared helper: parse a number out of an item value for sizing. ---
+  // Takes the first numeric token: "0,34 Wh" -> 0.34 (Indonesian decimal comma), "±1 dtk" -> 1,
+  // "2 token" -> 2, "1.500.000" -> 1500000 (dots as thousands separators).
+  // An item with no number (e.g. "miliaran") gets max(parsed) * 1.15 and is flagged `approx`
+  // so its value label carries a small "≈". Honest approximation for a still: the block says
+  // "bigger than the rest" without inventing a figure.
+  function parseNum(s) {
+    const m = String(s ?? "").match(/\d+(?:[.,]\d+)*/);
+    if (!m) return null;
+    let t = m[0];
+    if (/^\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, "");
+    else t = t.replace(/\./g, "").replace(",", ".");
+    const v = parseFloat(t);
+    return Number.isFinite(v) ? v : null;
+  }
+  function sizeItems(items) {
+    const parsed = items.map((it) => parseNum(it.value));
+    const known = parsed.filter((v) => v !== null);
+    const max = known.length ? Math.max(...known) : 1;
+    return items.map((it, i) => ({ ...it, n: parsed[i] === null ? max * 1.15 : parsed[i], approx: parsed[i] === null }));
+  }
+  // hl block: label containing hl, else value containing hl (tallest among matches), else none.
+  function pickHl(items, hl) {
+    const h = String(hl ?? "").trim().toLowerCase();
+    if (!h) return null;
+    const tallest = (list) => list.reduce((a, b) => (b.n > a.n ? b : a));
+    const byLabel = items.filter((it) => String(it.label).toLowerCase().includes(h));
+    if (byLabel.length) return tallest(byLabel);
+    const byValue = items.filter((it) => String(it.value).toLowerCase().includes(h));
+    if (byValue.length) return tallest(byValue);
+    const hn = parseNum(h);
+    const byNum = items.filter((it) => !it.approx && hn !== null && it.n === hn);
+    return byNum.length ? tallest(byNum) : null;
+  }
+
+  const ctx = document.createElement("canvas").getContext("2d");
+  const measure = (text, font) => { ctx.font = font; return ctx.measureText(String(text)).width; };
+  function markTitle(t, hl) {
+    const i = hl ? t.toLowerCase().indexOf(String(hl).toLowerCase()) : -1;
+    if (i < 0) return esc(t);
+    return esc(t.slice(0, i)) + '<span class="hl">' + esc(t.slice(i, i + hl.length)) + "</span>" + esc(t.slice(i + hl.length));
+  }
+  function el(tag, attrs, text) {
+    const e = document.createElementNS(SVG_NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  const pts = (arr) => arr.map((p) => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ");
+
+  const items = sizeItems((D.items || []).slice(0, 5));
+  const n = items.length;
+  const hlItem = pickHl(items, D.hl);
+  $("kicker").textContent = D.series || D.kicker || "";
+  $("ep").textContent = D.ep || "";
+  $("title").innerHTML = markTitle(D.title || "", D.hl);
+  $("sub").textContent = D.sub || "";
+  $("source").textContent = D.source || "";
+  $("date").textContent = D.date || "";
+
+  // Isometric projection: a square footprint reads as a diamond 2*HW wide and 2*HH tall (HH = HW*tan30).
+  const COS30 = 0.866, TAN30 = 0.5774;
+
+  function layout() {
+    // Title: 100px down to 80px until it fits in 3 lines.
+    const t = $("title");
+    let size = 100;
+    t.style.fontSize = size + "px";
+    while (t.offsetHeight > size * 1.04 * 3 + 4 && size > 80) { size -= 4; t.style.fontSize = size + "px"; }
+    const titleBottom = 350 + t.offsetHeight;
+
+    const svg = $("board");
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+    // Faint isometric grid over the whole board (30-degree lines, 1px, ~48px apart).
+    const grid = el("g", { stroke: "#DCDCD7", "stroke-width": 1, fill: "none" });
+    const step = 48 / COS30;
+    for (let c = -700; c < 1920 + 700; c += step) {
+      grid.appendChild(el("line", { x1: 0, y1: c, x2: 1080, y2: c + 1080 * TAN30 }));
+      grid.appendChild(el("line", { x1: 0, y1: c, x2: 1080, y2: c - 1080 * TAN30 }));
+    }
+    svg.appendChild(grid);
+
+    // Model band: from under the title down to y 1480; sub and meta sit below it.
+    const bandTop = Math.max(700, titleBottom + 40);
+    const bandBottom = 1450;
+    const modelBottom = bandBottom - 50;                        // bottom-left corner stays free for the conventions
+    const PIN = 48, FLAG_H = 40, VAL_STRIP = 58;
+    const valFont = "700 40px " + getComputedStyle(document.body).getPropertyValue("--sans");
+    const vw = items.map((it) => measure(it.value, valFont) + (it.approx ? 30 : 0));
+
+    // Layout: blocks sit in columns along the screen horizontal (an isometric diagonal street) and alternate
+    // between a back row and a front row (checkerboard plan). Column pitch is computed so no block ever
+    // stands over a neighbour's value text, so every value stays on the board, fully visible. 5 items add a
+    // third row under column 2 (two pitches down, so the back value above it stays clear).
+    const cols = n <= 4 ? n : 4;
+    const colOf = (i) => (i < 4 ? i : 2);
+    const rowOf = (i) => (i < 4 ? i % 2 : 2);
+    // Horizontal pitch between adjacent columns: HW + half the wider value + margin.
+    const m = [];
+    for (let c = 0; c < cols - 1; c++) {
+      const a = items.findIndex((_, i) => colOf(i) === c), b = items.findIndex((_, i) => colOf(i) === c + 1);
+      m.push(Math.max(vw[a], vw[b]) / 2 + 12);
+    }
+    const HWmax = n <= 3 ? 140 : 150;
+    let HWx = (760 - m.reduce((acc, v) => acc + v, 0)) / (cols + 1);
+    HWx = Math.max(70, Math.min(HWmax, HWx));
+    const HW = HWx, HH = HW * 0.5774;
+    const colX = [0];
+    for (let c = 0; c < cols - 1; c++) colX.push(colX[c] + HW + m[c]);
+    const spanL = colX[0] - HW, spanR = colX[cols - 1] + HW;
+    const shift = 500 - (spanL + spanR) / 2;
+
+    // Heights: proportional to the parsed numbers, min 60, max 340; shrink hmax until the model fits the band.
+    const vmax = Math.max(...items.map((it) => it.n), 1e-9);
+    let hmax = 340, pitch = 0, totalH = 0;
+    const hOf = (it) => Math.max(60, Math.round(hmax * it.n / vmax));
+    const rows = n === 5 ? 3 : (n >= 2 ? 2 : 1);
+    const hTopRow = () => Math.max(...items.filter((_, i) => rowOf(i) === 0).map(hOf));
+    for (;;) {
+      const hF = n === 5 ? hOf(items[4]) : 0;
+      pitch = n === 5 ? Math.max(HH + 24, HH + 36 + hF / 2) : HH + 24;
+      totalH = PIN + FLAG_H + hTopRow() + HH + (rows - 1) * pitch + HH + VAL_STRIP;
+      if (totalH <= modelBottom - bandTop || hmax <= 60) break;
+      hmax -= 4;
+    }
+    const y0 = bandTop + Math.max(0, (modelBottom - bandTop - totalH) / 2) + PIN + FLAG_H + hTopRow() + HH;
+    const cxOf = (i) => colX[colOf(i)] + shift;
+    const cyOf = (i) => y0 + rowOf(i) * pitch;
+
+    const blocks = el("g", {});
+    const labels = el("g", {});
+    const flags = el("g", {});
+    const flagRects = [];
+    const topBox = (i) => { const h = hOf(items[i]); return { x: cxOf(i) - HW, y: cyOf(i) - h - HH, w: 2 * HW, h: 2 * HH }; };
+    const inter = (a, b, pad) => a.x < b.x + b.w + pad && a.x + a.w + pad > b.x && a.y < b.y + b.h + pad && a.y + a.h + pad > b.y;
+
+    function drawBlock(idx) {
+      const it = items[idx], cx = cxOf(idx), cy = cyOf(idx), h = hOf(it);
+      // Contact shadow: footprint parallelogram offset down-right, drawn before the block.
+      blocks.appendChild(el("polygon", { points: pts([[cx + 34, cy - HH + 20], [cx + HW + 34, cy + 20], [cx + 34, cy + HH + 20], [cx - HW + 34, cy + 20]]),
+        fill: "#CFCFCA", opacity: 0.7 }));
+      const E = { stroke: "#BDBDB7", "stroke-width": 1, "stroke-linejoin": "round" };
+      // Left face, right face, top face (cut card: 1px edges + a lighter 4px lip under the top sheet).
+      blocks.appendChild(el("polygon", { points: pts([[cx - HW, cy], [cx, cy + HH], [cx, cy + HH - h], [cx - HW, cy - h]]), fill: "#E6E6E2", ...E }));
+      blocks.appendChild(el("polygon", { points: pts([[cx, cy + HH], [cx + HW, cy], [cx + HW, cy - h], [cx, cy + HH - h]]), fill: "#D2D2CD", ...E }));
+      blocks.appendChild(el("polygon", { points: pts([[cx - HW, cy - h], [cx, cy + HH - h], [cx, cy + HH - h + 4], [cx - HW, cy - h + 4]]), fill: "#F3F3F0", stroke: "none" }));
+      blocks.appendChild(el("polygon", { points: pts([[cx, cy + HH - h], [cx + HW, cy - h], [cx + HW, cy - h + 4], [cx, cy + HH - h + 4]]), fill: "#E2E2DD", stroke: "none" }));
+      blocks.appendChild(el("polygon", { points: pts([[cx, cy - HH - h], [cx + HW, cy - h], [cx, cy + HH - h], [cx - HW, cy - h]]),
+        fill: it === hlItem ? "#EEF2FF" : "#FFFFFF", ...E }));
+
+      // Value on the board under the block.
+      let vx = cx, vy = cy + HH + 46;
+      const w = measure(it.value, valFont);
+      if (it.approx) { labels.appendChild(el("text", { class: "approx", x: cx - w / 2 - 32, y: vy - 2 }, "≈")); vx = cx + 2; }
+      labels.appendChild(el("text", { class: "val", x: vx, y: vy, "text-anchor": "middle" }, it.value));
+    }
+    function drawFlag(idx) {
+      // Flag pin at the top-front corner: 2px cobalt pole + flag holding the label. The flag may not cover
+      // another block's top face or another flag: try right, left, then raised above the blocks it would cover.
+      const it = items[idx], cx = cxOf(idx), cy = cyOf(idx), h = hOf(it);
+      const fw = Math.round(String(it.label).length * 16.8 + 24);
+      const corner = cy + HH - h;
+      const others = items.map((_, i) => i).filter((i) => i !== idx).map(topBox);
+      const bad = (r) => r.x < 90 || r.x + r.w > 900 || others.some((o) => inter(r, o, 4)) || flagRects.some((o) => inter(r, o, 8));
+      const mk = (side, y) => ({ x: side === "R" ? cx : cx - fw, y, w: fw, h: FLAG_H });
+      let r = null;
+      for (const side of ["R", "L"]) { const c = mk(side, corner - PIN - FLAG_H); if (!bad(c)) { r = c; break; } }
+      if (!r) {
+        for (const side of ["R", "L"]) {
+          const c = mk(side, corner - PIN - FLAG_H);
+          if (c.x < 90 || c.x + c.w > 900) continue;
+          const cover = others.filter((o) => o.x < c.x + c.w && c.x < o.x + o.w);
+          if (cover.length) c.y = Math.min(c.y, Math.min(...cover.map((o) => o.y)) - 10 - FLAG_H);
+          let guard = 0;
+          while (bad(c) && guard++ < 10) c.y -= 48;
+          if (!bad(c)) { r = c; break; }
+        }
+      }
+      if (!r) r = mk(cx + fw <= 900 ? "R" : "L", corner - PIN - FLAG_H - 96);
+      flagRects.push(r);
+      flags.appendChild(el("line", { x1: cx, y1: corner, x2: cx, y2: r.y + FLAG_H, stroke: "#1F4FD8", "stroke-width": 2 }));
+      flags.appendChild(el("rect", { x: r.x, y: r.y, width: r.w, height: r.h, fill: "#1F4FD8" }));
+      flags.appendChild(el("text", { class: "flag", x: r.x + 12, y: r.y + 28 }, it.label));
+    }
+    const order = items.map((_, i) => i).sort((a, b) => rowOf(a) - rowOf(b) || a - b);   // painter: back row first
+    order.forEach(drawBlock);
+    svg.appendChild(blocks);
+    svg.appendChild(labels);
+
+    // Scale figures: three grey capsules on the board (about 1.8 m at the model's scale).
+    const fig = (x, y) => {
+      labels.appendChild(el("ellipse", { cx: x + 7, cy: y + 23, rx: 9, ry: 3, fill: "#CFCFCA", opacity: 0.8 }));
+      labels.appendChild(el("rect", { x: x, y: y, width: 10, height: 22, rx: 5, fill: "#8F8F89" }));
+    };
+    const first = 0, last = cols - 1;
+    fig(cxOf(first) - HW - 30, cyOf(first) + 2);
+    fig(cxOf(last) + HW + 24, cyOf(last) + 8);
+    if (n >= 3) fig(cxOf(1) + HW + 40, cyOf(1) + HH + 70);
+    // Flags last (the only thing allowed to float over the model), tallest block first.
+    items.map((_, i) => i).sort((a, b) => hOf(items[b]) - hOf(items[a]) || a - b).forEach(drawFlag);
+    svg.appendChild(flags);
+
+    // Drawing conventions at the bottom-left of the board: north arrow + scale.
+    const nx = 112, ny = bandBottom - 22;
+    svg.appendChild(el("circle", { cx: nx, cy: ny, r: 18, fill: "none", stroke: "#6B6B66", "stroke-width": 1 }));
+    svg.appendChild(el("polygon", { points: pts([[nx, ny - 30], [nx - 7, ny + 4], [nx + 7, ny + 4]]), fill: "#6B6B66" }));
+    svg.appendChild(el("text", { class: "conv", x: nx + 34, y: ny + 9 }, "U"));
+    svg.appendChild(el("text", { class: "conv", x: nx + 80, y: ny + 9 }, "SKALA 1:100"));
+
+    $("sub").style.top = (bandBottom + 20) + "px";
+    document.querySelector(".meta").style.top = (bandBottom + 20 + $("sub").offsetHeight + 26) + "px";
+  }
+  layout();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(layout);
+</script>
+</body>
+</html>

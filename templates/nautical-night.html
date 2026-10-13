@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Cormorant+Garamond:ital,wght@1,600&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Peta Laut Malam (g2-peta-laut-malam): a nautical chart in night mode, the
+    paper chart under the red lamp of a bridge. The whole frame is the chart:
+    faint lat/lon graticule, scattered depth soundings in ink, a coast with a
+    shallow bank (lighter navy) and depth contours, a light with its sector, a
+    rock (+), a buoy, and a compass rose. The title lives in the chart's
+    cartouche (title block) and the supporting line in the navigation notes box,
+    both drawn as chart furniture. Every item is a named sounding station on the
+    ship's track: the water name in Cormorant italic (as on real charts), the
+    depth value in Plex Mono. The highlighted station is the ship's current
+    position. Accent red = ship track, hourly fixes, rock, light sector, needle.
+    No glow, no sonar rings: only ink, lines and numbers.
+
+    Signature move (video, not animated here): soundings print outward from the
+    ship one number at a time, the track draws itself fix by fix (circle + time),
+    and the compass needle turns to the new heading on each scene change.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #0E1A24; }
+  body { position: relative; color: #D9D4C7; font-family: "IBM Plex Mono", monospace; }
+
+  svg.chart { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; display: block; }
+
+  /* cartouche: the chart title block */
+  .cart { position: absolute; left: 90px; width: 900px; top: 300px; background: #0E1A24; border: 2px solid #D9D4C7; padding: 22px 30px 20px; }
+  .cart::before { content: ""; position: absolute; inset: 6px; border: 1px solid #D9D4C7; opacity: .5; pointer-events: none; }
+  .cart .row { display: flex; justify-content: space-between; align-items: baseline; font: 400 28px "IBM Plex Mono", monospace; color: #9CA3A0; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
+  .cart .title { margin-top: 16px; font: 700 80px/1.06 "IBM Plex Mono", monospace; letter-spacing: -0.03em; color: #D9D4C7; }
+  .cart .title .hl { color: #E6553D; }
+  .cart .meta { margin-top: 16px; font: 400 26px "IBM Plex Mono", monospace; color: #9CA3A0; letter-spacing: 0; text-transform: uppercase; white-space: nowrap; }
+
+  /* navigation notes box */
+  .nav { position: absolute; left: 90px; width: 810px; top: 1420px; background: #0E1A24; border: 2px solid #D9D4C7; padding: 30px 28px 24px; }
+  .nav .tag { position: absolute; left: 20px; top: -17px; padding: 0 10px; background: #0E1A24; font: 500 26px "IBM Plex Mono", monospace; color: #E6553D; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
+  .nav .tx { font: 400 40px/1.3 "IBM Plex Mono", monospace; color: #D9D4C7; }
+
+  .foot { position: absolute; left: 90px; right: 90px; top: 1588px; font: 400 26px/1.3 "IBM Plex Mono", monospace; color: #9CA3A0; }
+</style>
+</head>
+<body>
+<svg class="chart" id="chart" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="cart" id="cart">
+  <div class="row"><span id="kick"></span><span id="date"></span></div>
+  <div class="title" id="title"></div>
+  <div class="meta" id="meta"></div>
+</div>
+<div class="nav"><span class="tag" id="tag"></span><div class="tx" id="sub"></div></div>
+<div class="foot" id="foot"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi, jumlah token beda tiap model", date: "per 14 Okt 2026" };
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const hlWrap = (t, h) => { const i = h ? t.toLowerCase().indexOf(h.toLowerCase()) : -1;
+    return i < 0 ? esc(t) : esc(t.slice(0, i)) + `<span class="hl">${esc(t.slice(i, i + h.length))}</span>` + esc(t.slice(i + h.length)); };
+
+  const INK = "#D9D4C7", RED = "#E6553D", BG = "#0E1A24", SHALLOW = "#16303F", LAND = "#1F2B33", GRID = "#1A2C3A", DIM = "#9CA3A0";
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+
+  /* ---------- text blocks ---------- */
+  document.getElementById("kick").textContent = D.kicker || [D.series, D.ep].filter(Boolean).join(" · ");
+  document.getElementById("date").textContent = D.date || "";
+  const titleEl = document.getElementById("title");
+  titleEl.innerHTML = hlWrap(D.title || "", D.hl);
+  document.getElementById("meta").textContent = `Peta No. ${String(D.ep || "#01").replace("#", "")} · skala 1:50 000 · kedalaman dalam meter`;
+  document.getElementById("sub").textContent = D.sub || "";
+  document.getElementById("tag").textContent = "Catatan navigasi · haluan 045° · 12 kn";
+  document.getElementById("foot").textContent = D.source ? `sumber: ${D.source}` : "";
+
+  /* ---------- which station is the ship's position: label match, unique value match, else the last ---------- */
+  const h = String(D.hl || "").toLowerCase();
+  const has = (s) => h && String(s ?? "").toLowerCase().includes(h);
+  let hlIdx = items.findIndex((it) => has(it.label));
+  if (hlIdx < 0) { const m = items.map((it, i) => has(it.value) ? i : -1).filter((i) => i >= 0); if (m.length === 1) hlIdx = m[0]; }
+  if (hlIdx < 0) hlIdx = n - 1;
+
+  /* ---------- station positions along the track, from the bank at bottom-left up to open water top-right ---------- */
+  const T0 = 720, T1 = 1390;                                           // chart band between the cartouche and the notes box
+  const pts = items.map((it, i) => {
+    const t = n === 1 ? 0.5 : i / (n - 1);
+    const x = Math.round(300 + t * 400 + (i % 2 ? 60 : -40));
+    const y = Math.round(T1 - 60 - t * (T1 - T0 - 240));                // even vertical spacing so neighbouring labels never collide
+    return { x, y, side: x > 540 ? -1 : 1, it, hl: i === hlIdx };
+  });
+  // label boxes (for keeping decorative soundings away from text)
+  const labelBox = (p) => { const w = 310, hh = 118; return p.side > 0 ? [p.x + 24, p.y - 60, p.x + 24 + w, p.y - 60 + hh] : [p.x - 24 - w, p.y - 60, p.x - 24, p.y - 60 + hh]; };
+  const avoid = [[60, 280, 1010, 720], [60, 1395, 920, 1580], [60, 1575, 1010, 1665], [40, 1660, 1080, 1920], [0, 0, 1080, 230], [0, T0 - 20, 420, T1 + 60], [800, 700, 1000, 900], [530, 740, 590, 830], [1010, T1 + 100, 1060, T1 + 240], ...pts.map(labelBox), ...pts.map((p) => [p.x - 40, p.y - 40, p.x + 40, p.y + 40])];
+  const segs = [];                                                     // track segments, filled below; soundings keep clear of them
+  const segDist = (x, y, a, b) => { const dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy || 1; const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / l2)); return Math.hypot(x - (a.x + t * dx), y - (a.y + t * dy)); };
+  const inAvoid = (x, y) => avoid.some(([a, b, c, d]) => x > a && x < c && y > b && y < d) || segs.some(([a, b]) => segDist(x, y - 9, a, b) < 36);
+
+  /* ---------- deterministic soundings: jittered grid, skipping text areas and the track (filled in after the track exists) ---------- */
+  let snd = "";
+  const soundings = () => {
+  let seed = 20261014; const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  for (let gy = 60; gy < 1900; gy += 84) for (let gx = 60; gx < 1060; gx += 96) {
+    const x = gx + Math.round((rnd() - 0.5) * 50), y = gy + Math.round((rnd() - 0.5) * 40);
+    const shallow = x < 420 && y > 700 && y < 1420;
+    const v = shallow ? (2 + rnd() * 8).toFixed(1).replace(".", ",") : String(Math.round(12 + rnd() * 40));
+    if (inAvoid(x, y)) continue;
+    snd += `<text x="${x}" y="${y}" font-size="26" fill="${INK}" fill-opacity="0.5" text-anchor="middle">${v}</text>`;
+  }
+  };
+
+  /* ---------- graticule + chart border ---------- */
+  let grid = "";
+  for (let x = 120; x < 1080; x += 180) grid += `<path d="M${x} 0V1920" stroke="${GRID}" stroke-width="1.2"/>`;
+  for (let y = 80; y < 1920; y += 180) grid += `<path d="M0 ${y}H1080" stroke="${GRID}" stroke-width="1.2"/>`;
+  grid += `<rect x="40" y="40" width="1000" height="1840" fill="none" stroke="${INK}" stroke-opacity="0.45" stroke-width="2"/>`;
+  for (let x = 120; x < 1040; x += 60) grid += `<path d="M${x} 40v${x % 180 === 120 ? 16 : 8} M${x} 1880v-${x % 180 === 120 ? 16 : 8}" stroke="${INK}" stroke-opacity="0.6" stroke-width="2"/>`;
+  for (let y = 80; y < 1880; y += 60) grid += `<path d="M40 ${y}h${y % 180 === 80 ? 16 : 8} M1040 ${y}h-${y % 180 === 80 ? 16 : 8}" stroke="${INK}" stroke-opacity="0.6" stroke-width="2"/>`;
+  grid += `<text x="140" y="1856" font-size="26" fill="${DIM}">106°50'E</text><text x="1034" y="${T1 + 120}" font-size="26" fill="${DIM}" transform="rotate(90 1034 ${T1 + 120})">6°10'S</text>`;
+
+  /* ---------- coast, shallow bank, contours, light, rock, buoy ---------- */
+  const bank = `M40 ${T0 - 20} C 300 ${T0 + 40}, 360 ${T0 + 160}, 330 ${T0 + 300} S 380 ${T1 - 120}, 300 ${T1 + 60} L40 ${T1 + 60}Z`;
+  const land = `M40 ${T0 + 60} C 160 ${T0 + 90}, 210 ${T0 + 170}, 190 ${T0 + 280} S 230 ${T1 - 160}, 160 ${T1 + 60} L40 ${T1 + 60}Z`;
+  let coast = `<path d="${bank}" fill="${SHALLOW}"/>`;
+  coast += `<path d="M40 ${T0 + 10} C 280 ${T0 + 70}, 330 ${T0 + 190}, 300 ${T0 + 320} S 330 ${T1 - 130}, 260 ${T1 + 60}" fill="none" stroke="${INK}" stroke-opacity="0.45" stroke-width="1.5" stroke-dasharray="10 6"/>`;   // 5 m contour
+  coast += `<path d="M40 ${T0 + 36} C 230 ${T0 + 80}, 270 ${T0 + 200}, 250 ${T0 + 330} S 280 ${T1 - 140}, 215 ${T1 + 60}" fill="none" stroke="${INK}" stroke-opacity="0.45" stroke-width="1.5"/>`;                        // 2 m contour
+  coast += `<path d="${land}" fill="${LAND}" stroke="${INK}" stroke-width="2.5"/>`;
+  coast += `<text x="236" y="${T0 + 236}" font-size="26" fill="${DIM}" transform="rotate(-80 236 ${T0 + 236})">5</text><text x="318" y="${T0 + 300}" font-size="26" fill="${DIM}" transform="rotate(-86 318 ${T0 + 300})">10</text>`;
+  // light on the headland: star symbol with its red sector (two radii + arc, dashed)
+  const LX = 150, LY = T0 + 250;
+  coast += `<path d="M${LX} ${LY - 16}L${LX + 5} ${LY - 5}L${LX + 16} ${LY - 2}L${LX + 8} ${LY + 6}L${LX + 10} ${LY + 16}L${LX} ${LY + 11}L${LX - 10} ${LY + 16}L${LX - 8} ${LY + 6}L${LX - 16} ${LY - 2}L${LX - 5} ${LY - 5}Z" fill="${RED}"/>`;
+  coast += `<path d="M${LX} ${LY} L${LX + 220} ${LY - 130} M${LX} ${LY} L${LX + 250} ${LY + 20}" stroke="${RED}" stroke-width="1.5" stroke-dasharray="8 8"/>`;
+  coast += `<path d="M${LX + 220} ${LY - 130} A 255 255 0 0 1 ${LX + 250} ${LY + 20}" fill="none" stroke="${RED}" stroke-width="1.5" stroke-dasharray="8 8"/>`;
+  coast += `<text x="${LX + 120}" y="${LY - 80}" font-size="26" fill="${RED}" transform="rotate(-30 ${LX + 120} ${LY - 80})">Fl R 6s</text>`;
+  // rock awash: + with dotted danger circle
+  const RX = 334, RY = T1 - 230;
+  coast += `<circle cx="${RX}" cy="${RY}" r="26" fill="none" stroke="${RED}" stroke-width="2" stroke-dasharray="3 5"/><path d="M${RX - 14} ${RY}H${RX + 14}M${RX} ${RY - 14}V${RX > 0 ? RY + 14 : 0}M${RX - 9} ${RY - 9}L${RX + 9} ${RY + 9}M${RX + 9} ${RY - 9}L${RX - 9} ${RY + 9}" stroke="${RED}" stroke-width="2.5"/>`;
+  // buoy: a lateral mark (diamond on a stick) in ink
+  const BXx = 560, BYy = T0 + 70;
+  coast += `<path d="M${BXx} ${BYy + 26}V${BYy - 2} M${BXx - 12} ${BYy - 2}L${BXx} ${BYy - 22}L${BXx + 12} ${BYy - 2}Z M${BXx - 16} ${BYy + 26}H${BXx + 16}" fill="none" stroke="${INK}" stroke-width="2.5"/>`;
+
+  /* ---------- compass rose (top right of the chart band), needle on heading 045 ---------- */
+  const CX = 900, CY = 800, R = 78;
+  let rose = `<circle cx="${CX}" cy="${CY}" r="${R}" fill="${BG}" stroke="${INK}" stroke-width="2"/><circle cx="${CX}" cy="${CY}" r="${R - 22}" fill="none" stroke="${INK}" stroke-opacity="0.6" stroke-width="1"/>`;
+  for (let a = 0; a < 360; a += 10) {
+    const r1 = a % 90 === 0 ? R - 22 : a % 30 === 0 ? R - 14 : R - 8, rad = a * Math.PI / 180;
+    rose += `<path d="M${CX + Math.sin(rad) * r1} ${CY - Math.cos(rad) * r1}L${CX + Math.sin(rad) * R} ${CY - Math.cos(rad) * R}" stroke="${INK}" stroke-width="${a % 90 === 0 ? 2 : 1}"/>`;
+  }
+  rose += `<text x="${CX}" y="${CY - R - 10}" font-size="26" font-weight="700" fill="${INK}" text-anchor="middle">N</text>`;
+  rose += `<text x="${CX}" y="${CY + 12}" font-size="26" fill="${INK}" text-anchor="middle">045</text>`;
+  const na = 45 * Math.PI / 180;
+  rose += `<path d="M${CX} ${CY}L${CX + Math.sin(na) * (R - 10)} ${CY - Math.cos(na) * (R - 10)}" stroke="${RED}" stroke-width="3"/>`;
+  rose += `<path d="M${CX} ${CY}L${CX - Math.sin(na) * 30} ${CY + Math.cos(na) * 30}" stroke="${INK}" stroke-width="2"/>`;
+
+  /* ---------- ship's track through the stations: red line, hourly fixes between stations ---------- */
+  const start = { x: 250, y: T1 + 40 }, end = { x: pts.length ? pts[n - 1].x + 64 : 760, y: pts.length ? pts[n - 1].y - 64 : T0 + 40 };
+  const path = [start, ...pts, end];
+  let track = `<path d="${path.map((p, i) => (i ? "L" : "M") + p.x + " " + p.y).join("")}" fill="none" stroke="${RED}" stroke-width="3"/>`;
+  let hour = 6;
+  for (let i = 0; i < path.length - 1; i++) {
+    const a = path[i], b = path[i + 1], mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+    segs.push([a, b]);
+    const t = `${String(hour).padStart(2, "0")}:00`; hour += 1;
+    // the time sits on the side away from the next station's label (left-above or right-below the fix)
+    const sd = b.side !== undefined ? -b.side : -(a.side ?? -1);
+    track += `<circle cx="${mx}" cy="${my}" r="9" fill="${BG}" stroke="${RED}" stroke-width="2"/><circle cx="${mx}" cy="${my}" r="2.5" fill="${RED}"/>`;
+    if (sd < 0) { track += `<text x="${mx - 16}" y="${my - 12}" font-size="26" fill="${RED}" text-anchor="end">${t}</text>`; avoid.push([mx - 160, my - 50, mx, my + 14]); }
+    else { track += `<text x="${mx + 16}" y="${my + 40}" font-size="26" fill="${RED}">${t}</text>`; avoid.push([mx, my + 6, mx + 160, my + 66]); }
+  }
+
+  /* ---------- stations: marker + water name (italic) + depth ---------- */
+  let st = "";
+  pts.forEach((p) => {
+    const lx = p.x + p.side * 26, anchor = p.side > 0 ? "start" : "end";
+    if (p.hl) {
+      st += `<circle cx="${p.x}" cy="${p.y}" r="18" fill="${BG}" stroke="${RED}" stroke-width="3"/><circle cx="${p.x}" cy="${p.y}" r="5" fill="${RED}"/>`;
+      st += `<path d="M${p.x} ${p.y - 18}V${p.y - 34}" stroke="${RED}" stroke-width="3"/>`;
+    } else {
+      st += `<circle cx="${p.x}" cy="${p.y}" r="13" fill="${BG}" stroke="${INK}" stroke-width="3"/><circle cx="${p.x}" cy="${p.y}" r="3" fill="${INK}"/>`;
+    }
+    st += `<text x="${lx}" y="${p.y - 14}" font-family="Cormorant Garamond" font-style="italic" font-weight="600" font-size="44" fill="${INK}" text-anchor="${anchor}" paint-order="stroke" stroke="${BG}" stroke-width="10" stroke-linejoin="round">${esc(p.it.label)}</text>`;
+    st += `<text x="${lx}" y="${p.y + 34}" font-size="40" font-weight="700" fill="${p.hl ? RED : INK}" text-anchor="${anchor}" paint-order="stroke" stroke="${BG}" stroke-width="10" stroke-linejoin="round">${esc(p.it.value)}</text>`;
+  });
+
+  soundings();
+  document.getElementById("chart").innerHTML = `
+    <defs><filter id="grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" seed="3" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 0.85 0 0 0 0 0.83 0 0 0 0 0.78 0 0 0 0.05 0"/></filter></defs>
+    ${grid}${coast}${snd}${rose}${track}${st}
+    <rect width="1080" height="1920" filter="url(#grain)"/>`;
+
+  /* ---------- fit the title into at most 3 lines (min 60 px) ---------- */
+  const fitTitle = () => {
+    let fs = 80; titleEl.style.fontSize = fs + "px";
+    while (titleEl.scrollHeight > fs * 1.06 * 3 + 4 && fs > 60) { fs -= 2; titleEl.style.fontSize = fs + "px"; }
+  };
+  fitTitle(); (document.fonts ? document.fonts.ready : Promise.resolve()).then(fitTitle);
+</script>
+</body>
+</html>

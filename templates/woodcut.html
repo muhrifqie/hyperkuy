@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800&family=Alfa+Slab+One&family=Oswald:wght@400;500&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Cetak Kayu (g2-cetak-kayu): a Hatch Show Print style letterpress handbill
+    pulled from wood type on black card. Cream ink, one extra pass of red.
+    The frame shows the PROCESS, not just a poster: the printed sheet fills
+    the middle (headliner in Alfa Slab, act names in Big Shoulders gothic
+    getting smaller row by row, dates/figures in slab boxes, "DENGAN / JUGA /
+    PLUS" sorts between rows), while the bottom strip shows the forme itself:
+    the mirrored wood-type blocks of the title locked in the chase with
+    furniture and quoins, grain visible. Ink is uneven (wood grain shows
+    through the big letters) and the red pass is misregistered by a few px,
+    leaving a ghost impression where the cream pass sat.
+
+    Signature move (video, not animated here): letters appear first mirrored
+    as grained wood blocks, the sheet comes down, is pressed (4 px squash,
+    impression shadow) and lifted to reveal the row printed the right way
+    round; the red pass arrives 0.3 s later, lands off register, then settles.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #141210; }
+  body { position: relative; color: #E8DFC8; font-family: "Oswald", sans-serif; }
+
+  /* card texture + the sheet's torn edge is suggested only by a thin inset rule */
+  .card { position: absolute; inset: 0; }
+  .card .grain { position: absolute; inset: 0; opacity: .5; pointer-events: none; }
+
+  .hdr { position: absolute; left: 90px; right: 90px; top: 300px; display: flex; justify-content: space-between; align-items: center;
+    font: 500 28px "Oswald", sans-serif; letter-spacing: 0.18em; text-transform: uppercase; color: #E8DFC8; white-space: nowrap; }
+  .hdr .rule { flex: 1; height: 0; border-top: 3px solid #E8DFC8; margin: 0 24px; }
+
+  /* the printed sheet: a flex column between the header and the meta line */
+  .sheet { position: absolute; left: 90px; right: 90px; top: 360px; height: 1200px; display: flex; flex-direction: column; justify-content: center; gap: 0; }
+
+  .title { text-align: center; font: 400 116px/0.98 "Alfa Slab One", serif; color: #E8DFC8; text-transform: uppercase; letter-spacing: 0.01em; filter: url(#ink); }
+  .title .hl { position: relative; display: inline-block; color: #C8322B; transform: translate(4px, 3px); }
+  .title .hl::before { content: attr(data-t); position: absolute; left: -4px; top: -3px; color: #4A4640; z-index: -1; }   /* ghost impression where the cream pass was */
+
+  .rule { height: 0; border-top: 4px solid #E8DFC8; margin: 26px 0; }
+  .rule.thin { border-top-width: 2px; margin: 18px 0; }
+  .sub { text-align: center; font: 400 40px/1.25 "Oswald", sans-serif; color: #E8DFC8; letter-spacing: 0.02em; text-transform: uppercase; }
+
+  /* act rows: name in wood gothic, figure in a slab box; sizes step down per row */
+  .acts { display: flex; flex-direction: column; align-items: stretch; }
+  .act { display: flex; align-items: center; justify-content: center; gap: 28px; }
+  .act .name { font: 800 1em/0.95 "Big Shoulders Display", sans-serif; text-transform: uppercase; letter-spacing: 0.02em; color: #E8DFC8; white-space: nowrap; filter: url(#ink); }
+  .act .box { flex: none; font: 400 0.42em/1 "Alfa Slab One", serif; color: #141210; background: #E8DFC8; padding: 0.22em 0.3em 0.16em; white-space: nowrap; letter-spacing: 0.02em; }
+  .act.hl .box { background: #C8322B; color: #E8DFC8; transform: translate(3px, 2px); box-shadow: -3px -2px 0 #4A4640; }
+  .sort { display: flex; align-items: center; gap: 18px; justify-content: center; font: 400 30px "Oswald", sans-serif; letter-spacing: 0.3em; text-transform: uppercase; color: #E8DFC8; opacity: .85; margin: 14px 0; }
+  .sort i { display: inline-block; width: 60px; height: 0; border-top: 2px solid #E8DFC8; }
+  .sort b { font-weight: 400; }
+
+  .meta { position: absolute; left: 90px; right: 90px; top: 1572px; display: flex; justify-content: space-between; gap: 30px; font: 400 26px/1.3 "Oswald", sans-serif; color: #E8DFC8; opacity: .8; letter-spacing: 0.04em; }
+  .meta .src { max-width: 640px; }
+  .meta span:last-child { white-space: nowrap; }
+
+  /* the chase strip at the bottom: mirrored wood type of the title, locked with furniture and quoins */
+  .chase { position: absolute; left: 0; right: 0; bottom: 0; height: 270px; background: #2A2724; border-top: 6px solid #4A4640; overflow: hidden; }
+  .chase .iron { position: absolute; left: 0; right: 0; bottom: 0; height: 22px; background: #0E0D0B; }
+  .chase .furniture { position: absolute; top: 24px; bottom: 36px; background: #3A332B; box-shadow: inset 0 0 0 2px #2A2420; }
+  .chase .quoin { position: absolute; width: 54px; top: 60px; bottom: 70px; background: #55504A; box-shadow: inset 0 0 0 3px #3B3733; }
+  .chase .quoin::after { content: ""; position: absolute; left: 14px; right: 14px; top: 40%; height: 14px; background: #2A2724; }
+  .chase .row { position: absolute; top: 24px; bottom: 36px; display: flex; gap: 4px; align-items: stretch; transform: scaleX(-1); }   /* set in reverse: forme reads mirrored */
+  .chase .blk { position: relative; flex: none; display: flex; align-items: center; justify-content: center; background: #7A6244; box-shadow: inset 0 0 0 2px #5A4631, inset 0 -8px 0 #5A4631; }
+  .chase .blk svg { position: absolute; inset: 0; width: 100%; height: 100%; opacity: .5; }
+  .chase .blk span { position: relative; font: 400 110px/1 "Alfa Slab One", serif; color: #2A2017; text-transform: uppercase; }
+  .chase .blk.sp { background: #3A332B; box-shadow: inset 0 0 0 2px #2A2420; }
+  .chase .tag { position: absolute; left: 90px; bottom: 32px; font: 500 22px "Oswald", sans-serif; letter-spacing: 0.3em; text-transform: uppercase; color: #E8DFC8; opacity: .55; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- card stock noise -->
+    <filter id="card" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="2" seed="5" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.9  0 0 0 0 0.85  0 0 0 0 0.75  0 0 0 0.06 0"/>
+    </filter>
+    <!-- uneven letterpress ink: horizontal wood grain eats into the cream letters -->
+    <filter id="ink" x="-2%" y="-2%" width="104%" height="104%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012 0.35" numOctaves="3" seed="13" result="g"/>
+      <feColorMatrix in="g" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  2.6 0 0 0 -1.55" result="m"/>
+      <feComposite in="SourceGraphic" in2="m" operator="out" result="cut"/>
+      <feComponentTransfer in="cut"><feFuncA type="table" tableValues="0 1"/></feComponentTransfer>
+    </filter>
+    <!-- wood grain for the blocks in the chase -->
+    <filter id="wood" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.01 0.3" numOctaves="3" seed="3" result="w"/>
+      <feColorMatrix in="w" type="matrix" values="0 0 0 0 0.25  0 0 0 0 0.17  0 0 0 0 0.08  2 0 0 0 -0.6"/>
+    </filter>
+  </defs>
+</svg>
+
+<div class="card"><svg class="grain" width="1080" height="1920"><rect width="1080" height="1920" filter="url(#card)"/></svg></div>
+
+<div class="hdr"><span id="kick"></span><span class="rule"></span><span id="date"></span></div>
+<div class="sheet" id="sheet">
+  <div class="title" id="title"></div>
+  <div class="rule"></div>
+  <div class="sub" id="sub"></div>
+  <div class="rule thin"></div>
+  <div class="acts" id="acts"></div>
+</div>
+<div class="meta"><span class="src" id="src"></span><span id="ep"></span></div>
+
+<div class="chase" id="chase">
+  <div class="furniture" style="left:0;width:70px"></div>
+  <div class="quoin" style="left:14px"></div>
+  <div class="row" id="forme"></div>
+  <div class="furniture" style="right:0;width:70px"></div>
+  <div class="quoin" style="right:14px"></div>
+  <div class="iron"></div>
+  <div class="tag">FORME · DIKUNCI TERBALIK</div>
+</div>
+
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "AI dalam angka", ep: "#01", kicker: "AI dalam angka · #01",
+    title: "1 chat ke AI = oven nyala 1 detik", hl: "1 detik",
+    sub: "Kecil? Kalikan miliaran chat tiap hari.",
+    items: [{ label: "Listrik per chat", value: "0,34 Wh" }, { label: "Setara oven", value: "±1 dtk" }, { label: "Chat per hari", value: "miliaran" }],
+    source: "klaim OpenAI, Jun 2025", date: "per 14 Okt 2026" };
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const items = (D.items || []).slice(0, 5);
+  const hl = String(D.hl || "");
+
+  document.getElementById("kick").textContent = D.kicker || [D.series, D.ep].filter(Boolean).join(" · ");
+  document.getElementById("date").textContent = D.date || "";
+  document.getElementById("src").textContent = D.source ? `sumber: ${D.source}` : "";
+  document.getElementById("ep").textContent = [D.series, D.ep].filter(Boolean).join(" ").toUpperCase();
+  document.getElementById("sub").textContent = D.sub || "";
+
+  /* ---------- headliner: title in slab, hl word printed in the red pass (off register) ---------- */
+  const title = document.getElementById("title");
+  const t = String(D.title || "");
+  const i = hl ? t.indexOf(hl) : -1;
+  title.innerHTML = i < 0 ? esc(t) : esc(t.slice(0, i)) + `<span class="hl" data-t="${esc(hl)}">${esc(hl)}</span>` + esc(t.slice(i + hl.length));
+
+  /* ---------- which act is the hl act ---------- */
+  const low = (s) => String(s || "").toLowerCase();
+  let hlIdx = items.findIndex((it) => hl && (low(it.label).includes(low(hl)) || low(it.value).includes(low(hl))));
+  if (hlIdx < 0 && hl) { const num = (hl.match(/\d+/) || [])[0]; if (num) hlIdx = items.findIndex((it) => String(it.value).includes(num)); }
+  if (hlIdx < 0) hlIdx = 0;
+
+  /* ---------- acts: sizes step down per row, sorts between rows ---------- */
+  const SIZES = items.length <= 3 ? [112, 92, 76] : [104, 86, 72, 60, 52];
+  const SORTS = ["DENGAN", "JUGA", "PLUS", "SERTA"];
+  const acts = document.getElementById("acts");
+  acts.innerHTML = items.map((it, k) => {
+    const row = `<div class="act${k === hlIdx ? " hl" : ""}" style="font-size:${SIZES[k]}px"><span class="name">${esc(it.label)}</span><span class="box">${esc(it.value)}</span></div>`;
+    return (k ? `<div class="sort"><i></i><b>${SORTS[(k - 1) % SORTS.length]}</b><i></i></div>` : "") + row;
+  }).join("");
+
+  /* ---------- the forme: mirrored wood blocks of the title's first line (fits what the chase can hold) ---------- */
+  const forme = document.getElementById("forme");
+  const words = t.toUpperCase().split(/\s+/).filter(Boolean);
+  let line = ""; for (const w of words) { if ((line + " " + w).trim().length > 14) break; line = (line + " " + w).trim(); }
+  if (!line) line = words[0] || "";
+  forme.innerHTML = [...line].map((ch) => ch === " "
+    ? `<div class="blk sp" style="width:40px"></div>`
+    : `<div class="blk"><svg><rect width="100%" height="100%" filter="url(#wood)"/></svg><span>${esc(ch)}</span></div>`).join("");
+
+  /* ---------- fitting ---------- */
+  const fit = () => {
+    // title: shrink until it fits 3 lines within 900 px
+    let f = 124; title.style.fontSize = f + "px";
+    while (title.scrollHeight > 3 * f * 0.98 + 6 && f > 72) { f -= 4; title.style.fontSize = f + "px"; }
+    // acts: the headliner stays visibly smaller than the title (condensed gothic is tall), then shrink a row until name + box fit 900 px
+    const actScale = Math.min(1, (f * 0.86) / SIZES[0]);
+    document.querySelectorAll(".act").forEach((row, k) => {
+      let s = Math.max(48, Math.round(SIZES[k] * actScale)); row.style.fontSize = s + "px";
+      const box = row.querySelector(".box");
+      box.style.fontSize = Math.max(40, Math.round(s * 0.42)) + "px";
+      while (row.scrollWidth > 900 && s > 44) { s -= 2; row.style.fontSize = s + "px"; box.style.fontSize = Math.max(40, Math.round(s * 0.42)) + "px"; }
+    });
+    // forme blocks: each block as wide as its glyph + bearing; mirrored row centred
+    const blocks = forme.querySelectorAll(".blk:not(.sp)");
+    blocks.forEach((b) => { const sp = b.querySelector("span"); b.style.width = Math.max(60, sp.offsetWidth + 28) + "px"; });
+    const total = [...forme.children].reduce((a, b) => a + b.offsetWidth + 4, 0);
+    let scale = Math.min(1, 900 / total);
+    forme.style.transform = `translateX(-50%) scaleX(${-scale}) scaleY(${scale})`;
+    forme.style.left = "50%";
+    forme.style.transformOrigin = "center";
+    // whole sheet must stay inside its 1200 px band: step every size down together if it overflows
+    const sheet = document.getElementById("sheet");
+    const sorts = document.querySelectorAll(".sort"), rules = document.querySelectorAll(".sheet .rule");
+    sorts.forEach((e) => { e.style.margin = "14px 0"; });
+    rules.forEach((e) => { e.style.margin = e.classList.contains("thin") ? "18px 0" : "26px 0"; });
+    let guard = 0;
+    while (sheet.scrollHeight > sheet.clientHeight + 2 && guard++ < 12) {
+      document.querySelectorAll(".act").forEach((row) => { const s = parseFloat(row.style.fontSize) - 4; row.style.fontSize = Math.max(48, s) + "px"; row.querySelector(".box").style.fontSize = Math.max(40, Math.round(s * 0.42)) + "px"; });
+      sorts.forEach((e) => { e.style.margin = "6px 0"; });
+      if (guard > 6) { f -= 4; title.style.fontSize = Math.max(72, f) + "px"; }
+    }
+    // slack left in the band: open up the leading between rows so the handbill fills its sheet
+    const slack = sheet.clientHeight - sheet.scrollHeight;
+    if (slack > 40) {
+      const extra = Math.min(34, slack / (2 * sorts.length + 6));
+      sorts.forEach((e) => { e.style.margin = `${14 + extra}px 0`; });
+      rules.forEach((e) => { e.style.margin = `${(e.classList.contains("thin") ? 18 : 26) + extra}px 0`; });
+    }
+  };
+  fit();
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(fit);
+</script>
+</body>
+</html>

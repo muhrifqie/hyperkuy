@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Manual Rakit (opus-manual-rakit): a flat-pack furniture assembly manual.
+    White page, black line-art with one uniform 4px stroke, a big step number in
+    a circle, a parts box ("2x A"), dashed motion arrows and a tiny wordless
+    warning panel (wrong way crossed out vs right way ticked). The only accent
+    is one blue, used for the `hl` ring and the "right way" tick.
+    Every item is a PART: a line-drawn piece with a letter tag, its label and
+    value; all parts are exploded to the left of one board and their dashed
+    arrows converge into the board's holes.
+
+    Signature move (video): parts slide in one by one along their dashed
+    arrows and click into the board's holes (tiny settle bounce), while the
+    matching "2x A" entry in the parts box gets ticked off.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #FFFFFF; }
+  body { position: relative; color: #111111; font-family: "Archivo", sans-serif; }
+
+  .top { position: absolute; left: 90px; right: 90px; top: 296px; height: 44px; display: flex; justify-content: space-between; align-items: center; font-size: 28px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+  .top .no { border: 4px solid #111; padding: 2px 14px; letter-spacing: 0.04em; }
+  .title { position: absolute; left: 90px; width: 900px; top: 364px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.04; }
+  .title .hl { position: relative; display: inline-block; margin: 0 0.1em; }
+  .title .hl::after { content: ""; position: absolute; left: -0.16em; right: -0.16em; top: 0.02em; bottom: -0.06em; border: 7px solid #1F4FD6; border-radius: 0.62em; }
+
+  .partsbox { position: absolute; left: 266px; width: 510px; top: 652px; height: 148px; border: 4px solid #111; border-radius: 14px; display: flex; justify-content: space-around; align-items: center; padding: 0 6px; }
+  .pb { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .pb svg { width: 84px; height: 50px; display: block; }
+  .pb .q { display: flex; align-items: center; gap: 5px; font-size: 30px; font-weight: 800; }
+  .lt { display: inline-flex; align-items: center; justify-content: center; border: 3px solid #111; font-weight: 800; }
+  .pb .lt { width: 40px; height: 40px; font-size: 30px; }
+
+  #art { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  .row { position: absolute; left: 90px; width: 440px; display: flex; align-items: center; gap: 18px; }
+  .row .lt { flex: none; width: 58px; height: 58px; font-size: 36px; }
+  .row .tx { min-width: 0; }
+  .row .lb { font-size: 40px; font-weight: 700; line-height: 1.08; white-space: nowrap; }
+  .row .vl { font-size: 32px; font-weight: 500; line-height: 1.2; margin-top: 4px; color: #333; white-space: nowrap; }
+
+  .sub { position: absolute; left: 90px; width: 900px; top: 1462px; font-size: 40px; font-weight: 500; line-height: 1.24; }
+  .foot { position: absolute; left: 90px; right: 90px; top: 1580px; display: flex; justify-content: space-between; gap: 40px; font-size: 26px; font-weight: 500; color: #555; line-height: 1.35; }
+  .foot span:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="top"><span id="kick"></span><span class="no" id="ep"></span></div>
+<div class="title" id="title"></div>
+<svg id="art" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="partsbox" id="pbox"></div>
+<div id="rows"></div>
+<div class="sub" id="sub"></div>
+<div class="foot"><span id="src"></span><span id="date"></span></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  // Lay out only after the web fonts are in: all fitting below measures real glyph widths.
+  Promise.all(['800 100px Archivo', '700 40px Archivo', '500 32px Archivo'].map(f => document.fonts.load(f))).catch(() => {}).then(render);
+  function render() {
+
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const BLUE = "#1F4FD6", INK = "#111111", SW = 4;
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+  const LET = "ABCDE";
+
+  // Header: series left, step/model number right.
+  document.getElementById("kick").textContent = D.series || D.kicker || "";
+  document.getElementById("ep").textContent = "No. " + String(D.ep || "#01").replace(/^#/, "");
+
+  // Title with the hl fragment wrapped in a blue step-ring.
+  const t = D.title || "", hl = D.hl || "";
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = document.getElementById("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  for (let fs = 104; fs >= 64; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (titleEl.offsetHeight <= 252) break; }
+  // Everything below the title follows its real height.
+  const TOP = Math.max(640, 364 + titleEl.offsetHeight + 34);
+  document.getElementById("pbox").style.top = (TOP + 12) + "px";
+
+  // Quantity shown in the parts box: leading integer of the value, else 1.
+  // Only small counts read as a quantity ("2 token" -> 2x); big numbers ("128 rb") stay 1x.
+  const qty = v => { const m = String(v).trim().match(/^(\d+)(?=\s|$)/); return m && +m[1] <= 12 ? m[1] : "1"; };
+
+  // Line-art parts, drawn around (0,0) in a ~140x90 box. Uniform stroke via non-scaling-stroke.
+  const P = 'fill="#fff" stroke="' + INK + '" stroke-width="' + SW + '" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"';
+  const L = 'fill="none" stroke="' + INK + '" stroke-width="' + SW + '" stroke-linecap="round" vector-effect="non-scaling-stroke"';
+  const parts = [
+    // dowel with grooves
+    () => '<path ' + P + ' d="M-52,-17 H52 A10,17 0 0 1 52,17 H-52 A10,17 0 0 1 -52,-17 Z"/><ellipse ' + P + ' cx="52" cy="0" rx="10" ry="17"/>' +
+          [-34, -18, -2, 14, 30].map(x => '<path ' + L + ' d="M' + x + ',-17 l8,34"/>').join(""),
+    // bolt: hex head + threaded shaft
+    () => '<path ' + P + ' d="M-30,-11 H62 V11 H-30 Z"/>' + [-18, -6, 6, 18, 30, 42, 54].map(x => '<path ' + L + ' d="M' + x + ',-11 l-6,22"/>').join("") +
+          '<path ' + P + ' d="M-62,-30 H-38 L-30,-20 V20 L-38,30 H-62 L-68,20 V-20 Z"/><path ' + L + ' d="M-68,-6 H-30 M-68,6 H-30"/>',
+    // cam lock: disc with slot + arrow showing the quarter turn
+    () => '<circle ' + P + ' cx="-14" cy="0" r="38"/><circle ' + L + ' cx="-14" cy="0" r="22"/><path ' + L + ' d="M-28,-14 L0,14"/>' +
+          '<path ' + L + ' d="M36,-30 A46,46 0 0 1 36,30"/><path fill="' + INK + '" d="M26,26 L44,40 L46,18 Z"/>',
+    // angle bracket with two holes
+    () => '<path ' + P + ' d="M-60,-38 H-24 V14 H60 V38 H-60 Z"/><circle ' + L + ' cx="-42" cy="-14" r="8"/><circle ' + L + ' cx="30" cy="26" r="7"/>' +
+          '<path ' + L + ' d="M-24,14 L-60,38"/>',
+    // small board (shelf) in oblique view with two pre-drilled holes
+    () => '<path ' + P + ' d="M-64,-8 L26,-36 L66,-14 L-24,14 Z"/><path ' + P + ' d="M-64,-8 V8 L-24,30 V14 Z"/><path ' + P + ' d="M-24,14 L66,-14 V2 L-24,30 Z"/>' +
+          '<ellipse ' + L + ' cx="-16" cy="-12" rx="9" ry="5"/><ellipse ' + L + ' cx="26" cy="-24" rx="9" ry="5"/>'
+  ];
+  // Pick a part shape per item; stable, varied order.
+  const shapeOf = i => [0, 1, 4, 2, 3][i % 5];
+
+  // Parts box (inventory strip).
+  document.getElementById("pbox").innerHTML = items.map((it, i) =>
+    '<div class="pb"><svg viewBox="-75 -45 150 90">' + parts[shapeOf(i)]() + '</svg>' +
+    '<div class="q">' + qty(it.value) + '×<span class="lt">' + LET[i] + '</span></div></div>').join("");
+
+  // Exploded assembly geometry.
+  const Y0 = TOP + 200, Y1 = 1440, rowH = (Y1 - Y0) / n;
+  const cys = items.map((_, i) => Y0 + rowH * (i + 0.5));
+  // Board: an upright panel in oblique view; holes converge toward its middle.
+  const bx0 = 742, bx1 = 852, by0 = Y0 + 30, by1 = 1386, skew = 44, thick = 28;
+  const mid = (Y0 + Y1) / 2;
+  // Holes sit closer together than the part rows, so the arrows visibly converge.
+  const holeY = cy => (by0 + by1) / 2 - 10 + (cy - mid) * 0.58;
+  let svg = "";
+  // step number circle
+  const stepNo = (String(D.ep || "1").match(/\d+/) || ["1"])[0].replace(/^0+(?=\d)/, "");
+  svg += '<circle cx="165" cy="' + (TOP + 86) + '" r="72" fill="#fff" stroke="' + INK + '" stroke-width="6"/>' +
+         '<text x="165" y="' + (TOP + 120) + '" text-anchor="middle" font-family="Archivo" font-weight="800" font-size="' + (stepNo.length > 1 ? 82 : 100) + '" fill="' + INK + '">' + esc(stepNo) + '</text>';
+  // board: front face, side thickness, top edge
+  svg += '<path ' + P + ' d="M' + bx0 + ',' + (by0 + skew) + ' L' + bx1 + ',' + by0 + ' L' + bx1 + ',' + by1 + ' L' + bx0 + ',' + (by1 + skew) + ' Z"/>' +
+         '<path ' + P + ' d="M' + bx1 + ',' + by0 + ' L' + (bx1 + thick) + ',' + (by0 + 12) + ' L' + (bx1 + thick) + ',' + (by1 + 12) + ' L' + bx1 + ',' + by1 + ' Z"/>' +
+         '<path ' + P + ' d="M' + bx0 + ',' + (by0 + skew) + ' L' + bx1 + ',' + by0 + ' L' + (bx1 + thick) + ',' + (by0 + 12) + ' L' + (bx0 + thick) + ',' + (by0 + skew + 12) + ' Z"/>';
+  // parts, holes, dashed arrows
+  items.forEach((it, i) => {
+    const cy = cys[i], px = 618;
+    const s = Math.min(1.22, (rowH - 16) / 92);
+    svg += '<g transform="translate(' + px + ',' + cy + ') scale(' + s + ')">' + parts[shapeOf(i)]() + '</g>';
+    const hx = 800, hy = holeY(cy) + (bx1 - hx) / (bx1 - bx0) * skew * 0.5;
+    svg += '<ellipse cx="' + hx + '" cy="' + hy + '" rx="15" ry="9" transform="rotate(-22 ' + hx + ' ' + hy + ')" fill="#fff" stroke="' + INK + '" stroke-width="' + SW + '"/>';
+    // dashed arrow from the part to its hole, with a solid head
+    const sx = px + 76 * s, sy = cy, ex = hx - 24, ey = hy;
+    const ang = Math.atan2(ey - sy, ex - sx);
+    svg += '<path d="M' + sx + ',' + sy + ' C' + (sx + 30) + ',' + sy + ' ' + (ex - 30) + ',' + ey + ' ' + ex + ',' + ey + '" fill="none" stroke="' + INK + '" stroke-width="' + SW + '" stroke-dasharray="12 9" stroke-linecap="butt"/>';
+    const hx1 = ex + 16 * Math.cos(ang), hy1 = ey + 16 * Math.sin(ang);
+    const a1 = ang + 2.6, a2 = ang - 2.6;
+    svg += '<path fill="' + INK + '" d="M' + hx1 + ',' + hy1 + ' L' + (hx1 + 22 * Math.cos(a1)) + ',' + (hy1 + 22 * Math.sin(a1)) + ' L' + (hx1 + 22 * Math.cos(a2)) + ',' + (hy1 + 22 * Math.sin(a2)) + ' Z"/>';
+  });
+  // Wordless warning panel: crooked dowel crossed out vs straight dowel ticked.
+  const box = (x, ok) => {
+    let g = '<rect x="' + x + '" y="1318" width="100" height="104" rx="10" fill="#fff" stroke="' + INK + '" stroke-width="' + SW + '"/>' +
+            '<path ' + L + ' d="M' + (x + 14) + ',1400 H' + (x + 86) + '"/><path fill="#fff" stroke="' + INK + '" stroke-width="' + SW + '" d="M' + (x + 40) + ',1400 v-8 h20 v8"/>';
+    g += ok
+      ? '<rect x="' + (x + 42) + '" y="1342" width="16" height="44" rx="5" fill="#fff" stroke="' + INK + '" stroke-width="' + SW + '"/><path d="M' + (x + 68) + ',1342 l8,10 l16,-20" fill="none" stroke="' + BLUE + '" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>'
+      : '<rect x="' + (x + 42) + '" y="1342" width="16" height="44" rx="5" transform="rotate(28 ' + (x + 50) + ' 1386)" fill="#fff" stroke="' + INK + '" stroke-width="' + SW + '"/><path d="M' + (x + 16) + ',1330 L' + (x + 84) + ',1410 M' + (x + 84) + ',1330 L' + (x + 16) + ',1410" stroke="' + INK + '" stroke-width="7" stroke-linecap="round"/>';
+    return g;
+  };
+  // Panel sits beside the parts box, aligned to its vertical centre.
+  svg += '<g transform="translate(0,' + (TOP + 34 - 1318) + ')">' + box(786, false) + box(890, true) + '</g>';
+  document.getElementById("art").innerHTML = svg;
+
+  // Part rows: letter tag + label + value.
+  const rowsEl = document.getElementById("rows");
+  rowsEl.innerHTML = items.map((it, i) =>
+    '<div class="row" style="top:' + (cys[i] - rowH / 2) + 'px;height:' + rowH + 'px"><span class="lt">' + LET[i] + '</span>' +
+    '<div class="tx"><div class="lb">' + esc(it.label) + '</div><div class="vl">' + esc(it.value) + '</div></div></div>').join("");
+  // Shrink long labels to fit the column (never below 32px label size).
+  rowsEl.querySelectorAll(".tx").forEach(tx => {
+    const max = 440 - 58 - 18;
+    for (const cls of [".lb", ".vl"]) {
+      const el = tx.querySelector(cls);
+      let fs = parseFloat(getComputedStyle(el).fontSize);
+      while (el.scrollWidth > max && fs > 30) { fs -= 1; el.style.fontSize = fs + "px"; }
+    }
+  });
+
+  document.getElementById("sub").textContent = D.sub || "";
+  document.getElementById("src").textContent = D.source ? "sumber: " + D.source : "";
+  document.getElementById("date").textContent = D.date || "";
+  }
+</script>
+</body>
+</html>

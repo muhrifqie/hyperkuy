@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Biennale Yellow — hook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!--DATA-->
+<style>
+  :root {
+    --paper: #E9E5DB; --paper-deep: #DCD6C4; --sun: #F1EE2E; --sun-soft: #F8F39B;
+    --haze: #F0DA7C; --ink: #1B2566; --ember: #E26B4A;
+    --serif: "Instrument Serif", Georgia, serif;
+    --sans: "Archivo", Arial, sans-serif;
+    --mono: "JetBrains Mono", Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--paper); color: var(--ink); }
+  body { position: relative; font-family: var(--sans); }
+
+  /* atmospheric depth: one sun bloom + subordinate ember counter-bloom */
+  .bloom { position: absolute; border-radius: 50%; pointer-events: none; }
+  .bloom.sun { width: 1250px; height: 1250px; left: -330px; top: -170px;
+    background: radial-gradient(circle, rgba(241,238,46,.92) 0%, rgba(248,243,155,.78) 30%, rgba(240,218,124,.22) 55%, rgba(233,229,219,0) 70%); }
+  .bloom.ember { width: 900px; height: 900px; right: -420px; bottom: -260px;
+    background: radial-gradient(circle, rgba(226,107,74,.20) 0%, rgba(226,107,74,.08) 40%, rgba(226,107,74,0) 68%); }
+
+  .page { position: absolute; left: 0; right: 0; top: 0; height: 1630px; display: flex; flex-direction: column; }
+
+  /* top chrome: micro-label + serif date-rail */
+  .top { margin: 150px 90px 0; display: flex; align-items: flex-end; justify-content: space-between;
+    border-bottom: 1px solid var(--ink); padding-bottom: 18px; }
+  .micro { font: 600 30px/1 var(--sans); letter-spacing: .18em; text-transform: uppercase; }
+  .rail { font: 400 84px/.8 var(--serif); letter-spacing: -.005em; }
+
+  .title { margin: 70px 90px 0; font-family: var(--serif); font-weight: 400; line-height: 1.0;
+    letter-spacing: -.018em; max-width: 880px; }
+  .title .hl { font-style: italic; white-space: nowrap; background: linear-gradient(transparent 14%, var(--sun) 14%, var(--sun) 96%, transparent 96%);
+    padding: 0 .06em; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+  .sub { margin: 36px 90px 0; font: 400 42px/1.4 var(--sans); max-width: 820px; }
+
+  /* the object: catalogue plate on a full-bleed yellow panel (ink on sun) */
+  .panel { margin-top: auto; margin-bottom: auto; background: var(--sun); padding: 34px 180px 30px 90px; }
+  .panel.few .row { padding: 34px 0 30px; }
+  .panel.few .row .lab { font-size: 80px; }
+  .panel.few .row .val { font-size: 46px; }
+  .panel-head { display: flex; justify-content: space-between; align-items: baseline;
+    border-bottom: 1px solid var(--ink); padding-bottom: 14px; }
+  .row { display: grid; grid-template-columns: 92px 1fr auto; align-items: baseline;
+    border-bottom: 1px solid rgba(27,37,102,.22); padding: 20px 0 18px; }
+  .row:last-child { border-bottom: 1px solid var(--ink); }
+  .row .no { font: 400 32px/1 var(--mono); letter-spacing: .04em; }
+  .row .lab { font: 400 68px/1.0 var(--serif); letter-spacing: -.01em; overflow-wrap: anywhere; padding-right: 20px; }
+  .row .val { font: 400 42px/1 var(--mono); letter-spacing: .02em; white-space: nowrap; text-align: right; }
+
+  /* footer band: metadata strip + pagenum */
+  .foot { margin: 0 90px 0; display: grid; grid-template-columns: 1.5fr 1fr 110px; gap: 28px; }
+  .foot .cell { border-top: 1px solid var(--ink); padding-top: 12px; }
+  .foot .k { font: 600 26px/1 var(--sans); letter-spacing: .18em; text-transform: uppercase; margin-bottom: 10px; }
+  .foot .v { font: 400 28px/1.3 var(--mono); }
+</style>
+</head>
+<body>
+<div class="bloom sun"></div>
+<div class="bloom ember"></div>
+<div class="page">
+  <div class="top"><div class="micro" id="kicker"></div><div class="rail" id="ep"></div></div>
+  <h1 class="title" id="title"></h1>
+  <p class="sub" id="sub"></p>
+  <div class="panel">
+    <div class="panel-head"><span class="micro" id="plate"></span><span class="micro">Nilai</span></div>
+    <div id="rows"></div>
+  </div>
+  <div class="foot">
+    <div class="cell"><div class="k">Sumber</div><div class="v" id="source"></div></div>
+    <div class="cell"><div class="k">Tanggal</div><div class="v" id="date"></div></div>
+    <div class="cell"><div class="k">No.</div><div class="v" id="pagenum"></div></div>
+  </div>
+</div>
+<script>
+  // Fallback sample so the file renders when opened directly.
+  const FALLBACK = {
+    series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" },
+            { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026"
+  };
+  const D = window.D && window.D.title ? window.D : FALLBACK;
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = (id) => document.getElementById(id);
+
+  function markTitle(t, hl) {
+    const i = hl ? t.toLowerCase().indexOf(String(hl).toLowerCase()) : -1;
+    if (i < 0) return esc(t);
+    return esc(t.slice(0, i)) + '<span class="hl">' + esc(t.slice(i, i + hl.length)) + "</span>" + esc(t.slice(i + hl.length));
+  }
+
+  const items = (D.items || []).slice(0, 5);
+  $("kicker").textContent = D.series || D.kicker || "";
+  $("ep").textContent = D.ep || "";
+  $("title").innerHTML = markTitle(D.title || "", D.hl);
+  $("sub").textContent = D.sub || "";
+  $("plate").textContent = "Katalog · " + items.length + " karya";
+  $("rows").innerHTML = items.map((it, i) =>
+    '<div class="row"><span class="no">' + String(i + 1).padStart(2, "0") + '</span><span class="lab">' +
+    esc(it.label) + '</span><span class="val">' + esc(it.value) + "</span></div>").join("");
+  $("source").textContent = D.source || "";
+  $("date").textContent = D.date || "";
+  $("pagenum").textContent = (D.ep || "").replace("#", "");
+  if (items.length <= 3) document.querySelector(".panel").classList.add("few");
+
+  // Fit-to-measure: step the display down until the title fits its budget.
+  function fit() {
+    const el = $("title");
+    const len = (D.title || "").length;
+    let size = len <= 24 ? 168 : len <= 36 ? 150 : len <= 48 ? 128 : 112;
+    const maxH = items.length >= 5 ? 400 : items.length === 4 ? 470 : 520;
+    el.style.fontSize = size + "px";
+    while (el.offsetHeight > maxH && size > 84) { size -= 4; el.style.fontSize = size + "px"; }
+  }
+  fit();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+</script>
+</body>
+</html>

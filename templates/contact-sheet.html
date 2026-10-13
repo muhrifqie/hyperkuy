@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;700;800;900&family=JetBrains+Mono:wght@500;700&family=Caveat:wght@700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Lembar Kontak (opus-lembar-kontak): a photographer's contact sheet.
+    Three strips of 35mm film (black rebate, sprocket holes, edge printing)
+    hold a grid of frames. Items are the light frames (label printed large,
+    value as edge print under the frame); the remaining frames are dim tonal
+    "photos" = the candidates the AI did not pick. The chosen frame (matching
+    `hl`, else the first item) gets a hand-drawn red grease-pencil loop, a
+    "pilih" note, and a loupe that magnifies its edge print.
+
+    Signature move (video): the loupe glides across the sheet frame by frame,
+    each frame briefly sharpening under it, then stops on the chosen one and the
+    red grease loop draws itself around it (stroke-dashoffset) before the
+    "pilih" note is scribbled in.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #161513; }
+  body { position: relative; color: #F1ECE1; font-family: "Schibsted Grotesk", sans-serif; }
+
+  .top { position: absolute; left: 90px; right: 90px; top: 300px; display: flex; justify-content: space-between; font: 500 28px "JetBrains Mono", monospace; color: #9C978C; letter-spacing: .06em; text-transform: uppercase; }
+  .top b { color: #E5483B; font-weight: 700; }
+  .title { position: absolute; left: 90px; width: 900px; top: 356px; font-size: 92px; font-weight: 800; letter-spacing: -.03em; line-height: 1.08; color: #F6F2E9; }
+  .title .hl { position: relative; white-space: nowrap; }
+
+  #sheet { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; pointer-events: none; }
+  .strip { position: absolute; left: -40px; width: 1160px; height: 268px; background: #0A0A09; box-shadow: 0 6px 18px rgba(0,0,0,.55); }
+  .holes { position: absolute; left: 0; width: 100%; height: 20px;
+    background-image: linear-gradient(90deg, #3A3833 0 14px, transparent 14px 28px);
+    background-size: 28px 20px; border-radius: 3px; opacity: .95; }
+  .holes.t { top: 11px; }
+  .holes.b { bottom: 10px; }
+  .frame { position: absolute; top: 40px; width: 290px; height: 160px; overflow: hidden; border-radius: 3px; }
+  .frame.item { background: radial-gradient(120% 140% at 50% 45%, #F2EEE5 0 55%, #D9D3C6 100%); display: flex; align-items: center; justify-content: center; padding: 10px 16px; }
+  .frame.item .lb { font-size: 48px; font-weight: 800; line-height: 1.02; letter-spacing: -.02em; color: #151412; text-align: center; }
+  .frame.fill { opacity: .9; }
+  .edge { position: absolute; top: 205px; width: 290px; display: flex; align-items: baseline; gap: 14px; font-family: "JetBrains Mono", monospace; white-space: nowrap; }
+  .edge .n { font-size: 26px; font-weight: 500; color: #8E897E; }
+  .edge .v { font-size: 30px; font-weight: 700; color: #F4EFE3; }
+  .edge .s { font-size: 26px; font-weight: 500; color: #6E6A61; letter-spacing: .08em; }
+
+  #ink { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; overflow: visible; }
+  .note { position: absolute; font: 700 50px "Caveat", cursive; color: #E5483B; transform: rotate(-6deg); white-space: nowrap; }
+
+  .loupe { position: absolute; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 14px #1E1D1B, 0 0 0 17px #4A4740, 0 22px 40px 14px rgba(0,0,0,.6); background: #0A0A09; }
+  .loupe .zoom { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  .loupe::after { content: ""; position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(70% 70% at 32% 26%, rgba(255,255,255,.16), rgba(255,255,255,0) 55%); }
+
+  .sub { position: absolute; left: 90px; width: 820px; top: 1468px; font-size: 40px; font-weight: 500; line-height: 1.28; color: #E3DED2; }
+  .foot { position: absolute; left: 90px; right: 90px; top: 1582px; display: flex; justify-content: space-between; gap: 36px; font: 500 26px "JetBrains Mono", monospace; color: #8E897E; line-height: 1.35; }
+  .foot span:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="top"><span id="kick"></span><span id="ep"></span></div>
+<div class="title" id="title"></div>
+<div id="sheet"></div>
+<svg id="ink" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="sub" id="sub"></div>
+<div class="foot"><span id="src"></span><span id="date"></span></div>
+<script>
+Promise.all(['800 92px "Schibsted Grotesk"', '500 40px "Schibsted Grotesk"', '700 30px "JetBrains Mono"', '500 26px "JetBrains Mono"', '700 50px "Caveat"'].map(f => document.fonts.load(f))).catch(() => 0).then(() => document.fonts.ready).then(function () {
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+  const NS = "http://www.w3.org/2000/svg";
+  const RED = "#E5483B";
+
+  $("kick").innerHTML = esc(D.series || D.kicker || "") ;
+  $("ep").innerHTML = "<b>●</b> rol " + esc(D.ep || "");
+  $("sub").textContent = D.sub || "";
+  $("src").textContent = D.source ? "sumber: " + D.source : "";
+  $("date").textContent = D.date || "";
+
+  // Title with optional highlighted fragment.
+  const title = D.title || "", hl = D.hl || "";
+  const at = hl ? title.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  $("title").innerHTML = at < 0 ? esc(title)
+    : esc(title.slice(0, at)) + '<span class="hl" id="hl">' + esc(title.slice(at, at + hl.length)) + "</span>" + esc(title.slice(at + hl.length));
+  // Fit title into max 230px height.
+  const T = $("title"); let fs = 92;
+  while (T.offsetHeight > 222 && fs > 60) { fs -= 4; T.style.fontSize = fs + "px"; }
+  const titleBottom = 356 + T.offsetHeight;
+
+  // Sheet geometry: 3 strips, 3 full frames per strip + partial ones at the edges.
+  const SH = 268, GAP = 12, FW = 290, COLS = [-216, 90, 396, 702, 1008];
+  const sheetTop = Math.max(604, titleBottom + 36);
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+  let pick = 0;
+  if (hl) { const k = items.findIndex(it => (it.label + " " + it.value).toLowerCase().includes(hl.toLowerCase())); if (k >= 0) pick = k; }
+  // Slot map [strip, col]. The chosen item always sits top-left [0,1]; its right
+  // and lower neighbours stay as candidates so the loupe can rest between them.
+  // Col 3 is only used on strip 0 (above the TikTok button column).
+  const OTHER = [[1, 2], [2, 1], [2, 2], [0, 3]];
+  const SLOTS = []; let o = 0;
+  items.forEach((_, i) => { SLOTS[i] = i === pick ? [0, 1] : OTHER[o++]; });
+
+  // Deterministic tonal "photos" for candidate frames.
+  const TONES = [
+    "radial-gradient(40px 40px at 70% 32%, #B9B4A9, transparent 70%), linear-gradient(#77736B 0 52%, #3B3935 52%)",
+    "radial-gradient(60px 90px at 38% 70%, #2C2B28, transparent 72%), linear-gradient(160deg, #8F8B82, #4F4C46)",
+    "linear-gradient(90deg, transparent 0 58%, #A8A397 58% 74%, transparent 74%), linear-gradient(#45433E, #2B2A27)",
+    "radial-gradient(90px 60px at 50% 60%, #9D998F, transparent 70%), linear-gradient(#3A3834, #5D5A53)",
+    "linear-gradient(170deg, #6C6962 0 40%, #4A4843 40% 64%, #2F2D2A 64%)",
+    "radial-gradient(30px 70px at 28% 58%, #24231F, transparent 75%), radial-gradient(30px 70px at 58% 60%, #26251F, transparent 75%), linear-gradient(#8A867D, #605D56)"
+  ];
+  const sheet = $("sheet");
+  let html = "", tone = 0, num = 10;
+  const frames = []; // geometry of item frames
+  for (let s = 0; s < 3; s++) {
+    const y = sheetTop + s * (SH + GAP);
+    const off = 0;
+    html += '<div class="strip" style="top:' + y + 'px"><div class="holes t" style="background-position:' + (s * 9) + 'px 0"></div><div class="holes b" style="background-position:' + (s * 9) + 'px 0"></div></div>';
+    for (let c = 0; c < COLS.length; c++) {
+      const x = COLS[c] + off, fy = y + 40;
+      const k = SLOTS.findIndex(sl => sl[0] === s && sl[1] === c);
+      const fno = num++;
+      if (k >= 0) {
+        const it = items[k];
+        html += '<div class="frame item" style="left:' + x + 'px;top:' + fy + 'px"><div class="lb">' + esc(it.label) + "</div></div>";
+        html += '<div class="edge" style="left:' + (x + 4) + 'px;top:' + (y + 205) + 'px"><span class="n">▸' + fno + 'A</span><span class="v" data-k="' + k + '">' + esc(it.value) + "</span></div>";
+        frames[k] = { x, y: fy, w: FW, h: 160, ey: y + 205 };
+      } else {
+        html += '<div class="frame fill" style="left:' + x + 'px;top:' + fy + 'px;background:' + TONES[tone++ % TONES.length] + '"></div>';
+        html += '<div class="edge" style="left:' + (x + 4) + 'px;top:' + (y + 208) + 'px"><span class="n">' + fno + '</span><span class="s">' + (c % 2 ? "AI·400" : "PAN F") + "</span></div>";
+      }
+    }
+  }
+  sheet.innerHTML = html;
+
+  // Shrink long labels to fit inside their frame (min 40px).
+  sheet.querySelectorAll(".frame.item .lb").forEach(lb => {
+    let f = 48; while ((lb.scrollWidth > 258 || lb.offsetHeight > 140) && f > 40) { f -= 2; lb.style.fontSize = f + "px"; }
+  });
+
+  const ink = $("ink");
+  const path = (d, w, op) => { const p = document.createElementNS(NS, "path"); p.setAttribute("d", d); p.setAttribute("fill", "none"); p.setAttribute("stroke", RED); p.setAttribute("stroke-width", w); p.setAttribute("stroke-linecap", "round"); p.setAttribute("stroke-linejoin", "round"); if (op) p.setAttribute("opacity", op); ink.appendChild(p); return p; };
+
+  // Grease X on two rejected candidates (strip 2 col 3, strip 0 col 3).
+  [[1, 3], [0, 2], [2, 3]].forEach(([s, c], i) => {
+    if (SLOTS.some(sl => sl[0] === s && sl[1] === c)) return;
+    const x = COLS[c] + 70, y = sheetTop + s * (SH + GAP) + 64;
+    path("M" + x + " " + (y + 4) + " C" + (x + 60) + " " + (y + 40) + " " + (x + 110) + " " + (y + 80) + " " + (x + 150) + " " + (y + 112), 7, .85);
+    path("M" + (x + 146) + " " + (y - 2) + " C" + (x + 100) + " " + (y + 36) + " " + (x + 50) + " " + (y + 76) + " " + (x + 6) + " " + (y + 116), 7, .85);
+  });
+
+  // Hand-drawn loop around the chosen frame (hardcoded irregular path in a unit box).
+  const F = frames[pick];
+  if (F) {
+    const L = F.x - 26, Tp = F.y - 26, W = F.w + 52, H = F.h + 92;
+    const P = (u, v) => (L + u * W).toFixed(1) + " " + (Tp + v * H).toFixed(1);
+    const d = "M" + P(.10, .06) + " C" + P(.35, -.05) + " " + P(.80, -.04) + " " + P(.97, .10) +
+      " C" + P(1.05, .30) + " " + P(1.03, .78) + " " + P(.90, .95) +
+      " C" + P(.65, 1.06) + " " + P(.22, 1.04) + " " + P(.05, .90) +
+      " C" + P(-.04, .70) + " " + P(-.03, .25) + " " + P(.08, .09) +
+      " C" + P(.16, .00) + " " + P(.30, -.02) + " " + P(.42, -.03);
+    path(d, 9, .95);
+    path(d.replace(/(\d+\.\d)/g, m => (parseFloat(m) + 3).toFixed(1)), 3, .45);
+    const note = document.createElement("div");
+    note.className = "note"; note.textContent = "✓ pilih";
+    note.style.left = (F.x + F.w - 40) + "px"; note.style.top = (F.y - 92) + "px";
+    document.body.appendChild(note);
+
+    // Loupe over the chosen frame's edge print. The magnified point (the value)
+    // is shown at the loupe centre, which sits slightly below it so the label
+    // in the frame stays readable.
+    const vEl = sheet.querySelector('.edge .v[data-k="' + pick + '"]');
+    const vr = vEl.getBoundingClientRect();
+    const R = 100, Z = Math.min(1.7, (2 * R - 34) / vr.width), vx = vr.left + vr.width / 2, vy = vr.top + vr.height / 2;
+    const cx = F.x + F.w + 14, cy = F.ey + 46;
+    const lp = document.createElement("div");
+    lp.className = "loupe";
+    lp.style.cssText = "left:" + (cx - R) + "px;top:" + (cy - R) + "px;width:" + 2 * R + "px;height:" + 2 * R + "px";
+    const z = document.createElement("div"); z.className = "zoom";
+    z.appendChild(sheet.cloneNode(true)); z.appendChild(ink.cloneNode(true));
+    z.firstChild.removeAttribute("id"); z.lastChild.removeAttribute("id");
+    // Place the zoom layer so point (vx,vy) scaled by Z lands on the loupe centre.
+    z.style.transformOrigin = "0 0";
+    z.style.transform = "translate(" + (R - vx * Z) + "px," + (R - vy * Z) + "px) scale(" + Z + ")";
+    lp.appendChild(z);
+    document.body.appendChild(lp);
+  }
+
+  // Grease underline under the highlighted title fragment.
+  const H = $("hl");
+  if (H) {
+    const rects = H.getClientRects();
+    for (const r of rects) {
+      const y = r.bottom - fs * 0.1, x0 = r.left - 6, x1 = r.right + 10;
+      path("M" + x0 + " " + (y + 4) + " C" + (x0 + (x1 - x0) * .3) + " " + (y - 3) + " " + (x0 + (x1 - x0) * .7) + " " + (y + 6) + " " + x1 + " " + (y - 2), 10, .95);
+      path("M" + (x0 + 20) + " " + (y + 11) + " C" + (x0 + (x1 - x0) * .4) + " " + (y + 7) + " " + (x0 + (x1 - x0) * .75) + " " + (y + 12) + " " + (x1 - 16) + " " + (y + 7), 5, .75);
+    }
+  }
+  // Keep the sub below the sheet.
+  const subTop = Math.max(1462, sheetTop + 3 * SH + 2 * GAP + 24);
+  $("sub").style.top = subTop + "px";
+  document.querySelector(".foot").style.top = Math.max(1582, subTop + $("sub").offsetHeight + 12) + "px";
+});
+</script>
+</body>
+</html>

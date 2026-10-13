@@ -1,0 +1,7 @@
+out/
+node_modules/
+.env*
+*.tmp.html
+.DS_Store
+Thumbs.db
+desktop.ini

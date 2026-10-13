@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Panel Alat, hook</title>
+<!--
+  Style: "Panel Alat". The faceplate of a precision instrument / synth
+  (Teenage Engineering, Braun): screen-printed labels, knobs with real
+  shading, small LCD readouts, four screws. AI parameters become controls.
+  Signature move (for the video version, NOT animated here): each knob
+  rotates to its position with an ease-out, the LCD digits count/scramble
+  to the value, the LED blinks once.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&family=Space+Mono:wght@400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<!--DATA-->
+<style>
+  :root {
+    --plate: #D8D6D0; --ink: #22231F; --acc: #F25C05; --lcd: #1B1C1A; --digit: #E7E6E0;
+    --grot: "Space Grotesk", Arial, sans-serif;
+    --mono: "Space Mono", Consolas, monospace;
+    --lcdf: "Share Tech Mono", "Space Mono", monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; }
+  body { position: relative; background: var(--plate); color: var(--ink); font-family: var(--mono); }
+
+  /* screw heads: a slightly recessed disc with a slot */
+  .screw { position: absolute; width: 38px; height: 38px; margin: -19px 0 0 -19px; border-radius: 50%;
+    background: #CBC9C2; border: 2px solid rgba(34,35,31,.55);
+    box-shadow: inset 0 2px 3px rgba(255,255,255,.7), inset 0 -2px 3px rgba(40,35,20,.35); }
+  .screw::after { content: ""; position: absolute; left: 6px; right: 6px; top: 50%; height: 3px; margin-top: -1.5px;
+    background: var(--ink); transform: rotate(var(--rot, 0deg)); }
+
+  .strip { position: absolute; left: 180px; right: 180px; top: 300px; display: flex; justify-content: space-between;
+    font: 400 28px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+
+  .title { position: absolute; left: 90px; top: 380px; width: 900px; font-family: var(--grot); font-weight: 700;
+    line-height: 1.0; letter-spacing: -.025em; }
+  .title .hl { color: var(--acc); }
+
+  /* module grid */
+  /* printed model line between title and modules */
+  .rail { position: absolute; left: 90px; width: 810px; top: 696px; border-top: 2px solid var(--ink); padding-top: 10px;
+    display: flex; justify-content: space-between; font: 400 26px/1 var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+  .panel { position: absolute; left: 90px; top: 760px; width: 810px; display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 30px; }
+  .panel.dense { top: 752px; gap: 20px; }
+  .mod { position: relative; border: 2px solid var(--ink); border-radius: 4px; padding: 14px 18px 16px;
+    display: flex; flex-direction: column; }
+  .dense .mod { padding: 8px 16px 8px; }
+  .dense .mod .ctl { padding-top: 0; }
+  .dense .mod .lab { padding-bottom: 6px; }
+  .mod.wide { grid-column: 1 / -1; }
+  .mod .lab { font: 700 30px/1.1 var(--mono); text-transform: uppercase; letter-spacing: .04em;
+    border-bottom: 2px solid var(--ink); padding-bottom: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mod .ctl { flex: 1; display: flex; align-items: center; gap: 16px; padding-top: 12px; }
+  .led { position: absolute; right: 18px; top: 18px; width: 14px; height: 14px; background: var(--acc); }
+
+  /* knob with tick scale */
+  .knobwrap { position: relative; width: 140px; height: 140px; flex: 0 0 140px; }
+  .knobwrap svg { position: absolute; inset: 0; }
+  .knob { position: absolute; left: 10px; top: 10px; width: 120px; height: 120px; border-radius: 50%;
+    background: radial-gradient(circle at 42% 38%, #E9E8E3, #CFCDC6); border: 2px solid rgba(34,35,31,.45);
+    box-shadow: rgba(40,35,20,.35) 0 6px 14px; }
+  .knob i { position: absolute; left: 50%; top: 50%; width: 4px; height: 54px; margin-left: -2px;
+    background: var(--acc); transform-origin: 50% 0; }
+
+  /* slider for the wide module */
+  .slider { position: relative; flex: 1; height: 56px; }
+  .slider .track { position: absolute; left: 0; right: 0; top: 50%; height: 6px; margin-top: -3px; background: var(--ink); }
+  .slider .tick { position: absolute; top: 50%; width: 2px; height: 20px; margin-top: -10px; background: var(--ink); }
+  .slider .cap { position: absolute; top: 0; width: 28px; height: 56px; margin-left: -14px; background: var(--acc);
+    box-shadow: rgba(40,35,20,.35) 0 6px 14px; }
+  .slider .cap::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 2px; margin-top: -1px; background: var(--ink); }
+
+  /* LCD window */
+  .lcd { flex: 1; min-width: 0; height: 84px; background: var(--lcd); border: 2px solid var(--ink); border-radius: 6px;
+    display: flex; align-items: center; justify-content: flex-end; padding: 0 14px;
+    font: 400 44px/1 var(--lcdf); color: var(--digit); letter-spacing: .02em; white-space: nowrap; overflow: hidden; }
+
+  .sub { position: absolute; left: 90px; width: 810px; font: 400 34px/1.3 var(--mono); }
+  .foot { position: absolute; left: 180px; right: 180px; top: 1568px; display: flex; justify-content: space-between; gap: 30px;
+    font: 400 26px/1.2 var(--mono); opacity: .6; }
+  .foot .src { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .foot .dt { white-space: nowrap; flex: 0 0 auto; }
+</style>
+</head>
+<body>
+<div class="screw" style="left:130px;top:340px;--rot:20deg"></div>
+<div class="screw" style="left:950px;top:340px;--rot:-50deg"></div>
+<div class="screw" style="left:130px;top:1580px;--rot:70deg"></div>
+<div class="screw" style="left:950px;top:1580px;--rot:-15deg"></div>
+<div class="strip"><span id="kicker"></span><span id="ep"></span></div>
+<h1 class="title" id="title"></h1>
+<div class="rail"><span id="rail-l"></span><span id="rail-r"></span></div>
+<div class="panel" id="panel"></div>
+<p class="sub" id="sub"></p>
+<div class="foot"><span class="src" id="source"></span><span class="dt" id="date"></span></div>
+<script>
+  // Fallback sample so the file renders when opened directly.
+  const FALLBACK = {
+    series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" },
+            { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi, jumlah token beda tiap model", date: "per 14 Okt 2026"
+  };
+  const D = window.D && window.D.title ? window.D : FALLBACK;
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = (id) => document.getElementById(id);
+  function markTitle(t, hl) {
+    const i = hl ? t.toLowerCase().indexOf(String(hl).toLowerCase()) : -1;
+    if (i < 0) return esc(t);
+    return esc(t.slice(0, i)) + '<span class="hl">' + esc(t.slice(i, i + hl.length)) + "</span>" + esc(t.slice(i + hl.length));
+  }
+  // Deterministic knob position from item index, 0..1 over a 270 degree sweep
+  const pos = (i) => ((i * 7 + 3) % 10) / 10;
+
+  const items = (D.items || []).slice(0, 5);
+  $("kicker").textContent = D.series || D.kicker || "";
+  $("ep").textContent = D.ep || "";
+  $("title").innerHTML = markTitle(D.title || "", D.hl);
+  $("sub").textContent = D.sub || "";
+  $("source").textContent = D.source || "";
+  $("date").textContent = D.date || "";
+
+  // tick scale around the knob: 11 ticks over 270 degrees, starting bottom-left
+  function ticks() {
+    let s = "";
+    for (let k = 0; k <= 10; k++) {
+      const a = (-135 + 27 * k) * Math.PI / 180, r1 = 62, r2 = k % 5 === 0 ? 70 : 67;
+      s += '<line x1="' + (70 + r1 * Math.sin(a)) + '" y1="' + (70 - r1 * Math.cos(a)) + '" x2="' + (70 + r2 * Math.sin(a)) +
+        '" y2="' + (70 - r2 * Math.cos(a)) + '" stroke="#22231F" stroke-width="2"/>';
+    }
+    return '<svg viewBox="0 0 140 140">' + s + "</svg>";
+  }
+  const n = items.length;
+  const wideIdx = n % 2 === 1 ? n - 1 : -1;
+  $("panel").innerHTML = items.map((it, i) => {
+    const wide = i === wideIdx;
+    const p = pos(i);
+    let ctl;
+    if (wide) {
+      let tk = ""; for (let k = 0; k <= 10; k++) tk += '<i class="tick" style="left:' + (k * 10) + '%"></i>';
+      ctl = '<div class="slider"><div class="track"></div>' + tk + '<div class="cap" style="left:' + (p * 100) + '%"></div></div>';
+    } else {
+      // indicator hangs from the centre; rotate so 0 = bottom-left, 1 = bottom-right
+      ctl = '<div class="knobwrap">' + ticks() + '<div class="knob"><i style="transform:rotate(' + (45 + p * 270) + 'deg)"></i></div></div>';
+    }
+    return '<div class="mod' + (wide ? " wide" : "") + '">' + (i === 0 ? '<div class="led"></div>' : "") +
+      '<div class="lab">' + esc(it.label) + '</div><div class="ctl">' + ctl + '<div class="lcd"><span>' + esc(it.value) + "</span></div></div></div>";
+  }).join("");
+  const rows = Math.ceil(n / 2);
+  const rowH = rows >= 3 ? 206 : 300;
+  if (rows >= 3) $("panel").classList.add("dense");
+  document.querySelectorAll(".mod").forEach((m) => (m.style.height = rowH + "px"));
+  $("rail-l").textContent = "Modul 01-" + String(n).padStart(2, "0") + " / " + n + " ch";
+  $("rail-r").textContent = "Skala 0-10 / LCD";
+
+  function fit() {
+    const el = $("title");
+    let size = 96; el.style.fontSize = size + "px";
+    while (el.offsetHeight > size * 3.1 && size > 84) { size -= 2; el.style.fontSize = size + "px"; }
+    // LCD digits shrink to fit, min 34px
+    // (flex-end hides start-side overflow from scrollWidth, so measure the inner span)
+    document.querySelectorAll(".lcd").forEach((l) => {
+      const sp = l.firstElementChild; let fs = 44; l.style.fontSize = fs + "px";
+      while (sp.offsetWidth > l.clientWidth - 28 && fs > 34) { fs -= 2; l.style.fontSize = fs + "px"; }
+    });
+    // labels: shrink slightly instead of clipping, floor 30px? contract floor is 30, so widen letter-spacing only
+    document.querySelectorAll(".mod .lab").forEach((l) => { if (l.scrollWidth > l.clientWidth) l.style.letterSpacing = "0"; });
+    const panel = $("panel");
+    $("sub").style.top = (panel.offsetTop + panel.offsetHeight + 44) + "px";
+  }
+  fit();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+</script>
+</body>
+</html>

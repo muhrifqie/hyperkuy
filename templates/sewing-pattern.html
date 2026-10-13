@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<title>Pola Potong hook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sofia+Sans+Condensed:wght@500;700;800;900&family=Sofia+Sans:wght@500;600;700&family=Chivo+Mono:wght@400;500;600&display=block" rel="stylesheet" />
+<style>
+  /* "Pola Potong": sewing pattern tissue on a slate self-healing cutting mat. */
+  :root {
+    --mat: #4a5b6d;         /* slate blue-grey mat */
+    --mat-2: #3f4f60;
+    --mat-ink: rgba(226,234,240,.62);
+    --tissue: rgba(240,233,217,.87);
+    --ink: #24211d;         /* pattern print ink */
+    --ink-2: #4f4a42;
+    --red: #c2362a;         /* cut line red */
+    --cond: "Sofia Sans Condensed", "Arial Narrow", sans-serif;
+    --sans: "Sofia Sans", system-ui, sans-serif;
+    --mono: "Chivo Mono", ui-monospace, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; }
+  body { background: var(--mat); color: var(--ink); font-family: var(--sans); -webkit-font-smoothing: antialiased; position: relative; }
+
+  /* cutting mat: fine grid, heavier every 5th line, soft vignette, rubber grain */
+  .mat { position: absolute; inset: 0;
+    background:
+      radial-gradient(1200px 1500px at 50% 45%, transparent 55%, rgba(20,28,38,.35)),
+      linear-gradient(rgba(226,234,240,.26) 2px, transparent 2px) 0 0 / 150px 150px,
+      linear-gradient(90deg, rgba(226,234,240,.26) 2px, transparent 2px) 0 0 / 150px 150px,
+      linear-gradient(rgba(226,234,240,.10) 1px, transparent 1px) 0 0 / 30px 30px,
+      linear-gradient(90deg, rgba(226,234,240,.10) 1px, transparent 1px) 0 0 / 30px 30px,
+      var(--mat); }
+  .grain { position: absolute; inset: 0; opacity: .10; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"); }
+  svg.matprint { position: absolute; inset: 0; }
+
+  /* tissue sheet */
+  .sheet { position: absolute; left: 66px; top: 222px; width: 948px; height: 1468px; transform: rotate(-1.1deg); transform-origin: 50% 50%; }
+  .sheet .paper { position: absolute; inset: 0; background: var(--tissue);
+    box-shadow: 0 2px 0 rgba(0,0,0,.05), 0 18px 30px -12px rgba(10,16,24,.45); }
+  .sheet .crinkle { position: absolute; inset: 0; opacity: .5; mix-blend-mode: multiply;
+    background:
+      linear-gradient(104deg, transparent 18%, rgba(120,104,80,.07) 19%, transparent 23%),
+      linear-gradient(77deg, transparent 52%, rgba(120,104,80,.06) 53%, transparent 58%),
+      linear-gradient(170deg, transparent 70%, rgba(255,255,255,.18) 71%, transparent 76%),
+      linear-gradient(12deg, transparent 33%, rgba(120,104,80,.05) 34%, transparent 40%); }
+
+  /* everything inside the sheet uses sheet-local coordinates (sheet x0 = canvas 66) */
+  .in { position: absolute; }
+
+  /* envelope label */
+  .label { left: 44px; right: 104px; top: 70px; border: 4px solid var(--ink); }
+  .lab-top { display: flex; align-items: stretch; border-bottom: 3px solid var(--ink); }
+  .lab-top .no { background: var(--ink); color: #f1ead9; font-family: var(--cond); font-weight: 900; font-size: 40px; letter-spacing: .02em; padding: 10px 22px 8px; line-height: 1; display: flex; align-items: center; }
+  .lab-top .ser { flex: 1; display: flex; align-items: center; padding: 0 20px; font-family: var(--mono); font-size: 28px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; color: var(--ink); }
+  .lab-top .sz { display: flex; border-left: 3px solid var(--ink); }
+  .lab-top .sz span { font-family: var(--cond); font-weight: 800; font-size: 30px; width: 46px; display: grid; place-items: center; border-left: 2px solid var(--ink); }
+  .lab-top .sz span:first-child { border-left: 0; }
+  .lab-top .sz span.on { background: var(--red); color: #fff; }
+  .lab-body { padding: 26px 26px 26px; }
+  .title { font-family: var(--cond); font-weight: 900; text-transform: uppercase; line-height: 1; letter-spacing: -.005em; color: var(--ink); }
+  .title .hl { color: var(--red); position: relative; white-space: nowrap; }
+  .title .hl { text-decoration: underline 7px var(--red); text-underline-offset: .07em; text-decoration-skip-ink: none; }
+  .title .hl .nt-unused { position: absolute; bottom: -.03em; width: 0; height: 0; border-left: 11px solid transparent; border-right: 11px solid transparent; border-bottom: 16px solid var(--red); transform: translate(-50%, 0); }
+  .lab-sub { margin-top: 30px; font-family: var(--sans); font-weight: 600; font-size: 40px; line-height: 1.24; color: var(--ink); text-wrap: pretty; }
+  .lab-sub .k { font-family: var(--mono); font-size: 30px; font-weight: 600; color: var(--red); margin-right: 12px; letter-spacing: .02em; }
+  
+
+  /* legend row */
+  .legend { left: 44px; right: 104px; display: flex; gap: 34px; align-items: center; font-family: var(--mono); font-size: 28px; color: var(--ink-2); }
+  .legend span { display: flex; align-items: center; gap: 12px; }
+
+  /* pattern pieces */
+  svg.pieces { position: absolute; left: 0; top: 0; width: 948px; height: 1468px; overflow: visible; }
+  .ptxt { position: absolute; }
+  .ptxt .tag { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+  .ptxt .ltr { width: 50px; height: 50px; border: 3px solid var(--ink); border-radius: 50%; display: grid; place-items: center; font-family: var(--cond); font-weight: 900; font-size: 34px; flex: none; }
+  .ptxt .lb { display: inline-block; font-family: var(--cond); font-weight: 800; font-size: 48px; text-transform: uppercase; line-height: 1.05; letter-spacing: .01em; white-space: nowrap; }
+  .ptxt .mk { font-family: var(--mono); font-size: 30px; font-weight: 500; color: var(--ink-2); letter-spacing: .02em; text-transform: uppercase; white-space: nowrap; }
+  .ptxt .vl { margin-top: 6px; font-family: var(--cond); font-weight: 800; font-size: 60px; line-height: 1.02; color: var(--red); white-space: nowrap; }
+  .ptxt .vl em { font-style: normal; color: var(--red); }
+
+  .print { left: 44px; right: 104px; display: flex; justify-content: space-between; gap: 30px; line-height: 1.3; text-wrap: balance; font-family: var(--mono); font-size: 26px; color: var(--ink-2); }
+</style>
+<!--DATA-->
+<script>
+  // Fallback sample so the file opens standalone in a browser.
+  const FALLBACK = {
+    series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [ { label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" } ],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026"
+  };
+  const D = window.D || FALLBACK;
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  function splitHL(t, hl) {
+    const i = hl ? t.toLowerCase().indexOf(String(hl).toLowerCase()) : -1;
+    return i < 0 ? [t, "", ""] : [t.slice(0, i), t.slice(i, i + hl.length), t.slice(i + hl.length)];
+  }
+  const INK = "#24211d", RED = "#c2362a";
+
+  // Piece silhouettes in a w×h box: path, text top fraction, left inset, notches [x,y,dir].
+  const SHAPES = [
+    { // bodice front with armhole curve (top-right)
+      d: (w, h) => `M0 0 L${w * .64} 0 Q${w * .70} ${h * .30} ${w} ${h * .34} L${w * .97} ${h} L0 ${h} Z`,
+      tt: .22, li: 0, tw: .74, notch: [[0, .5, "l"], [.5, 1, "d"]] },
+    { // sleeve with cap
+      d: (w, h) => `M${w * .04} ${h} L0 ${h * .36} C${w * .18} ${h * .02} ${w * .82} ${h * .02} ${w} ${h * .36} L${w * .96} ${h} Z`,
+      tt: .22, li: .07, notch: [[.5, 1, "d"], [.5, .1, "u"]] },
+    { // skirt panel (trapezoid)
+      d: (w, h) => `M${w * .07} 0 L${w * .93} 0 L${w} ${h} L0 ${h} Z`,
+      tt: .14, li: .07, notch: [[.5, 0, "u"], [.5, 1, "d"]] },
+    { // pocket with rounded base
+      d: (w, h) => `M0 0 L${w} 0 L${w} ${h * .7} Q${w} ${h} ${w * .72} ${h} L${w * .28} ${h} Q0 ${h} 0 ${h * .7} Z`,
+      tt: .14, li: .03, notch: [[0, .4, "l"], [1, .4, "r"]] },
+    { // facing with diagonal corner
+      d: (w, h) => `M0 0 L${w * .8} 0 L${w} ${h * .28} L${w} ${h} L0 ${h} Z`,
+      tt: .14, li: 0, notch: [[.4, 0, "u"], [0, .6, "l"]] },
+  ];
+  // Stitch line: same silhouette inset by a fixed margin.
+  function inset(sh, x, y, w, h, m) {
+    return `<path transform="translate(${x + m} ${y + m})" d="${sh.d(w - 2 * m, h - 2 * m)}" fill="none" stroke="${INK}" stroke-width="2.4" stroke-dasharray="12 9"/>`;
+  }
+  function notch(x, y, dir) {
+    const s = 14, t = 18;
+    const P = { l: [[x, y - s], [x, y + s], [x - t, y]], r: [[x, y - s], [x, y + s], [x + t, y]], u: [[x - s, y], [x + s, y], [x, y - t]], d: [[x - s, y], [x + s, y], [x, y + t]] }[dir];
+    return `<path d="M${P.map((p) => p.join(" ")).join(" L")} Z" fill="${INK}"/>`;
+  }
+  function grain(x, y1, y2) {
+    return `<g stroke="${INK}" stroke-width="3" fill="none"><line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}"/>
+      <path d="M${x - 11} ${y1 + 18} L${x} ${y1} L${x + 11} ${y1 + 18}"/><path d="M${x - 11} ${y2 - 18} L${x} ${y2} L${x + 11} ${y2 - 18}"/></g>`;
+  }
+  // Line-drawn tailor's shears; tip points to +x.
+  function scissors(x, y, rot, sc) {
+    return `<g transform="translate(${x} ${y}) rotate(${rot}) scale(${sc})" fill="none" stroke="${INK}" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+      <ellipse cx="-58" cy="-20" rx="20" ry="14" transform="rotate(-18 -58 -20)"/>
+      <ellipse cx="-58" cy="22" rx="20" ry="14" transform="rotate(18 -58 22)"/>
+      <path d="M-40 -14 L4 2 L60 -6 Q66 -6 64 -1 L6 6"/>
+      <path d="M-40 16 L4 -2 L52 10 Q58 13 52 15 L4 4"/>
+      <circle cx="4" cy="1" r="3.6" fill="${INK}"/></g>`;
+  }
+  function layoutRows(n) { return n <= 3 ? [1, 2] : n === 4 ? [2, 2] : [2, 1, 2]; }
+
+  function fitTitle(el, maxH) {
+    let f = 132;
+    el.style.fontSize = f + "px";
+    while ((el.offsetHeight > maxH || el.scrollWidth > el.clientWidth + 1) && f > 72) { f -= 2; el.style.fontSize = f + "px"; }
+  }
+
+  function render() {
+    const series = D.series || (D.kicker || "").split("·")[0].trim() || "Pola";
+    const ep = String(D.ep || "01").replace(/^#/, "");
+    document.getElementById("no").textContent = "No. " + ep;
+    document.getElementById("ser").textContent = series;
+
+    const [a, h, b] = splitHL(D.title || "", D.hl);
+    const t = document.getElementById("title");
+    t.innerHTML = esc(a) + (h ? `<span class="hl">${esc(h)}</span>` : "") + esc(b);
+    const nItems = Math.min((D.items || []).length, 5);
+    fitTitle(t, nItems >= 5 ? 270 : 320);
+    document.getElementById("sub").textContent = D.sub || "";
+
+    // Vertical budget (sheet-local y).
+    const label = document.getElementById("label");
+    const labBottom = 70 + label.offsetHeight;
+    const legend = document.getElementById("legend");
+    const top = labBottom + 74;                      // pieces start
+    const dense = nItems >= 5;                       // 5 pieces: drop the legend, use its band
+    const bottom = dense ? 1326 : 1272;               // pieces end (canvas ≈ 1494–1548)
+    legend.style.top = "1310px";
+    legend.style.display = dense ? "none" : "";
+    document.getElementById("print").style.top = "1366px";
+    document.getElementById("print").innerHTML = `<span>${esc(D.source || "")}</span><span style="flex:none">${esc(D.date || "")}</span>`;
+
+    const items = (D.items || []).slice(0, 5), n = items.length;
+    const rows = layoutRows(n);
+    const X0 = 88, X1 = 834, GAP = 30;               // keep pieces at canvas x ≤ ~900
+    const rh = (bottom - top - GAP * (rows.length - 1)) / rows.length;
+    let svg = "", txt = "", k = 0;
+    rows.forEach((cnt, r) => {
+      const y = top + r * (rh + GAP);
+      const cw = (X1 - X0 - GAP * (cnt - 1)) / cnt;
+      for (let c = 0; c < cnt && k < n; c++, k++) {
+        const it = items[k], sh = rh < 230 ? SHAPES[[4, 2, 3, 4, 2][k]] : SHAPES[k % SHAPES.length];
+        const x = X0 + c * (cw + GAP);
+        svg += `<path transform="translate(${x} ${y})" d="${sh.d(cw, rh)}" fill="rgba(255,252,244,.35)" stroke="${INK}" stroke-width="4"/>`;
+        svg += inset(sh, x, y, cw, rh, 20);
+        sh.notch.forEach(([nx, ny, dir]) => { svg += notch(x + nx * cw, y + ny * rh, dir); });
+        svg += grain(x + cw - 48, y + rh * .46, y + rh * .86);
+        const L = String.fromCharCode(65 + k);
+        const m = /^(\d+)\s/.exec(String(it.value || ""));
+        const mk = m && +m[1] <= 9 ? `Potong ${m[1]}×` : `Bagian ${k + 1}/${n}`;
+        const compact = rh < 230;
+        const tt = compact ? Math.min(sh.tt, .1) : sh.tt;
+        txt += `<div class="ptxt" data-maxh="${rh * (1 - tt) - 30}" style="left:${x + 36 + sh.li * cw}px;top:${y + tt * rh + 6}px;width:${Math.min(cw - 106, (sh.tw || 1) * cw - 36) - sh.li * cw}px">
+          ${compact ? `<div class="tag"><span class="ltr">${L}</span><span class="lb">${esc(it.label)}</span></div>`
+                    : `<div class="tag"><span class="ltr">${L}</span><span class="mk">${mk}</span></div><div class="lb">${esc(it.label)}</div>`}
+          <div class="vl">${esc(it.value)}</div></div>`;
+      }
+    });
+    // Fold bracket on piece A's left edge ("LIPAT" = place on fold).
+    const fy1 = top + rh * .18, fy2 = top + rh * .82, fx = X0 - 34;
+    svg += `<g stroke="${INK}" stroke-width="3" fill="none"><path d="M${X0 - 6} ${fy1} H${fx} V${fy2} H${X0 - 6}"/>
+      <path d="M${X0 - 20} ${fy1 - 9} L${X0 - 6} ${fy1} L${X0 - 20} ${fy1 + 9}"/><path d="M${X0 - 20} ${fy2 - 9} L${X0 - 6} ${fy2} L${X0 - 20} ${fy2 + 9}"/></g>
+      <text x="${fx - 12}" y="${(fy1 + fy2) / 2}" transform="rotate(-90 ${fx - 12} ${(fy1 + fy2) / 2})" text-anchor="middle" font-family="Chivo Mono" font-weight="600" font-size="26" fill="${RED}">LIPAT</text>`;
+    // Shears on the cut line at the top of piece A, with a red cutting stroke ahead of them.
+    const sx = X0 + 250, sy = top;
+    svg += `<line x1="${X0}" y1="${sy}" x2="${sx}" y2="${sy}" stroke="${RED}" stroke-width="7"/>`;
+    svg += scissors(sx, sy - 14, 0, 1.1);
+    document.getElementById("pieces").innerHTML = svg;
+    document.getElementById("ptxt").innerHTML = txt;
+    // Shrink long labels/values to their piece width.
+    document.querySelectorAll(".ptxt").forEach((p) => {
+      const lb = p.querySelector(".lb"), vl = p.querySelector(".vl");
+      let f = 48; while ((lb.offsetLeft + lb.offsetWidth > p.clientWidth + 1) && f > 34) { f -= 2; lb.style.fontSize = f + "px"; }
+      let v = 60; while (vl.scrollWidth > p.clientWidth + 1 && v > 40) { v -= 2; vl.style.fontSize = v + "px"; }
+      // Keep the whole text block inside the stitch line.
+      const mh = +p.dataset.maxh;
+      while (p.offsetHeight > mh && (v > 40 || f > 34)) {
+        if (v > 40) { v -= 2; vl.style.fontSize = v + "px"; } else { f -= 2; lb.style.fontSize = f + "px"; }
+      }
+      if (p.offsetHeight > mh) p.querySelector(".tag").style.marginBottom = "2px";
+    });
+  }
+
+  // Mat print: ruler numbers on edges and angle guides (static, deterministic).
+  function matPrint() {
+    let s = "";
+    const C = "rgba(226,234,240,.62)";
+    for (let i = 1; i <= 6; i++) s += `<text x="${i * 150 + 6}" y="44" font-family="Chivo Mono" font-size="26" fill="${C}">${i * 5}</text>`;
+    for (let i = 1; i <= 12; i++) s += `<text x="12" y="${i * 150 - 8}" font-family="Chivo Mono" font-size="26" fill="${C}">${i * 5}</text>`;
+    for (let i = 1; i <= 6; i++) s += `<text x="${i * 150 + 6}" y="1900" font-family="Chivo Mono" font-size="26" fill="${C}">${i * 5}</text>`;
+    // ruler ticks along top and left
+    for (let x = 0; x <= 1080; x += 30) s += `<line x1="${x}" y1="0" x2="${x}" y2="${x % 150 ? 12 : 22}" stroke="${C}" stroke-width="2"/>`;
+    for (let y = 0; y <= 1920; y += 30) s += `<line x1="0" y1="${y}" x2="${y % 150 ? 12 : 22}" y2="${y}" stroke="${C}" stroke-width="2"/>`;
+    // angle guides from the bottom-left and top-right corners
+    const g = "rgba(226,234,240,.30)";
+    s += `<g stroke="${g}" stroke-width="2" stroke-dasharray="14 10">
+      <line x1="0" y1="1920" x2="1080" y2="840"/><line x1="0" y1="1920" x2="1080" y2="1296"/><line x1="0" y1="1920" x2="624" y2="840"/>
+      <line x1="1080" y1="0" x2="0" y2="1080"/><line x1="1080" y1="0" x2="456" y2="1080"/></g>
+      <text x="836" y="1734" font-family="Chivo Mono" font-size="26" fill="${C}">45°</text>
+      <text x="880" y="1840" font-family="Chivo Mono" font-size="26" fill="${C}">30°</text>
+      <text x="486" y="1734" font-family="Chivo Mono" font-size="26" fill="${C}">60°</text>
+      <path d="M150 1920 A150 150 0 0 1 106 1814" fill="none" stroke="${C}" stroke-width="2"/>`;
+    document.getElementById("matprint").innerHTML = s;
+  }
+
+  document.addEventListener("DOMContentLoaded", () => { matPrint(); render(); document.fonts && document.fonts.ready.then(render); });
+</script>
+</head>
+<body>
+  <div class="mat"></div>
+  <svg class="matprint" id="matprint" viewBox="0 0 1080 1920" width="1080" height="1920"></svg>
+  <div class="grain"></div>
+
+  <div class="sheet">
+    <div class="paper"></div>
+    <div class="crinkle"></div>
+
+    <div class="in label" id="label">
+      <div class="lab-top">
+        <div class="no" id="no"></div>
+        <div class="ser" id="ser"></div>
+        <div class="sz"><span>S</span><span class="on">M</span><span>L</span></div>
+      </div>
+      <div class="lab-body">
+        <div class="title" id="title"></div>
+        <div class="lab-sub"><span class="k">PETUNJUK:</span><span id="sub"></span></div>
+      </div>
+    </div>
+
+    <div class="in legend" id="legend">
+      <span><svg width="56" height="10"><line x1="0" y1="5" x2="56" y2="5" stroke="#24211d" stroke-width="4"/></svg>potong</span>
+      <span><svg width="56" height="10"><line x1="0" y1="5" x2="56" y2="5" stroke="#24211d" stroke-width="2.4" stroke-dasharray="10 7"/></svg>jahit</span>
+      <span><svg width="24" height="20"><path d="M2 2 L22 2 L12 18 Z" fill="#24211d"/></svg>takik</span>
+      <span><svg width="56" height="18"><g stroke="#24211d" stroke-width="3" fill="none"><line x1="2" y1="9" x2="54" y2="9"/><path d="M14 2 L2 9 L14 16"/><path d="M42 2 L54 9 L42 16"/></g></svg>serat</span>
+    </div>
+
+    <svg class="pieces" id="pieces" viewBox="0 0 948 1468"></svg>
+    <div id="ptxt"></div>
+
+    <div class="in print" id="print"></div>
+  </div>
+</body>
+</html>

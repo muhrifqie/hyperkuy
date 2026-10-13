@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Cobalt Grid — hook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Hanken+Grotesk:wght@400;600&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&display=swap" rel="stylesheet">
+<!--DATA-->
+<style>
+  :root {
+    --paper: #F0EBDE; --paper-2: #E6E0CE; --ink: #1F2BE0; --ink-soft: #5560E5;
+    --grid: rgba(31,43,224,0.10); --ink-faint: rgba(31,43,224,0.22);
+    --serif: "Newsreader", Georgia, serif;
+    --sans: "Hanken Grotesk", Arial, sans-serif;
+    --mono: "DM Mono", Consolas, monospace;
+    --cell: 36px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; color: var(--ink); }
+  /* permanent graph-paper grid on the ground */
+  body { position: relative; font-family: var(--sans);
+    background-color: var(--paper);
+    background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: var(--cell) var(--cell); background-position: 0 0; }
+
+  .hair { position: absolute; left: 90px; right: 90px; height: 2px; background: var(--ink); }
+  .hair.t { top: 108px; } .hair.b { top: 1626px; }
+
+  /* pixel-glitch band (9:16 = full-width band), bleeds into the bottom UI zone */
+  .glitch { position: absolute; left: 0; right: 0; top: 1662px; bottom: 0; display: flex; align-items: flex-start; }
+  .glitch .s { background-color: var(--paper);
+    background-image: repeating-linear-gradient(90deg, var(--ink) 0 2px, transparent 2px 8px); }
+
+  /* QR mosaic patch */
+  .qr { position: absolute; right: 90px; top: 144px; width: 108px; height: 108px; display: grid;
+    grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); gap: 2px;
+    background: var(--paper); padding: 4px; box-shadow: 0 0 0 2px var(--paper); }
+  .qr i { background: var(--grid); } .qr i.on { background: var(--ink); }
+
+  .page { position: absolute; left: 90px; right: 90px; top: 144px; bottom: 310px; display: flex; flex-direction: column; }
+  .meta { display: flex; align-items: baseline; gap: 22px; padding-right: 150px; }
+  .lab { font: 600 30px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase; }
+  .tag { font: 400 30px/1 var(--mono); letter-spacing: .05em; }
+  .meta2 { margin-top: 18px; font: 400 26px/1 var(--mono); letter-spacing: .06em; }
+
+  .title { margin-top: 92px; font-family: var(--serif); font-weight: 400; line-height: 1.04; letter-spacing: -.012em; max-width: 900px; }
+  /* hl = cobalt selection block, paper type (two-colour risograph knock-out) */
+  .title .hl { background: var(--ink); color: var(--paper); padding: 0 .1em .02em; white-space: nowrap;
+    box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+  .sub { margin-top: 34px; margin-bottom: 40px; font: italic 400 46px/1.18 var(--serif); max-width: 860px; }
+
+  /* the object: index ledger drawn on the graph paper */
+  .ledger { margin-top: auto; margin-bottom: auto; position: relative; width: 810px; }
+  .topbar { display: flex; align-items: baseline; justify-content: space-between; border-bottom: 2px solid var(--ink); padding-bottom: 14px; }
+  .topbar h2 { font: 400 60px/.95 var(--serif); letter-spacing: -.01em; }
+  .row { display: grid; grid-template-columns: 96px 1fr auto; align-items: center; min-height: 126px;
+    border-bottom: 1px solid var(--ink-faint); }
+  .row:last-child { border-bottom: 2px solid var(--ink); }
+  .row .no { font: 400 30px/1 var(--mono); letter-spacing: .05em; align-self: start; padding-top: 22px; }
+  .row .name { font: 400 66px/1.0 var(--serif); letter-spacing: -.01em; padding-right: 24px; overflow-wrap: anywhere; }
+  .row .val { font: 500 42px/1 var(--mono); letter-spacing: .02em; white-space: nowrap; border: 2px solid var(--ink);
+    background: var(--paper); padding: 16px 20px 14px; text-align: right; }
+  .row .val .arw { margin-right: 12px; }
+  .few .row { min-height: 162px; }
+  .long .row .name { font-size: 56px; } .long .row .val { font-size: 38px; padding: 14px 16px 12px; }
+
+  /* vertical catalogue chrome along the ledger edge */
+  .vstack { position: absolute; left: -62px; top: 0; bottom: 0; writing-mode: vertical-rl; transform: rotate(180deg);
+    font: 400 26px/1 var(--mono); letter-spacing: .08em; text-align: center; }
+
+  .chrome { display: flex; justify-content: space-between; align-items: flex-end; gap: 30px; font: 400 26px/1.3 var(--mono); letter-spacing: .04em; }
+  .chrome .src { max-width: 640px; }
+</style>
+</head>
+<body>
+<div class="hair t"></div>
+<div class="qr" id="qr"></div>
+<div class="page">
+  <div class="meta"><span class="lab" id="series"></span><span class="tag" id="ep"></span></div>
+  <div class="meta2" id="date"></div>
+  <h1 class="title" id="title"></h1>
+  <p class="sub" id="sub"></p>
+  <div class="ledger" id="ledger">
+    <div class="vstack" id="vstack"></div>
+    <div class="topbar"><h2>Indeks</h2><span class="tag" id="fig"></span></div>
+    <div id="rows"></div>
+  </div>
+  <div class="chrome"><span class="src" id="source"></span><span id="pg"></span></div>
+</div>
+<div class="hair b"></div>
+<div class="glitch" id="glitch"></div>
+<script>
+  // Fallback sample so the file renders when opened directly.
+  const FALLBACK = {
+    series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" },
+            { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026"
+  };
+  const D = window.D && window.D.title ? window.D : FALLBACK;
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = (id) => document.getElementById(id);
+  function markTitle(t, hl) {
+    const i = hl ? t.toLowerCase().indexOf(String(hl).toLowerCase()) : -1;
+    if (i < 0) return esc(t);
+    return esc(t.slice(0, i)) + '<span class="hl">' + esc(t.slice(i, i + hl.length)) + "</span>" + esc(t.slice(i + hl.length));
+  }
+
+  const items = (D.items || []).slice(0, 5);
+  $("series").textContent = D.series || D.kicker || "";
+  $("ep").textContent = D.ep ? "/ " + D.ep : "";
+  $("title").innerHTML = markTitle(D.title || "", D.hl);
+  $("sub").textContent = D.sub || "";
+  $("fig").textContent = "FIG. " + String(D.ep || "01").replace("#", "") + " — " + items.length + " baris";
+  $("vstack").textContent = "n = " + items.length + " · " + (D.series || "").toUpperCase();
+  $("rows").innerHTML = items.map((it, i) =>
+    '<div class="row"><span class="no">' + String(i + 1).padStart(3, "0") + '</span><span class="name">' + esc(it.label) +
+    '</span><span class="val"><span class="arw">→</span>' + esc(it.value) + "</span></div>").join("");
+  if (items.length <= 3) $("ledger").classList.add("few");
+  if (Math.max(...items.map((it) => String(it.label).length)) > 12) $("ledger").classList.add("long");
+  $("source").textContent = "SUMBER: " + (D.source || "");
+  $("date").textContent = (D.date || "").toUpperCase();
+  $("pg").textContent = "hal. " + String(D.ep || "01").replace("#", "");
+  // Equalise value boxes so they read as one measured column
+  const vals = [...document.querySelectorAll(".row .val")];
+  const fitVals = () => { vals.forEach((v) => (v.style.minWidth = "")); const w = Math.max(...vals.map((v) => v.offsetWidth)); vals.forEach((v) => (v.style.minWidth = w + "px")); };
+
+  // QR mosaic: deterministic pattern seeded from the title (decorative only)
+  let h = 7; for (const c of (D.title || "")) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  let qr = ""; for (let i = 0; i < 64; i++) { h = (h * 1103515245 + 12345) >>> 0; const r = Math.floor(i / 8), c = i % 8;
+    const finder = (r < 3 && c < 3) || (r < 3 && c > 4) || (r > 4 && c < 3);
+    const on = finder ? !(r % 7 === 1 && c % 7 === 1) && ((r === 0 || r === 2 || r === 5 || r === 7) || (c === 0 || c === 2 || c === 5 || c === 7) || (r === 1 && c === 1)) : (h >> 16) % 2 === 0;
+    qr += on ? '<i class="on"></i>' : "<i></i>"; }
+  $("qr").innerHTML = qr;
+
+  // Stair-stepped glitch band
+  const steps = [[14, 70], [9, 150], [18, 40], [7, 210], [12, 110], [16, 180], [10, 60], [14, 258]];
+  $("glitch").innerHTML = steps.map(([w, hh]) => '<div class="s" style="width:' + w + '%;height:' + hh + 'px"></div>').join("");
+
+  function fit() {
+    const el = $("title");
+    const len = (D.title || "").length;
+    let size = len <= 24 ? 150 : len <= 36 ? 128 : len <= 48 ? 112 : 98;
+    const maxH = items.length >= 5 ? 360 : items.length === 4 ? 420 : 480;
+    el.style.fontSize = size + "px";
+    while (el.offsetHeight > maxH && size > 80) { size -= 4; el.style.fontSize = size + "px"; }
+  }
+  fit(); fitVals();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { fit(); fitVals(); });
+</script>
+</body>
+</html>

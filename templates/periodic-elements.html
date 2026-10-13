@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Unsur AI, hook</title>
+<!--
+  Style: "Unsur AI". A periodic table of elements on deep navy: the real
+  18-group silhouette drawn as faint outlined tiles (true element symbols),
+  with the data's items placed as filled "new elements" in 2-3 category
+  colours (blue family + one warm amber). The featured item is pulled out as
+  an enlarged element key card, joined to its slot by a thin leader line.
+  `hl` becomes an element-symbol chip inside the title.
+  Signature move (video, not animated here): the faint table fades in row by
+  row, then each item tile "ignites" (fills with colour) in atomic-number
+  order; the featured tile lifts out of its slot and travels down the leader
+  line, growing into the key card while its mass value counts up.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<!--DATA-->
+<style>
+  :root {
+    --navy: #0A1430; --navy2: #0F1D42; --line: rgba(150,180,255,.20); --faint: rgba(170,195,255,.30);
+    --text: #F2F5FC; --muted: #B9C7E6;
+    --amber: #F2A93B; --blue: #2A5FE8; --sky: #9CC2FF;
+    --sans: "Inter Tight", "Segoe UI", Arial, sans-serif;
+    --mono: "JetBrains Mono", Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; }
+  body { position: relative; background: var(--navy); color: var(--text); font-family: var(--sans);
+    background-image: radial-gradient(1100px 900px at 50% 45%, #13265A 0%, rgba(10,20,48,0) 70%),
+      linear-gradient(180deg, #0C1838, #08112A); }
+  .abs { position: absolute; }
+
+  #col { position: absolute; left: 90px; top: 296px; width: 900px; height: 1330px; display: flex; flex-direction: column; justify-content: space-between; }
+  .meta { display: flex; justify-content: space-between; font: 500 28px/1 var(--mono); color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+  .meta b { color: var(--amber); font-weight: 700; }
+
+  h1 { font: 800 86px/1.04 var(--sans); letter-spacing: -.025em; color: var(--text); }
+  h1 .hl { position: relative; display: inline-block; color: var(--amber); border: 4px solid var(--amber); border-radius: 8px;
+    padding: 0 .12em .02em; line-height: .98; background: rgba(242,169,59,.10); white-space: nowrap; }
+  h1 .hl i { display: inline-block; vertical-align: top; margin: .14em .14em 0 0; font: 700 28px/1 var(--mono); font-style: normal;
+    color: var(--amber); letter-spacing: 0; }
+  .sub { font: 500 40px/1.3 var(--sans); color: var(--muted); margin-top: 18px; max-width: 880px; }
+
+  .tablehead { display: flex; justify-content: space-between; align-items: baseline; font: 700 28px/1 var(--mono);
+    color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 12px; }
+  .tablehead span:last-child { color: var(--faint); font-weight: 500; }
+  #grid { position: relative; width: 896px; height: 346px; }
+  .t { position: absolute; width: 46px; height: 46px; border: 1.5px solid var(--line); border-radius: 3px;
+    font: 600 17px/43px var(--sans); text-align: center; color: var(--faint); }
+  .t.ph { font: 500 12px/43px var(--mono); border-style: dashed; }
+  .t.on { border: none; font: 800 22px/46px var(--sans); color: #fff; box-shadow: 0 0 0 2px rgba(10,20,48,1); }
+  .t.on.k-main { background: var(--amber); color: var(--navy); box-shadow: 0 0 0 3px var(--navy), 0 0 0 5px var(--amber); }
+  .t.on.k-num { background: var(--blue); }
+  .t.on.k-con { background: var(--sky); color: var(--navy); }
+
+  #detail { display: flex; gap: 24px; height: 410px; width: 810px; } /* stays left of the TikTok button column */
+  .key { width: 370px; flex: none; background: var(--amber); color: var(--navy); border-radius: 10px; padding: 22px 26px 22px;
+    display: flex; flex-direction: column; position: relative; box-shadow: 0 18px 40px rgba(0,0,0,.35); }
+  .key .top { display: flex; justify-content: space-between; font: 700 34px/1 var(--mono); }
+  .key .top span:last-child { font: 700 26px/1.3 var(--mono); opacity: .75; letter-spacing: .06em; }
+  .key .sym { font: 800 168px/.9 var(--sans); letter-spacing: -.04em; margin-top: 16px; }
+  .key .nm { font: 700 40px/1.08 var(--sans); margin-top: auto; }
+  .key .ms { font: 700 36px/1 var(--mono); margin-top: 10px; }
+  .key .ms small { font: 500 26px var(--mono); opacity: .7; margin-right: 8px; }
+
+  .rest { flex: 1; display: grid; gap: 20px; }
+  .el { border-radius: 8px; padding: 14px 16px 14px; display: flex; flex-direction: column; position: relative; overflow: hidden; }
+  .el .z { font: 700 28px/1 var(--mono); }
+  .el .s { font: 800 72px/.95 var(--sans); letter-spacing: -.03em; margin-top: 4px; }
+  .el .n { font: 600 30px/1.1 var(--sans); margin-top: auto; }
+  .el .m { font: 700 30px/1.1 var(--mono); margin-top: 6px; }
+  .el:not(.wide) .z { position: absolute; top: 14px; right: 16px; }
+  .el:not(.wide) .s { font-size: 66px; margin-top: 0; }
+  .el:not(.wide) .m { font: 700 30px/1.1 var(--sans); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .el.wide { flex-direction: row; align-items: center; gap: 22px; padding: 16px 22px; }
+  .el.wide .s { font-size: 96px; width: 130px; flex: none; margin: 0; }
+  .el.wide .txt { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .el.wide .z { position: absolute; top: 14px; right: 18px; }
+  .k-num { background: var(--blue); color: #fff; }
+  .k-con { background: var(--sky); color: var(--navy); }
+  .el.next { border: 2px dashed var(--faint); color: var(--muted); background: rgba(150,180,255,.04); }
+  .el.next .s { color: rgba(185,199,230,.45); }
+  .fblock { position: absolute; left: 190px; top: 1676px; width: 746px; height: 96px; }
+
+  .legend { display: flex; gap: 34px; align-items: center; font: 600 30px/1 var(--sans); color: var(--text); }
+  .legend i { display: inline-block; width: 28px; height: 28px; border-radius: 4px; margin-right: 12px; vertical-align: -4px; }
+  .src { font: 500 26px/1.3 var(--mono); color: var(--muted); margin-top: 14px; }
+  #wire { position: absolute; left: 0; top: 0; pointer-events: none; }
+</style>
+</head>
+<body>
+<svg id="wire" width="1080" height="1920"></svg>
+<div class="fblock" id="fblock"></div>
+<div id="col">
+  <div class="meta"><span id="kicker"></span><span id="date"></span></div>
+  <div><h1 id="title"></h1><div class="sub" id="sub"></div></div>
+  <div><div class="tablehead"><span>Tabel unsur AI</span><span>Gol. 1–18</span></div><div id="grid"></div></div>
+  <div id="detail"></div>
+  <div><div class="legend" id="legend"></div><div class="src" id="src"></div></div>
+</div>
+
+<script>
+(function () {
+  const FALLBACK = {
+    series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [ { label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" },
+             { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" } ],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026"
+  };
+  const D = window.D && window.D.title ? window.D : FALLBACK;
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const items = (D.items || []).slice(0, 5);
+
+  // periodic table skeleton (main block, f-block collapsed into placeholders)
+  const SYM = ("H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr " +
+    "Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe Cs Ba La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu " +
+    "Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi Po At Rn Fr Ra Ac Th Pa U Np Pu Am Cm Bk Cf Es Fm Md No Lr " +
+    "Rf Db Sg Bh Hs Mt Ds Rg Cn Nh Fl Mc Lv Ts Og").split(" ");
+  const cells = {}; // "p,g" -> {z, sym} | {ph}
+  const put = (p, g, z) => { cells[p + "," + g] = { z, sym: SYM[z - 1] }; };
+  put(1, 1, 1); put(1, 18, 2);
+  [2, 3].forEach((p, i) => { const b = i ? 11 : 3; put(p, 1, b); put(p, 2, b + 1); for (let g = 13; g <= 18; g++) put(p, g, b + 2 + g - 13); });
+  [4, 5].forEach((p, i) => { const b = i ? 37 : 19; for (let g = 1; g <= 18; g++) put(p, g, b + g - 1); });
+  [6, 7].forEach((p, i) => { const b = i ? 87 : 55; put(p, 1, b); put(p, 2, b + 1);
+    cells[p + ",3"] = { ph: i ? "89–103" : "57–71" }; for (let g = 4; g <= 18; g++) put(p, g, b + 13 + g); });
+
+  // item slots spread across the table (never in group 17-18 rows 5-7: right-side UI zone)
+  const SLOTS = [[4, 5], [2, 14], [5, 9], [3, 2], [6, 12]];
+
+  // derive a 1-2 letter element symbol from a label
+  const STOP = ["per", "dan", "di", "ke", "yang", "dari", "of", "the"];
+  const used = new Set();
+  function symbolOf(label) {
+    const words = String(label).replace(/[·.\-–—'"]/g, "").split(/\s+/).filter(Boolean);
+    const sig = words.filter(w => !STOP.includes(w.toLowerCase()));
+    const w = (sig.length ? sig : words);
+    const first = w[0] || "X";
+    const cands = [];
+    if (w.length > 1) cands.push(first[0] + w[w.length - 1][0], first[0] + w[1][0]);
+    for (let i = 1; i < first.length; i++) cands.push(first[0] + first[i]);
+    cands.push(first[0]);
+    for (const c of cands) { const s = c[0].toUpperCase() + c.slice(1).toLowerCase(); if (!used.has(s)) { used.add(s); return s; } }
+    return first[0].toUpperCase();
+  }
+
+  // featured = item whose label matches hl, else first
+  const hl = String(D.hl || "").toLowerCase();
+  let fi = items.findIndex(it => hl && (String(it.label).toLowerCase().includes(hl) || hl.includes(String(it.label).toLowerCase())));
+  if (fi < 0) fi = 0;
+  const els = items.map((it, i) => {
+    const slot = SLOTS[i];
+    const cat = i === fi ? "main" : (/\d/.test(String(it.value)) ? "num" : "con");
+    return { ...it, sym: symbolOf(it.label), z: cells[slot.join(",")].z, slot, cat };
+  });
+  const CAT = { main: ["Unsur utama", "var(--amber)"], num: ["Terukur", "var(--blue)"], con: ["Konsep", "var(--sky)"] };
+
+  // header
+  document.getElementById("kicker").textContent = D.kicker || [D.series, D.ep].filter(Boolean).join(" · ");
+  document.getElementById("date").innerHTML = esc(String(D.date || ""));
+  const F = els[fi];
+  let t = esc(D.title || "");
+  if (D.hl && (D.title || "").includes(D.hl)) t = t.replace(esc(D.hl), `<span class="hl"><i>${F ? F.z : ""}</i>${esc(D.hl)}</span>`);
+  const h1 = document.getElementById("title");
+  h1.innerHTML = t;
+  document.getElementById("sub").textContent = D.sub || "";
+
+  // grid
+  const grid = document.getElementById("grid");
+  const onMap = {}; els.forEach(e => onMap[e.slot.join(",")] = e);
+  let g = "";
+  for (const key in cells) {
+    const [p, gr] = key.split(",").map(Number), c = cells[key], e = onMap[key];
+    const x = (gr - 1) * 50, y = (p - 1) * 50;
+    if (e) g += `<div class="t on k-${e.cat}" id="${e.cat === "main" ? "fslot" : ""}" style="left:${x}px;top:${y}px">${esc(e.sym)}</div>`;
+    else if (c.ph) g += `<div class="t ph" style="left:${x}px;top:${y}px"></div>`;
+    else g += `<div class="t" style="left:${x}px;top:${y}px">${c.sym}</div>`;
+  }
+  grid.innerHTML = g;
+
+  // detail: key card + remaining element tiles
+  const others = els.filter((_, i) => i !== fi);
+  const wide = others.length <= 2;
+  const tile = e => wide
+    ? `<div class="el wide k-${e.cat}"><span class="z">${e.z}</span><span class="s">${esc(e.sym)}</span>
+         <span class="txt"><span class="n">${esc(e.label)}</span><span class="m">${esc(e.value)}</span></span></div>`
+    : `<div class="el k-${e.cat}"><span class="z">${e.z}</span><span class="s">${esc(e.sym)}</span>
+         <span class="n">${esc(e.label)}</span><span class="m">${esc(e.value)}</span></div>`;
+  const rows = wide ? Math.max(others.length, 1) : 2;
+  document.getElementById("detail").innerHTML = F ? `
+    <div class="key" id="key"><div class="top"><span>${F.z}</span><span>${esc((D.ep || "").replace("#", "NO. "))}</span></div>
+      <div class="sym">${esc(F.sym)}</div><div class="nm">${esc(F.label)}</div>
+      <div class="ms"><small>massa</small>${esc(F.value)}</div></div>
+    <div class="rest" style="grid-template-columns:${wide ? "1fr" : "1fr 1fr"};grid-template-rows:repeat(${rows},1fr)">${others.map(tile).join("")}${!wide && others.length === 3 ? `<div class="el next"><span class="z">?</span><span class="s">?</span><span class="n">Unsur berikutnya</span></div>` : ""}</div>` : "";
+
+  // f-block (lanthanides/actinides) as faint decoration below the safe zone
+  let fb = "";
+  for (let r = 0; r < 2; r++) for (let k = 0; k < 15; k++)
+    fb += `<div class="t" style="left:${k * 50}px;top:${r * 50}px">${SYM[(r ? 88 : 56) + k]}</div>`;
+  document.getElementById("fblock").innerHTML = fb;
+
+  // legend: only categories present
+  const present = ["main", "num", "con"].filter(k => els.some(e => e.cat === k));
+  document.getElementById("legend").innerHTML = present.map(k => `<span><i style="background:${CAT[k][1]}"></i>${CAT[k][0]}</span>`).join("");
+  document.getElementById("src").textContent = D.source ? "Sumber: " + D.source : "";
+
+  // small tiles: shrink the symbol if a two-line label would push the value out
+  document.querySelectorAll(".el:not(.wide)").forEach(el => {
+    const sy = el.querySelector(".s"); let f = 66;
+    while (el.scrollHeight > el.clientHeight + 1 && f > 44) { f -= 4; sy.style.fontSize = f + "px"; }
+  });
+
+  // fit title so the column never overflows
+  const col = document.getElementById("col");
+  let fs = 86;
+  const overflow = () => Array.from(col.children).reduce((a, c) => a + c.offsetHeight, 0) > col.clientHeight - 60;
+  while ((overflow() || h1.offsetHeight > fs * 1.04 * 3 + 8) && fs > 66) { fs -= 2; h1.style.fontSize = fs + "px"; }
+
+  // leader line from featured slot to key card
+  const a = document.getElementById("fslot"), b = document.getElementById("key");
+  if (a && b) {
+    const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+    // run the leader through the 4px gutter left of the slot so it never crosses tile symbols
+    const x1 = ra.left + ra.width / 2, y1 = ra.bottom + 2, gx = ra.left - 2, y2 = rb.top - 2;
+    const x2 = Math.min(Math.max(gx, rb.left + 40), rb.right - 40);
+    document.getElementById("wire").innerHTML =
+      `<path d="M${x1} ${y1} V${y1 + 1} H${gx} V${y2 - 22} H${x2} V${y2}" fill="none" stroke="#F2A93B" stroke-width="3" stroke-dasharray="2 8" stroke-linecap="round"/>
+       <circle cx="${x2}" cy="${y2 - 4}" r="6" fill="#F2A93B"/>`;
+  }
+})();
+</script>
+</body>
+</html>

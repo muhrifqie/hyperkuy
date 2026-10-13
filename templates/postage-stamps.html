@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&family=Cormorant+SC:wght@700&family=IBM+Plex+Mono:wght@400;500&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Lembar Perangko (g2-lembar-perangko): one complete sheet of commemorative
+    stamps, as a philatelist would keep it. The sheet is the object: lined
+    selvedge (margin) with the issue title printed in Caslon, plate number and
+    sheet number in mono, colour-registration blocks, perforation teeth on
+    every stamp edge (holes punched through to the darker table underneath).
+    Every item is a stamp: label = engraved capitals along the top edge,
+    value = the denomination in the bottom-right corner, series name engraved
+    vertically on the left edge, vignette = a simple one-ink line ornament.
+    All stamps are printed in ONE blue ink; the `hl` stamp is the "colour
+    variant" printed in the second (red) ink, cancelled by a black postmark
+    (date ring + wavy killer bars crossing into the neighbouring stamp) and
+    lifted off the sheet along a torn perforation, leaving its shadow.
+
+    Signature move (video, not animated here): the postmark slams onto the hl
+    stamp (scale 1.35 to 1, rotate -8deg, ease-in, slight ink bleed), the wavy
+    bars extend across two stamps, then the perforation tears and the stamp
+    lifts 2.5D leaving its shadow on the gum.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #F4F1E8; }
+  body { position: relative; color: #1E3F8A; font-family: "Libre Caslon Display", serif; }
+
+  /* top strip: series/kicker + date, like a collector's album caption */
+  .hdr { position: absolute; left: 90px; right: 90px; top: 300px; display: flex; justify-content: space-between; align-items: baseline;
+    font: 500 28px "IBM Plex Mono", monospace; color: #1E3F8A; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
+
+  /* the sheet: gum paper, slightly whiter than the table it lies on */
+  .sheet { position: absolute; left: 90px; top: 372px; width: 900px; height: 1130px; background: #F8F6EF;
+    box-shadow: 0 2px 0 #E3DFD2, 0 14px 30px rgba(30,40,60,.14); }
+  .sheet .grain { position: absolute; inset: 0; opacity: .5; pointer-events: none; }
+  /* selvedge rules: a thin frame line inset from the sheet edge */
+  .sheet .rule { position: absolute; left: 26px; right: 26px; top: 26px; bottom: 26px; border: 1.5px solid #1E3F8A; opacity: .55; }
+  .sheet .rule2 { position: absolute; left: 32px; right: 32px; top: 32px; bottom: 32px; border: 0.75px solid #1E3F8A; opacity: .35; }
+
+  /* issue title in the top selvedge */
+  .issue { position: absolute; left: 54px; right: 54px; top: 48px; font: 400 80px/1.08 "Libre Caslon Display", serif; color: #1E3F8A; letter-spacing: -0.01em; }
+  .issue .hl { color: #D23A2B; }
+
+  /* plate blocks: colour-registration squares + plate number above the grid, edition on the right */
+  .plate { position: absolute; font: 500 24px "IBM Plex Mono", monospace; color: #1E3F8A; letter-spacing: 0.08em; display: flex; align-items: center; gap: 10px; }
+  .plate i { display: inline-block; width: 22px; height: 22px; background: #1E3F8A; }
+  .plate i.r { background: #D23A2B; }
+
+  /* grid of stamps; the grid background is the table showing through the perforation holes */
+  .grid { position: absolute; left: 60px; top: 0; display: grid; gap: 0; background: #C9C2AD; }
+  .cell { position: relative; }
+
+  /* one stamp: perforated via clip-path (evenodd rect minus edge holes), engraved frame inside */
+  .st { position: absolute; inset: 0; background: #FBFAF5; color: #1E3F8A; }
+  .st .frame { position: absolute; inset: 18px; border: 2.5px solid currentColor; }
+  .st .frame2 { position: absolute; inset: 25px; border: 1px solid currentColor; }
+  .st .lbl { position: absolute; left: 34px; right: 34px; top: 32px; text-align: center; font: 700 34px/1 "Cormorant SC", serif; letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap; }
+  .st .vig { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -46%); }
+  .st .val { position: absolute; right: 38px; bottom: 32px; font: 400 56px/1 "Libre Caslon Display", serif; letter-spacing: -0.01em; white-space: nowrap; }
+  .st .country { position: absolute; left: 46px; top: 50%; transform: translate(-50%, -50%) rotate(-90deg); white-space: nowrap;
+    font: 700 22px/1 "Cormorant SC", serif; letter-spacing: 0.16em; text-transform: uppercase; }
+  .st.blank .frame { opacity: .35; } .st.blank .frame2 { opacity: .25; }
+  .st.blank .tab { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); text-align: center;
+    font: 700 26px "Cormorant SC", serif; letter-spacing: 0.2em; text-transform: uppercase; opacity: .5; }
+
+  /* hl stamp: second ink, lifted 2.5D off the sheet */
+  .cell.hl .st { color: #D23A2B; transform: translate(10px, -8px) rotate(-2.2deg); }
+  .cell.hl .shadow { position: absolute; inset: 0; background: rgba(20,24,40,.32); filter: blur(10px); transform: translate(4px, 8px) rotate(-2.2deg); }
+
+  /* postmark: black ring + wavy killer bars, drawn with slight ink bleed */
+  .pm { position: absolute; pointer-events: none; }
+  .pm text { font-family: "IBM Plex Mono", monospace; font-weight: 500; fill: #1A1A1A; letter-spacing: 0.08em; }
+
+  /* bottom selvedge: supporting sentence; below the sheet: source + sheet number */
+  .sub { position: absolute; left: 60px; right: 60px; font: italic 400 40px/1.3 "Libre Caslon Display", serif; color: #1E3F8A; }
+  .foot { position: absolute; left: 90px; right: 90px; top: 1540px; display: flex; justify-content: space-between; gap: 30px;
+    font: 400 26px/1.4 "IBM Plex Mono", monospace; color: #1E3F8A; }
+  .foot .src { max-width: 640px; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- paper grain for the gum side; seeded so the render is deterministic -->
+    <filter id="paper" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="11" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.2  0 0 0 0 0.18  0 0 0 0 0.1  0 0 0 0.10 0"/>
+    </filter>
+    <!-- ink bleed for the postmark: tiny displacement + soft edge -->
+    <filter id="bleed" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.08" numOctaves="2" seed="4" result="t"/>
+      <feDisplacementMap in="SourceGraphic" in2="t" scale="2.2" xChannelSelector="R" yChannelSelector="G" result="d"/>
+      <feGaussianBlur in="d" stdDeviation="0.35"/>
+    </filter>
+  </defs>
+</svg>
+
+<div class="hdr"><span id="kick"></span><span id="date"></span></div>
+
+<div class="sheet" id="sheet">
+  <svg class="grain" width="900" height="1130"><rect width="900" height="1130" filter="url(#paper)"/></svg>
+  <div class="rule"></div><div class="rule2"></div>
+  <div class="issue" id="issue"></div>
+  <div class="plate" id="plateL"></div>
+  <div class="plate" id="plateR"></div>
+  <div class="grid" id="grid"></div>
+  <div class="sub" id="sub"></div>
+</div>
+<div class="foot"><span class="src" id="src"></span><span id="sheetno"></span></div>
+
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "AI dalam angka", ep: "#01", kicker: "AI dalam angka · #01",
+    title: "1 chat ke AI = oven nyala 1 detik", hl: "1 detik",
+    sub: "Kecil? Kalikan miliaran chat tiap hari.",
+    items: [{ label: "Listrik per chat", value: "0,34 Wh" }, { label: "Setara oven", value: "±1 dtk" }, { label: "Chat per hari", value: "miliaran" }],
+    source: "klaim OpenAI, Jun 2025", date: "per 14 Okt 2026" };
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const hash = (s) => [...String(s)].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+  const items = (D.items || []).slice(0, 5);
+  const hl = String(D.hl || "");
+
+  /* ---------- header / meta ---------- */
+  document.getElementById("kick").textContent = D.kicker || [D.series, D.ep].filter(Boolean).join(" · ");
+  document.getElementById("date").textContent = D.date || "";
+  document.getElementById("src").textContent = D.source ? `sumber: ${D.source}` : "";
+  const sheetNo = String(hash(D.title + D.date) % 900000 + 100000);
+  document.getElementById("sheetno").textContent = `No. ${sheetNo}`;
+  const subEl = document.getElementById("sub");
+  subEl.textContent = D.sub || "";
+
+  /* ---------- issue title in the top selvedge, hl in the second ink ---------- */
+  const titleHtml = (t, h) => {
+    const i = h ? t.indexOf(h) : -1;
+    if (i < 0) return esc(t);
+    return esc(t.slice(0, i)) + `<span class="hl">${esc(h)}</span>` + esc(t.slice(i + h.length));
+  };
+  const issue = document.getElementById("issue");
+  issue.innerHTML = titleHtml(String(D.title || ""), hl);
+
+  /* ---------- which stamp is the hl stamp: label/value containing hl, else the digits of hl, else the first ---------- */
+  const low = (s) => String(s || "").toLowerCase();
+  let hlIdx = items.findIndex((it) => hl && (low(it.label).includes(low(hl)) || low(it.value).includes(low(hl))));
+  if (hlIdx < 0 && hl) { const num = (hl.match(/\d+/) || [])[0]; if (num) hlIdx = items.findIndex((it) => String(it.value).includes(num)); }
+  if (hlIdx < 0) hlIdx = 0;
+
+  /* ---------- vertical budget inside the sheet: title first, sub last, stamps take what is left ---------- */
+  const SHEET_H = 1130, TITLE_TOP = 48, GAP_T = 56, GAP_B = 30, PAD_B = 56;
+  let fs = 80;
+  const fitTitle = () => { fs = 80; issue.style.fontSize = fs + "px"; while (issue.scrollHeight > 3 * fs * 1.08 + 4 && fs > 56) { fs -= 2; issue.style.fontSize = fs + "px"; } };
+
+  /* ---------- stamp grid: 2 columns; 2 rows for up to 4 items, 3 rows for 5; empty cells stay blank stamps ---------- */
+  const COLS = 2, ROWS = items.length > 4 ? 3 : 2;
+  const CELL_W = 390;                                   // grid is 780 wide inside the 900 sheet (60 selvedge each side)
+  let CELL_H = 392, STW = CELL_W, STH = CELL_H, clip = "";
+  const grid = document.getElementById("grid");
+
+  // perforation: evenodd path = outer rect minus a row of holes along every edge (neighbours share the hole row)
+  const perfPath = (w, h, r = 8, pitch = 26) => {
+    const circ = (cx, cy) => `M${cx - r} ${cy} a${r} ${r} 0 1 0 ${2 * r} 0 a${r} ${r} 0 1 0 ${-2 * r} 0 Z`;
+    let p = `M0 0 H${w} V${h} H0 Z`;
+    const nx = Math.round(w / pitch), ny = Math.round(h / pitch);
+    for (let i = 0; i <= nx; i++) { const x = (w * i) / nx; p += circ(x, 0) + circ(x, h); }
+    for (let j = 1; j < ny; j++) { const y = (h * j) / ny; p += circ(0, y) + circ(w, y); }
+    return p;
+  };
+
+  // vignette: a simple single-ink line ornament chosen deterministically per stamp (never a coloured icon)
+  const vignette = (k, size) => {
+    const s = size, c = s / 2, kind = k % 4;
+    let body = "";
+    if (kind === 0) {              // rosette: concentric circles with a four-petal ellipse rose
+      for (let i = 0; i < 4; i++) body += `<circle cx="${c}" cy="${c}" r="${c - 4 - i * 9}" fill="none" stroke="currentColor" stroke-width="${i === 0 ? 1.8 : 1}"/>`;
+      for (let i = 0; i < 4; i++) body += `<ellipse cx="${c}" cy="${c}" rx="${c * 0.55}" ry="${c * 0.2}" fill="none" stroke="currentColor" stroke-width="1.2" transform="rotate(${i * 45} ${c} ${c})"/>`;
+      body += `<circle cx="${c}" cy="${c}" r="${c * 0.1}" fill="currentColor"/>`;
+    } else if (kind === 1) {       // engraved sunburst: radial hairlines inside a ring
+      body += `<circle cx="${c}" cy="${c}" r="${c - 4}" fill="none" stroke="currentColor" stroke-width="1.6"/>`;
+      for (let i = 0; i < 36; i++) { const a = (i * 10 * Math.PI) / 180; const r0 = i % 3 === 0 ? c * 0.32 : c * 0.55, r1 = c - 9;
+        body += `<line x1="${c + Math.cos(a) * r0}" y1="${c + Math.sin(a) * r0}" x2="${c + Math.cos(a) * r1}" y2="${c + Math.sin(a) * r1}" stroke="currentColor" stroke-width="1.2"/>`; }
+      body += `<circle cx="${c}" cy="${c}" r="${c * 0.22}" fill="currentColor"/>`;
+    } else if (kind === 2) {       // lozenge with hatching (engraver's shading)
+      body += `<clipPath id="lz${k}"><path d="M${c} 4 L${s - 4} ${c} L${c} ${s - 4} L4 ${c} Z"/></clipPath>`;
+      body += `<path d="M${c} 4 L${s - 4} ${c} L${c} ${s - 4} L4 ${c} Z" fill="none" stroke="currentColor" stroke-width="1.8"/>`;
+      for (let i = 1; i < 12; i++) { const t = (i / 12) * (s - 8) + 4; body += `<line x1="4" y1="${t}" x2="${s - 4}" y2="${t}" stroke="currentColor" stroke-width="0.9" clip-path="url(#lz${k})"/>`; }
+      body += `<circle cx="${c}" cy="${c}" r="${c * 0.26}" fill="#FBFAF5" stroke="currentColor" stroke-width="1.6"/>`;
+    } else {                       // laurel ring: short arcs around a solid disc
+      body += `<circle cx="${c}" cy="${c}" r="${c * 0.42}" fill="currentColor"/>`;
+      for (let i = 0; i < 24; i++) { const a = (i * 15 * Math.PI) / 180, r0 = c * 0.6, r1 = c - 6;
+        body += `<path d="M${c + Math.cos(a) * r0} ${c + Math.sin(a) * r0} Q${c + Math.cos(a + 0.18) * (r0 + r1) / 2} ${c + Math.sin(a + 0.18) * (r0 + r1) / 2} ${c + Math.cos(a) * r1} ${c + Math.sin(a) * r1}" fill="none" stroke="currentColor" stroke-width="1.4"/>`; }
+    }
+    return `<svg width="${s}" height="${s}" viewBox="0 0 ${s} ${s}">${body}</svg>`;
+  };
+
+  const country = (D.series || D.kicker || "").toUpperCase();
+  const buildGrid = () => {
+    STW = CELL_W; STH = CELL_H;
+    clip = `path(evenodd, "${perfPath(STW, STH)}")`;
+    grid.style.gridTemplateColumns = `repeat(${COLS}, ${CELL_W}px)`;
+    grid.style.gridTemplateRows = `repeat(${ROWS}, ${CELL_H}px)`;
+    const vs = Math.round(Math.min(STH * 0.4, 150));
+    const cells = [];
+    for (let i = 0; i < COLS * ROWS; i++) {
+      const it = items[i];
+      const inner = it
+        ? `<div class="lbl">${esc(it.label)}</div><div class="vig">${vignette(i + hash(it.label), vs)}</div><div class="country">${esc(country)}</div><div class="val">${esc(it.value)}</div>`
+        : `<div class="tab">${esc(country)}</div>`;
+      const isHl = it && i === hlIdx;
+      cells.push(`<div class="cell${isHl ? " hl" : ""}">${isHl ? `<div class="shadow" style="clip-path:${clip}"></div>` : ""}<div class="st${it ? "" : " blank"}" style="clip-path:${clip}"><div class="frame"></div><div class="frame2"></div>${inner}</div></div>`);
+    }
+    grid.innerHTML = cells.join("");
+  };
+
+  /* ---------- postmark over the hl stamp ---------- */
+  const sheet = document.getElementById("sheet");
+  const placePostmark = (gridTop) => {
+    document.querySelectorAll(".pm").forEach((e) => e.remove());
+    const col = hlIdx % COLS, row = Math.floor(hlIdx / COLS);
+    const R = Math.round(Math.min(96, CELL_H * 0.27));     // ring radius
+    const dir = col === 0 ? 1 : -1;                        // killer bars run away from the sheet edge, across the neighbour
+    // ring centre: right half of the stamp (left half when the stamp is in the right column), between label and value
+    const cx = 60 + col * CELL_W + CELL_W * (col === 0 ? 0.64 : 0.36), cy = gridTop + row * CELL_H + CELL_H * 0.46;
+    const barLen = CELL_W * 1.12;
+    const bars = [];
+    for (let k = -3; k <= 3; k++) {
+      const y = cy + k * (R * 0.26); const amp = 7, wl = 46;
+      let d = `M${cx + dir * (R + 6)} ${y}`;
+      for (let x = 0; x <= barLen; x += wl / 2) d += ` Q${cx + dir * (R + 6 + x + wl / 4)} ${y + ((x / (wl / 2)) % 2 === 0 ? -amp : amp)} ${cx + dir * (R + 6 + x + wl / 2)} ${y}`;
+      bars.push(`<path d="${d}" fill="none" stroke="#1A1A1A" stroke-width="${k === 0 ? 5 : 4}" stroke-linecap="round" opacity=".88"/>`);
+    }
+    const dateTxt = (D.date || "").replace(/^per\s+/i, "").toUpperCase();
+    const seriesTxt = (D.series || "POS").toUpperCase();
+    const small = R < 100;
+    const svg = `<svg class="pm" width="900" height="${SHEET_H}" viewBox="0 0 900 ${SHEET_H}" style="left:0;top:0;position:absolute" filter="url(#bleed)">
+      <g transform="rotate(-8 ${cx} ${cy})" opacity=".92">
+        <circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#1A1A1A" stroke-width="5"/>
+        <circle cx="${cx}" cy="${cy}" r="${R - 12}" fill="none" stroke="#1A1A1A" stroke-width="2.5"/>
+        <defs>
+          <path id="arcT" d="M${cx - (R - 30)} ${cy} A${R - 30} ${R - 30} 0 1 1 ${cx + (R - 30)} ${cy}"/>
+          <path id="arcB" d="M${cx - (R - 30)} ${cy} A${R - 30} ${R - 30} 0 1 0 ${cx + (R - 30)} ${cy}"/>
+        </defs>
+        <text font-size="${small ? 19 : 23}"><textPath href="#arcT" startOffset="50%" text-anchor="middle">${esc(seriesTxt)}</textPath></text>
+        <text font-size="${small ? 19 : 23}"><textPath href="#arcB" startOffset="50%" text-anchor="middle">${esc(D.ep || "")} DIPAKAI</textPath></text>
+        <line x1="${cx - R * 0.55}" y1="${cy - 18}" x2="${cx + R * 0.55}" y2="${cy - 18}" stroke="#1A1A1A" stroke-width="2"/>
+        <line x1="${cx - R * 0.55}" y1="${cy + 20}" x2="${cx + R * 0.55}" y2="${cy + 20}" stroke="#1A1A1A" stroke-width="2"/>
+        <text x="${cx}" y="${cy + 9}" text-anchor="middle" font-size="${small ? 21 : 26}">${esc(dateTxt)}</text>
+      </g>
+      ${bars.join("")}
+    </svg>`;
+    sheet.insertAdjacentHTML("beforeend", svg);
+  };
+
+  /* ---------- fit stamp labels and values inside their stamp ---------- */
+  const fit = () => {
+    document.querySelectorAll(".st .lbl").forEach((el) => { let f = 34; el.style.fontSize = f + "px"; el.style.letterSpacing = "0.12em"; const max = STW - 68;
+      while (el.scrollWidth > max && f > 30) { f -= 1; el.style.fontSize = f + "px"; }
+      if (el.scrollWidth > max) el.style.letterSpacing = "0.04em";
+      while (el.scrollWidth > max && f > 26) { f -= 1; el.style.fontSize = f + "px"; } });
+    document.querySelectorAll(".st .val").forEach((el) => { let f = STH < 300 ? 46 : 56; el.style.fontSize = f + "px"; const max = STW - 38 - 70;
+      while (el.scrollWidth > max && f > 40) { f -= 2; el.style.fontSize = f + "px"; } });
+  };
+
+  const layout = () => {
+    fitTitle();
+    const titleBottom = TITLE_TOP + issue.offsetHeight;
+    const gridTop = titleBottom + GAP_T;
+    subEl.style.fontSize = "40px";
+    const subH = subEl.offsetHeight;
+    const avail = SHEET_H - PAD_B - subH - GAP_B - gridTop;
+    CELL_H = Math.min(ROWS === 3 ? 262 : 392, Math.floor(avail / ROWS));
+    buildGrid();
+    grid.style.top = gridTop + "px";
+    subEl.style.top = (gridTop + ROWS * CELL_H + GAP_B) + "px";
+    // plate number + registration blocks above the grid in the left selvedge, edition on the right
+    const pl = document.getElementById("plateL"), pr = document.getElementById("plateR");
+    pl.innerHTML = `<i></i><i class="r"></i><span>PL ${String(hash(D.title) % 9 + 1)}</span>`;
+    pr.innerHTML = `<span>EDISI ${esc(D.ep || "")}</span>`;
+    pl.style.left = "60px"; pl.style.top = (gridTop - 44) + "px";
+    pr.style.right = "60px"; pr.style.top = (gridTop - 44) + "px";
+    placePostmark(gridTop);
+    fit();
+  };
+  layout();
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(layout);
+</script>
+</body>
+</html>

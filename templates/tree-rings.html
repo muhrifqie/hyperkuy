@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Lingkar Tahun, hook</title>
+<!--
+  Style: "Lingkar Tahun" (tree-ring cross section in a museum, dendrochronology).
+  A slice of trunk: organic rings growing from an off-centre pith, bark at the
+  rim, a radial ruler laid from the pith to the edge, pin tags on the rings that
+  matter. Items become rings: thickness = value, the hl ring is the only blue one.
+  Signature move (video version, not animated here): rings grow outward one by
+  one, the ruler is laid down, pins drop onto the discussed rings while the cm
+  numbers roll along the ruler. Rings are deliberately irregular so it never
+  reads as a donut chart.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!--DATA-->
+<style>
+  :root {
+    --bg: #E9E2D6; --ink: #2B2420; --acc: #1D4ED8; --wood: #D9C6A8; --dark: #8C6A48; --bark: #5E4430;
+    --grot: "Schibsted Grotesk", Arial, sans-serif;
+    --mono: "DM Mono", Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; }
+  body { position: relative; background: var(--bg); color: var(--ink); font-family: var(--grot); }
+  svg.scene { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  .kicker { position: absolute; left: 90px; right: 90px; top: 306px; display: flex; justify-content: space-between;
+    font: 400 28px/1 var(--mono); letter-spacing: .04em; text-transform: uppercase; }
+  .title { position: absolute; left: 90px; top: 366px; width: 900px; font-weight: 700; line-height: .98; letter-spacing: -.025em; }
+  .title .hl { color: var(--acc); }
+
+  /* museum pin tags, absolutely placed by script */
+  .tag { position: absolute; height: 54px; padding: 0 16px; display: flex; align-items: center; gap: 14px; white-space: nowrap;
+    background: #F6F0E4; border: 2px solid var(--ink); box-shadow: 3px 4px 0 rgba(43,36,32,.22); }
+  .tag .lab { font: 700 31px/1 var(--grot); letter-spacing: -.01em; }
+  .tag .val { font: 500 30px/1 var(--mono); }
+  .tag.hl { border-color: var(--acc); }
+  .tag.hl .val, .tag.hl .lab { color: var(--acc); }
+
+  .legend { position: absolute; right: 90px; top: 1422px; text-align: right; font: 400 26px/1 var(--mono); letter-spacing: .04em; text-transform: uppercase; opacity: .7; }
+  .sub { position: absolute; left: 90px; width: 900px; top: 1462px; font: 400 36px/1.3 var(--mono); }
+  .foot { position: absolute; left: 90px; right: 90px; top: 1575px; display: flex; justify-content: space-between; gap: 12px;
+    font: 400 26px/1.2 var(--mono); opacity: .65; }
+  .foot .src { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .foot .dt { white-space: nowrap; flex: 0 0 auto; }
+</style>
+</head>
+<body>
+<svg class="scene" id="scene" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="kicker"><span id="kicker"></span><span id="ep"></span></div>
+<h1 class="title" id="title"></h1>
+<div id="tags"></div>
+<div class="legend" id="legend"></div>
+<p class="sub" id="sub"></p>
+<div class="foot"><span class="src" id="source"></span><span class="dt" id="date"></span></div>
+<script>
+  // Fallback sample so the file renders when opened directly.
+  const FALLBACK = {
+    series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" },
+            { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi, jumlah token beda tiap model", date: "per 14 Okt 2026"
+  };
+  const D = window.D && window.D.title ? window.D : FALLBACK;
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = (id) => document.getElementById(id);
+  function markTitle(t, hl) {
+    const i = hl ? t.toLowerCase().indexOf(String(hl).toLowerCase()) : -1;
+    if (i < 0) return esc(t);
+    return esc(t.slice(0, i)) + '<span class="hl">' + esc(t.slice(i, i + hl.length)) + "</span>" + esc(t.slice(i + hl.length));
+  }
+  // first number in a value string, Indonesian decimal comma allowed
+  const num = (v) => { const m = String(v ?? "").replace(/\./g, "").match(/-?\d+(?:,\d+)?/); return m ? parseFloat(m[0].replace(",", ".")) : NaN; };
+  // deterministic pseudo random in [0,1)
+  const rnd = (k) => { const x = Math.sin(k * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+  $("kicker").textContent = D.series || D.kicker || "";
+  $("ep").textContent = D.ep || "";
+  $("title").innerHTML = markTitle(D.title || "", D.hl);
+  $("sub").textContent = D.sub || "";
+  $("source").textContent = D.source || "";
+  $("date").textContent = D.date || "";
+
+  // which ring is highlighted: item containing hl, else largest number, else outermost
+  const hlq = String(D.hl || "").toLowerCase();
+  let hlIdx = hlq ? items.findIndex((it) => (it.label + " " + it.value).toLowerCase().includes(hlq)) : -1;
+  if (hlIdx < 0) { let best = -1, bv = -Infinity; items.forEach((it, i) => { const v = num(it.value); if (v > bv) { bv = v; best = i; } }); hlIdx = best; }
+  if (hlIdx < 0) hlIdx = n - 1;
+
+  // ---- geometry ---------------------------------------------------------
+  const CX = 430, CY = 1078, R = 338;          // nominal outer radius of the wood (before bark)
+  const UP = -Math.PI / 2;                     // ruler direction (up); growth is eccentric towards it
+  // organic radius: eccentric growth + three low frequency wobbles
+  function rad(r, th, seed) {
+    const e = 0.11 * (r / R);
+    const w = 0.028 * Math.sin(3 * th + 0.7 + seed) + 0.016 * Math.sin(5 * th + 2.1 + seed * 2) + 0.009 * Math.sin(8 * th + 4.3 + seed * 3);
+    return r * (1 + e * Math.cos(th - UP) + w);
+  }
+  function ringPath(r, seed, rough) {
+    const N = 180; let d = "";
+    for (let k = 0; k < N; k++) {
+      const th = (k / N) * Math.PI * 2;
+      let rr = rad(r, th, seed);
+      if (rough) rr += rough * (rnd(k * 3.1 + seed) - 0.5) * 2 + 0.5 * rough * Math.sin(23 * th + seed);
+      d += (k ? " L" : "M") + (CX + rr * Math.cos(th)).toFixed(1) + " " + (CY + rr * Math.sin(th)).toFixed(1);
+    }
+    return d + " Z";
+  }
+
+  // ring layout from pith outwards: filler rings around item bands, band thickness = value
+  const vals = items.map((it) => num(it.value));
+  const vmax = Math.max(...vals.filter((v) => !isNaN(v)), 0);
+  const norm = vals.map((v) => (isNaN(v) || vmax <= 0 ? 0.5 : v / vmax));
+  const bandT = norm.map((p) => 14 + 34 * p);
+  const pith = 22;
+  const free = R - pith - bandT.reduce((a, b) => a + b, 0);
+  const gw = []; for (let i = 0; i <= n; i++) gw.push(0.65 + 0.7 * rnd(i + 11));
+  const gsum = gw.reduce((a, b) => a + b, 0);
+  const gaps = gw.map((w) => (free * w) / gsum);
+
+  let svg = "";
+  // bark: rough outer rim, two layers
+  svg += '<path d="' + ringPath(R + 22, 9, 5) + '" fill="#5E4430"/>';
+  svg += '<path d="' + ringPath(R + 9, 9, 2.5) + '" fill="#8C6A48"/>';
+  // wood disc
+  svg += '<path d="' + ringPath(R, 9, 0) + '" fill="#D9C6A8"/>';
+  // rings
+  let r = pith, seedCount = 0;
+  const bands = [];
+  const fillerRing = (rr, s) => {
+    const w = 1 + 1.8 * rnd(s + 0.3), o = 0.3 + 0.35 * rnd(s + 0.6);
+    svg += '<path d="' + ringPath(rr, 9, 0) + '" fill="none" stroke="#8C6A48" stroke-opacity="' + o.toFixed(2) + '" stroke-width="' + w.toFixed(1) + '"/>';
+  };
+  for (let i = 0; i <= n; i++) {
+    // filler rings in this gap, thickness 9..20 px
+    let left = gaps[i];
+    while (left > 7) {
+      const t = Math.min(left, 9 + 11 * rnd(seedCount * 1.7 + 5));
+      r += t; left -= t; seedCount++;
+      if (left > 3 || i === n) fillerRing(r, seedCount);
+    }
+    if (i < n) {
+      const r0 = r, r1 = r + bandT[i]; r = r1;
+      const isHl = i === hlIdx;
+      svg += '<path d="' + ringPath(r1, 9, 0) + " " + ringPath(r0, 9, 0) + '" fill-rule="evenodd" fill="' + (isHl ? "#1D4ED8" : "#8C6A48") + '" fill-opacity="' + (isHl ? 0.9 : 0.55) + '"/>';
+      svg += '<path d="' + ringPath(r0, 9, 0) + '" fill="none" stroke="#2B2420" stroke-opacity=".45" stroke-width="1.5"/>';
+      svg += '<path d="' + ringPath(r1, 9, 0) + '" fill="none" stroke="#2B2420" stroke-opacity=".45" stroke-width="1.5"/>';
+      bands.push({ r0, r1, isHl });
+    }
+  }
+  // pith + a hairline drying crack, like a real specimen
+  svg += '<circle cx="' + CX + '" cy="' + CY + '" r="7" fill="#5E4430"/>';
+  svg += '<path d="M' + CX + ' ' + CY + ' l -46 118 l -22 66 l -30 60" fill="none" stroke="#5E4430" stroke-opacity=".55" stroke-width="2"/>';
+
+  // radial ruler: from the pith straight up past the bark, 1 cm = 40 px
+  const RW = 46, RLEN = rad(R + 22, UP, 9) + 26;
+  const rx = CX - RW / 2, ry = CY - RLEN;
+  svg += '<rect x="' + rx + '" y="' + ry + '" width="' + RW + '" height="' + (RLEN + 10) + '" fill="#F6F0E4" stroke="#2B2420" stroke-width="2"/>';
+  for (let mm = 0; mm * 4 <= RLEN; mm++) {
+    const y = CY - mm * 4; const big = mm % 10 === 0, mid = mm % 5 === 0;
+    const len = big ? 20 : mid ? 13 : 7;
+    svg += '<line x1="' + rx + '" y1="' + y + '" x2="' + (rx + len) + '" y2="' + y + '" stroke="#2B2420" stroke-width="' + (big ? 2 : 1.2) + '"/>';
+    if (big && mm % 20 === 0 && mm > 0) svg += '<text x="' + (rx + RW - 6) + '" y="' + (y + 9) + '" text-anchor="end" font-family="DM Mono, monospace" font-size="26" fill="#2B2420">' + (mm / 10) + '</text>';
+  }
+  svg += '<text x="' + (rx + RW - 6) + '" y="' + (CY + 2) + '" text-anchor="end" font-family="DM Mono, monospace" font-size="24" fill="#2B2420">cm</text>';
+  $("scene").innerHTML = svg;
+
+  // ---- pin tags ------------------------------------------------------------
+  const tagsEl = $("tags");
+  const TAGX = CX + 70, MAXR = 894;
+  const want = bands.map((b, i) => ({ i, y: CY - rad((b.r0 + b.r1) / 2, UP, 9), isHl: b.isHl }));
+  // outermost first (top), keep >= 62 px between tags, stay below the ruler top
+  const order = want.slice().sort((a, b) => a.y - b.y);
+  const minY = ry + 10;
+  let prev = minY - 62;
+  order.forEach((t) => { t.ty = Math.max(t.y, prev + 62); prev = t.ty; });
+  const over = prev - (CY + 10); if (over > 0) order.forEach((t) => (t.ty -= over));
+  let lines = "";
+  order.forEach((t) => {
+    const it = items[t.i];
+    const el = document.createElement("div");
+    el.className = "tag" + (t.isHl ? " hl" : "");
+    el.innerHTML = '<span class="lab">' + esc(it.label) + '</span><span class="val">' + esc(it.value) + "</span>";
+    el.style.left = TAGX + "px"; el.style.top = (t.ty - 27) + "px";
+    tagsEl.appendChild(el);
+    // shrink the label a little if the tag would cross x 900, then clip
+    const lab = el.querySelector(".lab");
+    let fs = 31; while (TAGX + el.offsetWidth > MAXR && fs > 26) { fs -= 1; lab.style.fontSize = fs + "px"; }
+    if (TAGX + el.offsetWidth > MAXR) { el.style.maxWidth = (MAXR - TAGX) + "px"; lab.style.overflow = "hidden"; lab.style.textOverflow = "ellipsis"; }
+    // pin head on the ruler edge + leader to the tag
+    const px = CX + RW / 2 + 2, col = t.isHl ? "#1D4ED8" : "#2B2420";
+    lines += '<line x1="' + px + '" y1="' + t.y.toFixed(1) + '" x2="' + (TAGX - 2) + '" y2="' + t.ty.toFixed(1) + '" stroke="' + col + '" stroke-width="2.5"/>';
+    lines += '<circle cx="' + px + '" cy="' + t.y.toFixed(1) + '" r="9" fill="' + col + '" stroke="#F6F0E4" stroke-width="2.5"/>';
+  });
+  $("scene").innerHTML += lines;
+
+  $("legend").textContent = "Penampang batang · " + n + " cincin bertanda · tebal = nilai";
+
+  function fit() {
+    const el = $("title");
+    let size = 92; el.style.fontSize = size + "px";
+    while (el.offsetHeight > size * 2.95 && size > 74) { size -= 2; el.style.fontSize = size + "px"; }
+  }
+  fit();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+</script>
+</body>
+</html>

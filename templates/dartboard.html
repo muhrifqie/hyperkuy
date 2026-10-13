@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Papan Dart (hook)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@600&family=Azeret+Mono:wght@500&family=Sofia+Sans:wght@500&display=block" rel="stylesheet">
+<!--DATA-->
+<style>
+  /*
+    Papan Dart (g2-papan-dart): a bristle dartboard seen straight on, hung in a dark wooden
+    cabinet, with a chalk scoreboard below it. 20 cream/black sectors, red double and treble
+    rings, red bull, numbers on the outer ring, grey wire dividers. One dart per item is stuck
+    in the board at an angle with a shadow; the hl item's dart is in the bull. The scoreboard
+    lists every throw: label = measure, value = score/sector; the bull row is written in red chalk.
+    Colour note: a real board has green rings; this style uses only red (the owner's no-green rule).
+
+    Metaphor: accuracy vs precision vs hallucination. Darts bunched but far from the bull =
+    consistent but wrong (bias); scattered = inconsistent (high temperature); bull = right answer.
+
+    Signature move (video, not animated in this still): darts land one by one (coming from the
+    camera, scale big -> small, 0.25 s, thunk + one-frame board shake), the sector number hit
+    grows for a beat, the chalk score is struck and rewritten; punchline = last dart in the bull
+    and the camera pushes in on it (scale 1.1).
+  */
+  :root {
+    --bg: #121212; --ink: #E7DCC3; --red: #C8102E; --wire: #8E8E8E; --black: #1C1C1C; --dim: #9A9282;
+    --wood: #2F2219; --wood-lt: #46342a; --chalk: #DCD3BE;
+    --cond: "Oswald", "Arial Narrow", sans-serif; --mono: "Azeret Mono", Consolas, monospace; --sans: "Sofia Sans", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--bg); color: var(--ink); }
+  body { position: relative; font-family: var(--sans); }
+  svg.stage { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  .top { position: absolute; left: 90px; right: 90px; top: 300px; display: flex; justify-content: space-between; align-items: baseline;
+    font: 500 28px/1.2 var(--sans); color: var(--dim); letter-spacing: .04em; text-transform: uppercase; }
+  .title { position: absolute; left: 90px; width: 900px; top: 342px; font: 600 88px/1.0 var(--cond); text-transform: uppercase; letter-spacing: .005em; color: var(--ink); }
+  .title .hl { color: var(--red); }
+  .sub { position: absolute; left: 90px; width: 810px; font: 500 40px/1.25 var(--sans); color: var(--ink); }
+  .meta { position: absolute; left: 90px; right: 90px; display: flex; justify-content: space-between; align-items: baseline;
+    font: 500 26px/1.3 var(--sans); color: var(--dim); }
+  .meta span:first-child { max-width: 640px; }
+
+  /* board text */
+  .num { font: 600 36px var(--cond); fill: var(--ink); }
+  /* chalk scoreboard */
+  .ch { filter: url(#chalk); }
+  .ch .lb { font: 500 34px var(--sans); fill: var(--chalk); }
+  .ch .vl { font: 500 40px var(--mono); fill: var(--chalk); }
+  .ch .hd { font: 500 26px var(--sans); fill: #9E9686; letter-spacing: .08em; }
+  .ch .big { font: 600 48px var(--cond); fill: var(--chalk); }
+  .ch .red { fill: #E0485C; }
+  .ch line.lead { stroke: #6E685C; stroke-width: 2; stroke-dasharray: 2 8; }
+</style>
+</head>
+<body>
+<svg class="stage" id="stage" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="sisal" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="3" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+    </filter>
+    <filter id="wood" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency=".3 .008" numOctaves="3" seed="6" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+    </filter>
+    <filter id="chalk" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="2" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.4" xChannelSelector="R" yChannelSelector="G" result="d"/>
+      <feTurbulence type="fractalNoise" baseFrequency=".6" numOctaves="3" seed="7" result="n2"/>
+      <feColorMatrix in="n2" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1.4 0 0 0 -0.45" result="a"/>
+      <feComposite in="d" in2="a" operator="out"/>
+    </filter>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="4"/></filter>
+  </defs>
+</svg>
+
+<div class="top"><span id="kicker"></span><span id="date"></span></div>
+<h1 class="title" id="title"></h1>
+<p class="sub" id="sub"></p>
+<div class="meta"><span id="source"></span><span id="date2"></span></div>
+
+<script>
+  // Fallback sample so the file renders when opened directly in a browser.
+  const FALLBACK = {
+    series: "AI dalam angka", ep: "#01", kicker: "AI dalam angka · #01",
+    title: "1 chat ke AI = oven nyala 1 detik", hl: "1 detik",
+    sub: "Kecil? Kalikan miliaran chat tiap hari.",
+    items: [{ label: "Listrik per chat", value: "0,34 Wh" }, { label: "Setara oven", value: "±1 dtk" }, { label: "Chat per hari", value: "miliaran" }],
+    source: "klaim OpenAI, Jun 2025", date: "per 14 Okt 2026"
+  };
+  const D = window.D && window.D.title ? window.D : FALLBACK;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  const el = (tag, attrs, text) => { const e = document.createElementNS(SVG_NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; return e; };
+  const ctx = document.createElement("canvas").getContext("2d");
+  const measure = (text, font) => { ctx.font = font; return ctx.measureText(String(text)).width; };
+
+  function pickHl(items, hl) {
+    const h = String(hl ?? "").trim().toLowerCase();
+    if (!h) return 0;
+    let i = items.findIndex((it) => String(it.label).toLowerCase().includes(h));
+    if (i < 0) i = items.findIndex((it) => String(it.value).toLowerCase().includes(h));
+    if (i < 0) { const m = h.match(/\d+(?:[.,]\d+)?/); if (m) i = items.findIndex((it) => String(it.value).includes(m[0])); }
+    return i < 0 ? 0 : i;
+  }
+  function markTitle(t, hl) {
+    const i = hl ? t.toLowerCase().indexOf(String(hl).toLowerCase()) : -1;
+    if (i < 0) return esc(t);
+    return esc(t.slice(0, i)) + '<span class="hl">' + esc(t.slice(i, i + hl.length)) + "</span>" + esc(t.slice(i + hl.length));
+  }
+
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length, hlIdx = pickHl(items, D.hl);
+  $("kicker").textContent = D.kicker || [D.series, D.ep].filter(Boolean).join(" · ");
+  $("date").textContent = "";
+  $("title").innerHTML = markTitle(D.title || "", D.hl);
+  $("sub").textContent = D.sub || "";
+  $("source").textContent = D.source ? "sumber: " + D.source : "";
+  $("date2").textContent = D.date || "";
+
+  // Title: 88px down to 66px until it fits in 2 lines (condensed caps read as a sports board).
+  const t = $("title");
+  let size = 84;
+  for (;;) { t.style.fontSize = size + "px"; if (t.scrollHeight <= size * 1.0 * 2 + 10 || size <= 66) break; size -= 2; }
+  const sub = $("sub");
+  sub.style.top = (342 + t.offsetHeight + 22) + "px";
+  const subBottom = sub.offsetTop + sub.offsetHeight;
+
+  /* ---------- layout ---------- */
+  const S = $("stage");
+  const CX = 480, cabPad = 24;
+  const cabTop = Math.max(600, subBottom + 24);
+  // board radius: as large as 300 while the scoreboard still gets 46 px per row (long title + sub + 5 items shrink it, min 224)
+  const sbNeed = 90 + Math.max(n, 1) * 46 + 16;
+  const R = Math.max(224, Math.min(300, Math.floor((1566 - 18 - sbNeed - cabTop - 2 * cabPad) / 2)));
+  const CY = cabTop + cabPad + R;
+  const cabBottom = CY + R + cabPad;
+  const sbTop = cabBottom + 18, sbBottom = 1566;           // chalk scoreboard
+  const META_Y = 1596;
+  document.querySelector(".meta").style.top = META_Y + "px";
+
+  /* ---------- cabinet: dark wood back panel, door edges left and right ---------- */
+  const g0 = el("g", {});
+  const cabX = 70, cabW = 840;
+  g0.appendChild(el("rect", { x: cabX, y: cabTop, width: cabW, height: cabBottom - cabTop, fill: "#2F2219" }));
+  g0.appendChild(el("rect", { x: cabX, y: cabTop, width: cabW, height: cabBottom - cabTop, filter: "url(#wood)", opacity: ".16" }));
+  g0.appendChild(el("rect", { x: cabX + 10, y: cabTop + 10, width: cabW - 20, height: cabBottom - cabTop - 20, fill: "none", stroke: "#1A120C", "stroke-width": 3 }));
+  // open doors, seen nearly edge-on
+  for (const x of [cabX - 36, cabX + cabW + 6]) {
+    g0.appendChild(el("rect", { x, y: cabTop - 8, width: 30, height: cabBottom - cabTop + 16, fill: "#46342a" }));
+    g0.appendChild(el("rect", { x, y: cabTop - 8, width: 30, height: cabBottom - cabTop + 16, filter: "url(#wood)", opacity: ".2" }));
+    g0.appendChild(el("rect", { x: x + 4, y: cabTop - 4, width: 22, height: cabBottom - cabTop + 8, fill: "none", stroke: "#1A120C", "stroke-width": 2 }));
+  }
+  S.appendChild(g0);
+
+  /* ---------- board ---------- */
+  // real-board proportions scaled to R: number ring edge R, double 0.755..0.715, treble 0.475..0.44, bull 0.07, inner bull 0.03
+  const rD2 = R * .755, rD1 = R * .715, rT2 = R * .475, rT1 = R * .44, rB2 = R * .072, rB1 = R * .03;
+  const ORDER = [20, 1, 18, 4, 13, 6, 10, 15, 2, 17, 3, 19, 7, 16, 8, 11, 14, 9, 12, 5];
+  const rad = (d) => d * Math.PI / 180;
+  const P = (r, a) => [CX + r * Math.sin(rad(a)), CY - r * Math.cos(rad(a))];   // a = degrees clockwise from the top
+  const wedge = (r1, r2, a1, a2) => {
+    const [x1, y1] = P(r2, a1), [x2, y2] = P(r2, a2), [x3, y3] = P(r1, a2), [x4, y4] = P(r1, a1);
+    return `M ${x1} ${y1} A ${r2} ${r2} 0 0 1 ${x2} ${y2} L ${x3} ${y3} A ${r1} ${r1} 0 0 0 ${x4} ${y4} Z`;
+  };
+  const gB = el("g", {});
+  gB.appendChild(el("circle", { cx: CX, cy: CY, r: R + 14, fill: "#0A0A0A" }));
+  gB.appendChild(el("circle", { cx: CX, cy: CY, r: R, fill: "#101010", stroke: "#3A3A3A", "stroke-width": 3 }));
+  for (let i = 0; i < 20; i++) {
+    const a1 = -9 + i * 18, a2 = a1 + 18, dark = i % 2 === 0;
+    const single = dark ? "#1C1C1C" : "#E7DCC3", ring = dark ? "#C8102E" : "#161616";
+    gB.appendChild(el("path", { d: wedge(rB2, rT1, a1, a2), fill: single }));
+    gB.appendChild(el("path", { d: wedge(rT1, rT2, a1, a2), fill: ring }));
+    gB.appendChild(el("path", { d: wedge(rT2, rD1, a1, a2), fill: single }));
+    gB.appendChild(el("path", { d: wedge(rD1, rD2, a1, a2), fill: ring }));
+  }
+  // sisal fibre texture over the scoring area
+  const clip = el("clipPath", { id: "boardClip" }); clip.appendChild(el("circle", { cx: CX, cy: CY, r: rD2 })); S.querySelector("defs").appendChild(clip);
+  gB.appendChild(el("rect", { x: CX - rD2, y: CY - rD2, width: 2 * rD2, height: 2 * rD2, filter: "url(#sisal)", opacity: ".13", "clip-path": "url(#boardClip)" }));
+  // bull: outer ring black, inner red
+  gB.appendChild(el("circle", { cx: CX, cy: CY, r: rB2, fill: "#161616" }));
+  gB.appendChild(el("circle", { cx: CX, cy: CY, r: rB1, fill: "#C8102E" }));
+  // wires
+  const gW = el("g", { fill: "none", stroke: "#8E8E8E", "stroke-width": 2 });
+  for (const r of [rD2, rD1, rT2, rT1, rB2, rB1]) gW.appendChild(el("circle", { cx: CX, cy: CY, r }));
+  for (let i = 0; i < 20; i++) { const [x1, y1] = P(rB2, -9 + i * 18), [x2, y2] = P(rD2, -9 + i * 18); gW.appendChild(el("line", { x1, y1, x2, y2 })); }
+  gB.appendChild(gW);
+  // numbers on the outer ring, each rotated to stand radially
+  ORDER.forEach((num, i) => {
+    const a = i * 18, [x, y] = P(R * .87, a);
+    gB.appendChild(el("text", { class: "num", x, y, "text-anchor": "middle", "dominant-baseline": "central", transform: `rotate(${a} ${x} ${y})` }, String(num)));
+  });
+  S.appendChild(gB);
+
+  /* ---------- darts: one per item, hl in the bull ---------- */
+  // value like "T20" / "D5" / "S18" / "20" lands in that sector; anything else takes a preset spot near the 20 (bunched = biased)
+  const sectorAngle = (num) => ORDER.indexOf(num) * 18;
+  const spot = (it, k) => {
+    const m = String(it.value || "").trim().toUpperCase().match(/^([TDS]?)(\d{1,2})$/);
+    if (m && ORDER.includes(+m[2])) { const r = m[1] === "T" ? (rT1 + rT2) / 2 : m[1] === "D" ? (rD1 + rD2) / 2 : rD1 * .6; return P(r, sectorAngle(+m[2]) + 2); }
+    const presets = [[rD1 * .58, 1], [(rT1 + rT2) / 2, 21], [rD1 * .64, 10], [rD1 * .9, 3], [rT1 * .62, 30]];
+    const [r, a] = presets[k % presets.length];
+    return P(r, a);
+  };
+  const dart = (tip, hl, k) => {
+    // The dart points into the board; we see it foreshortened, flights closest to the camera. dir = screen angle of the shaft.
+    const dirs = [34, 60, 14, 46, 76], dir = dirs[k % dirs.length];
+    const ux = Math.cos(rad(dir)), uy = Math.sin(rad(dir)), nx = -uy, ny = ux;
+    const at = (d, w) => [tip[0] + ux * d + nx * w, tip[1] + uy * d + ny * w];
+    const poly = (pts) => pts.map((p) => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ");
+    const parts = (shadow) => {
+      const g = el("g", shadow ? { transform: "translate(14 18)", fill: "#000", opacity: ".5", filter: "url(#shadow)" } : {});
+      const col = (c) => (shadow ? "#000" : c);
+      g.appendChild(el("polygon", { points: poly([at(0, 0), at(14, -3), at(14, 3)]), fill: col("#D6D6D6") }));                       // point
+      g.appendChild(el("polygon", { points: poly([at(14, -5), at(78, -9), at(78, 9), at(14, 5)]), fill: col("#A7A7A7") }));          // barrel
+      if (!shadow) for (let i = 0; i < 4; i++) g.appendChild(el("polygon", { points: poly([at(26 + i * 12, -8), at(30 + i * 12, -8), at(30 + i * 12, 8), at(26 + i * 12, 8)]), fill: "#6F6F6F" }));  // grip rings
+      g.appendChild(el("polygon", { points: poly([at(78, -4), at(136, -5), at(136, 5), at(78, 4)]), fill: col("#242424") }));       // shaft
+      const fl = hl ? "#C8102E" : "#D9D1BC";
+      g.appendChild(el("polygon", { points: poly([at(132, 0), at(160, -30), at(186, -22), at(178, 0)]), fill: col(fl) }));         // flight (upper)
+      g.appendChild(el("polygon", { points: poly([at(132, 0), at(160, 30), at(186, 22), at(178, 0)]), fill: col(fl), opacity: shadow ? 1 : .86 })); // flight (lower)
+      if (!shadow) g.appendChild(el("line", { x1: at(132, 0)[0], y1: at(132, 0)[1], x2: at(180, 0)[0], y2: at(180, 0)[1], stroke: "#1A1A1A", "stroke-width": 3 }));
+      return g;
+    };
+    const g = el("g", {}); g.appendChild(parts(true)); g.appendChild(parts(false)); return g;
+  };
+  const gD = el("g", {});
+  items.forEach((it, k) => { const hl = k === hlIdx; gD.appendChild(dart(hl ? [CX, CY] : spot(it, k), hl, k)); });
+  S.appendChild(gD);
+
+  /* ---------- chalk scoreboard ---------- */
+  const sbX = 90, sbW = 810, sbH = sbBottom - sbTop;
+  const gS = el("g", {});
+  gS.appendChild(el("rect", { x: sbX - 10, y: sbTop - 10, width: sbW + 20, height: sbH + 20, fill: "#3A2A1E" }));
+  gS.appendChild(el("rect", { x: sbX - 10, y: sbTop - 10, width: sbW + 20, height: sbH + 20, filter: "url(#wood)", opacity: ".18" }));
+  gS.appendChild(el("rect", { x: sbX, y: sbTop, width: sbW, height: sbH, fill: "#1B1B1B" }));
+  gS.appendChild(el("rect", { x: sbX, y: sbTop, width: sbW, height: sbH, filter: "url(#sisal)", opacity: ".07" }));
+  const ch = el("g", { class: "ch" });
+  // header: 501 struck through (the game is on), column heads
+  const hy = sbTop + 46;
+  ch.appendChild(el("text", { class: "big", x: sbX + 24, y: hy, "dominant-baseline": "central" }, "501"));
+  ch.appendChild(el("line", { x1: sbX + 18, y1: hy + 4, x2: sbX + 24 + measure("501", "600 48px Oswald") + 6, y2: hy - 6, stroke: "#DCD3BE", "stroke-width": 4, "stroke-linecap": "round" }));
+  ch.appendChild(el("text", { class: "hd", x: sbX + 150, y: hy, "dominant-baseline": "central" }, "LEMPARAN"));
+  ch.appendChild(el("text", { class: "hd", x: sbX + sbW - 24, y: hy, "dominant-baseline": "central", "text-anchor": "end" }, "KENA"));
+  ch.appendChild(el("line", { x1: sbX + 18, y1: hy + 30, x2: sbX + sbW - 18, y2: hy + 30, stroke: "#6E685C", "stroke-width": 2 }));
+  const rowsTop = hy + 44, rowH = Math.min(54, Math.floor((sbBottom - 16 - rowsTop) / Math.max(n, 1)));
+  const lbPx = rowH >= 50 ? 34 : 31, vlPx = rowH >= 50 ? 40 : 36;
+  items.forEach((it, k) => {
+    const y = rowsTop + k * rowH + rowH / 2, hl = k === hlIdx;
+    const label = String(it.label ?? ""), value = String(it.value ?? "");
+    const vw = measure(value, `500 ${vlPx}px "Azeret Mono"`);
+    const vx = sbX + sbW - 24;
+    if (hl) ch.appendChild(el("circle", { cx: sbX + 32, cy: y, r: 9, fill: "#E0485C" }));
+    else ch.appendChild(el("text", { class: "lb", x: sbX + 24, y, "dominant-baseline": "central", style: `font-size:${lbPx}px` }, String(k + 1) + "."));
+    const lx = sbX + 56;
+    let f = lbPx; while (measure(label, `500 ${f}px "Sofia Sans"`) > vx - vw - 40 - lx && f > 30) f -= 1;
+    const lw = measure(label, `500 ${f}px "Sofia Sans"`);
+    ch.appendChild(el("text", { class: "lb" + (hl ? " red" : ""), x: lx, y, "dominant-baseline": "central", style: `font-size:${f}px` }, label));
+    ch.appendChild(el("line", { class: "lead", x1: lx + lw + 14, y1: y + 10, x2: vx - vw - 14, y2: y + 10 }));
+    const vt = el("text", { class: "vl" + (hl ? " red" : ""), x: vx, y, "dominant-baseline": "central", "text-anchor": "end", style: `font-size:${vlPx}px` }, value);
+    ch.appendChild(vt);
+    if (hl) ch.appendChild(el("text", { class: "hd red bull", x: vx - vw - 30, y, "dominant-baseline": "central", "text-anchor": "end", style: "letter-spacing:.12em", "data-vx": vx }, "BULL"));
+  });
+  gS.appendChild(ch);
+  S.appendChild(gS);
+  // once the real fonts are in, re-measure the bull row so the BULL tag sits left of the rendered value
+  const placeBull = () => { ch.querySelectorAll(".bull").forEach((b) => { const v = b.previousSibling; b.setAttribute("x", (+b.getAttribute("data-vx")) - v.getBBox().width - 30); }); };
+  placeBull(); (document.fonts ? document.fonts.ready : Promise.resolve()).then(placeBull);
+</script>
+</body>
+</html>

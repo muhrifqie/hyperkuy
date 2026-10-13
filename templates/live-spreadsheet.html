@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Lembar Rumus (opus-lembar-rumus): a generic spreadsheet (no product
+    branding). File name + big heading on top, then a sheet: formula bar with a
+    name box and a formula built from the data, column letters A-D, row
+    numbers, gridlines, a frozen tinted header row, and every item as a row
+    (label in A, value in B, an in-cell data bar in C). The active cell has a
+    thick blue border with a fill-handle square; column C carries a dashed
+    "marching ants" copy range. The sheet bleeds off the right edge (column D
+    and beyond are empty, outside the TikTok button zone). `hl` is shown in
+    the title inside a cell-selection box.
+
+    Signature move (video): the formula is typed into the formula bar
+    character by character; on "Enter" the active cell fills, the data bars
+    grow left-to-right row by row, and the marching ants start crawling.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #F7F8FA; }
+  body { position: relative; color: #17191E; font-family: "Inter Tight", sans-serif; }
+  :root { --blue: #1F5BD8; --grid: #D5D9E0; --head: #EEF1F5; --muted: #646B78; }
+
+  .doc { position: absolute; left: 90px; right: 90px; top: 294px; height: 48px; display: flex; align-items: center; gap: 16px; font: 500 28px "JetBrains Mono", monospace; color: var(--muted); }
+  .doc svg { width: 40px; height: 40px; flex: none; }
+  .doc .fn { color: #17191E; }
+  .doc .ep { margin-left: auto; }
+  .title { position: absolute; left: 90px; width: 900px; top: 368px; font-weight: 800; letter-spacing: -0.022em; line-height: 1.06; }
+  .title .hl { position: relative; background: #E2EAFB; padding: 0 0.08em; margin: 0 0.04em; }
+  .title .hl::after { content: ""; position: absolute; left: 0; right: 0; top: 0.06em; bottom: -0.02em; border: 5px solid var(--blue); }
+  .title .hl::before { content: ""; position: absolute; right: -11px; bottom: calc(-0.02em - 11px); width: 16px; height: 16px; background: var(--blue); border: 3px solid #F7F8FA; z-index: 1; }
+
+  .sheet { position: absolute; left: 60px; right: -4px; background: #fff; border: 2px solid var(--grid); border-right: none; box-shadow: 0 18px 40px rgba(20, 30, 60, 0.08); overflow: hidden; }
+  .fbar { position: relative; height: 84px; display: flex; align-items: center; border-bottom: 2px solid var(--grid); font: 500 32px "JetBrains Mono", monospace; }
+  .fbar .nb { width: 130px; height: 100%; display: flex; align-items: center; justify-content: center; border-right: 2px solid var(--grid); font-weight: 700; }
+  .fbar .fx { width: 72px; text-align: center; color: var(--muted); font-style: italic; font-family: "Inter Tight", sans-serif; font-weight: 600; }
+  .fbar .f { white-space: nowrap; }
+  .fbar .f .fn { color: var(--blue); font-weight: 700; }
+  .fbar .f .st { color: #A3420E; }
+  .fbar .f .cur { display: inline-block; width: 3px; height: 38px; background: #17191E; vertical-align: -6px; margin-left: 4px; }
+  #grid { position: relative; display: block; }
+  .tabs { height: 64px; border-top: 2px solid var(--grid); background: var(--head); display: flex; align-items: stretch; font: 600 30px "Inter Tight", sans-serif; }
+  .tabs .add { width: 70px; display: flex; align-items: center; justify-content: center; color: var(--muted); font-weight: 500; font-size: 40px; }
+  .tabs .tab { padding: 0 28px; display: flex; align-items: center; background: #fff; color: var(--blue); border-bottom: 5px solid var(--blue); }
+  .tabs .tab2 { padding: 0 28px; display: flex; align-items: center; color: var(--muted); font-weight: 500; }
+
+  .sub { position: absolute; left: 90px; width: 900px; font-size: 40px; font-weight: 500; line-height: 1.24; }
+  .foot { position: absolute; left: 90px; right: 90px; top: 1582px; display: flex; justify-content: space-between; gap: 40px; font: 400 26px "JetBrains Mono", monospace; color: var(--muted); line-height: 1.35; }
+  .foot span:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="doc">
+  <svg viewBox="0 0 40 40"><rect x="3" y="3" width="34" height="34" rx="5" fill="#fff" stroke="#1F5BD8" stroke-width="3"/><path d="M3 15H37M3 26H37M15 15V37M26 15V37" stroke="#1F5BD8" stroke-width="2.5"/><rect x="3" y="3" width="34" height="12" rx="5" fill="#1F5BD8"/></svg>
+  <span class="fn" id="file"></span><span class="ep" id="ep"></span>
+</div>
+<div class="title" id="title"></div>
+<div class="sheet" id="sheet">
+  <div class="fbar"><div class="nb" id="nb"></div><div class="fx">fx</div><div class="f" id="formula"></div></div>
+  <svg id="grid" xmlns="http://www.w3.org/2000/svg"></svg>
+  <div class="tabs"><div class="add">+</div><div class="tab" id="tab"></div><div class="tab2">Catatan</div></div>
+</div>
+<div class="sub" id="sub"></div>
+<div class="foot"><span id="src"></span><span id="date"></span></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  // Lay out only after the web fonts are in: all fitting below measures real glyph widths.
+  Promise.all(['800 100px "Inter Tight"', '700 40px "Inter Tight"', '500 40px "Inter Tight"', '600 28px "Inter Tight"', '500 32px "JetBrains Mono"', '700 32px "JetBrains Mono"'].map(f => document.fonts.load(f))).catch(() => {}).then(render);
+  function render() {
+
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const BLUE = "#1F5BD8", GRID = "#D5D9E0", HEAD = "#EEF1F5", MUTED = "#646B78";
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+
+  // Document bar: series as a file name.
+  const slug = String(D.series || "lembar").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  document.getElementById("file").textContent = slug + "_" + String(D.ep || "#01").replace(/^#/, "") + ".lembar";
+  document.getElementById("ep").textContent = D.ep || "";
+
+  // Title with hl inside a cell-selection box.
+  const t = D.title || "", hl = D.hl || "";
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = document.getElementById("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  for (let fs = 100; fs >= 64; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (titleEl.offsetHeight <= 250) break; }
+  const TOP = Math.max(650, 368 + titleEl.offsetHeight + 44);
+
+  // Parse "2 token" / "0,34 Wh" / "±1 dtk" into number + unit.
+  const parse = v => { const m = String(v).trim().match(/^[±~≈]?\s*(\d+(?:[.,]\d+)?)\s*(.*)$/); return m ? { n: parseFloat(m[1].replace(",", ".")), u: m[2].trim() } : null; };
+  const P = items.map(it => parse(it.value));
+  const allNum = P.every(Boolean) && P.every(p => p.u === P[0].u);
+  const max = allNum ? Math.max(...P.map(p => p.n), 1e-9) : 1;
+  // Bars: proportional when comparable; otherwise a rising scale (order of the story).
+  const frac = items.map((_, i) => allNum ? P[i].n / max : (i + 1) / n);
+  const total = allNum && n > 1 ? P.reduce((a, p) => a + p.n, 0) : null;
+
+  // Active cell: the value cell of the row matching hl, else the first row.
+  let k = items.findIndex(it => hl && (String(it.label) + " " + String(it.value)).toLowerCase().includes(hl.toLowerCase()));
+  if (k < 0) k = 0;
+  const unitWord = (P.find(Boolean) || {}).u || "";
+  const fnName = /token/i.test(items.map(i => i.value).join(" ")) ? "TOKEN" : "NILAI";
+  document.getElementById("nb").textContent = "B" + (k + 2);
+  document.getElementById("formula").innerHTML = '=<span class="fn">' + fnName + '</span>(<span class="st">"' + esc(items[k] ? items[k].label : "") + '"</span>)<span class="cur"></span>';
+  // Long formulas: shrink to stay inside the visible sheet width.
+  const fEl = document.getElementById("formula");
+  for (let fs = 32; fs >= 26 && fEl.offsetLeft + fEl.scrollWidth > 900; fs -= 1) fEl.style.fontSize = fs + "px";
+
+  // Sheet geometry (x in sheet coords; sheet starts at page x=60).
+  const SX = 60;
+  const cols = [ { k: "", x: 0, w: 78 }, { k: "A", x: 78, w: 332 }, { k: "B", x: 410, w: 236 }, { k: "C", x: 646, w: 194 }, { k: "D", x: 840, w: 200 } ];
+  const colH = 56;
+  const tabsH = 64, fbarH = 84;
+  const sheetBottom = 1440;
+  const gridH = sheetBottom - TOP - fbarH - tabsH - 4;
+  const bodyRows = n + 1 + (total != null ? 1 : 0);
+  // Leave room for at least one fully visible empty row under the data.
+  const rowH = Math.max(84, Math.min(126, Math.floor((gridH - colH) / (bodyRows + 1))));
+  const sheet = document.getElementById("sheet");
+  sheet.style.top = TOP + "px";
+  sheet.style.height = (sheetBottom - TOP) + "px";
+  const svg = document.getElementById("grid");
+  svg.setAttribute("width", 1040); svg.setAttribute("height", gridH);
+  svg.setAttribute("viewBox", "0 0 1040 " + gridH);
+
+  let g = "";
+  const rowsFull = Math.floor((gridH - colH) / rowH), rowsVisible = Math.ceil((gridH - colH) / rowH);
+  const rowY = r => colH + (r - 1) * rowH; // r = 1-based sheet row
+  // column header strip and row number strip
+  g += '<rect x="0" y="0" width="1040" height="' + colH + '" fill="' + HEAD + '"/>';
+  g += '<rect x="0" y="0" width="78" height="' + gridH + '" fill="' + HEAD + '"/>';
+  // active row/column tint
+  g += '<rect x="' + cols[2].x + '" y="0" width="' + cols[2].w + '" height="' + colH + '" fill="#D9E4FA"/>';
+  g += '<rect x="0" y="' + rowY(k + 2) + '" width="78" height="' + rowH + '" fill="#D9E4FA"/>';
+  // frozen header row
+  g += '<rect x="78" y="' + rowY(1) + '" width="962" height="' + rowH + '" fill="#F2F5FB"/>';
+  // gridlines
+  for (let r = 0; r <= rowsVisible; r++) { const y = colH + r * rowH; g += '<path d="M0,' + y + ' H1040" stroke="' + GRID + '" stroke-width="2"/>'; }
+  cols.forEach(c => { if (c.x) g += '<path d="M' + c.x + ',0 V' + gridH + '" stroke="' + GRID + '" stroke-width="2"/>'; });
+  g += '<path d="M' + (cols[4].x + cols[4].w) + ',0 V' + gridH + '" stroke="' + GRID + '" stroke-width="2"/>';
+  g += '<path d="M0,' + colH + ' H1040" stroke="#B9BFCA" stroke-width="2"/>';
+  // freeze line under header row
+  g += '<path d="M0,' + (rowY(2) - 1) + ' H1040" stroke="#AEB5C2" stroke-width="5"/>';
+  // column letters and row numbers
+  cols.forEach(c => { if (c.k) g += '<text x="' + (c.x + c.w / 2) + '" y="' + (colH / 2 + 10) + '" text-anchor="middle" font-family="Inter Tight" font-weight="600" font-size="28" fill="' + (c.k === "B" ? BLUE : MUTED) + '">' + c.k + '</text>'; });
+  for (let r = 1; r <= rowsFull; r++) g += '<text x="39" y="' + (rowY(r) + rowH / 2 + 10) + '" text-anchor="middle" font-family="JetBrains Mono" font-weight="500" font-size="28" fill="' + (r === k + 2 ? BLUE : MUTED) + '">' + r + '</text>';
+  // header labels
+  const hdr = ["Bagian", "Nilai", "Skala"];
+  hdr.forEach((h, i) => { const c = cols[i + 1]; g += '<text x="' + (i === 1 ? c.x + c.w - 22 : c.x + 22) + '" y="' + (rowY(1) + rowH / 2 + 12) + '" text-anchor="' + (i === 1 ? "end" : "start") + '" font-family="Inter Tight" font-weight="700" font-size="34" fill="#2A2F3A">' + h + '</text>'; });
+  // item rows
+  items.forEach((it, i) => {
+    const y = rowY(i + 2), cy = y + rowH / 2;
+    g += '<text class="fitA" x="' + (cols[1].x + 22) + '" y="' + (cy + 14) + '" font-family="Inter Tight" font-weight="500" font-size="40" fill="#17191E">' + esc(it.label) + '</text>';
+    g += '<text class="fitB" x="' + (cols[2].x + cols[2].w - 22) + '" y="' + (cy + 14) + '" text-anchor="end" font-family="Inter Tight" font-weight="700" font-size="40" fill="#17191E" style="font-variant-numeric: tabular-nums">' + esc(it.value) + '</text>';
+    const bw = Math.max(14, Math.round((cols[3].w - 30) * frac[i]));
+    g += '<rect x="' + (cols[3].x + 14) + '" y="' + (cy - 19) + '" width="' + bw + '" height="38" fill="#C9D8F8"/><rect x="' + (cols[3].x + 14 + bw - 5) + '" y="' + (cy - 19) + '" width="5" height="38" fill="' + BLUE + '"/>';
+  });
+  // total row
+  if (total != null) {
+    const y = rowY(n + 2), cy = y + rowH / 2;
+    g += '<path d="M78,' + (y + 3) + ' H' + (cols[3].x + cols[3].w) + ' M78,' + (y + 9) + ' H' + (cols[3].x + cols[3].w) + '" stroke="#17191E" stroke-width="2"/>';
+    const tv = (Math.round(total * 100) / 100).toString().replace(".", ",") + (unitWord ? " " + unitWord : "");
+    g += '<text x="' + (cols[1].x + 22) + '" y="' + (cy + 16) + '" font-family="Inter Tight" font-weight="800" font-size="40" fill="#17191E">Total</text>';
+    g += '<text class="fitB" x="' + (cols[2].x + cols[2].w - 22) + '" y="' + (cy + 16) + '" text-anchor="end" font-family="Inter Tight" font-weight="800" font-size="40" fill="' + BLUE + '">' + esc(tv) + '</text>';
+    g += '<text x="' + (cols[3].x + 18) + '" y="' + (cy + 12) + '" font-family="JetBrains Mono" font-weight="500" font-size="28" fill="' + MUTED + '">=SUM</text>';
+  }
+  // marching-ants copy range around C2:C(n+1)
+  const ay0 = rowY(2) + 4, ay1 = rowY(n + 2) - 4;
+  g += '<rect x="' + (cols[3].x + 4) + '" y="' + ay0 + '" width="' + (cols[3].w - 8) + '" height="' + (ay1 - ay0) + '" fill="none" stroke="' + BLUE + '" stroke-width="4" stroke-dasharray="12 8"/>';
+  // active cell: thick border + fill handle
+  const ax = cols[2].x, ay = rowY(k + 2);
+  g += '<rect x="' + (ax + 1) + '" y="' + (ay + 1) + '" width="' + (cols[2].w - 2) + '" height="' + (rowH - 2) + '" fill="none" stroke="' + BLUE + '" stroke-width="6"/>';
+  g += '<rect x="' + (ax + cols[2].w - 10) + '" y="' + (ay + rowH - 10) + '" width="20" height="20" fill="' + BLUE + '" stroke="#fff" stroke-width="4"/>';
+  svg.innerHTML = g;
+  // Fit cell text to its column (labels never below 30px).
+  const fit = (cls, maxW) => svg.querySelectorAll(cls).forEach(el => { let fs = 40; while (el.getComputedTextLength() > maxW && fs > 30) { fs -= 1; el.setAttribute("font-size", fs); } });
+  fit(".fitA", cols[1].w - 40); fit(".fitB", cols[2].w - 40);
+
+  document.getElementById("tab").textContent = D.series || "Lembar1";
+  const subEl = document.getElementById("sub");
+  subEl.textContent = D.sub || "";
+  subEl.style.top = (sheetBottom + 22) + "px";
+  document.getElementById("src").textContent = D.source ? "sumber: " + D.source : "";
+  document.getElementById("date").textContent = D.date || "";
+  }
+</script>
+</body>
+</html>

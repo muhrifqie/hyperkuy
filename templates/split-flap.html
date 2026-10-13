@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Papan Flap (fable-papan-flap): a split-flap departure board (Solari) of an
+    Indonesian train station. The whole hook IS the board: title letters, row
+    numbers and values live in flap cells (one glyph per cell, dark seam across
+    the vertical middle), labels use word flaps like the destination column of
+    a real board. Blank cells pad every row, the way an unused slot stays blank.
+
+    Signature move (video, not animated here): cells flip on rotateX revealing
+    letters in sequence, left to right, row after row (0.04 s between cells,
+    0.18 s per flip, one soft "clack" per row). The NILAI (status) column flips
+    LAST as the punchline. Scene change = the whole board flips to the next text.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #121212; }
+  body { position: relative; color: #F3F2EC; font-family: "IBM Plex Mono", monospace; }
+
+  /* board header strip */
+  .hdr { position: absolute; left: 90px; right: 90px; top: 300px; height: 48px; display: flex; justify-content: space-between; align-items: flex-end;
+    padding-bottom: 12px; border-bottom: 2px solid #2A2A2A; font: 500 28px "IBM Plex Mono", monospace; color: #8A8A84; letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap; }
+
+  /* main column: title board, departure table, ticker */
+  .col { position: absolute; left: 90px; right: 90px; top: 380px; bottom: 420px; display: flex; flex-direction: column; justify-content: center; gap: 52px; }
+
+  /* flap cell: one glyph, seam line at the vertical middle, faint top highlight */
+  .c { position: relative; flex: none; width: 52px; height: 78px; background: #202020; border-radius: 4px; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    font: 600 58px "Barlow Condensed", sans-serif; color: #F3F2EC; text-transform: uppercase; line-height: 1;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 1px 0 #000; }
+  .c::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 2px; margin-top: -1px; background: #0E0E0E; box-shadow: 0 1px 0 rgba(255,255,255,.07); }
+  .c.hl { color: #F0B429; }
+  .c.am { color: #F0B429; }
+  .c.w { width: auto; padding: 0 16px; }            /* word flap (destination style) */
+  .c.fill { flex: 1 1 auto; width: auto; }           /* blank flap stretching to the row end */
+
+  .row { display: flex; gap: 4px; }
+  .title { display: flex; flex-direction: column; gap: 10px; }
+
+  /* departure table: NO | KETERANGAN | NILAI, values end at x 900 (TikTok button column stays clear) */
+  .tbl { width: 810px; display: flex; flex-direction: column; gap: 10px; }
+  .th { display: grid; column-gap: 20px; font: 500 26px "IBM Plex Mono", monospace; color: #8A8A84; letter-spacing: 0.08em;
+    padding: 0 0 12px 2px; border-bottom: 2px solid #2A2A2A; margin-bottom: 4px; }
+  .th span:last-child { text-align: right; }
+  .tr { display: grid; column-gap: 20px; align-items: center; }
+  .tr .no, .tr .lb, .tr .vl { display: flex; gap: 4px; min-width: 0; }
+  .tr .vl { justify-content: flex-end; }
+  .tr .c { width: 40px; height: 70px; font-size: 44px; }
+  .tr .c.w { width: auto; }
+
+  /* ticker strip */
+  .tick { position: relative; width: 900px; background: #1A1A1A; border-radius: 4px; padding: 26px 32px; display: flex; gap: 26px; align-items: flex-start; }
+  .tick .tag { flex: none; font: 500 26px "IBM Plex Mono", monospace; color: #8A8A84; letter-spacing: 0.08em; padding-top: 6px; }
+  .tick .tx { font: 400 34px "IBM Plex Mono", monospace; color: #F3F2EC; line-height: 1.35; max-width: 700px; }
+
+  .foot { position: absolute; left: 90px; right: 90px; top: 1540px; font: 400 26px "IBM Plex Mono", monospace; color: #8A8A84; line-height: 1.4; }
+</style>
+</head>
+<body>
+<div class="hdr"><span id="kick"></span><span id="date"></span></div>
+<div class="col" id="col">
+  <div class="title" id="title"></div>
+  <div class="tbl" id="tbl"></div>
+  <div class="tick"><span class="tag">INFO</span><span class="tx" id="sub"></span></div>
+</div>
+<div class="foot" id="foot"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "AI dalam angka", ep: "#01", kicker: "AI dalam angka · #01",
+    title: "1 chat ke AI = oven nyala 1 detik", hl: "1 detik",
+    sub: "Kecil? Kalikan miliaran chat tiap hari.",
+    items: [{ label: "Listrik per chat", value: "0,34 Wh" }, { label: "Setara oven", value: "±1 dtk" }, { label: "Chat per hari", value: "miliaran" }],
+    source: "klaim OpenAI, Jun 2025", date: "per 14 Okt 2026" };
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const items = (D.items || []).slice(0, 5);
+  const ROWS = 5;                       // a board has a fixed number of slots; unused slots stay blank
+  const BOARD_W = 900;                  // x 90..990
+  const TABLE_W = 810;                  // x 90..900, values column must end before the TikTok buttons
+
+  // one flap cell; empty text = blank flap
+  const cell = (ch, cls = "", style = "") => `<span class="c${cls ? " " + cls : ""}"${style ? ` style="${style}"` : ""}>${ch === " " ? "" : esc(ch)}</span>`;
+
+  /* ---------- TITLE as flap cells: wrap by words, pad rows with blank cells, hl letters amber ---------- */
+  const title = String(D.title || "").toUpperCase();
+  const hlIdx = (() => { const h = String(D.hl || "").toUpperCase(); if (!h) return [-1, -1]; const i = title.indexOf(h); return i < 0 ? [-1, -1] : [i, i + h.length]; })();
+  const wrapTitle = (perRow) => {
+    // returns rows of [{ch, i}] where i is the index in `title` (for hl matching)
+    const rows = []; let cur = [];
+    const words = []; let w = []; for (let i = 0; i < title.length; i++) { if (title[i] === " ") { if (w.length) words.push(w); w = []; } else w.push({ ch: title[i], i }); } if (w.length) words.push(w);
+    for (const word of words) {
+      const chunks = []; for (let k = 0; k < word.length; k += perRow) chunks.push(word.slice(k, k + perRow)); // hard-break overlong words
+      for (const chunk of chunks) {
+        const need = chunk.length + (cur.length ? 1 : 0);
+        if (cur.length + need > perRow) { rows.push(cur); cur = []; }
+        if (cur.length) cur.push({ ch: " ", i: -1 });
+        cur.push(...chunk);
+      }
+    }
+    if (cur.length) rows.push(cur);
+    return rows;
+  };
+  let cw = 52, rows;
+  for (;;) {
+    const perRow = Math.floor((BOARD_W + 4) / (cw + 4));
+    rows = wrapTitle(perRow);
+    if (rows.length <= 3 || cw <= 40) { rows.perRow = perRow; break; }
+    cw -= 6;
+  }
+  const ch = Math.round(78 * cw / 52), fs = Math.round(58 * cw / 52);
+  document.getElementById("title").innerHTML = rows.map((r) => {
+    const cells = r.map((o) => cell(o.ch, o.i >= hlIdx[0] && o.i < hlIdx[1] ? "hl" : "", `width:${cw}px;height:${ch}px;font-size:${fs}px`));
+    while (cells.length < rows.perRow) cells.push(cell(" ", "", `width:${cw}px;height:${ch}px`));
+    return `<div class="row">${cells.join("")}</div>`;
+  }).join("");
+
+  /* ---------- DEPARTURE TABLE ---------- */
+  const TC = 40, TG = 4;                                             // table cell width + gap
+  const maxV = Math.max(4, ...items.map((it) => String(it.value || "").length));
+  const TCv = maxV >= 8 ? 34 : TC;                                   // long values: narrower amber cells so labels keep room
+  const vSt = TCv === TC ? "" : `width:${TCv}px;font-size:38px`;
+  const noW = 2 * TC + TG, vlW = maxV * TCv + (maxV - 1) * TG;
+  const lbW = TABLE_W - noW - vlW - 40;
+  const lbCells = Math.floor((lbW + TG) / (TC + TG));
+  const maxL = Math.max(0, ...items.map((it) => String(it.label || "").length));
+  const perChar = maxL <= lbCells;                                   // short labels: one glyph per cell; long: word flaps
+  const cols = `${noW}px ${lbW}px ${vlW}px`;
+  const blanks = (n) => Array.from({ length: n }, () => cell(" ")).join("");
+  const rowHtml = (it, i) => {
+    const no = it ? String(i + 1).padStart(2, "0") : "  ";
+    let lb;
+    if (!it) lb = blanks(lbCells);
+    else if (perChar) { const t = String(it.label).toUpperCase(); lb = [...t].map((c) => cell(c)).join("") + blanks(lbCells - t.length); }
+    else lb = String(it.label).toUpperCase().split(/\s+/).filter(Boolean).map((w) => cell(w, "w")).join("") + cell(" ", "fill");
+    const v = it ? String(it.value).toUpperCase() : "";
+    const vl = Array.from({ length: maxV - v.length }, () => cell(" ", "", vSt)).join("") + [...v].map((c) => cell(c, "am", vSt)).join("");
+    return `<div class="tr" style="grid-template-columns:${cols}"><span class="no">${[...no].map((c) => cell(c)).join("")}</span><span class="lb">${lb}</span><span class="vl">${vl}</span></div>`;
+  };
+  document.getElementById("tbl").innerHTML = `<div class="th" style="grid-template-columns:${cols}"><span>NO</span><span>KETERANGAN</span><span>NILAI</span></div>` +
+    Array.from({ length: Math.max(ROWS, items.length) }, (_, i) => rowHtml(items[i], i)).join("");
+
+  /* ---------- header, ticker, source ---------- */
+  document.getElementById("kick").textContent = D.kicker || [D.series, D.ep].filter(Boolean).join(" · ");
+  document.getElementById("date").textContent = D.date || "";
+  document.getElementById("sub").textContent = D.sub || "";
+  document.getElementById("foot").textContent = D.source ? `sumber: ${D.source}` : "";
+
+  // word flaps: shrink the glyph size (min 34 px) until the label strip fits its column
+  const fit = () => {
+    document.querySelectorAll(".tr .lb").forEach((lb) => {
+      const cells = lb.querySelectorAll(".c.w"); if (!cells.length) return;
+      const set = (f) => cells.forEach((c) => { c.style.fontSize = f + "px"; c.style.padding = `0 ${Math.round(f * 0.3)}px`; });
+      let f = 44; set(f);
+      while (lb.scrollWidth > lb.clientWidth + 1 && f > 34) { f -= 2; set(f); }   // target floor 34 px
+      while (lb.scrollWidth > lb.clientWidth + 1 && f > 30) { f -= 1; set(f); }   // last resort: contract floor 30 px
+    });
+  };
+  fit(); (document.fonts ? document.fonts.ready : Promise.resolve()).then(fit);
+</script>
+</body>
+</html>
