@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Margin Bell</title>
+<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Instrument+Sans:wght@500;600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Margin Bell: a close top-down view of a portable typewriter on a powder-blue desk.
+    The sheet is the answer being written; the steel margin scale (0-80) carries two
+    margin stops; the right stop is a hard limit and the shaded "bell zone" just before
+    it is where the bell rings. Metaphor: max output tokens - a reply has a fixed length
+    budget, the bell warns a few characters early, then the carriage locks.
+      - title  = typed headline, hl re-typed with the red half of the ribbon + typed underline
+      - items  = typed ledger lines; every value is pushed right up against the right stop
+      - caption (karaoke) = the line currently on the platen; active word printed in
+        red ribbon, the type guide's red index sits under it
+    Fully deterministic: no randomness, all irregular shapes are fixed numbers.
+  */
+  :root {
+    --desk: #C9D6DF; --paper: #F6F1E7; --ink: #1E2A38; --red: #B5452C; --steel: #A7A9AC;
+    --x0: 140px; --x1: 900px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--desk); }
+  body { position: relative; color: var(--ink); font-family: "Courier Prime", "Courier New", monospace; }
+  svg.layer { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; overflow: visible; }
+
+  #paper { position: absolute; left: 96px; top: 176px; width: 868px; height: 1124px;
+    background:
+      linear-gradient(to bottom, rgba(30,42,56,0) 0, rgba(30,42,56,0) 952px, rgba(30,42,56,.035) 992px, rgba(30,42,56,.09) 1124px),
+      linear-gradient(to right, rgba(30,42,56,.035), rgba(30,42,56,0) 60px, rgba(30,42,56,0) 808px, rgba(30,42,56,.04)),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='f'><feTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='3' seed='4'/><feColorMatrix values='0 0 0 0 .55  0 0 0 0 .48  0 0 0 0 .36  0 0 0 .55 -.2'/></filter><rect width='300' height='300' filter='url(%23f)'/></svg>"),
+      var(--paper);
+    box-shadow: 0 2px 0 rgba(30,42,56,.10), 0 26px 50px -18px rgba(30,42,56,.35); }
+  .ink { text-shadow: 0 0 .6px rgba(30,42,56,.55); }
+
+  .meta { position: absolute; left: var(--x0); width: 760px; font-size: 28px; line-height: 34px; color: #3F4A5A; }
+  #meta1 { top: 300px; display: flex; justify-content: space-between; gap: 24px; }
+  #meta1 b { font-weight: 700; color: var(--ink); letter-spacing: .06em; text-transform: uppercase; }
+  #meta1 span:last-child { white-space: nowrap; }
+  #meta2 { top: 340px; font-size: 26px; line-height: 32px; }
+
+  #title { position: absolute; left: var(--x0); width: 760px; top: 420px; filter: url(#typed); font-weight: 700; line-height: 1.04; letter-spacing: -.035em; color: var(--ink); overflow-wrap: break-word; }
+  #title .hl { color: var(--red); white-space: nowrap; text-decoration: underline; text-decoration-color: var(--red); text-decoration-thickness: .075em; text-underline-offset: .13em; text-decoration-skip-ink: none; }
+
+  #items { position: absolute; left: var(--x0); width: 760px; }
+  .row { position: absolute; left: 0; width: 760px; display: flex; align-items: baseline; white-space: nowrap; color: var(--ink); }
+  .row .lb { font-weight: 400; overflow: hidden; text-overflow: ellipsis; }
+  .row .dots { flex: 1 1 auto; min-width: 34px; height: 6px; margin: 0 12px;
+    background: radial-gradient(circle, rgba(30,42,56,.55) 2.4px, transparent 3px) 0 0 / 21px 6px repeat-x; }
+  .row .vl { font-weight: 700; }
+
+  #caption { position: absolute; left: var(--x0); width: 760px; top: 1150px; font-size: 44px; line-height: 58px; color: var(--ink); }
+  #caption .w { white-space: nowrap; }
+  #caption .on { font-weight: 700; color: var(--paper); background: var(--red); box-shadow: 0 0 0 5px var(--red); border-radius: 1px; }
+</style>
+</head>
+<body>
+
+<!-- back layer: desk grain, platen ends, return lever, platen knob -->
+<svg class="layer" id="back" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap>
+  <defs>
+    <filter id="grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="11" result="n" />
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 .12  0 0 0 0 .16  0 0 0 0 .22  0 0 0 .5 -.18" />
+    </filter>
+    <radialGradient id="vig" cx="50%" cy="38%" r="75%">
+      <stop offset="60%" stop-color="#1E2A38" stop-opacity="0" />
+      <stop offset="100%" stop-color="#1E2A38" stop-opacity=".16" />
+    </radialGradient>
+    <linearGradient id="platen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0F151D" />
+      <stop offset=".22" stop-color="#3A4859" />
+      <stop offset=".34" stop-color="#2A3646" />
+      <stop offset=".75" stop-color="#151C25" />
+      <stop offset="1" stop-color="#0B1016" />
+    </linearGradient>
+    <linearGradient id="chromeV" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7F8387" />
+      <stop offset=".35" stop-color="#EEF0F1" />
+      <stop offset=".6" stop-color="#B9BCBF" />
+      <stop offset="1" stop-color="#6F7377" />
+    </linearGradient>
+    <pattern id="knurl" width="9" height="10" patternUnits="userSpaceOnUse">
+      <rect width="9" height="10" fill="#1A222C" />
+      <rect width="4" height="10" fill="#3A4757" />
+    </pattern>
+    <linearGradient id="knobShade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#000" stop-opacity=".55" />
+      <stop offset=".3" stop-color="#000" stop-opacity="0" />
+      <stop offset=".7" stop-color="#000" stop-opacity=".1" />
+      <stop offset="1" stop-color="#000" stop-opacity=".6" />
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1920" fill="#C9D6DF" />
+  <rect width="1080" height="1920" filter="url(#grain)" opacity=".55" />
+  <rect width="1080" height="1920" fill="url(#vig)" />
+  <!-- platen visible either side of the sheet -->
+  <rect x="-10" y="1126" width="1100" height="180" fill="url(#platen)" />
+  <!-- carriage return lever (left) -->
+  <path d="M86 1140 C 70 1086, 52 1030, 34 968" fill="none" stroke="#5E6368" stroke-width="20" stroke-linecap="round" opacity=".35" transform="translate(6 8)" />
+  <path d="M86 1140 C 70 1086, 52 1030, 34 968" fill="none" stroke="url(#chromeV)" stroke-width="18" stroke-linecap="round" />
+  <circle cx="34" cy="962" r="19" fill="#1E2A38" />
+  <circle cx="30" cy="957" r="7" fill="#3A4859" />
+  <!-- platen knob (right) -->
+  <rect x="1012" y="1100" width="90" height="226" rx="10" fill="url(#knurl)" />
+  <rect x="1012" y="1100" width="90" height="226" rx="10" fill="url(#knobShade)" />
+</svg>
+
+<div id="paper"></div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="typed" x="-2%" y="-2%" width="104%" height="104%">
+    <feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="3" result="t" />
+    <feDisplacementMap in="SourceGraphic" in2="t" scale="2.2" xChannelSelector="R" yChannelSelector="G" />
+  </filter>
+</svg>
+
+<div class="meta ink" id="meta1"><span id="kick"></span><span id="date"></span></div>
+<div class="meta ink" id="meta2"></div>
+<div id="title" class="ink"></div>
+<div id="items" class="ink"></div>
+
+<!-- front layer: margin line, rack + stops, scale, bail, front rail, machine body, ribbon, spools, bell -->
+<svg class="layer" id="front" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap>
+  <defs>
+    <linearGradient id="strip" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F1F2F2" />
+      <stop offset=".18" stop-color="#DCDEDF" />
+      <stop offset=".85" stop-color="#C8CBCD" />
+      <stop offset="1" stop-color="#9DA1A4" />
+    </linearGradient>
+    <linearGradient id="rod" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8A8E92" />
+      <stop offset=".3" stop-color="#F4F5F6" />
+      <stop offset=".55" stop-color="#B4B7BA" />
+      <stop offset="1" stop-color="#6E7276" />
+    </linearGradient>
+    <linearGradient id="roller" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0E141B" />
+      <stop offset=".35" stop-color="#3B4859" />
+      <stop offset="1" stop-color="#0E141B" />
+    </linearGradient>
+    <linearGradient id="bailShadow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1E2A38" stop-opacity=".26" />
+      <stop offset="1" stop-color="#1E2A38" stop-opacity="0" />
+    </linearGradient>
+    <linearGradient id="rail" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E6E8E9" />
+      <stop offset=".25" stop-color="#BFC2C4" />
+      <stop offset="1" stop-color="#85898D" />
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#34445A" />
+      <stop offset=".06" stop-color="#22303F" />
+      <stop offset="1" stop-color="#16202B" />
+    </linearGradient>
+    <radialGradient id="dome" cx="38%" cy="34%" r="70%">
+      <stop offset="0" stop-color="#FFFFFF" />
+      <stop offset=".18" stop-color="#E4E6E8" />
+      <stop offset=".55" stop-color="#A7A9AC" />
+      <stop offset=".85" stop-color="#6C7075" />
+      <stop offset="1" stop-color="#4A4F55" />
+    </radialGradient>
+    <radialGradient id="coil" cx="50%" cy="50%" r="50%">
+      <stop offset=".3" stop-color="#121820" />
+      <stop offset=".86" stop-color="#1B232D" />
+      <stop offset=".88" stop-color="#B5452C" />
+      <stop offset=".97" stop-color="#8E3522" />
+      <stop offset="1" stop-color="#0E141B" />
+    </radialGradient>
+    <radialGradient id="keytop" cx="42%" cy="36%" r="64%">
+      <stop offset="0" stop-color="#3A4859" />
+      <stop offset=".55" stop-color="#18202A" />
+      <stop offset="1" stop-color="#0B1016" />
+    </radialGradient>
+    <radialGradient id="cup" cx="45%" cy="40%" r="60%">
+      <stop offset="0" stop-color="#E9EBEC" />
+      <stop offset=".7" stop-color="#A7A9AC" />
+      <stop offset="1" stop-color="#5E6368" />
+    </radialGradient>
+    <pattern id="hatch" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="12" height="12" fill="#B5452C" fill-opacity=".12" />
+      <rect width="4" height="12" fill="#B5452C" fill-opacity=".55" />
+    </pattern>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="5" /></filter>
+  </defs>
+
+  <!-- bell zone tint + hard right margin on the sheet (positions set by script) -->
+  <rect id="zone" x="824" y="700" width="76" height="346" fill="#B5452C" fill-opacity=".055" />
+  <line id="stopline" x1="910" y1="700" x2="910" y2="1046" stroke="#B5452C" stroke-width="2.5" stroke-dasharray="8 8" />
+
+  <!-- typed rule under the header -->
+  <g id="rule"></g>
+
+  <!-- margin rack + scale strip -->
+  <rect x="-10" y="1112" width="1100" height="22" fill="url(#bailShadow)" />
+  <rect x="-10" y="1044" width="1100" height="14" fill="#7E8286" />
+  <rect x="-10" y="1044" width="1100" height="3" fill="#C9CCCE" />
+  <rect x="-10" y="1058" width="1100" height="54" fill="url(#strip)" />
+  <rect id="bellzone" x="824" y="1058" width="76" height="54" fill="url(#hatch)" />
+  <g id="ticks"></g>
+  <!-- bail rod + rubber rollers -->
+  <rect x="-10" y="1112" width="1100" height="16" fill="url(#rod)" />
+  <rect x="294" y="1106" width="72" height="30" rx="9" fill="url(#roller)" />
+  <rect x="674" y="1106" width="72" height="30" rx="9" fill="url(#roller)" />
+  <!-- margin stops: left (ink) and right (ribbon red) -->
+  <g id="stops">
+    <rect x="125" y="1026" width="30" height="58" rx="4" fill="#0E141B" opacity=".35" filter="url(#soft)" transform="translate(4 6)" />
+    <rect x="125" y="1026" width="30" height="58" rx="4" fill="#1E2A38" />
+    <rect x="130" y="1031" width="20" height="5" rx="2" fill="#4A5A6E" />
+    <path d="M140 1084 l-9 12 h18 z" fill="#1E2A38" />
+    <rect x="885" y="1026" width="30" height="58" rx="4" fill="#0E141B" opacity=".35" filter="url(#soft)" transform="translate(4 6)" />
+    <rect x="885" y="1026" width="30" height="58" rx="4" fill="#B5452C" />
+    <rect x="890" y="1031" width="20" height="5" rx="2" fill="#D9806A" />
+    <path d="M900 1084 l-9 12 h18 z" fill="#B5452C" />
+  </g>
+
+  <!-- front rail where the paper tucks under -->
+  <rect x="-10" y="1300" width="1100" height="16" fill="#1E2A38" opacity=".28" filter="url(#soft)" />
+  <rect x="-10" y="1296" width="1100" height="40" fill="url(#rail)" />
+  <!-- machine body (ink-blue enamel) -->
+  <rect x="-10" y="1336" width="1100" height="600" fill="url(#body)" />
+  <rect x="-10" y="1336" width="1100" height="2" fill="#5A6D86" />
+
+  <!-- ribbon spools -->
+  <g id="spoolL">
+    <circle cx="190" cy="1470" r="96" fill="url(#cup)" />
+    <circle cx="190" cy="1470" r="84" fill="#141B24" />
+    <circle cx="190" cy="1470" r="80" fill="url(#coil)" />
+    <circle cx="190" cy="1470" r="64" fill="none" stroke="#2A3542" stroke-width="1.5" />
+    <circle cx="190" cy="1470" r="50" fill="none" stroke="#2A3542" stroke-width="1.5" />
+    <circle cx="190" cy="1470" r="30" fill="url(#cup)" />
+    <circle cx="190" cy="1470" r="8" fill="#1E2A38" />
+    <circle cx="190" cy="1452" r="5" fill="#1E2A38" /><circle cx="206" cy="1479" r="5" fill="#1E2A38" /><circle cx="174" cy="1479" r="5" fill="#1E2A38" />
+  </g>
+  <g id="spoolR">
+    <circle cx="890" cy="1470" r="96" fill="url(#cup)" />
+    <circle cx="890" cy="1470" r="84" fill="#141B24" />
+    <circle cx="890" cy="1470" r="72" fill="url(#coil)" />
+    <circle cx="890" cy="1470" r="56" fill="none" stroke="#2A3542" stroke-width="1.5" />
+    <circle cx="890" cy="1470" r="30" fill="url(#cup)" />
+    <circle cx="890" cy="1470" r="8" fill="#1E2A38" />
+    <circle cx="890" cy="1452" r="5" fill="#1E2A38" /><circle cx="906" cy="1479" r="5" fill="#1E2A38" /><circle cx="874" cy="1479" r="5" fill="#1E2A38" />
+  </g>
+  <!-- two-tone ribbon: black upper half, red lower half -->
+  <g id="ribbon">
+    <rect x="190" y="1378" width="700" height="14" fill="#10161E" />
+    <rect x="190" y="1392" width="700" height="14" fill="#B5452C" />
+    <rect x="190" y="1379" width="700" height="2" fill="#3A4757" />
+    <rect x="190" y="1404" width="700" height="2" fill="#7E2E1D" />
+  </g>
+  <!-- bell: chrome dome, hammer mid-swing, two ring arcs -->
+  <g id="bell">
+    <ellipse cx="548" cy="1528" rx="74" ry="70" fill="#0B1016" opacity=".45" filter="url(#soft)" transform="translate(10 12)" />
+    <circle cx="548" cy="1520" r="70" fill="url(#dome)" />
+    <circle cx="548" cy="1520" r="70" fill="none" stroke="#4A4F55" stroke-width="2" />
+    <circle cx="548" cy="1520" r="15" fill="#8E9296" />
+    <circle cx="548" cy="1520" r="7" fill="#3E444A" />
+    <path d="M448 1470 A 112 112 0 0 0 448 1570" fill="none" stroke="#B5452C" stroke-width="5" stroke-linecap="round" />
+    <path d="M420 1446 A 150 150 0 0 0 420 1594" fill="none" stroke="#B5452C" stroke-width="4" stroke-linecap="round" opacity=".7" />
+    <path d="M708 1612 L 640 1546" stroke="#0B1016" stroke-width="14" stroke-linecap="round" opacity=".4" transform="translate(6 8)" />
+    <path d="M708 1612 L 640 1546" stroke="url(#rod)" stroke-width="12" stroke-linecap="round" />
+    <circle cx="634" cy="1540" r="17" fill="url(#dome)" stroke="#4A4F55" stroke-width="2" />
+    <circle cx="708" cy="1612" r="13" fill="#7E8286" stroke="#3E444A" stroke-width="2" />
+  </g>
+
+  <!-- keyboard: blank glass keytops in chrome rings (filled by script) -->
+  <g id="keys"></g>
+
+  <!-- type guide on the front rail; its red index points at the active caption word -->
+  <g id="guide">
+    <path d="M-62 1336 L-46 1290 L-12 1290 L0 1276 L12 1290 L46 1290 L62 1336 Z" fill="#F6F1E7" fill-opacity=".38" stroke="#7E8286" stroke-width="2" />
+    <line x1="0" y1="1280" x2="0" y2="1330" stroke="#B5452C" stroke-width="3" />
+  </g>
+</svg>
+
+<div id="caption" data-slot="caption" class="ink"></div>
+
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#07", kicker: "Cara kerja AI · #07",
+    title: "Kok jawaban AI berhenti di tengah kalimat?", hl: "berhenti",
+    sub: "Tiap balasan punya jatah token. Habis, ya berhenti.",
+    items: [{ label: "Bel bunyi", value: "~90%" }, { label: "Batas keras", value: "100%" }, { label: "Solusi", value: "lanjutkan" }],
+    source: "ilustrasi — batas output beda tiap model", date: "per 14 Okt 2026" };
+
+  const fontsIn = Promise.all(['700 90px "Courier Prime"', '400 44px "Courier Prime"', '600 28px "Instrument Sans"'].map(f => document.fonts.load(f)));
+  fontsIn.catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+    const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const NS = "http://www.w3.org/2000/svg";
+    const X0 = 140, X1 = 900, COL = (X1 - X0) / 60;          // col 10 = left stop, col 70 = right stop
+    const colX = c => X0 + (c - 10) * COL;
+
+    // ---- meta: series/ep + date, source on the second typed line
+    const ep = D.ep ? String(D.ep) : "";
+    const kick = D.series ? esc(D.series) + (ep ? " · " + esc(ep) : "") : esc(D.kicker || "");
+    document.getElementById("kick").innerHTML = "<b>" + kick + "</b>";
+    document.getElementById("date").textContent = D.date || "";
+    const m2 = document.getElementById("meta2");
+    m2.textContent = D.source ? "Sumber: " + D.source : "";
+    const metaBottom = 340 + (D.source ? m2.offsetHeight : 0);
+
+    // typed rule (= = =) under the header, drawn as paths
+    const ruleY = metaBottom + 16;
+    let rule = "";
+    for (let x = X0; x <= X1 - 14; x += 21) rule += '<rect x="' + x + '" y="' + ruleY + '" width="13" height="3" fill="#1E2A38" opacity=".45"/><rect x="' + x + '" y="' + (ruleY + 7) + '" width="13" height="3" fill="#1E2A38" opacity=".45"/>';
+    document.getElementById("rule").innerHTML = rule;
+
+    // ---- title: typed headline, hl in the red half of the ribbon
+    const t = D.title || "", hl = D.hl || "";
+    const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    const titleEl = document.getElementById("title");
+    titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+    const TITLE_TOP = ruleY + 34, TITLE_MAX_H = 746 - TITLE_TOP;
+    titleEl.style.top = TITLE_TOP + "px";
+    for (let fs = 104; fs >= 62; fs -= 2) {
+      titleEl.style.fontSize = fs + "px";
+      const lines = Math.round(titleEl.offsetHeight / (fs * 1.04));
+      if (titleEl.offsetHeight <= TITLE_MAX_H && lines <= 4 && titleEl.scrollWidth <= 762) break;
+    }
+    const titleBottom = TITLE_TOP + titleEl.offsetHeight;
+
+    // ---- items: typed ledger lines, values pushed against the right stop
+    const items = (D.items || []).slice(0, 5);
+    const n = Math.max(items.length, 1);
+    const BAND_TOP = titleBottom + 40, ITEMS_BOTTOM = 1014;
+    const pitch = Math.min(78, (ITEMS_BOTTOM - BAND_TOP) / n);
+    const ITEMS_TOP = Math.round(BAND_TOP + (ITEMS_BOTTOM - BAND_TOP - pitch * n) * 0.45);
+    let fs = Math.max(34, Math.min(44, Math.floor(pitch * 0.68)));
+    const box = document.getElementById("items");
+    box.style.top = ITEMS_TOP + "px";
+    box.innerHTML = items.map((it, i) =>
+      '<div class="row" style="top:' + (i * pitch).toFixed(1) + 'px"><span class="lb">' + esc(it.label) + '</span><span class="dots"></span><span class="vl">' + esc(it.value) + "</span></div>").join("");
+    const rows = [...box.querySelectorAll(".row")];
+    const fits = () => rows.every(r => { const lb = r.querySelector(".lb"); return lb.scrollWidth <= lb.clientWidth + 1; });
+    for (; fs >= 32; fs -= 1) { rows.forEach(r => { r.style.fontSize = fs + "px"; r.style.lineHeight = Math.round(fs * 1.2) + "px"; }); if (fits()) break; }
+    // centre each line in its pitch slot
+    const lh = Math.round(fs * 1.2);
+    rows.forEach((r, i) => r.style.top = (i * pitch + (pitch - lh) / 2).toFixed(1) + "px");
+
+    // bell zone (cols 64-70) + the dashed hard margin rising from the right stop
+    const zTop = ITEMS_TOP - 6;
+    const zone = document.getElementById("zone");
+    zone.setAttribute("x", colX(64)); zone.setAttribute("width", X1 - colX(64));
+    zone.setAttribute("y", zTop); zone.setAttribute("height", 1044 - zTop);
+    const sl = document.getElementById("stopline");
+    sl.setAttribute("y1", zTop); sl.setAttribute("y2", 1030);
+    document.getElementById("bellzone").setAttribute("x", colX(64));
+    document.getElementById("bellzone").setAttribute("width", X1 - colX(64));
+
+    // ---- margin scale 0-80 (numbers stamped every 10, the stop columns left bare)
+    let tk = "";
+    for (let c = 0; c <= 82; c++) {
+      const x = colX(c);
+      const len = c % 10 === 0 ? 20 : c % 5 === 0 ? 14 : 8;
+      tk += '<rect x="' + (x - (c % 10 === 0 ? 1.5 : 1)).toFixed(1) + '" y="1058" width="' + (c % 10 === 0 ? 3 : 2) + '" height="' + len + '" fill="' + (c >= 64 && c <= 70 ? "#7E2E1D" : "#1E2A38") + '"/>';
+      if (c % 10 === 0 && c >= 20 && c <= 60)
+        tk += '<text x="' + x.toFixed(1) + '" y="1101" text-anchor="middle" font-family="Instrument Sans" font-weight="600" font-size="26" fill="#1E2A38">' + c + "</text>";
+    }
+    document.getElementById("ticks").innerHTML = tk;
+
+    // ---- keyboard rows (decorative, below the safe zone)
+    let ks = "";
+    [[1712, 52], [1826, 108], [1940, 52]].forEach(([y, off]) => {
+      for (let x = off - 112; x < 1140; x += 112) {
+        ks += '<ellipse cx="' + (x + 6) + '" cy="' + (y + 10) + '" rx="46" ry="44" fill="#0B1016" opacity=".5"/>' +
+              '<circle cx="' + x + '" cy="' + y + '" r="46" fill="url(#cup)"/>' +
+              '<circle cx="' + x + '" cy="' + y + '" r="38" fill="url(#keytop)"/>' +
+              '<path d="M' + (x - 24) + " " + (y - 18) + " A 30 30 0 0 1 " + (x + 8) + " " + (y - 30) + '" fill="none" stroke="#F6F1E7" stroke-opacity=".35" stroke-width="4" stroke-linecap="round"/>';
+      }
+    });
+    document.getElementById("keys").innerHTML = ks;
+
+    // ---- caption: karaoke line on the platen
+    const cap = String(D.caption || D.sub || "");
+    const words = cap.split(/\s+/).filter(Boolean);
+    let a0 = -1, a1 = -1;
+    if (hl) {
+      const lc = cap.toLowerCase(), k = lc.indexOf(hl.toLowerCase());
+      if (k >= 0) {
+        let pos = 0;
+        words.forEach((w, i) => { const s = lc.indexOf(w.toLowerCase(), pos), e = s + w.length; pos = e;
+          if (e > k && s < k + hl.length) { if (a0 < 0) a0 = i; a1 = i; } });
+      }
+    }
+    if (a0 < 0) { a0 = 0; a1 = 0; }
+    const capEl = document.getElementById("caption");
+    // pack words into typed lines by character count (monospace), keep a 2-line window
+    // around the active word; a cut sentence ends with "..." like a line stopped at the margin
+    const unit = words.map((w, i) => i === a0 ? { t: words.slice(a0, a1 + 1).join(" "), on: true } : (i > a0 && i <= a1) ? null : { t: w, on: false }).filter(Boolean);
+    const onIdx = unit.findIndex(u => u.on);
+    const pack = (cpl) => { const L = [[]]; let len = 0;
+      unit.forEach((u, i) => { const add = (len ? 1 : 0) + u.t.length;
+        if (len && len + add > cpl) { L.push([]); len = 0; }
+        L[L.length - 1].push(i); len += (len ? 1 : 0) + u.t.length; });
+      return L; };
+    let cf = 44, lines = null;
+    for (cf = 44; cf >= 40; cf -= 2) { lines = pack(Math.floor(760 / (cf * 0.6))); if (lines.length <= 2) break; }
+    if (lines.length > 2) { cf = 42; lines = pack(Math.floor(760 / (cf * 0.6)) - 3); }
+    let li = lines.findIndex(L => L.includes(onIdx));
+    let first = Math.max(0, Math.min(li, lines.length - 2));
+    const shown = lines.slice(first, first + 2);
+    const cutHead = first > 0, cutTail = first + 2 < lines.length;
+    const lineHtml = shown.map((L, k) => {
+      let h = L.map(i => '<span class="w' + (unit[i].on ? " on" : "") + '">' + esc(unit[i].t) + "</span>").join(" ");
+      if (k === 0 && cutHead) h = '<span class="w">...</span>' + h;
+      if (k === shown.length - 1 && cutTail) h += '<span class="w">...</span>';
+      return h;
+    });
+    capEl.innerHTML = lineHtml.join("<br>");
+    capEl.style.fontSize = cf + "px"; capEl.style.lineHeight = Math.round(cf * 1.3) + "px";
+    // sit the caption on the platen, bottom-aligned just above the type guide
+    capEl.style.top = (1276 - capEl.offsetHeight) + "px";
+
+    // the type guide follows the active word
+    const on = capEl.querySelector(".on");
+    let gx = 540;
+    if (on) { const r = on.getBoundingClientRect(); gx = Math.max(200, Math.min(830, r.left + r.width / 2)); }
+    document.getElementById("guide").setAttribute("transform", "translate(" + gx.toFixed(1) + " 0)");
+  }
+</script>
+</body>
+</html>

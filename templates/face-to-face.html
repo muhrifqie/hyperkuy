@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Instrument+Sans:wght@500;600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Face to Face (face-to-face): a phone lying flat on a terrazzo cafe table,
+    seen from above, running a two-way "conversation" translator. The screen is
+    split head-to-tail (tete-beche): the near half (orange) is upright for you,
+    the far half (blue) is printed upside down for the one sitting opposite.
+    Each item is a phrase pair: its label upright in your half, its value
+    upside down in theirs, tied by a thread that crosses the fold (attention:
+    the decoder writes its side while looking back at the source side).
+    The title is your spoken line, the caption is the live transcript.
+    Fully deterministic: terrazzo chips come from a fixed LCG seed.
+  */
+  :root { --or: #F05A28; --bl: #1E3FA8; --cr: #FFF6EA; --ink: #111111; --sand: #E6D6BC; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #E6D6BC; }
+  body { position: relative; color: var(--ink); font-family: "Instrument Sans", sans-serif; }
+
+  #table { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* phone body (black slab with a soft top-down shadow) */
+  #phone { position: absolute; left: 118px; top: 96px; width: 844px; height: 1748px; border-radius: 96px; background: #111111;
+           box-shadow: 0 34px 46px rgba(60, 38, 16, .30), 0 6px 10px rgba(17, 17, 17, .30), inset 0 0 0 2px #2A2A2A; }
+  .btn { position: absolute; background: #111111; border-radius: 4px; }
+
+  /* the two halves of the screen */
+  #top { position: absolute; left: 132px; top: 110px; width: 816px; height: 680px; background: var(--bl); border-radius: 82px 82px 0 0; overflow: hidden; }
+  #flip { position: absolute; left: 0; top: 0; width: 816px; height: 680px; transform: rotate(180deg); }
+  #bot { position: absolute; left: 132px; top: 842px; width: 816px; height: 988px; background: var(--or); border-radius: 0 0 82px 82px; }
+
+  /* far half: values, upside down for the other side of the table */
+  .vrow { position: absolute; right: 64px; display: flex; align-items: center; justify-content: flex-end; gap: 20px; white-space: nowrap; }
+  .vtxt { font-family: "Big Shoulders Display", sans-serif; font-weight: 800; color: var(--cr); line-height: 1; text-transform: uppercase; letter-spacing: .01em; }
+  .vidx { font-family: "Big Shoulders Display", sans-serif; font-weight: 800; font-size: 34px; color: var(--cr); width: 44px; text-align: left; line-height: 1; }
+
+  /* near half: labels (source phrases), title (your line), live transcript */
+  .lrow { position: absolute; left: 52px; display: flex; align-items: center; gap: 20px; white-space: nowrap; }
+  .lidx { font-family: "Big Shoulders Display", sans-serif; font-weight: 800; font-size: 34px; width: 44px; line-height: 1; color: var(--ink); }
+  .ltxt { font-weight: 600; font-size: 40px; line-height: 1.1; color: var(--ink); }
+
+  #title { position: absolute; left: 52px; width: 716px; font-family: "Big Shoulders Display", sans-serif; font-weight: 800; line-height: .94; letter-spacing: -.005em; color: var(--ink); text-transform: uppercase; }
+  #title .hl { display: inline-block; white-space: nowrap; line-height: .92; background: var(--ink); color: var(--cr); padding: .045em .1em 0; margin: 0 -.02em; }
+
+  #cap { position: absolute; left: 52px; width: 716px; font-weight: 600; line-height: 1.26; color: var(--ink); text-wrap: balance; }
+  #cap .w.on { background: var(--cr); color: var(--ink); font-weight: 700; padding: 0 .16em; border-radius: 10px; box-decoration-break: clone; -webkit-box-decoration-break: clone; box-shadow: inset 0 -5px 0 var(--bl); }
+  #wave { position: absolute; left: 22px; width: 18px; height: 34px; }
+  #src { position: absolute; left: 52px; width: 716px; font-weight: 500; font-size: 26px; line-height: 1.25; color: var(--ink); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+
+  /* docks: mic buttons + speaker pills (chrome, sits in the platform UI zone) */
+  .mic { position: absolute; width: 128px; height: 128px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+  .pill { position: absolute; height: 52px; padding: 0 22px; border-radius: 26px; display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 26px; letter-spacing: .08em; text-transform: uppercase; }
+  .round { position: absolute; width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+
+  #arcs { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; pointer-events: none; }
+
+  /* the fold: a cream hinge carrying the meta; threads pass under it */
+  #fold { position: absolute; left: 132px; top: 790px; width: 816px; height: 52px; background: var(--cr); display: flex; align-items: center; gap: 14px; padding: 0 52px 0 46px; font-weight: 600; font-size: 26px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink); }
+  #fold .swap { flex: none; width: 40px; height: 40px; border-radius: 50%; background: var(--ink); display: flex; align-items: center; justify-content: center; }
+  #fold #date { margin-left: auto; }
+  #fold span { white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg id="table" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+
+<div id="phone" data-layout-allow-overlap></div>
+<div class="btn" style="left:962px;top:452px;width:7px;height:132px" data-layout-allow-overlap></div>
+<div class="btn" style="left:111px;top:400px;width:7px;height:86px" data-layout-allow-overlap></div>
+<div class="btn" style="left:111px;top:506px;width:7px;height:86px" data-layout-allow-overlap></div>
+
+<div id="top" data-layout-allow-overlap>
+  <div id="flip">
+    <div id="vals"></div>
+    <!-- far-side dock (their mic + speaker pill), upside down with the rest of the half -->
+    <div class="pill" style="left:52px;top:538px;border:3px solid #FFF6EA;color:#FFF6EA" id="pillTop">
+      <svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="#FFF6EA"/></svg><span>AI</span>
+    </div>
+    <div class="mic" style="left:344px;top:500px;background:#FFF6EA">
+      <svg width="46" height="64" viewBox="0 0 46 64"><rect x="12" y="2" width="22" height="38" rx="11" fill="#1E3FA8"/><path d="M4 30 Q4 50 23 50 Q42 50 42 30" fill="none" stroke="#1E3FA8" stroke-width="5" stroke-linecap="round"/><path d="M23 50 V61 M13 61 H33" stroke="#1E3FA8" stroke-width="5" stroke-linecap="round"/></svg>
+    </div>
+    <div class="round" style="left:700px;top:532px;border:3px solid #FFF6EA">
+      <svg width="30" height="30" viewBox="0 0 30 30"><path d="M4 11 H10 L17 5 V25 L10 19 H4 Z" fill="#FFF6EA"/><path d="M21 10 Q25 15 21 20" fill="none" stroke="#FFF6EA" stroke-width="3" stroke-linecap="round"/></svg>
+    </div>
+  </div>
+</div>
+
+<div id="bot" data-layout-allow-overlap>
+  <div id="labs"></div>
+  <div id="title"></div>
+  <svg id="wave" viewBox="0 0 18 34"><rect x="0" y="12" width="4" height="10" rx="2" fill="#111"/><rect x="7" y="4" width="4" height="26" rx="2" fill="#111"/><rect x="14" y="9" width="4" height="16" rx="2" fill="#111"/></svg>
+  <div id="cap" data-slot="caption"></div>
+  <div id="src"></div>
+  <div class="pill" style="left:52px;top:854px;border:3px solid #111111;color:#111111" id="pillBot">
+    <svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" fill="#111111"/></svg><span>Kamu</span>
+  </div>
+  <div class="mic" style="left:344px;top:816px;background:#111111">
+    <svg width="46" height="64" viewBox="0 0 46 64"><rect x="12" y="2" width="22" height="38" rx="11" fill="#FFF6EA"/><path d="M4 30 Q4 50 23 50 Q42 50 42 30" fill="none" stroke="#FFF6EA" stroke-width="5" stroke-linecap="round"/><path d="M23 50 V61 M13 61 H33" stroke="#FFF6EA" stroke-width="5" stroke-linecap="round"/></svg>
+  </div>
+  <div class="round" style="left:700px;top:848px;border:3px solid #111111">
+    <svg width="30" height="30" viewBox="0 0 30 30"><path d="M4 11 H10 L17 5 V25 L10 19 H4 Z" fill="#111111"/><path d="M21 10 Q25 15 21 20" fill="none" stroke="#111111" stroke-width="3" stroke-linecap="round"/></svg>
+  </div>
+</div>
+
+<svg id="arcs" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+
+<div id="fold">
+  <div class="swap"><svg width="22" height="26" viewBox="0 0 22 26"><path d="M6 23 V4 M1 9 L6 3 L11 9" fill="none" stroke="#FFF6EA" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 3 V22 M11 17 L16 23 L21 17" fill="none" stroke="#FFF6EA" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <span id="ser"></span>
+  <span id="date"></span>
+</div>
+
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const pad = i => String(i).padStart(2, "0");
+
+  // ---------- table: terrazzo chips, a coffee cup, a teaspoon (static, deterministic) ----------
+  (function table() {
+    let s = 20261014;
+    const rnd = () => (s = (s * 1103515245 + 12345) % 2147483648) / 2147483648;
+    const cols = ["#F05A28", "#1E3FA8", "#111111", "#FFF6EA", "#C9B190"];
+    let g = "";
+    for (let k = 0; k < 330; k++) {
+      const x = rnd() * 1080, y = rnd() * 1920, r = 4 + rnd() * 13, c = cols[Math.floor(rnd() * cols.length)], rot = rnd() * 6.28, o = 0.55 + rnd() * 0.4;
+      const inPhone = x > 104 && x < 976 && y > 82 && y < 1858;
+      const inCup = Math.hypot(x + 20, y - 20) < 196;
+      const inStick = x < 100 && y > 1420 && y < 1760;
+      if (inPhone || inCup || inStick) continue;
+      // irregular 5-gon chip
+      let d = "";
+      for (let v = 0; v < 5; v++) { const a = rot + v * 1.2566 + (rnd() - .5) * .5, rr = r * (0.6 + rnd() * 0.5); d += (v ? "L" : "M") + (x + Math.cos(a) * rr).toFixed(1) + "," + (y + Math.sin(a) * rr).toFixed(1); }
+      g += `<path d="${d}Z" fill="${c}" opacity="${o.toFixed(2)}"/>`;
+    }
+    // water ring left by a glass, right margin
+    g += `<circle cx="1046" cy="660" r="70" fill="none" stroke="#C9B190" stroke-width="5" opacity=".7"/><circle cx="1046" cy="660" r="62" fill="none" stroke="#C9B190" stroke-width="2" opacity=".45"/>`;
+    // coffee cup (top-down), tucked into the top-left corner
+    g += `<ellipse cx="-4" cy="44" rx="182" ry="182" fill="rgba(70,44,20,.22)"/>
+      <circle cx="-20" cy="20" r="175" fill="#FFF6EA" stroke="#111111" stroke-width="4"/>
+      <circle cx="-20" cy="20" r="148" fill="#E9DCC6"/>
+      <circle cx="-20" cy="20" r="136" fill="#111111"/>
+      <circle cx="-20" cy="20" r="128" fill="none" stroke="#F05A28" stroke-width="10" opacity=".38"/>
+      <path d="M40 120 Q80 96 96 52" fill="none" stroke="#FFF6EA" stroke-width="6" stroke-linecap="round" opacity=".32"/>`;
+    // teaspoon lying in the left margin (cream line-art, like the cup)
+    g += `<g transform="translate(58 1590) rotate(-4)">
+      <ellipse cx="4" cy="10" rx="34" ry="150" fill="rgba(70,44,20,.10)"/>
+      <path d="M-7 -40 C-9 30 -12 110 -6 160 Q0 172 6 160 C12 110 9 30 7 -40 Z" fill="#FFF6EA" stroke="#111111" stroke-width="3" stroke-linejoin="round"/>
+      <ellipse cx="0" cy="-92" rx="30" ry="50" fill="#FFF6EA" stroke="#111111" stroke-width="3"/>
+      <ellipse cx="-6" cy="-100" rx="11" ry="26" fill="none" stroke="#C9B190" stroke-width="4"/></g>`;
+    // speaker slit + punch-hole camera on the phone (drawn later in arcs layer for z-order)
+    $("table").innerHTML = g;
+  })();
+
+  Promise.all(['800 100px "Big Shoulders Display"', '600 40px "Instrument Sans"', '700 40px "Instrument Sans"', '500 26px "Instrument Sans"'].map(f => document.fonts.load(f)))
+    .catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+    const items = (D.items || []).slice(0, 5);
+    const n = Math.max(1, items.length);
+
+    // ---------- meta on the fold ----------
+    const epTxt = String(D.ep || "").trim();
+    $("ser").textContent = D.series ? (D.series + (epTxt ? " · " + epTxt : "")) : (D.kicker || epTxt);
+    $("date").textContent = D.date || "";
+
+    // ---------- near half: labels, right under the fold (bot coords: y 0 = frame 842) ----------
+    const RL = n >= 5 ? 56 : 62;
+    $("labs").innerHTML = items.map((it, i) =>
+      `<div class="lrow" style="top:${22 + i * RL}px;height:${RL}px"><span class="lidx">${pad(i + 1)}</span><span class="ltxt">${esc(it.label)}</span></div>`).join("");
+    const ltx = [...document.querySelectorAll(".ltxt")];
+    let lfs = 40;
+    const fitL = () => { ltx.forEach(e => e.style.fontSize = lfs + "px"); return Math.max(...ltx.map(e => e.offsetWidth)); };
+    while (fitL() > 470 && lfs > 32) lfs -= 2;
+    const labsEnd = 22 + n * RL;
+
+    // ---------- caption: live transcript (karaoke) ----------
+    const hl = String(D.hl || "").trim();
+    const cap = String(D.caption || D.sub || "").trim();
+    const words = cap.split(/\s+/).filter(Boolean);
+    const norm = w => w.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+    const hw = hl ? hl.split(/\s+/).map(norm).filter(Boolean) : [];
+    let a0 = -1, a1 = -1;
+    if (hw.length) {
+      for (let i = 0; i + hw.length <= words.length && a0 < 0; i++) if (hw.every((h2, k) => norm(words[i + k]) === h2)) { a0 = i; a1 = i + hw.length - 1; }
+      if (a0 < 0 && hw.length === 1) { const j = words.findIndex(w => norm(w).includes(hw[0])); if (j >= 0) a0 = a1 = j; }
+    }
+    if (a0 < 0) a0 = a1 = 0;
+    const capEl = $("cap");
+    const capHTML = (w0, w1) => {
+      const parts = [];
+      for (let i = w0; i <= w1; i++) {
+        if (i === a0) { parts.push(`<span class="w on">${esc(words.slice(a0, a1 + 1).join(" "))}</span>`); i = a1; }
+        else parts.push(`<span class="w">${esc(words[i])}</span>`);
+      }
+      if (w0 > 0) parts[0] = parts[0].replace('">', '">…');
+      if (w1 < words.length - 1) parts[parts.length - 1] = parts[parts.length - 1].replace("</span>", "…</span>");
+      return parts.join(" ");
+    };
+    const fits2 = fs => capEl.offsetHeight <= fs * 1.26 * 2 + 4;
+    let cfs = 46, w0 = 0, w1 = words.length - 1;
+    capEl.innerHTML = capHTML(w0, w1);
+    for (; cfs > 40; cfs -= 2) { capEl.style.fontSize = cfs + "px"; if (fits2(cfs)) break; }
+    capEl.style.fontSize = cfs + "px";
+    // a voice-over line longer than two lines shows the chunk around the active word
+    while (!fits2(cfs) && w1 - w0 > 1) {
+      if (w1 > a1) w1--; else w0++;
+      capEl.innerHTML = capHTML(w0, w1);
+    }
+
+    // source line sits at the bottom of the safe zone (frame y <= 1608), caption right above it
+    const srcEl = $("src");
+    srcEl.textContent = D.source ? "Sumber: " + D.source : "";
+    const SRC_TOP = 1608 - 842 - srcEl.offsetHeight;
+    srcEl.style.top = SRC_TOP + "px";
+    const capTop = SRC_TOP - 16 - capEl.offsetHeight;
+    capEl.style.top = capTop + "px";
+    $("wave").style.top = (capTop + (cfs * 1.26 - 34) / 2) + "px";
+
+    // ---------- title: your spoken line, the largest thing on the table ----------
+    const t = String(D.title || "");
+    const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    const titleEl = $("title");
+    titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+    const tTop = labsEnd + 34, tMax = capTop - 34 - tTop;
+    let tfs = 150;
+    for (; tfs >= 64; tfs -= 2) {
+      titleEl.style.fontSize = tfs + "px";
+      if (titleEl.offsetHeight <= tMax && titleEl.scrollWidth <= 716) break;
+    }
+    // centre the title in the free band between the labels and the caption
+    titleEl.style.top = (tTop + Math.max(0, (tMax - titleEl.offsetHeight) / 2)) + "px";
+
+    // ---------- far half: values, upside down (flip coords: y 0 = the fold) ----------
+    // spread over the band between the fold and the far dock; never bigger than ~80% of the title
+    const RV = Math.min(132, 448 / n);
+    $("vals").innerHTML = items.map((it, i) =>
+      `<div class="vrow" style="top:${(22 + i * RV).toFixed(1)}px;height:${RV.toFixed(1)}px"><span class="vtxt">${esc(it.value)}</span><span class="vidx">${pad(i + 1)}</span></div>`).join("");
+    const vtx = [...document.querySelectorAll(".vtxt")];
+    let vfs = Math.round(Math.min(98, RV * 0.76, tfs * 0.8));
+    const fitV = () => { vtx.forEach(e => e.style.fontSize = vfs + "px"); return Math.max(...vtx.map(e => e.offsetWidth)); };
+    while (fitV() > 470 && vfs > 44) vfs -= 2;
+
+    // ---------- threads across the fold (attention) ----------
+    const F_TOP = 790, F_BOT = 842;
+    const L = ltx.map(e => { const r = e.getBoundingClientRect(); return { x: r.right + 22, y: (r.top + r.bottom) / 2 }; });
+    const V = vtx.map(e => { const r = e.getBoundingClientRect(); return { x: r.right + 22, y: (r.top + r.bottom) / 2 + 2 }; });
+    // pair i only has to clear the rows nearer the fold (0..i); outer threads nest around inner ones
+    const XS = [], needs = [];
+    for (let i = 0; i < n; i++) needs.push(Math.max(...L.slice(0, i + 1).map(p => p.x), ...V.slice(0, i + 1).map(p => p.x)) + 44);
+    const gap = n > 1 ? Math.max(40, Math.min(70, (880 - needs[0]) / (n - 1))) : 0;
+    for (let i = 0; i < n; i++) XS.push(Math.max(needs[i], i ? XS[i - 1] + gap : 0));
+    const over = Math.max(0, XS[n - 1] - 904);
+    if (over) for (let i = 0; i < n; i++) XS[i] -= over * (n > 1 ? i / (n - 1) : 1);
+    const X = k => { const a = Math.floor(k), b = Math.min(n - 1, Math.ceil(k)); return XS[a] + (XS[b] - XS[a]) * (k - a); };
+    const curve = (p, q, xm) => { const c = (xm - (p.x + q.x) / 8) / 0.75; return `M${p.x.toFixed(1)},${p.y.toFixed(1)} C${c.toFixed(1)},${p.y.toFixed(1)} ${c.toFixed(1)},${q.y.toFixed(1)} ${q.x.toFixed(1)},${q.y.toFixed(1)}`; };
+
+    let faint = "", main = "";
+    items.forEach((_, i) => {
+      items.forEach((__, j) => {
+        if (i === j) return;
+        // a faint thread value i -> label j must clear every row it passes (labels 0..j, values 0..i)
+        const need = Math.max(...L.slice(0, j + 1).map(p => p.x), ...V.slice(0, i + 1).map(p => p.x)) + 30;
+        faint += `<path d="${curve(L[j], V[i], Math.min(904, Math.max(need, X((i + j) / 2) - 8)))}"/>`;
+      });
+      main += `<path d="${curve(L[i], V[i], X(i))}"/>`;
+    });
+    const dotsL = L.map(p => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="8"/>`).join("");
+    const dotsV = V.map(p => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="8"/>`).join("");
+    $("arcs").innerHTML = `
+      <defs>
+        <clipPath id="cTop"><rect x="132" y="110" width="816" height="${F_TOP - 110}"/></clipPath>
+        <clipPath id="cBot"><rect x="132" y="${F_BOT}" width="816" height="${1830 - F_BOT}"/></clipPath>
+      </defs>
+      <g clip-path="url(#cTop)" fill="none" stroke="#FFF6EA" stroke-linecap="round">
+        <g stroke-width="2" opacity=".34">${faint}</g><g stroke-width="4.5">${main}</g>
+      </g>
+      <g clip-path="url(#cBot)" fill="none" stroke="#111111" stroke-linecap="round">
+        <g stroke-width="2" opacity=".30">${faint}</g><g stroke-width="4.5">${main}</g>
+      </g>
+      <g fill="#111111">${dotsL}</g>
+      <g fill="#FFF6EA">${dotsV}</g>
+      <rect x="500" y="100" width="80" height="5" rx="2.5" fill="#2E2E2E"/>
+      <circle cx="540" cy="140" r="13" fill="#0A0A0A" stroke="#2A2A2A" stroke-width="2"/>`;
+  }
+</script>
+</body>
+</html>

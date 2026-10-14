@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Seal Chop</title>
+<link href="https://fonts.googleapis.com/css2?family=Old+Standard+TT:ital,wght@0,400;0,700;1,400&family=Instrument+Sans:wdth,wght@75..100,400..700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Seal Chop: a hanging scroll on a plaster wall. Rice-paper painting of an
+    ink landscape (shanshui) inside an indigo silk mount; over the years
+    collectors have stamped red seals on it, each one a record of who owned,
+    approved or changed the work. Metaphor: content provenance / AI labels -
+    an image now carries a chain of stamps (made with AI, edited, uploaded).
+    Items = the seals, stamped in date order down the painting, alternating
+    margins. Title = the painter's inscription in the sky; D.hl is stamped
+    over in a red seal. Caption = the voice-over line written under the
+    landscape. Fully deterministic (sine-based shapes, fixed noise seeds).
+
+    Signature move (video): a seal slams onto the clean landscape (fast in,
+    tiny overshoot on the seal only, ink settles); the next seals land one
+    by one down the margins as they are spoken; the scroll rolls up and
+    unrolls clean to loop.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #E3DACA; }
+  body { position: relative; color: #2B2622; font-family: "Old Standard TT", serif; }
+  #stage { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  .meta { position: absolute; left: 150px; right: 150px; top: 300px; display: flex; justify-content: space-between; align-items: baseline;
+          font: 600 28px "Instrument Sans", sans-serif; font-stretch: 85%; letter-spacing: 0.16em; text-transform: uppercase; color: #4A423B; }
+  .meta b { color: #B3261E; font-weight: 700; }
+
+  .title { position: absolute; left: 150px; width: 780px; top: 352px; font-weight: 400; line-height: 1.06; letter-spacing: -0.01em; color: #2B2622; text-wrap: balance; }
+  .title .hl { display: inline-block; background: #B3261E; color: #F3ECDD; font-weight: 700; padding: 0.02em 0.14em 0.08em; line-height: 1.0;
+               margin: 0 0.02em; transform: rotate(-1.6deg); filter: url(#sealInk);
+               box-shadow: inset 0 0 0 6px #B3261E, inset 0 0 0 9px rgba(243, 236, 221, 0.85); }
+
+  #seals { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  .seal { position: absolute; text-align: center; white-space: nowrap; filter: url(#sealInk); }
+  .seal .sl { font: 700 32px "Instrument Sans", sans-serif; font-stretch: 78%; letter-spacing: 0.08em; text-transform: uppercase; line-height: 1.08; white-space: normal; }
+  .seal .rule { height: 3px; margin: 9px auto 7px; width: 72%; background: currentColor; }
+  .seal .sv { font: 700 44px "Old Standard TT", serif; line-height: 1.0; }
+  .s-bai { background: #B3261E; color: #F3ECDD; padding: 18px 26px 20px; box-shadow: inset 0 0 0 7px #B3261E, inset 0 0 0 10px rgba(243, 236, 221, 0.9); }
+  .s-zhu { background: #F3ECDD; color: #B3261E; padding: 16px 24px 18px; border: 6px solid #B3261E; box-shadow: inset 0 0 0 4px #F3ECDD, inset 0 0 0 7px #B3261E; }
+  .s-peb { background: #B3261E; color: #F3ECDD; padding: 22px 38px 24px; border-radius: 44% 38% 46% 36% / 50% 44% 52% 46%; }
+
+  .cap { position: absolute; left: 150px; width: 780px; font: 400 44px "Old Standard TT", serif; line-height: 1.24; color: #2B2622; }
+  .cap span { display: inline; }
+  .cap .on { color: #B3261E; font-weight: 700; text-decoration: underline; text-decoration-thickness: 5px; text-underline-offset: 9px; text-decoration-skip-ink: none; }
+
+  .colo { position: absolute; left: 150px; right: 150px; display: flex; justify-content: space-between; align-items: flex-end; gap: 36px;
+          font: 500 26px "Instrument Sans", sans-serif; letter-spacing: 0.02em; line-height: 1.3; color: #4A423B; }
+  .colo span:first-child { text-wrap: balance; }
+  .colo span:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg id="stage" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="wallG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E7DFD0" /><stop offset="1" stop-color="#DBD1BF" />
+    </linearGradient>
+    <linearGradient id="paperG" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#EBE2CF" /><stop offset="0.06" stop-color="#F3ECDD" /><stop offset="0.94" stop-color="#F3ECDD" /><stop offset="1" stop-color="#EBE2CF" />
+    </linearGradient>
+    <linearGradient id="rodG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5A4D40" /><stop offset="0.35" stop-color="#2B2622" /><stop offset="1" stop-color="#1C1916" />
+    </linearGradient>
+    <linearGradient id="knobG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E2D3AE" /><stop offset="0.45" stop-color="#C8B48A" /><stop offset="1" stop-color="#8E7A52" />
+    </linearGradient>
+    <pattern id="silk" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(32)">
+      <rect width="7" height="7" fill="#3F4F6B" /><rect width="2" height="7" fill="#4B5C7A" />
+    </pattern>
+    <pattern id="brocade" width="22" height="16" patternUnits="userSpaceOnUse">
+      <rect width="22" height="16" fill="#C8B48A" /><path d="M0 8 Q5.5 2 11 8 T22 8" fill="none" stroke="#B19C6E" stroke-width="2" />
+    </pattern>
+    <filter id="blur14" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="14" /></filter>
+    <filter id="blur4" filterUnits="userSpaceOnUse" x="0" y="0" width="1080" height="1920"><feGaussianBlur stdDeviation="4" /></filter>
+    <filter id="blur7" filterUnits="userSpaceOnUse" x="0" y="0" width="1080" height="1920"><feGaussianBlur stdDeviation="7" /></filter>
+    <filter id="far" filterUnits="userSpaceOnUse" x="0" y="0" width="1080" height="1920">
+      <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="2" seed="9" result="n" />
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="10" xChannelSelector="R" yChannelSelector="G" result="d" />
+      <feGaussianBlur in="d" stdDeviation="1.6" />
+    </filter>
+    <filter id="rough" filterUnits="userSpaceOnUse" x="0" y="0" width="1080" height="1920">
+      <feTurbulence type="fractalNoise" baseFrequency="0.045" numOctaves="2" seed="4" result="n" />
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="6" xChannelSelector="R" yChannelSelector="G" result="d" />
+      <feGaussianBlur in="d" stdDeviation="0.5" />
+    </filter>
+    <filter id="sealInk" x="-4%" y="-4%" width="108%" height="108%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.32" numOctaves="2" seed="3" result="n" />
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -40 28.2" result="speck" />
+      <feComposite in="SourceGraphic" in2="speck" operator="in" result="sp" />
+      <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="2" seed="12" result="n2" />
+      <feDisplacementMap in="sp" in2="n2" scale="3.2" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+    <filter id="grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.62" numOctaves="3" seed="21" result="n" />
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.55  0 0 0 0 0.47  0 0 0 0 0.33  0 0 0 -1.6 0.9" />
+    </filter>
+  </defs>
+
+  <!-- wall -->
+  <rect width="1080" height="1920" fill="url(#wallG)" />
+  <!-- hanging nail + cord -->
+  <path d="M540 58 L262 156 M540 58 L818 156" stroke="#2B2622" stroke-width="2.5" fill="none" />
+  <circle cx="540" cy="56" r="9" fill="#2B2622" /><circle cx="537" cy="53" r="3" fill="#8E7A52" />
+  <!-- scroll shadow -->
+  <rect x="84" y="176" width="936" height="1586" fill="#2B2622" opacity="0.2" filter="url(#blur14)" />
+  <!-- silk mount -->
+  <rect x="72" y="160" width="936" height="1572" fill="url(#silk)" />
+  <!-- brocade bands (ichimonji) -->
+  <rect x="104" y="236" width="872" height="16" fill="url(#brocade)" />
+  <rect x="104" y="1636" width="872" height="16" fill="url(#brocade)" />
+  <!-- hanging strips (futai) -->
+  <rect x="352" y="160" width="22" height="76" fill="#C8B48A" /><rect x="352" y="160" width="22" height="76" fill="url(#brocade)" opacity="0.6" />
+  <rect x="706" y="160" width="22" height="76" fill="#C8B48A" /><rect x="706" y="160" width="22" height="76" fill="url(#brocade)" opacity="0.6" />
+  <!-- painting paper -->
+  <rect x="104" y="252" width="872" height="1384" fill="url(#paperG)" />
+  <g id="fibers"></g>
+  <g id="land"></g>
+  <rect x="104" y="252" width="872" height="1384" filter="url(#grain)" opacity="0.16" />
+  <!-- top rod -->
+  <rect x="62" y="148" width="956" height="18" rx="5" fill="url(#rodG)" />
+  <rect x="66" y="151" width="948" height="2" fill="#8E7A52" opacity="0.7" />
+  <!-- bottom roller with knobs (jiku) -->
+  <rect x="80" y="1728" width="920" height="34" rx="6" fill="url(#rodG)" />
+  <rect x="84" y="1732" width="912" height="3" fill="#8E7A52" opacity="0.6" />
+  <path d="M80 1724 h-34 q-12 0 -12 12 v18 q0 12 12 12 h34 z" fill="url(#knobG)" />
+  <path d="M1000 1724 h34 q12 0 12 12 v18 q0 12 -12 12 h-34 z" fill="url(#knobG)" />
+  <rect x="74" y="1722" width="8" height="46" rx="2" fill="#2B2622" /><rect x="998" y="1722" width="8" height="46" rx="2" fill="#2B2622" />
+</svg>
+
+<div class="meta"><span id="kick"></span><span id="epn"></span></div>
+<div class="title" id="title"></div>
+<div id="seals"></div>
+<p class="cap" id="cap" data-slot="caption"></p>
+<div class="colo" id="colo"><span id="src"></span><span id="date"></span></div>
+
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Berita AI", ep: "#07", kicker: "Berita AI · #07",
+    title: "Foto ini asli? Cek dulu stempelnya.", hl: "stempelnya",
+    sub: "Gambar sekarang membawa rantai label: dibuat AI, diedit, lalu diunggah.",
+    items: [{ label: "Dibuat AI", value: "12 Mar" }, { label: "Diedit", value: "14 Mar" }, { label: "Diunggah", value: "15 Mar" }, { label: "Dicek", value: "lolos" }],
+    source: "ilustrasi — standar label konten AI", date: "per 14 Okt 2026" };
+
+  const fontsIn = ['400 90px "Old Standard TT"', '700 90px "Old Standard TT"', '700 32px "Instrument Sans"', '600 28px "Instrument Sans"', '500 26px "Instrument Sans"'].map(f => document.fonts.load(f));
+  Promise.all(fontsIn).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const INK = "#2B2622", PAPER = "#F3ECDD", RED = "#B3261E", TAN = "#C8B48A";
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+  const frac = v => v - Math.floor(v);
+
+  // ---- meta + title ----------------------------------------------------
+  document.getElementById("kick").textContent = D.series || D.kicker || "";
+  const ep = String(D.ep || "").trim();
+  document.getElementById("epn").innerHTML = ep ? "Gulungan <b>" + esc(ep) + "</b>" : "";
+  const t = String(D.title || ""), hl = String(D.hl || "");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = document.getElementById("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  for (let fs = 108; fs >= 70; fs -= 2) {
+    titleEl.style.fontSize = fs + "px";
+    if (titleEl.offsetHeight <= 300 && titleEl.scrollWidth <= 782) break;
+  }
+  const titleBottom = 352 + titleEl.offsetHeight;
+
+  // ---- bottom block: colophon (source/date) then caption above it -------
+  const colo = document.getElementById("colo");
+  document.getElementById("src").textContent = D.source ? "Sumber: " + D.source : "";
+  document.getElementById("date").textContent = D.date || "";
+  const coloTop = 1608 - colo.offsetHeight;
+  colo.style.top = coloTop + "px";
+
+  const capEl = document.getElementById("cap");
+  const capText = String(D.caption || D.sub || "");
+  const words = capText.split(/\s+/).filter(Boolean);
+  // active word = D.hl when it appears in the caption (case-insensitive), else the first word
+  const lowCap = capText.toLowerCase(), hIdx = hl ? lowCap.indexOf(hl.toLowerCase()) : -1;
+  let pos = 0;
+  const spans = words.map((w, i) => {
+    const s0 = capText.indexOf(w, pos); pos = s0 + w.length;
+    const on = hIdx >= 0 ? (s0 < hIdx + hl.length && s0 + w.length > hIdx) : i === 0;
+    return '<span' + (on ? ' class="on"' : "") + ">" + esc(w) + "</span>";
+  });
+  capEl.innerHTML = spans.join(" ");
+  for (let fs = 46; fs >= 40; fs -= 2) { capEl.style.fontSize = fs + "px"; if (capEl.offsetHeight <= fs * 1.24 * 2 + 2) break; }
+  const capTop = coloTop - 30 - capEl.offsetHeight;
+  capEl.style.top = capTop + "px";
+
+  // ---- landscape zone ----------------------------------------------------
+  const T = Math.max(titleBottom + 44, 620), B = capTop - 34, H = B - T;
+  const X0 = 104, X1 = 976, W = X1 - X0;
+  const P = f => X0 + f * W, Q = f => T + f * H;
+  let svg = "";
+  let gid = 0;
+
+  function ridge(x0, x1, peaks, base, k) {
+    const pts = [];
+    for (let x = x0; x <= x1 + 0.1; x += 4) {
+      let h = 0;
+      for (const p of peaks) { const u = (x - p.x) / p.w; if (Math.abs(u) < 1) { const v = p.h * Math.pow(Math.cos(u * Math.PI / 2), p.e || 1); if (v > h) h = v; } }
+      const j = h > 2 ? (8 * Math.sin(x * 0.037 + k * 1.9) + 5 * Math.sin(x * 0.083 + k) + 3 * Math.sin(x * 0.21 + k * 2.3) + 1.6 * Math.sin(x * 0.47 + k * 4.1)) * Math.min(1, h / 110) : 0;
+      pts.push([x, base - h + j, h]);
+    }
+    return pts;
+  }
+  const pl = pts => pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + "," + p[1].toFixed(1)).join("");
+
+  // one ink-wash mountain layer: gradient body, dark edge clipped inside, rough contour
+  function layer(peaks, base, depth, alpha, k, opt) {
+    opt = opt || {};
+    const x0 = opt.x0 != null ? opt.x0 : X0, x1 = opt.x1 != null ? opt.x1 : X1;
+    const pts = ridge(x0, x1, peaks, base, k);
+    const top = Math.min.apply(null, pts.map(p => p[1]));
+    const id = "m" + (gid++);
+    const body = pl(pts) + "L" + x1 + "," + (base + depth) + "L" + x0 + "," + (base + depth) + "Z";
+    svg += '<linearGradient id="' + id + 'g" gradientUnits="userSpaceOnUse" x1="0" y1="' + top.toFixed(0) + '" x2="0" y2="' + (base + depth).toFixed(0) + '">' +
+      '<stop offset="0" stop-color="' + INK + '" stop-opacity="' + alpha + '"/><stop offset="0.45" stop-color="' + INK + '" stop-opacity="' + (alpha * 0.6).toFixed(3) + '"/>' +
+      '<stop offset="0.82" stop-color="' + INK + '" stop-opacity="' + (alpha * 0.14).toFixed(3) + '"/><stop offset="1" stop-color="' + INK + '" stop-opacity="0"/></linearGradient>';
+    svg += '<clipPath id="' + id + 'c"><path d="' + body + '"/></clipPath>';
+    const f = opt.far ? ' filter="url(#far)"' : "";
+    svg += '<g' + f + '>';
+    svg += '<path d="' + body + '" fill="url(#' + id + 'g)"/>';
+    if (opt.lit) {
+      // reserved paper on the lit (right) face of each big peak gives the forms volume
+      svg += '<g clip-path="url(#' + id + 'c)"><g filter="url(#blur7)">';
+      peaks.forEach((p, pi) => {
+        if (p.h < H * 0.18) return;
+        const lp = ridge(p.x - p.w * 0.05, p.x + p.w * 0.95, [{ x: p.x + p.w * 0.32, w: p.w * 0.55, h: p.h * 0.78, e: p.e }], base + depth * 0.5, k + 1.7 + pi);
+        svg += '<path d="' + pl(lp) + 'Z" fill="' + PAPER + '" fill-opacity="' + opt.lit + '"/>';
+      });
+      svg += '</g></g>';
+    }
+    const segs = []; let cur = [];
+    pts.forEach(p => { if (p[2] > 3) cur.push(p); else if (cur.length) { segs.push(cur); cur = []; } }); if (cur.length) segs.push(cur);
+    segs.forEach(sg => {
+      if (sg.length < 3) return;
+      svg += '<g clip-path="url(#' + id + 'c)"><path d="' + pl(sg) + '" fill="none" stroke="' + INK + '" stroke-opacity="' + Math.min(0.9, alpha * 1.2).toFixed(2) + '" stroke-width="' + (opt.far ? 16 : 22) + '" filter="url(#blur4)"/></g>';
+      if (!opt.far) svg += '<path d="' + pl(sg) + '" fill="none" stroke="' + INK + '" stroke-opacity="' + Math.min(0.95, alpha + 0.3).toFixed(2) + '" stroke-width="' + (opt.lw || 2.6) + '" stroke-linejoin="round" filter="url(#rough)"/>';
+    });
+    svg += '</g>';
+    return { pts: pts, id: id };
+  }
+  const yAt = (pts, x) => { let best = pts[0]; for (const p of pts) if (Math.abs(p[0] - x) < Math.abs(best[0] - x)) best = p; return best; };
+
+  // texture strokes (hemp-fibre cun) falling from the ridge along the slope, clipped to the form
+  function cun(L, count, alpha, k, maxLen, minH) {
+    const pts = L.pts, xs = pts.filter(p => p[2] > minH);
+    if (!xs.length) return;
+    let s = '<g clip-path="url(#' + L.id + 'c)"><g fill="none" stroke="' + INK + '" stroke-linecap="round" filter="url(#rough)">';
+    const xa = xs[0][0], xb = xs[xs.length - 1][0];
+    for (let i = 0; i < count; i++) {
+      const x = xa + (xb - xa) * frac(i * 0.6180339 + k * 0.13);
+      const p = yAt(pts, x), q = yAt(pts, x + 8);
+      if (p[2] < minH) continue;
+      const slope = Math.max(-1.6, Math.min(1.6, (q[1] - p[1]) / 8));
+      const len = Math.min(p[2] * 0.5, maxLen * (0.35 + 0.65 * frac(i * 0.381966 + k)));
+      const y0 = p[1] + 4 + p[2] * 0.35 * frac(i * 0.7548 + k) * frac(i * 0.4142);
+      const dx = slope * len * 0.32;
+      s += '<path d="M' + x.toFixed(1) + "," + y0.toFixed(1) + " q" + (dx * 0.2 + 2.5 * Math.sin(i * 1.3)).toFixed(1) + "," + (len * 0.5).toFixed(1) + " " + dx.toFixed(1) + "," + len.toFixed(1) +
+        '" stroke-opacity="' + (alpha * (0.55 + 0.45 * frac(i * 0.29))).toFixed(2) + '" stroke-width="' + (1.3 + 1.5 * frac(i * 0.53)).toFixed(1) + '"/>';
+    }
+    svg += s + "</g></g>";
+  }
+  // moss dots along a ridge
+  function moss(L, every, k, minH) {
+    let s = '<g fill="' + INK + '">';
+    L.pts.forEach((p, i) => {
+      if (p[2] < minH || i % every) return;
+      const r = 2.2 + 1.8 * frac(i * 0.618 + k);
+      s += '<ellipse cx="' + (p[0] + 4 * Math.sin(i * 1.7)).toFixed(1) + '" cy="' + (p[1] + 3 + 3 * frac(i * 0.37)).toFixed(1) + '" rx="' + (r * 1.3).toFixed(1) + '" ry="' + r.toFixed(1) + '" fill-opacity="' + (0.6 + 0.3 * frac(i * 0.71)).toFixed(2) + '"/>';
+    });
+    svg += s + "</g>";
+  }
+  // a band of mist: paper colour fading in and out
+  function mist(y, h, a) {
+    const id = "mi" + (gid++);
+    svg += '<linearGradient id="' + id + '" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + PAPER + '" stop-opacity="0"/><stop offset="0.5" stop-color="' + PAPER + '" stop-opacity="' + a + '"/><stop offset="1" stop-color="' + PAPER + '" stop-opacity="0"/></linearGradient>';
+    svg += '<rect x="' + X0 + '" y="' + y.toFixed(0) + '" width="' + W + '" height="' + h.toFixed(0) + '" fill="url(#' + id + ')"/>';
+  }
+  // tapered brush stroke along a centre line (trunks, branches)
+  function brush(c, w0, w1, a) {
+    const L = [], R = [];
+    c.forEach((p, i) => {
+      const q = c[Math.min(i + 1, c.length - 1)], o = c[Math.max(i - 1, 0)];
+      const dx = q[0] - o[0], dy = q[1] - o[1], d = Math.hypot(dx, dy) || 1;
+      const w = (w0 + (w1 - w0) * i / (c.length - 1)) / 2 * (1 + 0.18 * Math.sin(i * 2.1));
+      L.push([p[0] - dy / d * w, p[1] + dx / d * w]); R.push([p[0] + dy / d * w, p[1] - dx / d * w]);
+    });
+    svg += '<path d="' + pl(L) + pl(R.reverse()).replace("M", "L") + 'Z" fill="' + INK + '" fill-opacity="' + a + '" filter="url(#rough)"/>';
+  }
+
+  // far range
+  layer([{ x: P(0.10), w: 150, h: H * 0.20 }, { x: P(0.27), w: 120, h: H * 0.27 }, { x: P(0.80), w: 160, h: H * 0.31 }, { x: P(0.95), w: 110, h: H * 0.18 }],
+        Q(0.44), H * 0.05, 0.15, 1.3, { far: true });
+  mist(Q(0.34), H * 0.18, 0.75);
+  // middle range
+  const mid = layer([{ x: P(0.13), w: 170, h: H * 0.33 }, { x: P(0.30), w: 120, h: H * 0.20 }, { x: P(0.86), w: 170, h: H * 0.36 }, { x: P(0.73), w: 100, h: H * 0.20 }],
+        Q(0.64), H * 0.04, 0.32, 2.7, { lw: 2, lit: 0.4 });
+  cun(mid, 30, 0.4, 0.6, H * 0.12, 30);
+  moss(mid, 6, 0.4, 50);
+  mist(Q(0.54), H * 0.14, 0.7);
+  // main massif: tall back peak + two front shoulders, each with its own edge and texture
+  const main = layer([{ x: P(0.55), w: W * 0.19, h: H * 0.82, e: 0.6 }, { x: P(0.42), w: W * 0.12, h: H * 0.46 }, { x: P(0.69), w: W * 0.13, h: H * 0.52 },
+                      { x: P(0.33), w: W * 0.11, h: H * 0.28 }, { x: P(0.79), w: W * 0.10, h: H * 0.30 }],
+        Q(0.84), H * 0.03, 0.56, 4.9, { x0: P(0.22), x1: P(0.90), lw: 3, lit: 0.5 });
+  cun(main, 70, 0.55, 0.21, H * 0.2, 50);
+  moss(main, 5, 0.9, 90);
+  const front = layer([{ x: P(0.47), w: W * 0.10, h: H * 0.40, e: 0.8 }, { x: P(0.62), w: W * 0.11, h: H * 0.47, e: 0.75 }],
+        Q(0.86), H * 0.03, 0.66, 6.2, { x0: P(0.35), x1: P(0.75), lw: 2.6, lit: 0.5 });
+  cun(front, 40, 0.6, 0.47, H * 0.14, 30);
+  moss(front, 4, 2.3, 40);
+  mist(Q(0.72), H * 0.17, 0.9);
+
+  // foreground bank (bottom right)
+  const bank = layer([{ x: P(0.82), w: W * 0.30, h: H * 0.12, e: 0.7 }, { x: P(0.99), w: W * 0.12, h: H * 0.17 }, { x: P(0.62), w: W * 0.12, h: H * 0.06 }],
+        Q(1.0), 6, 0.8, 7.7, { x0: P(0.44), x1: X1, lw: 3.4 });
+  cun(bank, 24, 0.7, 0.9, H * 0.06, 12);
+  moss(bank, 4, 1.7, 14);
+  // water ripples (left / centre)
+  let wr = '<g fill="none" stroke="' + INK + '" stroke-linecap="round" filter="url(#rough)">';
+  for (let i = 0; i < 10; i++) {
+    const y = Q(0.865) + i * H * 0.014, xa = P(0.06 + 0.30 * frac(i * 0.618)), len = W * (0.08 + 0.12 * frac(i * 0.3819));
+    wr += '<path d="M' + xa.toFixed(0) + "," + y.toFixed(0) + " q" + (len / 2).toFixed(0) + ",-4 " + len.toFixed(0) + ',0" stroke-opacity="' + (0.2 + 0.14 * frac(i * 0.7)).toFixed(2) + '" stroke-width="1.8"/>';
+  }
+  svg += wr + "</g>";
+  // fishing boat under the pine branch: slim hull, seated fisherman in a reed hat, long rod
+  const bx = P(0.47), by = Q(0.935);
+  svg += '<g filter="url(#rough)" fill="' + INK + '">' +
+         '<path d="M' + (bx - 52) + ',' + (by - 2) + ' q50,15 104,-6 q-6,9 -16,13 q-40,7 -76,0 z" fill-opacity="0.88"/>' +
+         '<ellipse cx="' + (bx + 4) + '" cy="' + (by - 11) + '" rx="8" ry="10" fill-opacity="0.85"/>' +
+         '<path d="M' + (bx - 13) + ',' + (by - 18) + ' l17,-10 l17,10 q-17,3 -34,0 z" fill-opacity="0.9"/>' +
+         '<path d="M' + (bx - 2) + ',' + (by - 10) + ' q-46,-22 -104,-34" fill="none" stroke="' + INK + '" stroke-width="1.8" stroke-opacity="0.8"/>' +
+         '<path d="M' + (bx - 106) + ',' + (by - 44) + ' l-1,34" fill="none" stroke="' + INK + '" stroke-width="1" stroke-opacity="0.45"/></g>';
+
+  // old pine: gnarled trunk from the bank, leaning left over the water; fan-shaped needle clusters
+  const C = (fx, fy) => [P(fx), Q(fy)];
+  brush([C(0.84, 0.99), C(0.83, 0.93), C(0.80, 0.88), C(0.75, 0.84), C(0.70, 0.80), C(0.66, 0.74), C(0.63, 0.68)], 26, 8, 0.9);
+  brush([C(0.71, 0.805), C(0.64, 0.80), C(0.58, 0.79), C(0.52, 0.775)], 10, 4, 0.88);
+  brush([C(0.665, 0.745), C(0.71, 0.715), C(0.76, 0.69)], 8, 3, 0.88);
+  brush([C(0.635, 0.69), C(0.60, 0.665), C(0.57, 0.655)], 7, 3, 0.88);
+  const fans = [[0.52, 0.772, 42], [0.575, 0.778, 34], [0.555, 0.735, 30], [0.57, 0.652, 36], [0.625, 0.66, 32], [0.66, 0.70, 28], [0.76, 0.686, 38], [0.715, 0.70, 30], [0.62, 0.765, 30]];
+  let ft = '<g stroke="' + INK + '" stroke-linecap="round" fill="none" filter="url(#rough)">';
+  fans.forEach(([fx, fy, r], fi) => {
+    const cx = P(fx), cy = Q(fy);
+    for (let a = 0; a <= 16; a++) {
+      const ang = Math.PI * (1.04 + a * 0.92 / 16);
+      ft += '<line x1="' + cx.toFixed(1) + '" y1="' + (cy + 2).toFixed(1) + '" x2="' + (cx + r * Math.cos(ang)).toFixed(1) + '" y2="' + (cy + r * 0.58 * Math.sin(ang)).toFixed(1) + '" stroke-width="1.9" stroke-opacity="0.85"/>';
+    }
+    ft += '<path d="M' + (cx - r * 0.95).toFixed(1) + "," + cy.toFixed(1) + " q" + (r * 0.95).toFixed(1) + "," + (7 + (fi % 2) * 3) + " " + (r * 1.9).toFixed(1) + ',0" stroke-width="3.4" stroke-opacity="0.92"/>';
+  });
+  svg += ft + "</g>";
+  // birds near the summit
+  [[P(0.30), Q(0.10), 1], [P(0.335), Q(0.125), 0.8], [P(0.27), Q(0.14), 0.7]].forEach(([x, y, s]) => {
+    svg += '<path d="M' + (x - 12 * s) + "," + (y - 4 * s) + " q" + 6 * s + "," + (-3 * s) + " " + 12 * s + "," + 4 * s + " q" + 5 * s + "," + (-7 * s) + " " + 12 * s + "," + (-5 * s) + '" fill="none" stroke="' + INK + '" stroke-width="2.2" stroke-linecap="round" stroke-opacity="0.8"/>';
+  });
+  document.getElementById("land").innerHTML = svg;
+
+  // paper fibres
+  let fb = '<g stroke="' + TAN + '" stroke-width="1.1" fill="none" stroke-linecap="round" opacity="0.38">';
+  for (let i = 0; i < 220; i++) {
+    const x = 112 + 856 * frac(i * 0.6180339), y = 262 + 1360 * frac(i * 0.7548776 + 0.11), l = 6 + 14 * frac(i * 0.5698), a = 6.2832 * frac(i * 0.3819);
+    fb += '<path d="M' + x.toFixed(0) + "," + y.toFixed(0) + " q" + (l * 0.5 * Math.cos(a) + 3).toFixed(1) + "," + (l * 0.5 * Math.sin(a) - 3).toFixed(1) + " " + (l * Math.cos(a)).toFixed(1) + "," + (l * Math.sin(a)).toFixed(1) + '"/>';
+  }
+  document.getElementById("fibers").innerHTML = fb + "</g>";
+
+  // ---- seals (items) in date order, alternating margins, last one always left
+  const box = document.getElementById("seals");
+  const styles = ["s-bai", "s-zhu", "s-peb", "s-bai", "s-zhu"];
+  const rots = [-2.2, 1.7, -1.1, 2.3, -1.6];
+  const els = items.map((it, i) => {
+    const el = document.createElement("div");
+    el.className = "seal " + styles[i];
+    el.innerHTML = '<div class="sl">' + esc(it.label) + '</div><div class="rule"></div><div class="sv">' + esc(it.value) + "</div>";
+    box.appendChild(el);
+    const sl = el.querySelector(".sl");
+    if (sl.scrollWidth > 300) { sl.style.width = "300px"; }
+    return el;
+  });
+  const hs = els.map(e => e.offsetHeight), ws = els.map(e => e.offsetWidth);
+  const top0 = T + H * 0.15, span = Math.max(0, B - 12 - top0 - Math.max.apply(null, hs.concat([0])));
+  const step = n > 1 ? span / (n - 1) : 0;
+  const jx = [0, 22, 30, 8, 16];
+  els.forEach((el, i) => {
+    const left = (n - 1 - i) % 2 === 0;
+    const x = left ? 146 + jx[i] : 890 - ws[i] - jx[i];
+    el.style.left = x + "px";
+    el.style.top = (top0 + i * step) + "px";
+    el.style.transform = "rotate(" + rots[i] + "deg)";
+  });
+  }
+</script>
+</body>
+</html>

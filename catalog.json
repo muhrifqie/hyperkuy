@@ -34,7 +34,10 @@
         "periodic-elements",
         "e-reader",
         "sewing-pattern",
-        "bubble-test"
+        "bubble-test",
+        "unpaid-clicks",
+        "margin-bell",
+        "face-to-face"
       ]
     },
     "ai-in-numbers": {
@@ -85,7 +88,8 @@
         "tree-rings",
         "fingerpost",
         "woodcut",
-        "periodic-elements"
+        "periodic-elements",
+        "seal-chop"
       ]
     },
     "ai-tools": {
@@ -112,7 +116,10 @@
         "contact-sheet",
         "assembly-manual",
         "live-spreadsheet",
-        "sewing-pattern"
+        "sewing-pattern",
+        "margin-bell",
+        "seal-chop",
+        "face-to-face"
       ]
     }
   },
@@ -1778,6 +1785,97 @@
       ],
       "objects": "Koper, ban berjalan, pengalih",
       "source": "concepts/sources/baggage-belt.html"
+    },
+    {
+      "id": "unpaid-clicks",
+      "name": "Unpaid Clicks",
+      "author": "opus",
+      "origin": "Batch 100",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "light",
+        "type": "grotesque",
+        "depth": "2.5D",
+        "visual": "app-ui"
+      },
+      "series": [
+        "how-ai-works"
+      ],
+      "metaphor": "A 'pilih semua kotak' image-grid verification on a phone, duotone street photos; ticked tiles flip to coral bounding boxes + label tags. Metaphor: data labelling, AI learns to see from unpaid human clicks.",
+      "signature": "A touch dot taps a tile, a blue check pops, the tile flips 180° to its dark back where a coral box draws itself and the label tag slides out; at the end all tiles flip back.",
+      "cover": "covers/unpaid-clicks.jpg",
+      "template": "templates/unpaid-clicks.html",
+      "spec": "spec/unpaid-clicks.md"
+    },
+    {
+      "id": "margin-bell",
+      "name": "Margin Bell",
+      "author": "opus",
+      "origin": "Batch 100",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "pastel",
+        "type": "mono",
+        "depth": "2.5D",
+        "visual": "physical-object"
+      },
+      "series": [
+        "how-ai-works",
+        "ai-tools"
+      ],
+      "metaphor": "Top-down portable typewriter on a powder-blue desk: typed sheet, steel margin scale with a red right stop and bell zone, ribbon spools and a chrome bell. Metaphor: max output tokens, a hard length budget per reply.",
+      "signature": "The bell hammer strikes once while the carriage locks against the red right stop. The line on the sheet hangs cut mid-word, then the return lever throws the carriage back to type it again.",
+      "cover": "covers/margin-bell.jpg",
+      "template": "templates/margin-bell.html",
+      "spec": "spec/margin-bell.md"
+    },
+    {
+      "id": "seal-chop",
+      "name": "Seal Chop",
+      "author": "opus",
+      "origin": "Batch 100",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "light",
+        "type": "serif",
+        "depth": "2D",
+        "visual": "physical-object"
+      },
+      "series": [
+        "ai-news",
+        "ai-tools"
+      ],
+      "metaphor": "A hanging ink-landscape scroll whose margins fill with red collector seals, each recording who owned or changed it. Metaphor: content provenance / AI labels, the chain of stamps an image now carries.",
+      "signature": "Red seals slam one by one onto a clean ink landscape, in date order down alternating margins (tiny overshoot, ink settles). The scroll then rolls up and unrolls clean to loop.",
+      "cover": "covers/seal-chop.jpg",
+      "template": "templates/seal-chop.html",
+      "spec": "spec/seal-chop.md"
+    },
+    {
+      "id": "face-to-face",
+      "name": "Face to Face",
+      "author": "opus",
+      "origin": "Batch 100",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "full-colour",
+        "type": "condensed",
+        "depth": "2D",
+        "visual": "app-ui"
+      },
+      "series": [
+        "how-ai-works",
+        "ai-tools"
+      ],
+      "metaphor": "A phone on a terrazzo cafe table in two-way translator mode, screen split head-to-tail for the person opposite. Metaphor: encoder reads your side, decoder writes theirs, attending back across the fold.",
+      "signature": "Upside-down values write themselves into the blue half while threads draw across the hinge from each label. Mid-video the phone spins 180 degrees on the table so the AI half reads upright.",
+      "cover": "covers/face-to-face.jpg",
+      "template": "templates/face-to-face.html",
+      "spec": "spec/face-to-face.md"
     }
   ]
 }

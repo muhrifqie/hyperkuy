@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Unpaid Clicks: an image-grid verification challenge ("pilih semua kotak...")
+    floating over a dimmed phone page. The blue instruction band holds the
+    title; the hl word is a "ticked" white chip with a blue check badge.
+    3x3 grid of duotone street photos (motorbikes, crosswalks, traffic lights),
+    drawn as flat SVG with a fine halftone. Every item is a tile the human
+    ticked: it has flipped to its back face = what the AI actually stores
+    (a dim crop, a coral bounding box with handles, a coral label tag with
+    label + value). One right-column tile is caught mid-flip under a screen-
+    recording touch dot: the next unpaid click.
+    Caption slot = the challenge's audio transcript row (headphone button +
+    karaoke line). Meta = the fine print beside the VERIFIKASI button.
+    Deterministic: every drawing is hard-coded.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #E6E3DB; }
+  body { position: relative; color: #1B1F27; font-family: "Work Sans", sans-serif; }
+
+  #page { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  #card { position: absolute; left: 90px; top: 300px; width: 900px; height: 1304px; background: #FFFFFF;
+    border-radius: 6px; box-shadow: 0 0 0 1px rgba(27,31,39,.10), 0 4px 10px rgba(27,31,39,.10), 0 40px 80px rgba(27,31,39,.20); }
+
+  #head { position: absolute; left: 14px; top: 14px; width: 872px; background: #2F6FE4; border-radius: 3px; padding: 24px 32px 34px; color: #FFFFFF; }
+  #kick { font: 600 28px "IBM Plex Mono", monospace; letter-spacing: .05em; text-transform: uppercase; line-height: 34px; display: flex; align-items: center; gap: 14px; }
+  #kick .dt { margin-left: auto; white-space: nowrap; }
+  #kick i { display: inline-block; width: 26px; height: 26px; border: 3px solid #FFFFFF; border-radius: 4px; flex: none; }
+  #title { margin-top: 14px; font-weight: 700; letter-spacing: -.025em; line-height: 1.07; }
+  #title .hl { white-space: nowrap; background: #FFFFFF; color: #1B1F27; border-radius: .07em; padding: 0 .14em 0 .1em; font-weight: 800; }
+  #title .hl svg { display: inline-block; width: .52em; height: .52em; vertical-align: .02em; margin-right: .1em; }
+
+  #grid { position: absolute; left: 14px; width: 872px; perspective: 1300px; }
+  .tile { position: absolute; overflow: visible; }
+  .tile > .face { position: absolute; inset: 0; overflow: hidden; }
+  .tile svg.ph { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; }
+  .tile.back > .face { background: #1B1F27; }
+  .tile.back .crop { position: absolute; left: 0; top: 0; width: 100%; display: block; }
+  .tile.back .badge { position: absolute; left: -14px; top: -14px; width: 54px; height: 54px; z-index: 3; }
+  .tag { position: absolute; left: 12px; bottom: 12px; background: #EF6A4E; color: #1B1F27; padding: 4px 12px 6px; border-radius: 2px; max-width: calc(100% - 24px); }
+  .tag .lb { display: block; font: 600 31px "Work Sans", sans-serif; letter-spacing: -.012em; line-height: 1.12; }
+  .tag .vl { display: block; font: 600 30px "IBM Plex Mono", monospace; letter-spacing: -.02em; line-height: 1.12; white-space: nowrap; }
+  .tile.slot { background: #E9E5DC; box-shadow: inset 0 0 0 2px #DCD7CC; perspective: 760px; }
+  .tile.slot > .face { transform-origin: 50% 50%; transform: rotateY(-58deg) scale(.93); box-shadow: -18px 22px 34px rgba(27,31,39,.30); }
+
+  #touch { position: absolute; width: 112px; height: 112px; border-radius: 50%; background: rgba(27,31,39,.20); box-shadow: 0 0 0 4px rgba(255,255,255,.92), 0 0 0 30px rgba(27,31,39,.07), 0 10px 24px rgba(27,31,39,.25); }
+
+  #cap { position: absolute; left: 14px; width: 872px; }
+  #cap .ear { position: absolute; left: 8px; top: 2px; width: 64px; height: 64px; }
+  #caption { position: absolute; left: 92px; width: 694px; top: 0; font-weight: 500; line-height: 1.2; letter-spacing: -.01em; color: #5E636B; }
+  #caption span { display: inline; }
+  #caption .done { color: #1B1F27; }
+  #caption .on { color: #FFFFFF; background: #2F6FE4; border-radius: 6px; padding: 0 .16em; margin: 0 -.04em; font-weight: 600; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+
+  #rule { position: absolute; left: 14px; width: 872px; top: 1194px; height: 2px; background: #ECE8DF; }
+  #foot { position: absolute; left: 14px; width: 872px; top: 1206px; height: 86px; }
+  #foot .re { position: absolute; left: 10px; top: 21px; width: 44px; height: 44px; }
+  #meta { position: absolute; left: 72px; width: 548px; top: 50%; transform: translateY(-50%); font: 500 26px "Work Sans", sans-serif; line-height: 1.28; color: #4E535B; }
+  #meta b { font-weight: 600; color: #1B1F27; }
+  #verify { position: absolute; right: 0; top: 4px; height: 78px; padding: 0 30px; background: #2F6FE4; color: #FFFFFF; border-radius: 4px;
+    font: 700 30px "Work Sans", sans-serif; letter-spacing: .07em; line-height: 78px; }
+</style>
+</head>
+<body>
+<svg id="page" data-layout-allow-overflow viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <!-- the dimmed page behind the challenge: browser bar, heading, a form with the checkbox that started it -->
+  <rect x="48" y="104" width="984" height="80" rx="40" fill="#DCD8CF"/>
+  <path d="M104 132 h20 a4 4 0 0 1 4 4 v18 a4 4 0 0 1 -4 4 h-20 a4 4 0 0 1 -4 -4 v-18 a4 4 0 0 1 4 -4 z M107 132 v-7 a7 7 0 0 1 14 0 v7" fill="none" stroke="#C9C4B8" stroke-width="4"/>
+  <rect x="150" y="136" width="420" height="16" rx="8" fill="#CAC5B9"/>
+  <rect x="90" y="226" width="520" height="30" rx="6" fill="#D8D4CA"/>
+  <rect x="90" y="1660" width="900" height="84" rx="10" fill="none" stroke="#D4CFC4" stroke-width="3"/>
+  <rect x="120" y="1694" width="300" height="16" rx="8" fill="#D8D4CA"/>
+  <rect x="90" y="1776" width="56" height="56" rx="6" fill="#ECE9E2" stroke="#CFCABE" stroke-width="3"/>
+  <rect x="172" y="1796" width="290" height="18" rx="9" fill="#D4CFC4"/>
+  <rect x="90" y="1858" width="900" height="80" rx="10" fill="#D6D1C6"/>
+</svg>
+
+<div id="card">
+  <div id="head"><div id="kick"></div><h1 id="title"></h1></div>
+  <div id="grid"></div>
+  <div id="cap">
+    <svg class="ear" viewBox="0 0 64 64" aria-hidden="true">
+      <circle cx="32" cy="32" r="30" fill="#F1EEE7" stroke="#D9D4C8" stroke-width="2"/>
+      <path d="M19 37 v-5 a13 13 0 0 1 26 0 v5" fill="none" stroke="#1B1F27" stroke-width="3.4" stroke-linecap="round"/>
+      <rect x="16" y="35" width="8" height="12" rx="3" fill="#1B1F27"/><rect x="40" y="35" width="8" height="12" rx="3" fill="#1B1F27"/>
+    </svg>
+    <p id="caption" data-slot="caption"></p>
+  </div>
+  <div id="rule"></div>
+  <div id="foot">
+    <svg class="re" viewBox="0 0 44 44" aria-hidden="true">
+      <path d="M34 15 A13 13 0 1 0 35 27" fill="none" stroke="#4E535B" stroke-width="3.6" stroke-linecap="round"/>
+      <path d="M36 6 V16 H26" fill="none" stroke="#4E535B" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div id="meta"></div>
+    <div id="verify">VERIFIKASI</div>
+  </div>
+</div>
+<div id="touch"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <pattern id="ht" width="5" height="5" patternUnits="userSpaceOnUse"><circle cx="2.5" cy="2.5" r="1.05" fill="#1B1F27" opacity=".13"/></pattern>
+    <pattern id="px" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M10 0 V10 H0" fill="none" stroke="#FFFFFF" stroke-opacity=".07" stroke-width=".8"/></pattern>
+    <linearGradient id="sun" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFFFFF" stop-opacity=".38"/><stop offset=".55" stop-color="#FFFFFF" stop-opacity="0"/><stop offset="1" stop-color="#1B1F27" stop-opacity=".16"/></linearGradient>
+  </defs>
+</svg>
+
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  // Duotone ramp: warm paper grey -> ink.
+  const S0 = "#EFEBE3", S1 = "#D9D4C8", S2 = "#B5AEA1", S3 = "#7E796F", S4 = "#3E424A", K = "#1B1F27", CORAL = "#EF6A4E";
+
+  // ---------- drawing primitives (scene space 300 x 240, ground-based) ----------
+  function motor(x, y, s, dir) {
+    return `<g transform="translate(${x} ${y}) scale(${s * dir} ${s})">
+      <ellipse cx="88" cy="2" rx="96" ry="7" fill="${K}" opacity=".22"/>
+      <circle cx="34" cy="-25" r="25" fill="${K}"/><circle cx="34" cy="-25" r="14" fill="${S2}"/><circle cx="34" cy="-25" r="5" fill="${K}"/>
+      <circle cx="144" cy="-25" r="25" fill="${K}"/><circle cx="144" cy="-25" r="14" fill="${S2}"/><circle cx="144" cy="-25" r="5" fill="${K}"/>
+      <rect x="20" y="-34" width="56" height="10" rx="5" fill="${S3}"/>
+      <path d="M92 -62 C106 -58 114 -48 120 -36" stroke="${K}" stroke-width="8" fill="none"/>
+      <path d="M58 -36 L122 -36 L116 -46 L94 -48 Z" fill="${S3}"/>
+      <path d="M6 -44 C6 -64 22 -74 48 -74 L98 -74 L100 -56 C80 -52 66 -46 60 -36 L14 -36 C9 -36 6 -40 6 -44 Z" fill="${S4}"/>
+      <rect x="2" y="-62" width="9" height="12" rx="2" fill="${S1}"/>
+      <path d="M28 -76 C28 -85 37 -89 50 -89 L94 -89 C101 -89 103 -82 101 -76 Z" fill="${K}"/>
+      <path d="M112 -38 L121 -95 C123 -104 131 -108 139 -106 L146 -104 L136 -46 C132 -40 123 -38 112 -38 Z" fill="${S4}"/>
+      <path d="M140 -98 L146 -26" stroke="${K}" stroke-width="7"/>
+      <path d="M118 -42 C126 -60 160 -62 172 -42" stroke="${S3}" stroke-width="9" fill="none" stroke-linecap="round"/>
+      <ellipse cx="149" cy="-99" rx="7" ry="9" fill="${S0}"/>
+      <path d="M134 -107 L130 -119 M117 -121 L145 -117" stroke="${K}" stroke-width="6" stroke-linecap="round"/>
+      <path d="M132 -119 L127 -134" stroke="${K}" stroke-width="3"/><ellipse cx="126" cy="-138" rx="8" ry="5" fill="${K}"/>
+    </g>`;
+  }
+  function light(x, y, s) {
+    return `<g transform="translate(${x} ${y}) scale(${s})">
+      <rect x="-6" y="-250" width="12" height="250" fill="${S4}"/>
+      <rect x="-33" y="-374" width="66" height="138" rx="8" fill="${S3}"/>
+      <rect x="-25" y="-366" width="50" height="122" rx="11" fill="${K}"/>
+      <circle cx="0" cy="-340" r="23" fill="${S0}" opacity=".22"/>
+      <circle cx="0" cy="-340" r="13" fill="${S0}"/><circle cx="0" cy="-305" r="13" fill="${S3}"/><circle cx="0" cy="-270" r="13" fill="${S3}"/>
+      <path d="M-18 -354 h36 M-18 -319 h36 M-18 -284 h36" stroke="${S4}" stroke-width="4"/>
+    </g>`;
+  }
+  function ruko(x, y, w, h) {
+    let o = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${S1}"/><rect x="${x}" y="${y}" width="${w}" height="10" fill="${S2}"/>`;
+    const bays = Math.max(1, Math.round(w / 100)), bw = w / bays;
+    for (let i = 0; i < bays; i++) {
+      const bx = x + i * bw;
+      o += `<rect x="${bx + bw * .18}" y="${y + 22}" width="${bw * .64}" height="${h * .2}" fill="${S4}"/>`;
+      o += `<rect x="${bx + bw * .18}" y="${y + 22 + h * .2 - 6}" width="${bw * .64}" height="6" fill="${S3}"/>`;
+      o += `<path d="M${bx + 4} ${y + h * .5} L${bx + bw - 4} ${y + h * .5} L${bx + bw + 6} ${y + h * .5 + 18} L${bx - 6} ${y + h * .5 + 18} Z" fill="${S3}"/>`;
+      o += `<rect x="${bx + bw * .1}" y="${y + h * .5 + 18}" width="${bw * .8}" height="${h * .5 - 18}" fill="${S2}"/>`;
+      for (let j = y + h * .5 + 26; j < y + h - 4; j += 9) o += `<path d="M${bx + bw * .1} ${j} h${bw * .8}" stroke="${S3}" stroke-width="2"/>`;
+      o += `<rect x="${bx + bw - 6}" y="${y + 10}" width="6" height="${h - 10}" fill="${S2}"/>`;
+    }
+    return o;
+  }
+  function road(y, shade) { return `<rect x="-20" y="${y}" width="340" height="${260 - y}" fill="${shade || S2}"/><rect x="-20" y="${y}" width="340" height="5" fill="${S3}"/>`; }
+  function zebra(yTop, n, x0) {
+    let o = `<path d="M-20 ${yTop} L320 ${yTop} L320 260 L-20 260 Z" fill="${S4}"/>`;
+    for (let i = 0; i < n; i++) {
+      const xb = x0 + i * 54, xt = 70 + x0 * .3 + i * 27;
+      o += `<path d="M${xb} 262 L${xb + 31} 262 L${xt + 15} ${yTop + 8} L${xt} ${yTop + 8} Z" fill="${S0}"/>`;
+    }
+    return o;
+  }
+  function wires(a) { return `<path d="M-10 ${a} C80 ${a + 26} 190 ${a + 22} 320 ${a - 6} M-10 ${a + 14} C90 ${a + 40} 200 ${a + 34} 320 ${a + 10} M-10 ${a + 36} C110 ${a + 60} 220 ${a + 50} 320 ${a + 30}" fill="none" stroke="${S4}" stroke-width="1.6"/>`; }
+  function pole(x, y, h) { return `<rect x="${x - 4}" y="${y - h}" width="8" height="${h}" fill="${S4}"/><rect x="${x - 22}" y="${y - h + 12}" width="44" height="5" fill="${S4}"/>`; }
+  function tree(x, y, s) {
+    return `<g transform="translate(${x} ${y}) scale(${s})"><rect x="-5" y="-90" width="10" height="90" fill="${S4}"/>
+      <path d="M0 -84 C-30 -86 -52 -104 -46 -128 C-62 -146 -40 -176 -14 -166 C-6 -192 34 -190 40 -164 C66 -166 74 -134 56 -120 C64 -98 32 -80 0 -84 Z" fill="${S3}"/>
+      <path d="M0 -84 C20 -86 40 -96 50 -112 C30 -100 12 -96 0 -96 Z" fill="${S4}" opacity=".45"/></g>`;
+  }
+  function palm(x, y, s) {
+    return `<g transform="translate(${x} ${y}) scale(${s})"><path d="M-4 0 C-2 -60 4 -120 10 -170 L18 -170 C12 -120 8 -60 6 0 Z" fill="${S4}"/>
+      <path d="M14 -170 C-10 -186 -44 -184 -66 -160 C-40 -172 -14 -170 14 -166 Z M14 -170 C40 -190 74 -186 92 -162 C66 -174 40 -172 14 -166 Z M14 -172 C4 -200 -22 -214 -48 -210 C-20 -200 0 -190 12 -168 Z M14 -172 C28 -204 56 -216 80 -208 C52 -200 32 -190 16 -168 Z M14 -170 C-6 -160 -22 -136 -24 -112 C-12 -136 2 -152 14 -164 Z" fill="${S3}"/></g>`;
+  }
+  function angkot(x, y, s) {
+    return `<g transform="translate(${x} ${y}) scale(${s})">
+      <ellipse cx="110" cy="2" rx="118" ry="7" fill="${K}" opacity=".22"/>
+      <path d="M0 -26 L0 -88 C0 -100 8 -108 20 -108 L174 -108 C194 -108 208 -94 212 -72 L220 -42 L220 -26 Z" fill="${S3}"/>
+      <path d="M176 -100 C190 -100 200 -88 204 -72 L178 -72 Z" fill="${S1}"/>
+      <rect x="12" y="-98" width="154" height="28" fill="${S1}"/>
+      <path d="M50 -98 v28 M90 -98 v28 M130 -98 v28" stroke="${S4}" stroke-width="5"/>
+      <rect x="0" y="-60" width="220" height="9" fill="${S4}"/>
+      <rect x="134" y="-66" width="34" height="40" fill="none" stroke="${S4}" stroke-width="3"/>
+      <rect x="-4" y="-30" width="228" height="8" rx="3" fill="${K}"/>
+      <circle cx="46" cy="-20" r="20" fill="${K}"/><circle cx="46" cy="-20" r="9" fill="${S2}"/>
+      <circle cx="176" cy="-20" r="20" fill="${K}"/><circle cx="176" cy="-20" r="9" fill="${S2}"/>
+    </g>`;
+  }
+  const sky = `<rect x="-20" y="-20" width="340" height="280" fill="${S0}"/>`;
+  const skyline = `<path d="M-20 110 L-20 52 L30 52 L30 70 L62 70 L62 36 L104 36 L104 64 L150 64 L150 46 L196 46 L196 74 L240 74 L240 30 L282 30 L282 60 L320 60 L320 110 Z" fill="${S1}"/>`;
+
+  // Nine tile photos. b = the object the annotation box is drawn around (scene coords).
+  const SCENES = [
+    { svg: sky + ruko(-10, 34, 320, 150) + road(184) + `<path d="M-20 214 h340" stroke="${S0}" stroke-width="4" stroke-dasharray="26 18"/>` + motor(64, 222, 1, 1), b: [58, 76, 186, 150] },
+    { svg: sky + skyline + wires(18) + zebra(108, 7, -46) + pole(262, 112, 96), b: [10, 116, 282, 120] },
+    { svg: sky + wires(26) + tree(40, 270, 1.1) + light(178, 300, .62), b: [154, 62, 48, 96] },
+    { svg: sky + ruko(-20, 60, 200, 140) + road(200) + light(222, 228, .5) + pole(282, 220, 170), b: [200, 36, 44, 78] },
+    { svg: sky + ruko(-30, 40, 230, 120) + tree(262, 176, .9) + road(166) + `<path d="M-20 214 h340" stroke="${S0}" stroke-width="4" stroke-dasharray="30 20"/>` + angkot(36, 214, .98), b: [30, 104, 228, 118] },
+    { svg: sky + skyline + zebra(150, 7, -60) + motor(282, 230, 1.18, -1), b: [60, 62, 226, 172] },
+    { svg: sky + ruko(-40, -10, 380, 196) + road(190, S1) + motor(258, 226, 1.2, -1), b: [48, 54, 214, 176] },
+    { svg: sky + wires(10) + skyline + zebra(150, 7, -40) + light(92, 210, .48) + pole(250, 160, 120), b: [72, 26, 40, 74] },
+    { svg: sky + ruko(30, 46, 300, 150) + road(196) + palm(40, 214, .95), b: [0, 0, 300, 240] },
+  ];
+  const finish = `<rect x="-20" y="-20" width="340" height="280" fill="url(#sun)"/><rect x="-20" y="-20" width="340" height="280" fill="url(#ht)"/>`;
+
+  // Which grid cells (row, col) carry the items, in reading order. Right column stays text-free (TikTok buttons).
+  const PLACES = { 3: [[0, 0], [1, 1], [2, 0]], 4: [[0, 0], [0, 1], [1, 1], [2, 0]], 5: [[0, 0], [0, 1], [1, 0], [2, 0], [2, 1]] };
+  const FLIP = [1, 2]; // the tile caught mid-flip under the touch dot
+
+  Promise.all(['700 96px "Work Sans"', '800 96px "Work Sans"', '600 31px "Work Sans"', '500 44px "Work Sans"', '600 44px "Work Sans"', '600 30px "IBM Plex Mono"', '600 28px "IBM Plex Mono"']
+    .map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+    const items = (D.items || []).slice(0, 5);
+    const n = items.length;
+
+    // Header: kicker + title, hl = a ticked white chip.
+    const kick = (D.series && D.ep) ? D.series + " · " + D.ep : (D.kicker || D.series || "");
+    document.getElementById("kick").innerHTML = "<i></i><span>" + esc(kick) + "</span>" + (D.date ? '<span class="dt">' + esc(D.date) + "</span>" : "");
+    const t = D.title || "", hl = D.hl || "";
+    const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    const tick = '<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="#2F6FE4" stroke="#FFFFFF" stroke-width="4"/><path d="M11.5 20.5 L17.5 26.5 L29 14" fill="none" stroke="#FFFFFF" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    const titleEl = document.getElementById("title");
+    titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + tick + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+    for (let fs = 108; fs >= 72; fs -= 2) {
+      titleEl.style.fontSize = fs + "px";
+      if (titleEl.offsetHeight <= Math.min(3 * fs * 1.07 + 4, 300)) break;
+    }
+    const head = document.getElementById("head");
+    const headBottom = 14 + head.offsetHeight; // card coords
+
+    // Caption: karaoke line in the audio-transcript row.
+    const capText = D.caption || D.sub || "";
+    const words = capText.split(/\s+/).filter(Boolean);
+    let active = 0;
+    if (hl) {
+      const low = capText.toLowerCase(), hi = low.indexOf(hl.toLowerCase());
+      if (hi >= 0) { let pos = 0; for (let i = 0; i < words.length; i++) { const wi = low.indexOf(words[i].toLowerCase(), pos); if (wi + words[i].length > hi) { active = i; break; } pos = wi + words[i].length; } }
+    }
+    const capEl = document.getElementById("caption");
+    // Karaoke chunk: words [a, b) of the line; "…" marks text before/after the chunk shown in this frame.
+    const paint = (a, b) => { capEl.innerHTML = (a > 0 ? "<span>…</span> " : "") + words.slice(a, b).map((w, j) => { const i = a + j; return '<span class="' + (i < active ? "done" : i === active ? "on" : "") + '">' + esc(w + (i === b - 1 && b < words.length ? "…" : "")) + "</span>"; }).join(" "); };
+    const fits = fs => capEl.offsetHeight <= 2 * fs * 1.2 + 4;
+    let a = 0, b = words.length;
+    paint(a, b);
+    let fs = 46;
+    for (; fs >= 40; fs -= 1) { capEl.style.fontSize = fs + "px"; if (fits(fs)) break; }
+    fs = Math.max(fs, 40); capEl.style.fontSize = fs + "px";
+    while (!fits(fs) && b - a > 1) { if (b - 1 > active) b--; else a++; paint(a, b); }
+    const capH = Math.max(capEl.offsetHeight, 66);
+    const capTop = 1180 - capH;
+    const cap = document.getElementById("cap");
+    cap.style.top = capTop + "px"; cap.style.height = capH + "px";
+    cap.querySelector(".ear").style.top = Math.round((Math.min(capH, 2 * 46 * 1.2) - 64) / 2) + "px";
+
+    // Meta: source + date as the fine print.
+    document.getElementById("meta").innerHTML = D.source ? "<b>Sumber:</b> " + esc(D.source) : "";
+
+    // Grid geometry.
+    const grid = document.getElementById("grid");
+    const gTop = headBottom + 10, gBot = capTop - 18, GAP = 8;
+    grid.style.top = gTop + "px"; grid.style.height = (gBot - gTop) + "px";
+    const tw = (872 - 2 * GAP) / 3, th = (gBot - gTop - 2 * GAP) / 3;
+    const places = (PLACES[n] || PLACES[3]).slice(0, n);
+    const itemAt = {}; places.forEach((p, i) => { itemAt[p[0] + "," + p[1]] = i; });
+
+    let html = "";
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+      const idx = r * 3 + c, sc = SCENES[idx];
+      const box = `left:${(c * (tw + GAP)).toFixed(1)}px;top:${(r * (th + GAP)).toFixed(1)}px;width:${tw.toFixed(1)}px;height:${th.toFixed(1)}px`;
+      const photo = `<svg class="ph" data-layout-allow-overflow viewBox="0 0 300 240" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${sc.svg}${finish}</svg>`;
+      const k = r + "," + c;
+      if (r === FLIP[0] && c === FLIP[1]) {
+        html += `<div class="tile slot" id="flip" style="${box}"><div class="face" data-layout-allow-overflow>${photo}</div></div>`;
+      } else if (k in itemAt) {
+        const it = items[itemAt[k]];
+        html += `<div class="tile back" data-i="${idx}" style="${box}"><div class="face" data-layout-allow-overflow><svg class="crop" data-layout-allow-overflow aria-hidden="true"></svg>
+          <div class="tag"><span class="lb">${esc(it.label)}</span><span class="vl">${esc(it.value)}</span></div></div>${tick.replace("<svg", '<svg class="badge"')}</div>`;
+      } else {
+        html += `<div class="tile" style="${box}"><div class="face" data-layout-allow-overflow>${photo}</div></div>`;
+      }
+    }
+    grid.innerHTML = html;
+
+    // Back faces: what the AI keeps = a dim crop around the object + box + label tag.
+    grid.querySelectorAll(".tile.back").forEach(el => {
+      const sc = SCENES[+el.dataset.i], tag = el.querySelector(".tag"), lb = tag.querySelector(".lb");
+      for (let fs = 33; fs >= 30; fs--) { lb.style.fontSize = fs + "px"; if (lb.scrollWidth <= tag.clientWidth - 24 && lb.offsetHeight < fs * 1.5) break; }
+      const aw = tw, ah = th - tag.offsetHeight - 24;
+      const svg = el.querySelector(".crop");
+      svg.style.height = ah + "px";
+      const [bx, by, bw, bh] = sc.b, m = 16, A = aw / ah;
+      let cw = Math.max(bw + 2 * m, (bh + 2 * m) * A, 150), ch = cw / A;
+      const cx = bx + bw / 2, cy = by + bh / 2;
+      svg.setAttribute("viewBox", `${(cx - cw / 2).toFixed(1)} ${(cy - ch / 2).toFixed(1)} ${cw.toFixed(1)} ${ch.toFixed(1)}`);
+      svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+      const u = cw / aw; // scene units per px
+      const hs = 9 * u, sw = 3.4 * u;
+      const handles = [[bx, by], [bx + bw, by], [bx, by + bh], [bx + bw, by + bh]].map(([x, y]) => `<rect x="${x - hs / 2}" y="${y - hs / 2}" width="${hs}" height="${hs}" fill="${CORAL}"/>`).join("");
+      const cid = "bb" + el.dataset.i;
+      svg.innerHTML = `<defs><clipPath id="${cid}"><rect x="${bx}" y="${by}" width="${bw}" height="${bh}"/></clipPath></defs>
+        <g opacity=".13"><rect x="${cx - cw}" y="${cy - ch}" width="${cw * 2}" height="${ch * 2}" fill="${S0}"/>${sc.svg}</g>
+        <g clip-path="url(#${cid})" opacity=".62">${sc.svg}</g><rect x="${cx - cw}" y="${cy - ch}" width="${cw * 2}" height="${ch * 2}" fill="url(#px)"/>
+        <rect x="${bx}" y="${by}" width="${bw}" height="${bh}" fill="none" stroke="${CORAL}" stroke-width="${sw}"/>${handles}`;
+    });
+
+    // Touch dot on the tile that is flipping right now.
+    const f = document.getElementById("flip");
+    const touch = document.getElementById("touch");
+    const fx = 90 + 14 + f.offsetLeft + tw / 2, fy = 300 + gTop + f.offsetTop + th / 2;
+    touch.style.left = (fx - 56 - 22) + "px"; touch.style.top = (fy - 56 + 26) + "px";
+  }
+</script>
+</body>
+</html>
