@@ -1,0 +1,599 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Leak Bucket</title>
+<link href="https://fonts.googleapis.com/css2?family=League+Gothic&family=Inter:wght@500;600;700&family=Caveat+Brush&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Leak Bucket: a roadside tyre-patch stall (tambal ban), seen in daylight under its zinc roof.
+    - A hand-painted plank sign hangs from the roof edge on two wires: series painted small on the top
+      board, a chalk slate with the date nailed to the corner, the title in two-tone sign-painter caps
+      (black + red shade, brush-roughened, uneven baseline) ending in the painted "this way" arrow.
+      D.hl is pressed under a round tube patch (black centre, serrated orange-red rim).
+    - Below it, a black inner tube is turned through a blue plastic drum sawn in half; the drum is drawn
+      as a section (cut wall shows its thickness), so the submerged rubber and the leak's bubble column
+      are seen directly. Found leaks = numbered chalk rings on the dry arm; the active leak = red marker
+      ring under water. Callouts are marker notes on the plaster wall.
+    - The caption is written on a torn cardboard price card propped against the drum's foot; the active
+      word is looped in red marker.
+    Metaphor: red-teaming / evals: turn the model through tricky prompts until it bubbles.
+  */
+  :root { --ink: #1B1B1D; --plank: #F3EDE0; --wall: #E6DCC8; --red: #A8351F; --card: #C9A46A; --cardink: #3A2F20; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--wall); }
+  body { position: relative; color: var(--ink); font-family: "Inter", sans-serif; }
+
+  #scene { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* ---- hanging sign ---- */
+  #sign { position: absolute; left: 56px; top: 292px; width: 968px; padding: 22px 60px 30px; background: var(--plank);
+          transform: rotate(-2deg); transform-origin: 50% 50%; }
+  #plank { position: absolute; left: 0; top: 0; overflow: visible; z-index: 0; }
+  .band { position: relative; z-index: 1; display: flex; justify-content: space-between; align-items: center; gap: 24px; height: 58px; }
+  .kick { font: 400 46px "League Gothic", sans-serif; letter-spacing: 0.1em; color: var(--red); text-transform: uppercase; white-space: nowrap; line-height: 1; }
+  .slate { font: 400 34px "Caveat Brush", cursive; color: var(--plank); background: var(--ink); padding: 4px 16px 2px; line-height: 1.15;
+           white-space: nowrap; border-radius: 3px; transform: rotate(3deg); box-shadow: 3px 4px 0 rgba(27,27,29,0.18); }
+  .title { position: relative; z-index: 1; margin-top: 14px; font-family: "League Gothic", sans-serif; font-weight: 400; text-transform: uppercase;
+           line-height: 1.0; letter-spacing: 0.012em; color: var(--ink); text-shadow: 0.05em 0.045em 0 var(--red); filter: url(#rough); text-wrap: balance; text-align: center; }
+  .title .wd { display: inline-block; white-space: nowrap; }
+  .title .hl { position: relative; display: inline-block; white-space: nowrap; color: var(--plank); background: var(--ink); text-shadow: none;
+               border-radius: 50%; padding: 0.12em 0.32em 0.05em; margin: 0 0.08em 0 0.1em; line-height: 0.9; }
+  .title .hl svg { position: absolute; overflow: visible; pointer-events: none; }
+  .title .arw { display: inline-block; width: 0.6em; height: 0.75em; margin-left: 0.16em; vertical-align: -0.06em; }
+  .title .arw svg { width: 100%; height: 100%; overflow: visible; }
+
+  /* ---- marker notes on the wall ---- */
+  .lab { position: absolute; left: 90px; max-width: 336px; z-index: 2; }
+  .lab .l { font: 600 32px "Inter", sans-serif; line-height: 1.16; color: var(--ink); }
+  .lab .v { font: 400 66px "Caveat Brush", cursive; line-height: 1.02; color: var(--ink); white-space: nowrap; }
+  .lab.leak .v { color: var(--red); }
+  .num { position: absolute; z-index: 1; width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; background: var(--ink);
+         font: 400 34px "Caveat Brush", cursive; line-height: 43px; text-align: center; color: var(--plank); }
+
+  /* ---- cardboard price card ---- */
+  #card { position: absolute; left: 70px; width: 834px; padding: 36px 44px 22px 46px; background: var(--card); transform: rotate(-1.3deg);
+          transform-origin: 30% 100%; z-index: 3; }
+  #cardbg { position: absolute; left: 0; top: 0; overflow: visible; z-index: 0; }
+  .cap { position: relative; z-index: 1; font: 600 44px "Inter", sans-serif; line-height: 1.3; color: var(--ink); text-wrap: pretty; }
+  .cap .on { position: relative; white-space: nowrap; margin: 0 6px; }
+  .cap .on svg { position: absolute; overflow: visible; pointer-events: none; }
+  .src { position: relative; z-index: 1; margin-top: 10px; font: 500 26px "Inter", sans-serif; line-height: 1.25; color: var(--cardink); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="rough" x="-4%" y="-8%" width="108%" height="116%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.07" numOctaves="2" seed="5" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="5" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <filter id="brush" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.05 0.3" numOctaves="2" seed="9" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="6" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <filter id="chalk" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -2.4 2.15" result="m"/>
+      <feComposite in="SourceGraphic" in2="m" operator="in"/>
+    </filter>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="10"/></filter>
+    <filter id="soft4" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="4"/></filter>
+    <filter id="sheen" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="5"/></filter>
+    <filter id="hair" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="2.2"/></filter>
+    <filter id="plaster" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.018 0.03" numOctaves="3" seed="21" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.42  0 0 0 0 0.36  0 0 0 0 0.27  0 0 0 0.22 -0.06"/>
+    </filter>
+  </defs>
+</svg>
+<svg id="scene" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap aria-hidden="true"></svg>
+<div id="sign">
+  <svg id="plank" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap aria-hidden="true"></svg>
+  <div class="band"><span class="kick" id="kick"></span><span class="slate" id="date"></span></div>
+  <div class="title" id="title"></div>
+</div>
+<div id="labels"></div>
+<div id="nums"></div>
+<div id="card">
+  <svg id="cardbg" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap aria-hidden="true"></svg>
+  <div class="cap" id="cap" data-slot="caption"></div>
+  <div class="src" id="src"></div>
+</div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  Promise.all(['400 120px "League Gothic"', '400 46px "League Gothic"', '600 32px Inter', '600 44px Inter', '500 26px Inter', '400 66px "Caveat Brush"', '400 34px "Caveat Brush"']
+    .map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const INK = "#1B1B1D", PLANK = "#F3EDE0", WALL = "#E6DCC8", FLOOR = "#C4BBAA", PAIL = "#2E5FB0", CUT = "#4A7BC8",
+        WATER = "#8FB9D6", RED = "#A8351F", PATCH = "#D0502C", CARD = "#C9A46A";
+  const rad = d => d * Math.PI / 180;
+  const f1 = n => n.toFixed(1);
+  const items = (D.items || []).slice(0, 5);
+  const hl = (D.hl || "").trim();
+
+  // =================== the hanging sign ===================
+  const signEl = document.getElementById("sign"), titleEl = document.getElementById("title");
+  const kickEl = document.getElementById("kick"), dateEl = document.getElementById("date");
+  kickEl.textContent = D.kicker || [D.series, D.ep].filter(Boolean).join(" · ");
+  dateEl.textContent = D.date || "";
+  if (!D.date) dateEl.style.display = "none";
+  for (let ks = 46; ks > 32 && kickEl.parentNode.scrollWidth > kickEl.parentNode.clientWidth; ks -= 2) kickEl.style.fontSize = ks + "px";
+
+  // title: words get an uneven painted baseline; hl (plus glued punctuation) sits on a tube patch; arrow ends the last line
+  const t = D.title || "";
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const DY = [0, -0.022, 0.016, -0.012, 0.024, -0.018, 0.01, -0.024, 0.014, 0, -0.016, 0.02];
+  const ROT = [-0.7, 0.5, -0.35, 0.8, -0.5, 0.3, -0.8, 0.45, -0.3, 0.6, -0.55, 0.35];
+  const arrowSvg = `<span class="arw" aria-hidden="true"><svg viewBox="0 0 64 80" data-layout-allow-overlap>
+      <path d="M8,30 H34 Q44,30 44,40 V52" transform="translate(4,4)" stroke="${INK}" stroke-width="13" fill="none" stroke-linejoin="round"/>
+      <path d="M22,50 H66 L44,78 Z" transform="translate(4,4)" fill="${INK}"/>
+      <path d="M8,30 H34 Q44,30 44,40 V52" stroke="${RED}" stroke-width="13" fill="none" stroke-linejoin="round"/>
+      <path d="M22,50 H66 L44,78 Z" fill="${RED}"/></svg></span>`;
+  const groups = [];   // each group = html of one unbreakable word
+  if (at < 0) t.split(/\s+/).filter(Boolean).forEach(w => groups.push(esc(w)));
+  else {
+    const pre = t.slice(0, at), mid = t.slice(at, at + hl.length), post = t.slice(at + hl.length);
+    const preW = pre.split(/\s+/).filter(Boolean), postW = post.split(/\s+/).filter(Boolean);
+    let head = "", tail = "";
+    if (pre && !/\s$/.test(pre) && preW.length) head = esc(preW.pop());
+    if (post && !/^\s/.test(post) && postW.length) tail = esc(postW.shift());
+    preW.forEach(w => groups.push(esc(w)));
+    groups.push(head + '<span class="hl">' + esc(mid) + "</span>" + tail);
+    postW.forEach(w => groups.push(esc(w)));
+  }
+  titleEl.innerHTML = groups.map((g, i) => `<span class="wd" style="transform:translateY(${DY[i % DY.length]}em) rotate(${ROT[i % ROT.length]}deg)">${g}${i === groups.length - 1 ? arrowSvg : ""}</span>`).join(" ");
+  const TITLE_MAX_H = 262;
+  for (let fs = 156; fs >= 84; fs -= 2) {
+    titleEl.style.fontSize = fs + "px";
+    if (titleEl.offsetHeight <= TITLE_MAX_H && titleEl.scrollWidth <= titleEl.clientWidth + 1) break;
+  }
+  // tube patch: serrated orange-red rim around the black oval (the oval itself is the span's background)
+  titleEl.querySelectorAll(".hl").forEach(el => {
+    const w = el.offsetWidth, h = el.offsetHeight, p = Math.round(h * 0.13);
+    const W = w + 2 * p, H = h + 2 * p, cx = W / 2, cy = H / 2;
+    const N = 64; let outer = "";
+    for (let i = 0; i <= N; i++) {
+      const a = i / N * 2 * Math.PI, rr = i % 2 ? 1 : 0.9;
+      const rx = (w / 2 + p * rr), ry = (h / 2 + p * rr);
+      outer += (i ? "L" : "M") + f1(cx + rx * Math.cos(a)) + "," + f1(cy + ry * Math.sin(a));
+    }
+    const inner = `M${f1(cx - w / 2 + 1)},${f1(cy)}a${f1(w / 2 - 1)},${f1(h / 2 - 1)} 0 1,0 ${f1(w - 2)},0a${f1(w / 2 - 1)},${f1(h / 2 - 1)} 0 1,0 ${f1(2 - w)},0Z`;
+    const mid = `M${f1(cx - w / 2 - p * 0.42)},${f1(cy)}a${f1(w / 2 + p * 0.42)},${f1(h / 2 + p * 0.42)} 0 1,0 ${f1(w + p * 0.84)},0a${f1(w / 2 + p * 0.42)},${f1(h / 2 + p * 0.42)} 0 1,0 ${f1(-w - p * 0.84)},0Z`;
+    const s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    s.setAttribute("width", W); s.setAttribute("height", H); s.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    s.setAttribute("data-layout-allow-overlap", ""); s.setAttribute("aria-hidden", "true");
+    s.style.left = -p + "px"; s.style.top = -p + "px";
+    s.innerHTML = `<path d="${outer}Z${inner}" fill="${PATCH}" fill-rule="evenodd"/>
+      <path d="${mid}" fill="none" stroke="#F08A5A" stroke-opacity="0.55" stroke-width="${f1(p * 0.18)}"/>
+      <path d="${inner}" fill="none" stroke="#7E2412" stroke-width="2.5"/>`;
+    el.insertBefore(s, el.firstChild);
+  });
+
+  const SW = 968, SH = signEl.offsetHeight, SROT = -2, sinR = Math.sin(rad(SROT)), cosR = Math.cos(rad(SROT));
+  const SIGN_TOP = Math.max(292, 670 - SH);            // short titles hang lower on longer wires
+  signEl.style.top = SIGN_TOP + "px";
+  const SCX = 56 + SW / 2, SCY = SIGN_TOP + SH / 2;
+  const sp = (x, y) => [SCX + (x - SW / 2) * cosR - (y - SH / 2) * sinR, SCY + (x - SW / 2) * sinR + (y - SH / 2) * cosR];
+  const signBottomAt = X => { const lx = X - 56; return sp(lx, SH)[1]; };
+
+  // plank: two boards, rough outward edges, red brush border, nails, eye screws
+  const BAND_Y = 22 + 58 + 7;                            // seam between the top board and the title board
+  {
+    const jag = [0, 3, 1, 4, 2, 0, 3, 5, 1, 2, 4, 0, 2, 3, 1, 4, 2, 0, 3, 1, 5, 2, 1, 3, 0, 2, 4, 1];
+    const pts = []; let k = 0;
+    const edge = (x1, y1, x2, y2, nx, ny, n) => { for (let i = 0; i < n; i++) { const u = i / n, j = jag[k++ % jag.length]; pts.push([x1 + (x2 - x1) * u + nx * j, y1 + (y2 - y1) * u + ny * j]); } };
+    edge(0, 0, SW, 0, 0, -1, 24); edge(SW, 0, SW, SH, 1, 0, 9); edge(SW, SH, 0, SH, 0, 1, 24); edge(0, SH, 0, 0, -1, 0, 9);
+    const outline = "M" + pts.map(p => f1(p[0]) + "," + f1(p[1])).join("L") + "Z";
+    let grain = "";
+    [0.18, 0.31, 0.47, 0.6, 0.74, 0.88].forEach((fy, i) => { const y = BAND_Y + (SH - BAND_Y) * fy; grain += `<path d="M14,${f1(y)} C${SW * 0.3},${f1(y - 5 + i % 3 * 3)} ${SW * 0.62},${f1(y + 6 - i % 2 * 4)} ${SW - 14},${f1(y - 2)}" stroke="${INK}" stroke-opacity="0.06" stroke-width="2" fill="none"/>`; });
+    grain += `<path d="M14,${BAND_Y * 0.45} C${SW * 0.4},${BAND_Y * 0.45 - 4} ${SW * 0.7},${BAND_Y * 0.45 + 4} ${SW - 14},${BAND_Y * 0.45}" stroke="${INK}" stroke-opacity="0.05" stroke-width="2" fill="none"/>`;
+    grain += `<ellipse cx="${SW * 0.71}" cy="${f1(BAND_Y + (SH - BAND_Y) * 0.68)}" rx="22" ry="7" fill="none" stroke="${INK}" stroke-opacity="0.07" stroke-width="2"/>`;
+    const nail = (x, y) => `<path d="M${x - 3},${y + 6} q2,${f1(16 + (x % 7))} 0,${f1(26 + (x % 5))}" stroke="${RED}" stroke-opacity="0.16" stroke-width="5" fill="none" stroke-linecap="round"/>
+      <circle cx="${x}" cy="${y}" r="7" fill="#6E6862" stroke="${INK}" stroke-opacity="0.55" stroke-width="2"/><circle cx="${x - 2}" cy="${y - 2}" r="2.2" fill="${PLANK}" fill-opacity="0.7"/>`;
+    const E1 = SW * 0.17, E2 = SW * 0.83;
+    const plank = document.getElementById("plank");
+    plank.setAttribute("width", SW); plank.setAttribute("height", SH); plank.setAttribute("viewBox", `0 0 ${SW} ${SH}`);
+    plank.innerHTML = `
+      <path d="${outline}" fill="${PLANK}"/>
+      ${grain}
+      <path d="M8,${BAND_Y}H${SW - 8}" stroke="${INK}" stroke-opacity="0.32" stroke-width="3"/>
+      <path d="M8,${BAND_Y + 3}H${SW - 8}" stroke="#FFFFFF" stroke-opacity="0.6" stroke-width="2"/>
+      <rect x="15" y="15" width="${SW - 30}" height="${SH - 30}" fill="none" stroke="${RED}" stroke-width="7" filter="url(#brush)"/>
+      <path d="${outline}" fill="none" stroke="${INK}" stroke-opacity="0.35" stroke-width="2"/>
+      <path d="M${SW - 44},0 l44,0 l0,30 z" fill="${WALL}"/>
+      ${nail(30, 30)}${nail(SW - 30, 30)}${nail(30, SH - 30)}${nail(SW - 30, SH - 30)}${nail(30, BAND_Y + 20)}${nail(SW - 30, BAND_Y + 20)}
+      <circle cx="${E1}" cy="-7" r="8" fill="none" stroke="${INK}" stroke-width="3.5"/><rect x="${E1 - 3}" y="-1" width="6" height="8" fill="${INK}"/>
+      <circle cx="${E2}" cy="-7" r="8" fill="none" stroke="${INK}" stroke-width="3.5"/><rect x="${E2 - 3}" y="-1" width="6" height="8" fill="${INK}"/>`;
+  }
+
+  // =================== caption on the cardboard card ===================
+  const capText = D.caption || D.sub || "";
+  const cardEl = document.getElementById("card"), capEl = document.getElementById("cap"), srcEl = document.getElementById("src");
+  srcEl.textContent = (D.caption && D.sub ? D.sub + " · " : "") + (D.source || "");
+  {
+    const words = capText.split(/\s+/).filter(Boolean);
+    const low = capText.toLowerCase(), h = hl.toLowerCase();
+    let hs = h ? low.indexOf(h) : -1, he = hs + h.length, pos = 0;
+    const flags = words.map(w => { const s = low.indexOf(w.toLowerCase(), pos); pos = s + w.length; return hs >= 0 && s < he && s + w.length > hs; });
+    if (!flags.some(Boolean) && words.length) flags[0] = true;
+    const build = (lo, hi) => {
+      let html = lo > 0 ? "… " : "", i = lo;
+      while (i <= hi) {
+        if (flags[i]) { const grp = []; while (i <= hi && flags[i]) grp.push(esc(words[i++])); html += '<span class="on">' + grp.join(" ") + "</span> "; }
+        else html += esc(words[i++]) + " ";
+      }
+      if (hi < words.length - 1) html += "…";
+      capEl.innerHTML = html.trim();
+    };
+    const fits = fs => capEl.offsetHeight <= fs * 1.3 * 2 + 4;
+    let fs = 44; build(0, words.length - 1); capEl.style.fontSize = fs + "px";
+    while (!fits(fs) && fs > 40) { fs -= 2; capEl.style.fontSize = fs + "px"; }
+    if (!fits(fs)) {
+      // karaoke shows the current phrase: grow a window around the active word until 2 lines are full
+      let lo = flags.indexOf(true), hi = flags.lastIndexOf(true), grew = true;
+      while (grew) {
+        grew = false;
+        if (hi < words.length - 1) { build(lo, hi + 1); if (fits(fs)) { hi++; grew = true; continue; } }
+        if (lo > 0) { build(lo - 1, hi); if (fits(fs)) { lo--; grew = true; } }
+      }
+      build(lo, hi);
+    }
+  }
+  const CARD_BOTTOM = 1614, CW = 834, CH = cardEl.offsetHeight, CARD_TOP = CARD_BOTTOM - CH;
+  cardEl.style.top = CARD_TOP + "px";
+  // red marker loop around the active word
+  capEl.querySelectorAll(".on").forEach((el, n) => {
+    const w = el.offsetWidth, h = el.offsetHeight, px = 14, py = 7;
+    const s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    s.setAttribute("width", w + 2 * px); s.setAttribute("height", h + 2 * py); s.setAttribute("data-layout-allow-overlap", ""); s.setAttribute("aria-hidden", "true");
+    s.style.left = -px + "px"; s.style.top = -py + "px";
+    const cx = w / 2 + px, cy = h / 2 + py, rx = w / 2 + px - 3, ry = h / 2 + py - 3;
+    let d = "";
+    for (let i = 0; i <= 52; i++) {
+      const a = rad(200) + i / 46 * 2 * Math.PI, m = 1 + 0.03 * Math.sin(3 * a) - 0.04 * (i / 52);
+      d += (i ? "L" : "M") + f1(cx + rx * m * Math.cos(a)) + "," + f1(cy + ry * m * Math.sin(a) + (i / 52) * 4);
+    }
+    s.innerHTML = `<path d="${d}" fill="none" stroke="${RED}" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+    el.appendChild(s);
+  });
+  // torn cardboard: ragged top edge with the corrugated flute showing, cut sides, scuffs
+  {
+    const jt = [0, 6, 2, 9, 4, 11, 3, 7, 1, 8, 5, 10, 2, 6, 0, 9, 4, 7, 3, 10, 1, 6, 8, 2, 5, 0];
+    let top = `M0,${CH} L0,0`;
+    for (let i = 1; i <= 25; i++) top += `L${f1(CW * i / 25)},${f1(-jt[i] * 0.9)}`;
+    top += `L${CW},${CH}Z`;
+    let flute = "";
+    for (let x = 6; x < CW - 6; x += 16) flute += `M${x},14 q4,-9 8,0 q4,9 8,0`;
+    const bg = document.getElementById("cardbg");
+    bg.setAttribute("width", CW); bg.setAttribute("height", CH); bg.setAttribute("viewBox", `0 0 ${CW} ${CH}`);
+    bg.innerHTML = `
+      <path d="${top}" fill="${CARD}"/>
+      <path d="M0,0 L${CW},0" stroke="#E4CC95" stroke-width="5"/>
+      <path d="${flute}" stroke="#8C6B3A" stroke-opacity="0.55" stroke-width="2.4" fill="none"/>
+      <path d="M0,22 H${CW}" stroke="#8C6B3A" stroke-opacity="0.35" stroke-width="2"/>
+      <ellipse cx="${CW * 0.82}" cy="${CH * 0.7}" rx="70" ry="26" fill="#8C6B3A" fill-opacity="0.12"/>
+      <ellipse cx="${CW * 0.12}" cy="${CH * 0.86}" rx="40" ry="12" fill="#8C6B3A" fill-opacity="0.1"/>
+      <path d="M${CW - 2},0 V${CH}" stroke="#8C6B3A" stroke-opacity="0.35" stroke-width="3"/>`;
+  }
+
+  // =================== geometry: tube + half drum ===================
+  const RC = { x: 690, y: 1078 }, RX = 180, RY = 310, TR = 54;          // tube centre-line ellipse + tube radius
+  const P = (tDeg, rx = RX, ry = RY) => [RC.x + rx * Math.cos(rad(tDeg)), RC.y + ry * Math.sin(rad(tDeg))];
+  const tangent = tDeg => Math.atan2(RY * Math.cos(rad(tDeg)), -RX * Math.sin(rad(tDeg))) * 180 / Math.PI;
+  const DR = { x: 690, in: 284, wall: 16, rimY: 1026, ry: 38, bot: 1452 };  // drum section
+  const WL = 1086;                                                        // water line (cut plane)
+  const HORIZON = 1440;                                                   // wall meets floor
+
+  // which item is the leak bubbling right now: explicit (D.leak / item.leak), else the item naming hl, else the last
+  let leakIdx = items.length - 1;
+  if (typeof D.leak === "number" && items[D.leak]) leakIdx = D.leak;
+  else if (items.some(it => it.leak)) leakIdx = items.findIndex(it => it.leak);
+  else if (hl) for (let i = items.length - 1; i >= 0; i--) { const s = (items[i].label + " " + items[i].value).toLowerCase(); if (s.includes(hl.toLowerCase())) { leakIdx = i; break; } }
+  const order = items.map((_, i) => i).filter(i => i !== leakIdx);
+
+  // =================== marker notes (callouts) ===================
+  const labWrap = document.getElementById("labels");
+  const labs = items.map((it, i) => {
+    const el = document.createElement("div");
+    el.className = "lab" + (i === leakIdx ? " leak" : "");
+    el.innerHTML = '<div class="l">' + esc(it.label) + '</div><div class="v">' + esc(it.value) + "</div>";
+    labWrap.appendChild(el);
+    return el;
+  });
+  const LAB_W = 336;
+  const fitLabels = (ls, vs) => labs.forEach((el, i) => {
+    const maxW = i === leakIdx ? 290 : LAB_W;          // the leak note stops short of the drum wall
+    el.style.maxWidth = maxW + "px";
+    el.querySelector(".l").style.fontSize = ls + "px";
+    const v = el.querySelector(".v"); let s = vs; v.style.fontSize = s + "px";
+    while (v.scrollWidth > maxW && s > 40) { s -= 2; v.style.fontSize = s + "px"; }
+  });
+  const leakEl = labs[leakIdx];
+  const leakSpot = [RC.x - 5, RC.y + RY - TR + 1];                       // inner face of the bottom arc
+  const yTop = Math.max(signBottomAt(420) + 30, 690), GAP = 16;
+  let ls = 32, vs = 66, leakTop = 0, rows = [];
+  for (; ; vs -= 4, ls = Math.max(30, ls - 1)) {
+    fitLabels(ls, vs);
+    leakTop = Math.min(CARD_TOP - 26 - leakEl.offsetHeight, leakSpot[1] - leakEl.offsetHeight * 0.55);
+    const tot = order.reduce((a, i) => a + labs[i].offsetHeight, 0) + GAP * Math.max(0, order.length - 1);
+    if (tot <= leakTop - 34 - yTop || vs <= 44) break;
+  }
+  // spread the dry notes evenly between the sign and the leak note
+  {
+    const hs = order.map(i => labs[i].offsetHeight), tot = hs.reduce((a, b) => a + b, 0);
+    const room = leakTop - 34 - yTop, gap = order.length > 1 ? Math.min(70, Math.max(GAP, (room - tot) / (order.length - 1))) : 0;
+    let y = yTop + Math.max(0, (room - tot - gap * (order.length - 1)) / 2);
+    rows = order.map((idx, j) => { const r = { idx, top: y, h: hs[j] }; y += hs[j] + gap; return r; });
+  }
+  rows.forEach(r => { labs[r.idx].style.top = r.top + "px"; });
+  leakEl.style.top = leakTop + "px";
+  rows.forEach(r => {                                   // a note beside the drum must not run into its wall
+    if (r.top + r.h < DR.rimY - 30) return;
+    const el = labs[r.idx], v = el.querySelector(".v"); el.style.maxWidth = "290px";
+    let fs = parseFloat(v.style.fontSize); while (v.scrollWidth > 290 && fs > 40) { fs -= 2; v.style.fontSize = fs + "px"; }
+  });
+  const anchor = el => {
+    const v = el.querySelector(".v"), l = el.querySelector(".l"), rng = document.createRange(); let w = 0;
+    rng.selectNodeContents(v); for (const r of rng.getClientRects()) w = Math.max(w, r.right);
+    let wl = 0; rng.selectNodeContents(l); for (const r of rng.getClientRects()) wl = Math.max(wl, r.right);
+    const vr = v.getBoundingClientRect();
+    return [w + 16, vr.top + vr.height * 0.5, Math.max(w, wl) + 26];
+  };
+  // marks sit on the dry (rising) left arm, oldest find highest, newest just above the water
+  // each ring sits on the left-facing part of the arm near its note's height, oldest highest, kept apart
+  const T_TOP = 244, T_LOW = 180 + Math.asin((RC.y - (WL - 44)) / RY) * 180 / Math.PI;
+  const k = rows.length, dT = k > 1 ? Math.min(19, (T_TOP - T_LOW) / (k - 1)) : 0;
+  const anchors = rows.map(r => anchor(labs[r.idx]));
+  const ts = anchors.map(a => Math.min(T_TOP, Math.max(T_LOW, 180 + Math.asin(Math.max(-1, Math.min(1, (RC.y - a[1]) / RY))) * 180 / Math.PI)));
+  for (let j = 1; j < k; j++) ts[j] = Math.min(ts[j], ts[j - 1] - dT);
+  for (let j = k - 1; j >= 0; j--) ts[j] = Math.max(ts[j], T_LOW + (k - 1 - j) * dT);
+  for (let j = 1; j < k; j++) ts[j] = Math.min(ts[j], ts[j - 1] - dT);
+  const marks = rows.map((r, j) => ({ tDeg: ts[j], p: P(ts[j]), a: anchors[j] }));
+  let minGap = 999;
+  for (let j = 1; j < marks.length; j++) minGap = Math.min(minGap, Math.hypot(marks[j].p[0] - marks[j - 1].p[0], marks[j].p[1] - marks[j - 1].p[1]));
+  const RING = Math.max(28, Math.min(40, minGap * 0.44));
+  // chalk numbers inside the rings (found order)
+  const numWrap = document.getElementById("nums");
+  marks.forEach((m, j) => {
+    const el = document.createElement("div");
+    el.className = "num"; el.textContent = String(j + 1);
+    el.style.left = f1(m.p[0]) + "px"; el.style.top = f1(m.p[1]) + "px";
+    numWrap.appendChild(el);
+  });
+
+  // =================== scene (SVG, back to front) ===================
+  const ell = (rx, ry, cx = RC.x, cy = RC.y) => `M${cx - rx},${cy}a${rx},${ry} 0 1,0 ${2 * rx},0a${rx},${ry} 0 1,0 ${-2 * rx},0Z`;
+  const arc = (t1, t2, rx = RX, ry = RY, step = 3) => { let d = ""; for (let a = t1; (t2 > t1 ? a <= t2 : a >= t2); a += (t2 > t1 ? step : -step)) { const p = P(a, rx, ry); d += (d ? "L" : "M") + f1(p[0]) + "," + f1(p[1]); } return d; };
+  function chalkRing(cx, cy, rx, ry, rotDeg, seed) {
+    let d = ""; const N = 46, turns = 1.18;
+    for (let i = 0; i <= N * turns; i++) {
+      const a = i / N * 2 * Math.PI + seed;
+      const m = 1 + 0.07 * Math.sin(3 * a + seed * 2.1) + 0.035 * Math.sin(7 * a + seed) + 0.06 * (i / (N * turns));
+      const x = rx * m * Math.cos(a), y = ry * m * Math.sin(a), r = rad(rotDeg);
+      d += (i ? "L" : "M") + f1(cx + x * Math.cos(r) - y * Math.sin(r)) + "," + f1(cy + x * Math.sin(r) + y * Math.cos(r));
+    }
+    return d;
+  }
+
+  // --- roof: corrugated zinc underside with the wavy sheet edge ---
+  const EDGE = 150;
+  let wave = `M0,0 H1080 V${EDGE}`;
+  for (let x = 1080; x >= 0; x -= 6) wave += `L${x},${f1(EDGE + 13 * Math.sin(x / 64 * 2 * Math.PI))}`;
+  wave += "Z";
+  let edgeLine = "";
+  for (let x = 0; x <= 1080; x += 6) edgeLine += (x ? "L" : "M") + x + "," + f1(EDGE + 13 * Math.sin(x / 64 * 2 * Math.PI));
+  const rust = [[118, 40, 70], [402, 10, 110], [655, 30, 80], [930, 0, 120]].map(([x, y, h]) => `<path d="M${x},${y} q6,${h / 2} -2,${h}" stroke="${RED}" stroke-opacity="0.22" stroke-width="10" fill="none" stroke-linecap="round" filter="url(#hair)"/>`).join("");
+  const hooks = [[SW * 0.17, sp(SW * 0.17, -7)], [SW * 0.83, sp(SW * 0.83, -7)]];
+  const wires = hooks.map(([lx, e]) => {
+    const hx = 56 + lx + (lx < SW / 2 ? -26 : 26), hy = EDGE + 13 * Math.sin(hx / 64 * 2 * Math.PI) - 4;
+    return `<path d="M${f1(hx)},${f1(hy)} L${f1(e[0])},${f1(e[1] - 8)}" stroke="${INK}" stroke-width="3"/>
+      <path d="M${f1(hx - 7)},${f1(hy - 2)} q7,-12 14,0" stroke="${INK}" stroke-width="4" fill="none"/>`;
+  }).join("");
+  const sc = [sp(0, 0), sp(SW, 0), sp(SW, SH), sp(0, SH)].map(p => [p[0] + 14, p[1] + 20]);
+  const signShadow = `<path d="M${sc.map(p => f1(p[0]) + "," + f1(p[1])).join("L")}Z" fill="${INK}" fill-opacity="0.22" filter="url(#soft)"/>`;
+
+  // --- floor grit + puddle ---
+  let grit = "";
+  for (let i = 0; i < 130; i++) { const x = (i * 137.31) % 1080, y = HORIZON + 20 + ((i * 89.7) % 460), r = 1.3 + (i % 4) * 0.6; grit += `<circle cx="${f1(x)}" cy="${f1(y)}" r="${r}" fill="${INK}" fill-opacity="${0.06 + (i % 3) * 0.03}"/>`; }
+
+  // --- floor props (below the card; decoration in the UI zone) ---
+  const props = `
+    <path d="M150,1818 L452,1734" stroke="#000" stroke-opacity="0.18" stroke-width="22" stroke-linecap="round" filter="url(#soft4)" transform="translate(8,12)"/>
+    <path d="M150,1818 L440,1738 q26,-7 30,-30" stroke="#5F5F63" stroke-width="16" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M160,1810 L438,1733" stroke="#C9C9CB" stroke-opacity="0.7" stroke-width="3.5" stroke-linecap="round"/>
+    <ellipse cx="762" cy="1806" rx="104" ry="24" fill="#000" fill-opacity="0.22" filter="url(#soft4)"/>
+    <path d="M664,1752 V1786 A96,26 0 0,0 856,1786 V1752 Z" fill="#8F8A80"/>
+    <path d="M664,1762 A96,26 0 0,0 856,1762" stroke="${RED}" stroke-opacity="0.8" stroke-width="8" fill="none"/>
+    <ellipse cx="760" cy="1752" rx="96" ry="26" fill="#3C3A37" stroke="#B5B0A6" stroke-width="5"/>
+    ${[[722, 1748, 30, 11, -8], [776, 1758, 26, 9, 6], [800, 1742, 22, 8, -4]].map(([x, y, rx, ry, r]) => `<g transform="rotate(${r} ${x} ${y})"><ellipse cx="${x}" cy="${y}" rx="${rx + 5}" ry="${ry + 4}" fill="${PATCH}"/><ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="${INK}"/></g>`).join("")}
+    <path d="M1080,1668 C990,1664 918,1700 922,1752 C926,1810 1030,1818 1052,1780 C1074,1740 1004,1712 958,1736 C916,1758 940,1846 1080,1852" stroke="${INK}" stroke-width="18" fill="none" stroke-linecap="round"/>
+    <path d="M1080,1661 C990,1657 918,1693 922,1745" stroke="${PLANK}" stroke-opacity="0.22" stroke-width="4" fill="none"/>`;
+
+  // --- drum section pieces ---
+  const L0 = DR.x - DR.in, R0 = DR.x + DR.in, T = DR.wall;
+  const backHalf = (y, rx = DR.in, ry = DR.ry) => `M${DR.x - rx},${y} A${rx},${ry} 0 0,1 ${DR.x + rx},${y}`;
+  const interior = `${backHalf(DR.rimY)} L${R0},${DR.bot} L${L0},${DR.bot} Z`;
+  // cut faces: U-shaped band with two rolling hoops bulging out and a slightly ragged saw line
+  const HP1 = Math.round(DR.rimY + (DR.bot - DR.rimY) * 0.3), HP2 = Math.round(DR.rimY + (DR.bot - DR.rimY) * 0.72);
+  const hoop = y => [HP1, HP2].reduce((a, h) => a + (Math.abs(y - h) < 16 ? 8 * Math.cos((y - h) / 16 * Math.PI / 2) : 0), 0);
+  const saw = [0, 1.2, -0.8, 1.5, -1.2, 0.6, -1.5, 1, -0.4, 1.3, -1, 0.5];
+  const side = s => {               // s = -1 left, +1 right
+    const xi = s < 0 ? L0 : R0; let outerP = [], innerP = [], n = 0;
+    for (let y = DR.rimY - 4; y <= DR.bot - 18; y += 6, n++) { const b = hoop(y); innerP.push([xi + s * b, y]); outerP.push([xi + s * (T + b + saw[(n + 5) % 12] * 0.45), y]); }
+    return { innerP, outerP };
+  };
+  const Lf = side(-1), Rf = side(1);
+  const B0 = DR.bot, B1 = DR.bot + T;
+  const cutPath = "M" + [...Lf.outerP].map(p => f1(p[0]) + "," + f1(p[1])).join("L") +
+    ` Q${L0 - T},${B1} ${L0 + 20},${B1} L${R0 - 20},${B1} Q${R0 + T},${B1} ${R0 + T},${DR.bot - 18} ` +
+    "L" + [...Rf.outerP].reverse().map(p => f1(p[0]) + "," + f1(p[1])).join("L") +
+    "L" + Rf.innerP.map(p => f1(p[0]) + "," + f1(p[1])).join("L") +
+    ` Q${R0},${B0} ${R0 - 18},${B0} L${L0 + 18},${B0} Q${L0},${B0} ${L0},${DR.bot - 18} ` +
+    "L" + [...Lf.innerP].reverse().map(p => f1(p[0]) + "," + f1(p[1])).join("L") + "Z";
+  let sawMarks = "";
+  for (let y = DR.rimY + 14; y < DR.bot - 20; y += 22) { if (hoop(y) > 2) continue; sawMarks += `M${L0 - T + 2},${y}l${T - 4},5M${R0 + 2},${y + 6}l${T - 4},-5`; }
+  for (let x = L0 + 30; x < R0 - 30; x += 26) sawMarks += `M${x},${B0 + 2}l6,${T - 4}`;
+  // back rim: the sawn top edge seen from the front, thickness band on top
+  let rimSaw = "";
+  for (let a = 180, i = 0; a <= 360; a += 4, i++) { const x = DR.x + (DR.in + T / 2) * Math.cos(rad(a)), y = DR.rimY + DR.ry * Math.sin(rad(a)) - 2 + saw[i % 12] * 0.9; rimSaw += (rimSaw ? "L" : "M") + f1(x) + "," + f1(y); }
+
+  // --- marks, leaders ---
+  let leaders = "", chalk = "";
+  marks.forEach((m, j) => {
+    const [mx, my] = m.p, [ax, ay, ax2] = m.a;
+    const tg = tangent(m.tDeg);
+    // leader: straight out of the value (clear of the label), then a loose curve that ends on the ring's rim
+    const bx = Math.min(Math.max(ax, ax2), mx - RING - 70);
+    const ang = Math.atan2(ay - my, bx - mx), ex = mx + (RING + 3) * Math.cos(ang), ey = my + (RING * 0.85 + 3) * Math.sin(ang);
+    const qx = bx + (ex - bx) * 0.6, qy = ay + (ey - ay) * 0.15;
+    const dPath = `M${f1(ax)},${f1(ay)} L${f1(bx)},${f1(ay)} Q${f1(qx)},${f1(qy)} ${f1(ex)},${f1(ey)}`;
+    leaders += `<path d="${dPath}" stroke="${WALL}" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="${dPath}" stroke="${INK}" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="${f1(ax)}" cy="${f1(ay)}" r="5.5" fill="${INK}"/><circle cx="${f1(ex)}" cy="${f1(ey)}" r="5" fill="${PLANK}" stroke="${INK}" stroke-width="2.5"/>`;
+    chalk += `<path d="${chalkRing(mx, my, RING, RING * 0.85, tg, j * 1.7 + 0.4)}" stroke="${PLANK}" stroke-width="5.5" fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#chalk)"/>`;
+  });
+
+  // --- the leak: bubble column, boil, spray crown, ripples ---
+  const [lx, ly] = leakSpot;
+  const col = [[2, -20, 12, 0.9], [-4, -46, 14, 0.88], [4, -76, 17, 0.86], [12, -110, 20, 0.84], [16, -148, 24, 0.82], [10, -190, 29, 0.8], [0, -226, 34, 0.74]];
+  const sats = [[-26, -92, 6], [32, -158, 7], [-28, -196, 8]];
+  let bubbles = "";
+  col.forEach(([dx, dy, r, sq]) => {
+    const x = lx + dx, y = ly + dy;
+    bubbles += `<ellipse cx="${x}" cy="${y}" rx="${r + 2}" ry="${f1(r * sq + 2)}" fill="none" stroke="${PAIL}" stroke-opacity="0.8" stroke-width="2.5"/>
+      <ellipse cx="${x}" cy="${y}" rx="${r}" ry="${f1(r * sq)}" fill="${PLANK}" fill-opacity="0.2" stroke="${PLANK}" stroke-width="${f1(2.6 + r * 0.05)}"/>
+      <ellipse cx="${f1(x - r * 0.38)}" cy="${f1(y - r * sq * 0.4)}" rx="${f1(Math.max(2.4, r * 0.26))}" ry="${f1(Math.max(2, r * 0.2))}" fill="${PLANK}"/>`;
+  });
+  sats.forEach(([dx, dy, r]) => { bubbles += `<circle cx="${lx + dx}" cy="${ly + dy}" r="${r}" fill="${PLANK}" fill-opacity="0.25" stroke="${PLANK}" stroke-width="2.6"/>`; });
+  const sx = lx + 3, sy = WL;
+  const ripples = [[104, 13, 1], [184, 22, 0.85], [262, 32, 0.7]].map(([rx, ry, o]) => `<path d="M${sx - rx},${sy} A${rx},${ry} 0 0,1 ${sx + rx},${sy}" fill="none" stroke="${PLANK}" stroke-opacity="${o}" stroke-width="5"/>`).join("");
+  const boil = `<path d="M${sx - 96},${sy} C${sx - 64},${sy} ${sx - 56},${sy - 28} ${sx - 30},${sy - 34} C${sx - 12},${sy - 54} ${sx + 16},${sy - 54} ${sx + 32},${sy - 34} C${sx + 58},${sy - 28} ${sx + 66},${sy} ${sx + 98},${sy} Z" fill="#B8D3E6" stroke="${PLANK}" stroke-width="4"/>
+    <path d="M${sx - 40},${sy - 30} q10,-13 26,-16" stroke="${PLANK}" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    <ellipse cx="${sx - 4}" cy="${sy - 40}" rx="22" ry="12" fill="${PLANK}" fill-opacity="0.4" stroke="${PLANK}" stroke-width="3.5"/>
+    <ellipse cx="${sx + 30}" cy="${sy - 22}" rx="12" ry="7" fill="${PLANK}" fill-opacity="0.4" stroke="${PLANK}" stroke-width="3"/>`;
+  const spray = [[-72, -64, 6], [-44, -96, 8], [-8, -120, 9], [30, -104, 8], [62, -74, 7], [-24, -150, 5], [14, -156, 5.5], [88, -40, 5], [-92, -36, 5], [46, -138, 4.5], [-58, -126, 4.5]]
+    .map(([dx, dy, r]) => `<circle cx="${sx + dx}" cy="${sy + dy}" r="${r}" fill="${PLANK}" stroke="${PAIL}" stroke-width="2.8"/>`).join("") +
+    `<path d="M${sx - 52},${sy - 34} Q${sx - 66},${sy - 50} ${sx - 62},${sy - 62} Q${sx - 44},${sy - 52} ${sx - 32},${sy - 48} Q${sx - 30},${sy - 70} ${sx - 22},${sy - 78} Q${sx - 12},${sy - 62} ${sx - 4},${sy - 54} Q${sx + 4},${sy - 76} ${sx + 12},${sy - 84} Q${sx + 18},${sy - 64} ${sx + 22},${sy - 52} Q${sx + 34},${sy - 68} ${sx + 46},${sy - 72} Q${sx + 42},${sy - 54} ${sx + 38},${sy - 44} Q${sx + 56},${sy - 50} ${sx + 66},${sy - 46} Q${sx + 60},${sy - 36} ${sx + 50},${sy - 30} Z" fill="${PLANK}" fill-opacity="0.55" stroke="${PLANK}" stroke-width="3.5" stroke-linejoin="round"/>`;
+
+  // leak ring (red marker, drawn on the frame, not on the rubber) + its leader
+  const leakRing = `<ellipse cx="${lx}" cy="${ly + 2}" rx="56" ry="40" fill="none" stroke="${PLANK}" stroke-width="10"/>
+    <path d="${chalkRing(lx, ly + 2, 54, 38, 0, 2.3)}" stroke="${RED}" stroke-width="5.5" fill="none" stroke-linecap="round"/>`;
+  const [qx, qy] = anchor(leakEl);
+  const lend = [lx - 58, ly + 6];
+  const leakLeader = `<path d="M${f1(qx)},${f1(qy)} Q${f1((qx + lend[0]) / 2)},${f1(Math.min(qy, lend[1]) - 12)} ${f1(lend[0])},${f1(lend[1])}" stroke="${PLANK}" stroke-width="10" fill="none" stroke-linecap="round"/>
+    <path d="M${f1(qx)},${f1(qy)} Q${f1((qx + lend[0]) / 2)},${f1(Math.min(qy, lend[1]) - 12)} ${f1(lend[0])},${f1(lend[1])}" stroke="${RED}" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+    <circle cx="${f1(qx)}" cy="${f1(qy)}" r="7" fill="${RED}"/>`;
+
+  // valve stem on the inner rim, upper right, pointing at the centre
+  const vp = P(318, RX - TR, RY - TR), vang = Math.atan2(RC.y - vp[1], RC.x - vp[0]) * 180 / Math.PI - 90;
+  const valve = `<g transform="translate(${f1(vp[0])},${f1(vp[1])}) rotate(${f1(vang)})">
+      <rect x="-20" y="-8" width="40" height="16" rx="4" fill="${INK}" stroke="${PLANK}" stroke-opacity="0.35" stroke-width="2"/>
+      <rect x="-10" y="6" width="20" height="48" fill="#B9B3A8" stroke="${INK}" stroke-width="3"/>
+      <path d="M-10,20h20M-10,30h20M-10,40h20" stroke="${INK}" stroke-width="2" opacity="0.5"/>
+      <rect x="-14" y="50" width="28" height="28" rx="5" fill="${INK}"/></g>`;
+  // wet, rising left arm: drips back into the water
+  const drips = [[478, 1018, 1], [496, 1052, 0.8], [466, 1060, 0.7]].map(([x, y, s]) => `<path d="M${x},${y} q${-7 * s},${13 * s} 0,${19 * s} q${7 * s},${-6 * s} 0,${-19 * s}Z" fill="${WATER}" stroke="${PAIL}" stroke-width="2"/>`).join("");
+
+  const svg = `
+  <defs>
+    <linearGradient id="corr" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#2B2B2E"/><stop offset="0.32" stop-color="#5E5E62"/><stop offset="0.5" stop-color="#8E8E90"/>
+      <stop offset="0.68" stop-color="#55555A"/><stop offset="1" stop-color="#2B2B2E"/>
+    </linearGradient>
+    <pattern id="corrP" width="64" height="400" patternUnits="userSpaceOnUse" x="-16"><rect width="64" height="400" fill="url(#corr)"/></pattern>
+    <linearGradient id="roofShade" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${INK}" stop-opacity="0.55"/><stop offset="1" stop-color="${INK}" stop-opacity="0"/></linearGradient>
+    <linearGradient id="eave" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${INK}" stop-opacity="0.28"/><stop offset="1" stop-color="${INK}" stop-opacity="0"/></linearGradient>
+    <linearGradient id="backWall" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#14274A"/><stop offset="0.5" stop-color="#244A8A"/><stop offset="1" stop-color="#11223F"/>
+    </linearGradient>
+    <linearGradient id="deep" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="${WATER}" stop-opacity="0.5"/><stop offset="0.5" stop-color="${WATER}" stop-opacity="0.34"/><stop offset="1" stop-color="${PAIL}" stop-opacity="0.5"/>
+    </linearGradient>
+    <linearGradient id="floorG" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ADA492"/><stop offset="0.12" stop-color="${FLOOR}"/><stop offset="1" stop-color="#B7AE9C"/></linearGradient>
+    <clipPath id="surfClip"><path d="${backHalf(WL, DR.in - 2, DR.ry - 2)} Z"/></clipPath>
+    <clipPath id="wallClip"><rect x="0" y="0" width="1080" height="${HORIZON}"/></clipPath>
+  </defs>
+
+  <!-- plaster wall + floor -->
+  <rect x="0" y="0" width="1080" height="1920" fill="${WALL}"/>
+  <rect x="0" y="0" width="1080" height="${HORIZON}" filter="url(#plaster)"/>
+  <rect x="0" y="${EDGE}" width="1080" height="160" fill="url(#eave)"/>
+  <rect x="0" y="${HORIZON}" width="1080" height="${1920 - HORIZON}" fill="url(#floorG)"/>
+  <path d="M0,${HORIZON}H1080" stroke="${INK}" stroke-opacity="0.25" stroke-width="3"/>
+  ${grit}
+  <ellipse cx="${DR.x - 30}" cy="${B1 + 26}" rx="380" ry="46" fill="${WATER}" fill-opacity="0.35"/>
+  <path d="M${DR.x - 330},${B1 + 34} q60,-8 130,-2 M${DR.x + 110},${B1 + 48} q50,-6 120,0" stroke="${PLANK}" stroke-opacity="0.5" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <ellipse cx="${DR.x + 20}" cy="${B1 + 6}" rx="330" ry="26" fill="#000" fill-opacity="0.32" filter="url(#soft)"/>
+  <!-- floor props: tyre lever, open tin of patches, air hose -->
+  ${props}
+
+  <!-- roof edge, wires, sign shadow -->
+  <path d="${wave}" fill="url(#corrP)"/>
+  <path d="${wave}" fill="url(#roofShade)"/>
+  ${rust}
+  <path d="${edgeLine}" stroke="#1A1A1C" stroke-width="5" fill="none"/>
+  <path d="${edgeLine}" stroke="#B9B9BB" stroke-opacity="0.5" stroke-width="2" fill="none" transform="translate(0,-4)"/>
+  ${signShadow}
+  ${wires}
+
+  <!-- tube's shadow on the wall -->
+  <g clip-path="url(#wallClip)"><path d="${ell(RX, RY, RC.x + 26, RC.y + 30)}" stroke="${INK}" stroke-opacity="0.16" stroke-width="${TR * 2}" fill="none" filter="url(#soft)"/></g>
+
+  <!-- drum: back wall, hoops, floor, back rim, water surface (back half) -->
+  <path d="${interior}" fill="url(#backWall)"/>
+  <path d="${backHalf(HP1)}" stroke="${CUT}" stroke-opacity="0.4" stroke-width="6" fill="none"/>
+  <path d="${backHalf(HP2)}" stroke="${CUT}" stroke-opacity="0.35" stroke-width="6" fill="none"/>
+  <path d="${backHalf(B0)} Z" fill="#1C3866"/>
+  <path d="${rimSaw}" stroke="${CUT}" stroke-width="${T}" fill="none" stroke-linecap="round"/>
+  <path d="${rimSaw}" stroke="#7FA5DE" stroke-opacity="0.75" stroke-width="3" fill="none" transform="translate(0,-5)"/>
+  <path d="${backHalf(WL)} Z" fill="${WATER}"/>
+  <g clip-path="url(#surfClip)">${ripples}</g>
+
+
+  <!-- the inner tube -->
+  <path d="${ell(RX, RY)}" stroke="${INK}" stroke-width="${TR * 2}" fill="none"/>
+  <path d="${ell(RX + 6, RY + 6)}" stroke="${PLANK}" stroke-opacity="0.05" stroke-width="${TR * 1.1}" fill="none" filter="url(#sheen)"/>
+  <path d="${arc(-70, 60, RX - 40, RY - 40)}" stroke="${PLANK}" stroke-opacity="0.07" stroke-width="22" fill="none" filter="url(#sheen)"/>
+  <path d="${arc(196, 286, RX + 12, RY + 12)}" stroke="${PLANK}" stroke-opacity="0.42" stroke-width="5" fill="none" stroke-linecap="round" filter="url(#hair)"/>
+  <path d="${arc(150, 300, RX + 30, RY + 30)}" stroke="${PLANK}" stroke-opacity="0.2" stroke-width="16" fill="none" stroke-linecap="round" filter="url(#sheen)"/>
+  <path d="${arc(-40, 60, RX - 46, RY - 46)}" stroke="${WATER}" stroke-opacity="0.3" stroke-width="7" fill="none" stroke-linecap="round" filter="url(#sheen)"/>
+  <path d="${arc(160, 186, RX + 26, RY + 26)}" stroke="${WATER}" stroke-opacity="0.6" stroke-width="10" fill="none" stroke-linecap="round" filter="url(#sheen)"/>
+  <path d="${ell(RX + 2, RY + 2)}" stroke="${PLANK}" stroke-opacity="0.07" stroke-width="2" fill="none"/>
+  ${valve}
+  ${chalk}
+
+  <!-- water body in front of the submerged rubber (the cut plane) -->
+  <rect x="${L0}" y="${WL}" width="${2 * DR.in}" height="${B0 - WL}" fill="url(#deep)"/>
+  <path d="M${L0},${WL} H${R0}" stroke="${PLANK}" stroke-opacity="0.85" stroke-width="3.5"/>
+  ${bubbles}
+  ${boil}
+  ${spray}
+  ${drips}
+
+  <!-- the sawn cut faces of the half drum (wall thickness) -->
+  <path d="${cutPath}" fill="${CUT}" stroke="#1F4A93" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="${sawMarks}" stroke="#2A5BAA" stroke-opacity="0.6" stroke-width="1.6"/>
+  <path d="M${L0 - T},${DR.rimY - 4} h${T}M${R0},${DR.rimY - 4} h${T}" stroke="#7FA5DE" stroke-width="3"/>
+
+  ${leaders}
+  ${leakRing}
+  ${leakLeader}
+
+  <!-- card shadow on the drum and floor -->
+  <path d="M${84},${CARD_BOTTOM - 6} L${70 + CW + 18},${CARD_BOTTOM - 22} L${70 + CW + 30},${CARD_BOTTOM + 14} L${100},${CARD_BOTTOM + 26} Z" fill="#000" fill-opacity="0.28" filter="url(#soft4)"/>`;
+  document.getElementById("scene").innerHTML = svg;
+  }
+</script>
+</body>
+</html>

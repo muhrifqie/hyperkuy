@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Napier Rods</title>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400;1,700&family=IBM+Plex+Mono:wght@500;600&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Napier Rods: a walnut box of boxwood Napier's rods on a dark desk, tilted
+    back in real CSS 3D (perspective + rotateX). Each item is one rod (one
+    digit of a number): a head digit, nine lattice squares split by slanted
+    diagonals (tens / units) and the item label at its foot. A brass index rod
+    sits on the left; one row is "read" (lit, taller). Under the rods a punched
+    paper tape shows how the AI reads the same items: as chunks (the values).
+    The hot rod is where a diagonal channel overflows: that channel is ringed
+    in red pencil and its carry (+1) is pencilled across the slanted bar into
+    the next channel - the step a model that reads numbers in chunks drops.
+    The reading row is picked from the digits so a real carry exists (the
+    Napier arithmetic is computed, not faked). Fully deterministic.
+  */
+  :root { --desk: #1E1612; --bone: #E9DCC0; --walnut: #2B2219; --red: #A8301F; --brass: #B48A4A; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #1E1612; }
+  body { position: relative; color: var(--bone); font-family: "Libre Caslon Text", Georgia, serif;
+    background:
+      radial-gradient(ellipse 760px 620px at 540px 1030px, #2C2119 0%, rgba(44,33,25,0) 72%),
+      radial-gradient(ellipse 900px 520px at 540px 400px, #241A14 0%, rgba(36,26,20,0) 70%),
+      #1E1612; }
+
+  .deco { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; overflow: visible; pointer-events: none; }
+
+  .top { position: absolute; left: 90px; right: 90px; top: 300px; display: flex; justify-content: space-between; align-items: baseline;
+    font-family: "IBM Plex Mono", monospace; color: var(--brass); }
+  .top #kick { font-weight: 600; font-size: 28px; letter-spacing: 0.14em; text-transform: uppercase; }
+  .top #date { font-weight: 500; font-size: 26px; letter-spacing: 0.04em; }
+
+  .title { position: absolute; left: 90px; width: 900px; top: 350px; font-weight: 400; line-height: 1.12; letter-spacing: -0.012em; color: var(--bone); text-wrap: balance; }
+  .title .hl { font-style: italic; color: #D9B26C; white-space: nowrap; }
+  .title .bl { display: inline-block; width: 0; height: 0; vertical-align: baseline; }
+
+  /* ---------- the box (real 3D tilt) ---------- */
+  .stage { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; perspective: 1900px; perspective-origin: 540px 160px; }
+  .tray { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; transform-style: preserve-3d; transform-origin: 540px 1404px; transform: rotateX(16deg); }
+  .box { position: absolute; left: 54px; top: 644px; width: 972px; height: 760px; border-radius: 12px;
+    background: linear-gradient(100deg, #3B2B1F 0%, #2E2218 38%, #3A2A1E 62%, #2A1F16 100%);
+    box-shadow: 0 34px 60px rgba(0,0,0,0.6), 0 7px 0 #171009, inset 0 2px 0 rgba(255,226,180,0.14), inset 0 -3px 0 rgba(0,0,0,0.35); }
+  .floor { position: absolute; left: 78px; top: 668px; width: 924px; height: 712px; border-radius: 4px; background: #130D0A;
+    box-shadow: inset 0 18px 26px rgba(0,0,0,0.75), inset 10px 0 18px rgba(0,0,0,0.5), inset 0 -2px 0 rgba(255,220,170,0.07); }
+  .slot { position: absolute; top: 682px; height: 616px; border-radius: 3px; background: #0D0907; box-shadow: inset 0 6px 10px rgba(0,0,0,0.8); }
+
+  .rod { position: absolute; top: 690px; height: 600px; border-radius: 3px 3px 4px 4px;
+    background:
+      repeating-linear-gradient(90deg, rgba(120,92,52,0) 0 17px, rgba(120,92,52,0.07) 17px 18px, rgba(120,92,52,0) 18px 31px, rgba(120,92,52,0.05) 31px 33px),
+      linear-gradient(90deg, #DCCDAE 0%, #EDE2C8 14%, #F0E6CE 50%, #E6D8BA 86%, #D2C19E 100%);
+    box-shadow: 0 10px 0 #A89270, 7px 18px 16px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.5); color: var(--walnut); }
+  .rod .head { position: absolute; left: 0; right: 0; top: 0; height: 80px; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 62px; line-height: 1; border-bottom: 3px double #7A6446; }
+  .rod .cell { position: absolute; left: 0; right: 0; border-top: 1.5px solid #8C7655; }
+  .rod .cell.first { border-top: 0; }
+  .rod .t, .rod .u { position: absolute; font-size: 30px; line-height: 1; font-weight: 400; }
+  .rod .t { left: 10px; top: 4px; }
+  .rod .u { right: 10px; bottom: 3px; }
+  .rod .cell.lit { background: #FBF4E2; border-top: 3px solid var(--brass); border-bottom: 3px solid var(--brass); box-shadow: 0 0 22px rgba(255,236,190,0.32); }
+  .rod .cell.lit .t, .rod .cell.lit .u { font-size: 40px; font-weight: 700; }
+  .rod .cell.lit .t { top: 6px; left: 11px; }
+  .rod .cell.lit .u { bottom: 5px; right: 11px; }
+  .rod .cy { position: absolute; top: 9px; font-style: italic; font-weight: 700; font-size: 31px; line-height: 1; color: var(--red); white-space: nowrap; }
+  .rod svg.diag { position: absolute; left: 0; top: 80px; overflow: visible; }
+  .rod .foot { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center;
+    padding: 0 8px; text-align: center; font-size: 32px; line-height: 1.08; border-top: 3px double #7A6446; }
+  .rod.hot .foot { font-weight: 700; }
+
+  .index { position: absolute; top: 690px; height: 600px; border-radius: 3px;
+    background: linear-gradient(90deg, #8E6A35 0%, #C49B58 22%, #D3AE6C 48%, #B48A4A 78%, #8A6533 100%);
+    box-shadow: 0 10px 0 #6E5028, 7px 18px 16px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,240,200,0.6); color: var(--walnut); }
+  .index .head { position: absolute; left: 0; right: 0; top: 0; height: 80px; display: flex; align-items: center; justify-content: center; border-bottom: 2px solid #6E5028; }
+  .index .n { position: absolute; left: 0; right: 0; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 30px; line-height: 1; }
+  .index .n.lit span { display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 50%; background: #2B2219; color: #F3E8CF; font-size: 34px; }
+  .index .foot { position: absolute; left: 0; right: 0; bottom: 0; border-top: 2px solid #6E5028; }
+
+  .tape { position: absolute; top: 1300px; height: 86px; border-radius: 2px;
+    background: linear-gradient(#EFE5CC, #E4D6B6); box-shadow: 0 6px 12px rgba(0,0,0,0.5); }
+  .tape::before, .tape::after { content: ""; position: absolute; left: 0; right: 0; height: 6px;
+    background: radial-gradient(circle at 5px 3px, #130D0A 2.2px, rgba(0,0,0,0) 2.6px) 0 0 / 14px 6px repeat-x; }
+  .tape::before { top: 2px; } .tape::after { bottom: 2px; }
+  .chip { position: absolute; top: 1309px; height: 68px; display: flex; align-items: center; justify-content: center; text-align: center;
+    border-radius: 6px; background: #DCC9A0; color: #2B2219; font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: 30px; line-height: 1.02; padding: 0 5px; }
+  .chip.alt { background: #E5CDB8; }
+  .chip.hot { background: #F6EBD3; box-shadow: inset 0 0 0 3px #A8301F; }
+  .tag { position: absolute; top: 1309px; height: 68px; display: flex; align-items: center; justify-content: center; border-radius: 6px;
+    background: linear-gradient(#C9A15E, #A97F40); color: #2B2219; font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: 30px; }
+
+  .spare { position: absolute; top: 700px; height: 580px; border-radius: 3px; background: linear-gradient(90deg, #BCA983, #D3C3A1 50%, #B9A47D);
+    box-shadow: 0 6px 0 #8E7A58, 5px 12px 12px rgba(0,0,0,0.5); }
+
+  /* ---------- caption slip ---------- */
+  .slip { position: absolute; left: 90px; width: 810px; top: 1426px; padding: 14px 30px 16px 34px; color: #2B2219;
+    background: linear-gradient(#EFE5CD, #E6D9BC); box-shadow: 0 14px 26px rgba(0,0,0,0.5);
+    clip-path: polygon(0 0, 100% 0, 99.2% 14%, 100% 31%, 99.3% 52%, 100% 70%, 99.1% 86%, 100% 100%, 0 100%); }
+  .slip .w { white-space: pre; }
+  .slip .w.on { background: #A8301F; color: #F7EEDA; border-radius: 6px; padding: 0 12px 0 9px; margin: 0 -2px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+  #capText { font-size: 44px; line-height: 1.22; text-wrap: balance; }
+
+  .src { position: absolute; left: 90px; width: 810px; top: 1566px; font-style: italic; font-size: 27px; line-height: 1.2; color: #CBBE9F; }
+</style>
+</head>
+<body>
+<svg class="deco" id="grain" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+<svg class="deco" id="lid" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+<div class="top"><span id="kick"></span><span id="date"></span></div>
+<div class="title" id="title"></div>
+<svg class="deco" id="mark" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" data-layout-allow-overlap></svg>
+<div class="stage"><div class="tray" id="tray"></div></div>
+<div class="slip" data-slot="caption" id="cap"><div id="capText"></div></div>
+<div class="src" id="src"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const norm = (s) => String(s || "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+  const RED = "#A8301F";
+
+  // ---------- desk grain (deterministic wavy lines) ----------
+  (function grain() {
+    let p = "";
+    for (let i = 0; i < 34; i++) {
+      const y0 = 30 + i * 57 + ((i * 37) % 23), a = 6 + ((i * 13) % 9), f = 0.004 + ((i * 7) % 5) * 0.0011, ph = i * 1.7;
+      let d = "";
+      for (let x = 0; x <= 1080; x += 40) { const y = y0 + a * Math.sin(x * f + ph) + 3 * Math.sin(x * 0.019 + i); d += (x === 0 ? "M" : "L") + x + "," + y.toFixed(1); }
+      p += '<path d="' + d + '" fill="none" stroke="' + (i % 3 ? "#271D17" : "#2D221A") + '" stroke-width="' + (1.5 + (i % 4) * 0.8) + '"/>';
+    }
+    document.getElementById("grain").innerHTML = p;
+  })();
+
+  // ---------- the sliding lid, lying on the desk below (decoration only, bottom UI zone) ----------
+  (function lid() {
+    let g = '<g transform="rotate(-4 560 1840)">';
+    g += '<rect x="110" y="1742" width="920" height="300" rx="10" fill="#0E0907" opacity="0.6" transform="translate(12 20)"/>';
+    g += '<rect x="110" y="1726" width="920" height="300" rx="10" fill="#2E2219"/>';
+    for (let i = 0; i < 8; i++) {
+      const y = 1746 + i * 30 + ((i * 11) % 7);
+      g += '<path d="M124,' + y + ' C380,' + (y - 6 + (i % 3) * 4) + ' 640,' + (y + 7 - (i % 2) * 5) + ' 1016,' + (y - 2) + '" fill="none" stroke="' + (i % 2 ? "#382A1F" : "#261C15") + '" stroke-width="' + (2 + (i % 3)) + '"/>';
+    }
+    g += '<rect x="132" y="1748" width="876" height="300" rx="4" fill="none" stroke="#7A6446" stroke-width="2" opacity="0.7"/>';   // boxwood stringing
+    g += '<path d="M120,1729 H1020" stroke="rgba(255,226,180,0.14)" stroke-width="2"/>';
+    g += '</g>';
+    document.getElementById("lid").innerHTML = g;
+  })();
+
+  // ---------- data → rods ----------
+  const items = (Array.isArray(D.items) && D.items.length ? D.items : []).slice(0, 5);
+  const n = items.length;
+  const digitOf = (it) => {
+    const v = String(it.value || "").match(/[1-9]/); if (v) return +v[0];
+    const l = String(it.label || "").match(/[1-9]/); if (l) return +l[0];
+    return (String(it.label || "").replace(/\s/g, "").length % 8) + 2;
+  };
+  const dig = items.map(digitOf);
+
+  // Napier reading of row k: channel p (0..n) sums the units of rod p-1 and the tens of rod p (+ carry from the right).
+  function readRow(k) {
+    const tens = dig.map((d) => Math.floor(d * k / 10)), units = dig.map((d) => (d * k) % 10);
+    const over = new Array(n + 1).fill(false); let carry = 0;
+    for (let p = n; p >= 0; p--) {
+      const s = (p > 0 ? units[p - 1] : 0) + (p < n ? tens[p] : 0) + carry;
+      over[p] = s >= 10; carry = s >= 10 ? 1 : 0;
+    }
+    return { tens, units, over };
+  }
+  // hl item: a label that contains hl wins; a value only if it does not match every value.
+  const H = norm(D.hl);
+  let hlIdx = -1;
+  if (H) {
+    hlIdx = items.findIndex((it) => norm(it.label).includes(H));
+    if (hlIdx < 0) { const vm = items.map((it) => norm(it.value).includes(H)); if (vm.some(Boolean) && !vm.every(Boolean)) hlIdx = vm.indexOf(true); }
+  }
+  let K = 9, ringAt = -1;
+  if (hlIdx >= 1) for (let k = 9; k >= 2; k--) if (readRow(k).over[hlIdx]) { K = k; ringAt = hlIdx; break; }
+  if (ringAt < 0) {
+    let best = -1;
+    for (let k = 9; k >= 2; k--) { const c = readRow(k).over.filter(Boolean).length; if (c > best) { best = c; K = k; } }
+    const ov = readRow(K).over;
+    for (let p = n - 1; p >= 1; p--) if (ov[p]) { ringAt = p; break; }
+    if (ringAt < 0) ringAt = Math.max(1, Math.min(n - 1, hlIdx >= 0 ? hlIdx : n - 1));
+  }
+  const row = readRow(K), hasCarry = n > 1 && row.over[ringAt];
+  const hot = Math.min(n - 1, Math.max(0, ringAt));
+
+  // ---------- geometry (absolute px, all inside the tilted tray) ----------
+  const ROD_TOP = 690, HEAD = 80, ROWH = 40, LITH = 76, X0 = 172, X1 = 896, GAP = 10;
+  const FOOT_TOP = HEAD + 8 * ROWH + LITH;           // 476: labels sit below the lattice
+  let w = n ? (X1 - X0 - GAP * (n - 1)) / n : 0; w = Math.min(w, 240);
+  const span = n * w + GAP * (n - 1), start = X0 + (X1 - X0 - span) / 2;
+  const rodX = (i) => start + i * (w + GAP);
+  const rowY = (r) => HEAD + (r - 1) * ROWH + (r > K ? LITH - ROWH : 0);   // relative to rod top
+  const rowH = (r) => (r === K ? LITH : ROWH);
+
+  const tray = document.getElementById("tray");
+  let html = '<div class="box"></div><div class="floor"></div>';
+  // brass corner brackets + hinge plates (decoration)
+  html += '<svg style="position:absolute;left:0;top:0;width:1080px;height:1920px;overflow:visible" viewBox="0 0 1080 1920" aria-hidden="true">' +
+    [[54, 644, 1, 1], [1026, 644, -1, 1], [54, 1404, 1, -1], [1026, 1404, -1, -1]].map(([x, y, sx, sy]) =>
+      '<path d="M' + x + ',' + y + ' h' + 64 * sx + ' v' + 12 * sy + ' h' + (-52 * sx) + ' v' + 52 * sy + ' h' + (-12 * sx) + ' Z" fill="#B48A4A" stroke="#6E5028" stroke-width="2"/>' +
+      '<circle cx="' + (x + 30 * sx) + '" cy="' + (y + 6 * sy) + '" r="3" fill="#6E5028"/><circle cx="' + (x + 6 * sx) + '" cy="' + (y + 30 * sy) + '" r="3" fill="#6E5028"/>').join("") +
+    '<rect x="300" y="646" width="84" height="16" rx="2" fill="#B48A4A" stroke="#6E5028" stroke-width="2"/><rect x="696" y="646" width="84" height="16" rx="2" fill="#B48A4A" stroke="#6E5028" stroke-width="2"/>' +
+    '<path d="M314,654 h56 M710,654 h56" stroke="#6E5028" stroke-width="2"/></svg>';
+  // slots on the right: one spare rod (lattice drawn, no digits) and the red pencil
+  html += '<div class="slot" style="left:908px;width:54px"></div><div class="slot" style="left:968px;width:30px"></div>';
+  html += '<div class="spare" style="left:911px;width:48px"></div>';
+  html += '<svg style="position:absolute;left:911px;top:700px;width:48px;height:580px;overflow:visible" viewBox="0 0 48 580" aria-hidden="true">' +
+    '<path d="M0,74 H48 M0,76 H48" stroke="#7E6A4B" stroke-width="1.5"/>' +
+    Array.from({ length: 9 }, (_, r) => { const y = 76 + r * 50; return '<path d="M0,' + y + ' H48 M0,' + (y + 50) + ' L48,' + y + '" stroke="#8C7655" stroke-width="1.5"/>'; }).join("") + '</svg>';
+  html += '<svg style="position:absolute;left:968px;top:712px;width:30px;height:560px;overflow:visible" viewBox="0 0 30 560" aria-hidden="true">' +
+    '<path d="M15,0 L4,46 H26 Z" fill="#E3C99B"/><path d="M15,0 L11,16 H19 Z" fill="#2B2219"/>' +
+    '<rect x="4" y="46" width="22" height="440" fill="#A8301F"/><rect x="4" y="46" width="7" height="440" fill="#8E2617"/><rect x="19" y="46" width="7" height="440" fill="#BE4430"/>' +
+    '<rect x="3" y="486" width="24" height="34" fill="#B48A4A"/><path d="M3,494 H27 M3,504 H27 M3,512 H27" stroke="#6E5028" stroke-width="2"/>' +
+    '<rect x="4" y="520" width="22" height="30" rx="3" fill="#C98E7E"/></svg>';
+
+  // brass index rod (rows 1..9)
+  const IX = 98, IW = 62;
+  let idx = '<div class="index" style="left:' + IX + 'px;width:' + IW + 'px"><div class="head"><svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><path d="M6,6 L28,28 M28,6 L6,28" stroke="#2B2219" stroke-width="5" stroke-linecap="round"/></svg></div>';
+  for (let r = 1; r <= 9; r++) idx += '<div class="n' + (r === K ? " lit" : "") + '" style="top:' + rowY(r) + 'px;height:' + rowH(r) + 'px"><span>' + r + '</span></div>';
+  idx += '<div class="foot" style="top:' + FOOT_TOP + 'px"><svg style="position:absolute;left:11px;top:' + ((600 - FOOT_TOP) / 2 - 30) + 'px" width="40" height="60" viewBox="0 0 40 60" aria-hidden="true"><circle cx="20" cy="30" r="15" fill="none" stroke="#6E5028" stroke-width="3"/><circle cx="20" cy="30" r="5" fill="#6E5028"/></svg></div></div>';
+  html += idx;
+
+  // item rods
+  const carryRod = hasCarry ? hot - 1 : -1;
+  items.forEach((it, i) => {
+    const x = rodX(i), d = dig[i];
+    let r = '<div class="rod' + (i === hot ? " hot" : "") + '" style="left:' + x.toFixed(1) + 'px;width:' + w.toFixed(1) + 'px">';
+    r += '<div class="head">' + d + '</div>';
+    let lines = "";
+    for (let k = 1; k <= 9; k++) {
+      const p = d * k, t = Math.floor(p / 10), u = p % 10, y = rowY(k), h = rowH(k);
+      r += '<div class="cell' + (k === 1 ? " first" : "") + (k === K ? " lit" : "") + '" style="top:' + y + 'px;height:' + h + 'px">' +
+        (t ? '<span class="t">' + t + '</span>' : "") + '<span class="u">' + u + '</span>' +
+        (k === K && i === carryRod ? '<span class="cy" id="cy" style="left:' + (t ? 46 : 12) + 'px">+1</span>' : "") + '</div>';
+      lines += '<path d="M0,' + (y - HEAD + h) + ' L' + w.toFixed(1) + ',' + (y - HEAD) + '" stroke="' + (k === K ? "#6E5A3E" : "#8C7655") + '" stroke-width="' + (k === K ? 2 : 1.5) + '"/>';
+    }
+    r += '<svg class="diag" width="' + w.toFixed(1) + '" height="' + (8 * ROWH + LITH) + '" aria-hidden="true">' + lines + '</svg>';
+    r += '<div class="foot" style="top:' + FOOT_TOP + 'px"><span class="lb">' + esc(it.label) + '</span></div></div>';
+    html += r;
+  });
+
+  // AI reading tape: one chunk per rod (item value)
+  const tapeL = IX - 6, tapeR = rodX(n - 1) + w + 6;
+  html += '<div class="tape" style="left:' + tapeL + 'px;width:' + (tapeR - tapeL) + 'px"></div>';
+  html += '<div class="tag" style="left:' + IX + 'px;width:' + IW + 'px">AI</div>';
+  items.forEach((it, i) => {
+    html += '<div class="chip' + (i % 2 ? " alt" : "") + (i === hot ? " hot" : "") + '" style="left:' + (rodX(i) + 3).toFixed(1) + 'px;width:' + (w - 6).toFixed(1) + 'px"><span>' + esc(it.value) + '</span></div>';
+  });
+  html += '<svg id="overlay" style="position:absolute;left:0;top:0;width:1080px;height:1920px;overflow:visible;pointer-events:none" viewBox="0 0 1080 1920" aria-hidden="true" data-layout-allow-overlap></svg>';
+  tray.innerHTML = html;
+
+  // ---------- red pencil helpers ----------
+  function smooth(pts) { // Catmull-Rom through points → cubic Bezier path
+    let d = "M" + pts[0][0].toFixed(1) + "," + pts[0][1].toFixed(1);
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+      d += " C" + (p1[0] + (p2[0] - p0[0]) / 6).toFixed(1) + "," + (p1[1] + (p2[1] - p0[1]) / 6).toFixed(1) + " " +
+        (p2[0] - (p3[0] - p1[0]) / 6).toFixed(1) + "," + (p2[1] - (p3[1] - p1[1]) / 6).toFixed(1) + " " + p2[0].toFixed(1) + "," + p2[1].toFixed(1);
+    }
+    return d;
+  }
+  const JIT = [1.0, 1.04, 0.97, 1.02, 0.96, 1.05, 1.0, 0.98, 1.03, 0.97, 1.02, 1.06, 1.1, 1.12];
+  function ringPath(cx, cy, rx, ry, rot) { // one pencil loop that overshoots its start
+    const pts = [], N = 13;
+    for (let i = 0; i <= N; i++) {
+      const t = -2.6 + i * (2 * Math.PI + 0.75) / N, j = JIT[i];
+      const x = Math.cos(t) * rx * j, y = Math.sin(t) * ry * (2 - j);
+      pts.push([cx + x * Math.cos(rot) - y * Math.sin(rot), cy + x * Math.sin(rot) + y * Math.cos(rot)]);
+    }
+    return smooth(pts);
+  }
+
+  // ---------- text ----------
+  document.getElementById("kick").textContent = D.kicker || [D.series, D.ep].filter(Boolean).join(" · ");
+  document.getElementById("date").textContent = D.date || "";
+  document.getElementById("src").textContent = D.source ? "Sumber: " + D.source : "";
+
+  const titleEl = document.getElementById("title");
+  const title = String(D.title || "");
+  const hp = D.hl ? title.toLowerCase().indexOf(String(D.hl).toLowerCase()) : -1;
+  titleEl.innerHTML = hp >= 0
+    ? esc(title.slice(0, hp)) + '<span class="hl" id="hl">' + esc(title.slice(hp, hp + D.hl.length)) + '<i class="bl" id="bl"></i></span>' + esc(title.slice(hp + D.hl.length))
+    : esc(title);
+
+  // caption words (karaoke): active = first word of hl inside the caption, else the first word
+  const cap = String(D.caption || D.sub || "");
+  const words = cap.split(/\s+/).filter(Boolean);
+  const hw = String(D.hl || "").split(/\s+/).map(norm).filter(Boolean);
+  let act = 0;
+  if (hw.length) for (let i = 0; i + hw.length <= words.length; i++) if (hw.every((x, j) => norm(words[i + j]) === x)) { act = i; break; }
+  const capEl = document.getElementById("capText");
+  const paintCap = (ws) => { capEl.innerHTML = ws.map((wd, i) => '<span class="w' + (i === act ? " on" : "") + '">' + esc(wd) + "</span>").join(" "); };
+
+  document.fonts.ready.then(() => {
+    // title: biggest size that keeps it to 3 lines and clear of the box lid edge
+    let fs = 120;
+    const lines = () => Math.round(titleEl.offsetHeight / (fs * 1.12));
+    for (; fs > 72; fs -= 2) {
+      titleEl.style.fontSize = fs + "px";
+      if (titleEl.scrollWidth <= 900 && lines() <= 3 && 350 + titleEl.offsetHeight <= 600) break;
+    }
+    // hl: red-pencil double underline under the italic brass word (stays inside its own word)
+    const hl = document.getElementById("hl"), bl = document.getElementById("bl");
+    let mark = "";
+    if (hl && bl) {
+      const r = hl.getBoundingClientRect(), base = bl.getBoundingClientRect().top;
+      const x0 = Math.max(90, r.left + 2), x1 = Math.min(990, r.right - 2), y = base + fs * 0.11, L = x1 - x0;
+      mark += '<path d="M' + x0.toFixed(1) + ',' + (y + 3).toFixed(1) + ' C' + (x0 + L * 0.3).toFixed(1) + ',' + (y - 4).toFixed(1) + ' ' + (x0 + L * 0.66).toFixed(1) + ',' + (y + 5).toFixed(1) + ' ' + x1.toFixed(1) + ',' + (y - 3).toFixed(1) + '" fill="none" stroke="' + RED + '" stroke-width="6" stroke-linecap="round"/>';
+      mark += '<path d="M' + (x0 + L * 0.06).toFixed(1) + ',' + (y + 14).toFixed(1) + ' C' + (x0 + L * 0.38).toFixed(1) + ',' + (y + 8).toFixed(1) + ' ' + (x0 + L * 0.7).toFixed(1) + ',' + (y + 16).toFixed(1) + ' ' + (x1 - L * 0.04).toFixed(1) + ',' + (y + 9).toFixed(1) + '" fill="none" stroke="' + RED + '" stroke-width="4" stroke-linecap="round" opacity="0.9"/>';
+    }
+    document.getElementById("mark").innerHTML = mark;
+
+    // rod labels: 34 → 30 px, max 3 lines; a single word wider than the rod is split at a syllable with a hyphen
+    const V = /[aeiouAEIOU]/, C = /[b-df-hj-np-tv-zB-DF-HJ-NP-TV-Z]/;
+    const syllableSplit = (wd) => {   // Indonesian syllables: V|CV and VC|CV (ng/ny/kh/sy stay together); break nearest the middle
+      const DG = /^(ng|ny|kh|sy)$/i, cands = [];
+      for (let i = 2; i <= wd.length - 3; i++) {
+        if (!C.test(wd[i])) continue;
+        const dg = DG.test(wd.slice(i, i + 2)), nx = dg ? wd[i + 2] : wd[i + 1];
+        if (!nx || !V.test(nx) || DG.test(wd.slice(i - 1, i + 1))) continue;
+        if (V.test(wd[i - 1]) || (C.test(wd[i - 1]) && V.test(wd[i - 2] || ""))) cands.push(i);
+      }
+      let best = cands.length ? cands[0] : Math.ceil(wd.length / 2);
+      for (const c of cands) if (Math.abs(c - wd.length / 2) < Math.abs(best - wd.length / 2)) best = c;
+      return [wd.slice(0, best) + "-", wd.slice(best)];
+    };
+    const fits = (f, lb, s) => lb.offsetHeight <= s * 1.08 * 3 + 2 && lb.scrollWidth <= f.clientWidth - 14;
+    document.querySelectorAll(".rod .foot").forEach((f) => {
+      const lb = f.querySelector(".lb");
+      let s = 34;
+      for (; s >= 30; s -= 1) { f.style.fontSize = s + "px"; if (fits(f, lb, s) && lb.offsetHeight <= s * 1.08 * 2 + 2) break; }
+      if (s < 30) {
+        s = 30; f.style.fontSize = "30px";
+        const raw = lb.textContent;
+        lb.innerHTML = raw.split(/\s+/).map((wd) => {
+          lb.textContent = wd;
+          if (lb.scrollWidth <= f.clientWidth - 14 || wd.length < 6) return esc(wd);
+          return syllableSplit(wd).map(esc).join("<br>");
+        }).join(" ");
+        for (let z = 30; z >= 26; z -= 1) { f.style.fontSize = z + "px"; if (fits(f, lb, z)) break; }
+      }
+    });
+    // chips: shrink a single long word until it fits
+    document.querySelectorAll(".chip").forEach((c) => {
+      const s = c.querySelector("span");
+      for (let z = 30; z >= 26; z -= 1) { c.style.fontSize = z + "px"; if (s.offsetWidth <= c.clientWidth - 10 && s.offsetHeight <= 66) break; }
+    });
+
+    // red pencil on the lit row: ring the overflowing diagonal channel, carry +1 across the slanted bar
+    if (n > 1) {
+      const T = ROD_TOP + rowY(K), gx = rodX(hot) - GAP / 2;
+      const ax = gx - 28, ay = T + LITH - 26, bx = gx + 28, by = T + 26;     // centres of units(p-1) and tens(p)
+      const rot = Math.atan2(by - ay, bx - ax), half = Math.hypot(bx - ax, by - ay) / 2;
+      const rx = half + Math.max(20, Math.min(34, w * 0.16)), ry = 34;
+      let svg = '<path d="' + ringPath((ax + bx) / 2, (ay + by) / 2, rx, ry, rot) + '" fill="none" stroke="' + RED + '" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>';
+      const cy = document.getElementById("cy");
+      if (cy) {
+        const rl = rodX(hot - 1), ex = rl + cy.offsetLeft + cy.offsetWidth + 7, ey = T + 26;
+        const sx = (ax + bx) / 2 - Math.cos(rot) * rx * 0.98 - 2, sy = (ay + by) / 2 - Math.sin(rot) * rx * 0.98 + 8;
+        const qx = Math.max(ex + 6, sx - 4);
+        if (sx - ex > 10) {
+        svg += '<path d="M' + sx.toFixed(1) + ',' + sy.toFixed(1) + ' Q' + qx.toFixed(1) + ',' + (sy + 6).toFixed(1) + ' ' + ex.toFixed(1) + ',' + ey.toFixed(1) + '" fill="none" stroke="' + RED + '" stroke-width="4" stroke-linecap="round"/>';
+        const ang = Math.atan2(ey - (sy + 6), ex - qx);
+        const hx = (a) => (ex + Math.cos(ang + a) * 15).toFixed(1), hy = (a) => (ey + Math.sin(ang + a) * 15).toFixed(1);
+        svg += '<path d="M' + hx(2.6) + ',' + hy(2.6) + ' L' + ex.toFixed(1) + ',' + ey.toFixed(1) + ' L' + hx(-2.6) + ',' + hy(-2.6) + '" fill="none" stroke="' + RED + '" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>';
+        }
+      }
+      // chunk cut on the tape between the two chunks the carry crosses
+      svg += '<path d="M' + (gx - 7) + ',1294 L' + (gx + 7) + ',1392" stroke="' + RED + '" stroke-width="4.5" stroke-linecap="round"/>';
+      document.getElementById("overlay").innerHTML = svg;
+    }
+
+    // caption: 46 → 40 px, max 2 lines; truncate with an ellipsis if still longer
+    const slip = document.getElementById("cap"), srcEl = document.getElementById("src");
+    let cs = 46; paintCap(words);
+    const capLines = () => Math.round(capEl.offsetHeight / (cs * 1.22));
+    const placeSrc = () => { srcEl.style.top = (slip.offsetTop + slip.offsetHeight + 16) + "px"; return srcEl.offsetTop + srcEl.offsetHeight; };
+    for (; cs >= 40; cs -= 2) { capEl.style.fontSize = cs + "px"; if (capLines() <= 2 && placeSrc() <= 1620) break; }
+    if (cs < 40) { cs = 40; capEl.style.fontSize = "40px"; let k = words.length; while (k > 1 && capLines() > 2) { k--; paintCap(words.slice(0, k).concat("…")); } }
+    placeSrc();
+  });
+</script>
+</body>
+</html>

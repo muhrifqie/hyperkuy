@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=Instrument+Serif&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Key Cutter: a locksmith's key duplicator seen from above. At the back, the shop's pegboard
+    wall with a rail of hanging blanks; the shop's duplicating sign hangs from the rail on two
+    chains and carries the title, punch-stamped in uppercase. A steel bench lip separates the
+    wall from the dark bench. On the bench two keys stand clamped side by side, mirrored so
+    their cut edges face each other: the brass SALINAN (copy) on the left, the steel MASTER on
+    the right. Every item is one cut position along the blade: a dimension line runs from the
+    copy's notch to the master's notch. The tracer arm sits on the middle cut: the stylus rides
+    the master's notch, the milling wheel bites the copy, brass shavings spray down-left. Cuts
+    above the arm are already copied, cuts below are only scribed (dashed). The caption is a
+    metal-rimmed paper key tag tied by string to the copy's bow.
+    Metaphor: distillation, a small model cut by tracing a big model's answers, profile by profile.
+    Deterministic: depths, shavings and chips are hard-coded; nothing random or time-based.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #1E2124; }
+  body { position: relative; font-family: "Geist Mono", ui-monospace, monospace; color: #E9E6DF; }
+  svg.layer { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  #bg { z-index: 0; } #hlart { z-index: 1; } #mc { z-index: 1; }
+
+  .kick { position: absolute; z-index: 3; top: 296px; white-space: nowrap; font: 600 28px "Geist Mono", monospace; line-height: 1.2;
+    letter-spacing: 0.14em; text-transform: uppercase; color: #1E2124; }
+  .title { position: absolute; z-index: 3; left: 104px; width: 872px; top: 350px; text-align: center; text-transform: uppercase;
+    font-family: "Geist Mono", monospace; font-weight: 700; letter-spacing: 0.03em; line-height: 1.08; color: #1E2124;
+    text-shadow: 0 2px 0 rgba(255,255,255,.85), 0 -1px 0 rgba(30,33,36,.22); }
+  .title .hl { white-space: nowrap; padding: 0 0.26em 0 0.74em; margin-right: 0.15em; text-shadow: 0 1px 0 rgba(255,255,255,.3); }
+
+  .stamp { position: absolute; z-index: 3; font: 700 32px "Geist Mono", monospace; letter-spacing: 0.04em; line-height: 1; color: #1E2124; white-space: nowrap; }
+
+  .lb, .vl, .rw { position: absolute; z-index: 3; white-space: nowrap; line-height: 1.12; }
+  .lb, .li { font-family: "Instrument Serif", serif; font-weight: 400; color: #D3D6D9; -webkit-text-stroke: 0.45px #D3D6D9; letter-spacing: 0.01em; }
+  .vl, .vi { font-weight: 700; color: #E9E6DF; letter-spacing: -0.02em; }
+  .vi { margin-left: 0.55em; }
+  .todo { color: #9EA4AA; }
+  .cm { font-family: "Geist Mono", monospace; font-weight: 700; color: #C9A25B; padding: 0 0.03em; -webkit-text-stroke: 0; }
+
+  .plate { position: absolute; z-index: 3; background: #E9E6DF; color: #1E2124; border-radius: 10px; border-left: 10px solid #D4542E; white-space: nowrap;
+    box-shadow: 0 7px 0 #0F1113, 0 14px 22px rgba(0,0,0,.45); padding: 8px 18px 9px 14px; text-align: center; }
+  .plate .pl { font-family: "Instrument Serif", serif; font-weight: 400; line-height: 1.05; color: #1E2124; }
+  .plate .pv { font-weight: 700; line-height: 1.08; letter-spacing: -0.02em; color: #1E2124; }
+  .plate .cm { color: #1E2124; }
+  .plate.one .pl, .plate.one .pv { display: inline; }
+  .plate.one .pv { margin-left: 0.5em; }
+
+  .cap { position: absolute; z-index: 3; left: 158px; width: 720px; font-weight: 500; line-height: 1.3; color: #1E2124; letter-spacing: -0.02em; }
+  .cap .w.on { background: #C9A25B; color: #1E2124; font-weight: 700; border-radius: 6px; padding: 0 0.14em; box-shadow: 0 3px 0 #8A6A2E;
+    box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+
+  .foot { position: absolute; z-index: 3; left: 90px; right: 90px; display: flex; justify-content: space-between; align-items: flex-end; gap: 36px;
+    font: 500 26px "Geist Mono", monospace; line-height: 1.3; color: #9EA4AA; }
+  .foot span:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg class="layer" id="bg" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<svg class="layer" id="hlart" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<svg class="layer" id="mc" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="kick" id="kick"></div>
+<div class="title" id="title"></div>
+<div class="stamp" id="stM">MASTER</div>
+<div class="stamp" id="stC">SALINAN</div>
+<div id="rows"></div>
+<div class="cap" id="cap" data-slot="caption"></div>
+<div class="foot" id="foot"><span id="src"></span><span id="date"></span></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const FONTS = ['700 84px "Geist Mono"', '600 28px "Geist Mono"', '500 40px "Geist Mono"', '400 40px "Instrument Serif"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render, render);
+
+  function render() {
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const INK = "#1E2124", WALL = "#E9E6DF", BRASS = "#C9A25B", STEEL = "#9EA4AA", RED = "#D4542E";
+    const WALLC = "#E0DCD2", ENAMEL = "#F4F1EA", PAPER = "#ECE8DE";
+    const items = (D.items || []).slice(0, 5);
+    const n = Math.max(1, items.length);
+    const r1 = v => Math.round(v * 10) / 10;
+    const lab = v => esc(v).replace(/·/g, '<span class="cm">·</span>');   // token cut marks stay visible
+    const range = (a, b) => { const r = []; for (let x = a; x >= b; x -= 2) r.push(x); return r.length ? r : [b]; };
+
+    // ---------- the duplicating sign: kicker + punch-stamped title ----------
+    const SL = 54, SR = 1026, ST = 266;
+    const kick = $("kick");
+    kick.textContent = D.series ? D.series + (D.ep ? " · " + D.ep : "") : (D.kicker || "");
+    const kW = kick.offsetWidth;
+    kick.style.left = r1(540 - kW / 2) + "px";
+    const kMid = 296 + kick.offsetHeight / 2;
+
+    const t = D.title || "", hl = D.hl || "";
+    const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    const titleEl = $("title");
+    titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl" id="hlw">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+    let tfs = 84;
+    for (; tfs >= 52; tfs -= 2) { titleEl.style.fontSize = tfs + "px"; if (titleEl.offsetHeight <= 214) break; }
+    const T = titleEl.offsetTop + titleEl.offsetHeight;
+    const SB = T + 34;                 // sign bottom
+    const lipY = SB + 32, benchY = lipY + 16;
+
+    // hl: the word is stamped on a brass key blank: round bow with a punched hole on the left, bitting along the bottom, pointed tip.
+    const hlw = $("hlw");
+    let art = "";
+    if (hlw) {
+      const notch = [0.7, 0.35, 0.95, 0.5, 0.8, 0.4, 0.9];
+      const rr = hlw.getBoundingClientRect(), em = tfs;
+      // baseline probe: a zero-size inline-block sits on the baseline
+      const probe = document.createElement("span");
+      probe.style.cssText = "display:inline-block;width:0;height:0;vertical-align:baseline";
+      hlw.appendChild(probe);
+      const yb = probe.getBoundingClientRect().top;
+      probe.remove();
+      // blade hugs the caps (cap height ~0.71em); the bow sits inside the 0.74em left padding
+      const y0 = yb - em * 0.86, y1 = yb + em * 0.2, h = y1 - y0, ym = (y0 + y1) / 2;
+      const bR = em * 0.53, bx = rr.left + em * 0.08;
+      const xe = rr.right - em * 0.15, xt = rr.right - em * 0.01;
+      const step = em * 0.42, cut = em * 0.1;
+      let d = `M${r1(bx)},${r1(y0)} L${r1(xe)},${r1(y0)} L${r1(xt)},${r1(y0 + h * 0.42)} L${r1(xe)},${r1(y1)} `;
+      let k = 0;
+      for (let x = xe - step * 0.2; x - step > bx + bR * 0.9; x -= step, k++) {
+        const dep = cut * notch[k % notch.length];
+        d += `L${r1(x)},${r1(y1)} L${r1(x - dep)},${r1(y1 - dep)} L${r1(x - step + dep + 5)},${r1(y1 - dep)} L${r1(x - step + 5)},${r1(y1)} `;
+      }
+      d += `L${r1(bx)},${r1(y1)} Z`;
+      art += `<path d="${d}" fill="${BRASS}" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>`;
+      art += `<circle cx="${r1(bx)}" cy="${r1(ym)}" r="${r1(bR)}" fill="${BRASS}" stroke="${INK}" stroke-width="3"/>`;
+      art += `<path d="M${r1(bx - bR * 0.62)},${r1(ym - bR * 0.55)} A${r1(bR * 0.83)},${r1(bR * 0.83)} 0 0 1 ${r1(bx + bR * 0.35)},${r1(ym - bR * 0.76)}" fill="none" stroke="#fff" stroke-opacity="0.45" stroke-width="2.5" stroke-linecap="round"/>`;
+      art += `<circle cx="${r1(bx - bR * 0.1)}" cy="${r1(ym)}" r="${r1(bR * 0.34)}" fill="${ENAMEL}" stroke="${INK}" stroke-width="2.5"/>`;
+    }
+    $("hlart").innerHTML = art;
+
+    // ---------- foot + caption tag (laid out from the bottom up) ----------
+    $("src").textContent = D.source || "";
+    $("date").textContent = D.date || "";
+    const foot = $("foot");
+    foot.style.top = "0px";
+    const footTop = 1618 - foot.offsetHeight;
+    foot.style.top = footTop + "px";
+
+    const capText = String(D.caption || D.sub || "");
+    const words = []; { const re = /\S+/g; let m; while ((m = re.exec(capText))) words.push({ s: m[0], a: m.index, b: m.index + m[0].length }); }
+    const hi = hl ? capText.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    let onA = 0, onB = 0;
+    if (hi >= 0) { const he = hi + hl.length; const idx = words.map((w, i) => (w.a < he && w.b > hi ? i : -1)).filter(i => i >= 0); onA = idx[0]; onB = idx[idx.length - 1]; }
+    const cap = $("cap");
+    const capBuild = (from, to) => {
+      let h = from > 0 ? "… " : "";
+      for (let i = from; i < to; i++) {
+        if (i === onA) { h += '<span class="w on">' + words.slice(onA, onB + 1).map(w => esc(w.s)).join(" ") + "</span> "; i = onB; continue; }
+        h += '<span class="w">' + esc(words[i].s) + "</span> ";
+      }
+      cap.innerHTML = h.trim() + (to < words.length ? " …" : "");
+    };
+    capBuild(0, words.length);
+    let cfs = 46;
+    const fits = () => cap.offsetHeight <= cfs * 1.3 * 2 + 4;
+    for (; cfs >= 40; cfs -= 2) { cap.style.fontSize = cfs + "px"; if (fits()) break; }
+    if (cfs < 40) {   // still more than 2 lines: show a 2-line window of the voice-over that keeps the active word
+      cfs = 40; cap.style.fontSize = cfs + "px";
+      let from = 0, to = words.length;
+      while (!fits() && to > onB + 1) { to--; capBuild(from, to); }
+      while (!fits() && from < onA) { from++; capBuild(from, to); }
+    }
+    const TPAD = 26, TX0 = 90, TX1 = 900, RIM = 7;
+    const tagB = footTop - 20, tagH = cap.offsetHeight + TPAD * 2, tagT = tagB - tagH;
+    cap.style.top = (tagT + TPAD) + "px";
+
+    // ---------- machine geometry ----------
+    const tipPoint = tagT - 30, TIPY = tipPoint - 48, R1 = TIPY - 6;
+    const geo = RB => { const bowCY = benchY + 26 + RB, SHy = bowCY + RB - 6, JT = SHy + 24, JB = JT + 42, R0 = JB + 14; return { RB, bowCY, SHy, JT, JB, R0, P: (R1 - R0) / n }; };
+    const plH = (l, v) => 1.05 * l + 1.08 * v + 17;
+    // stacked rows (label above the line, value below) need >= 18 px between rows and >= 14 px around the plate;
+    // otherwise rows go inline (label + value on one line, the dimension line breaks around them).
+    const stackOK = (P, l, v) => P >= 32 + 1.12 * (l + v) && P >= 20 + 1.12 * v + plH(l, v) / 2 && P >= 22 + 1.12 * l + plH(l, v) / 2 && P / 2 >= 1.12 * l + 4;
+    const STK = [[40, 46], [38, 44], [36, 42], [34, 38], [32, 34]], INL = [[40, 44], [38, 42], [36, 38], [34, 36], [32, 34], [30, 32]];
+    const PLT = [[40, 46], [38, 44], [36, 42], [34, 38], [32, 34], [30, 32]];
+    let M = null;
+    for (const RB of [88, 78]) { const g = geo(RB); const s = STK.find(([l, v]) => stackOK(g.P, l, v)); if (s) { M = { g, kind: "stack", l: s[0], v: s[1], pl: s[0], pv: s[1] }; break; } }
+    if (!M) for (const RB of [88, 78]) {
+      const g = geo(RB);
+      for (const [l, v] of INL) {
+        const rh = 1.15 * Math.max(l, v); if (g.P < rh + 14) continue;
+        const p = PLT.find(([a, b]) => b >= v - 2 && g.P >= rh / 2 + plH(a, b) / 2 + 14) || (g.P >= rh / 2 + plH(30, 32) / 2 + 14 ? [30, 32] : null);
+        if (p) { M = { g, kind: "inline", l, v, pl: p[0], pv: p[1] }; break; }
+      }
+      if (M) break;
+    }
+    if (!M) M = { g: geo(78), kind: "inline", l: 30, v: 32, pl: 30, pv: 32, one: true };   // last resort: single-line plate
+    const { RB, bowCY, SHy, JT, JB, R0, P } = M.g;
+
+    const W = 134;
+    const CS = 104, CE = CS + W;        // copy (brass, left): spine x, cut edge x
+    const MS = 976, ME = MS - W;        // master (steel, right, mirrored): spine x, cut edge x
+    const CODES = { 1: [6], 2: [3, 6], 3: [3, 6, 4], 4: [4, 2, 6, 3], 5: [4, 2, 6, 3, 5] }[n];
+    const depth = i => 16 + CODES[i] * 7;
+    const yc = i => R0 + P * (i + 0.5);
+    const act = Math.floor(n / 2);
+    const fbw = Math.min(34, P * 0.24);
+    const flank = i => Math.min(depth(i) * 0.85, P / 2 - fbw / 2 - 3);
+    const ya = yc(act), da = depth(act);
+    const WR = Math.min(84, Math.max(62, P * 0.62));             // wheel radius
+    const WX = CE - da + WR, WY = ya;                            // wheel bites the copy's notch from the right
+
+    // ---------- rows: built and measured first, so the drawing can leave gaps for the text ----------
+    const plateL = WX + WR + 16, plateR = ME - 82;
+    const CX = (plateL + plateR) / 2;
+    const fieldL = CE + 26, fieldR = ME - 26;
+    const wheelRightAt = (ty0, ty1) => {   // how far right the wheel (+ spin arrow) reaches inside a text band
+      const dy = ty1 < WY ? WY - ty1 : ty0 > WY ? ty0 - WY : 0, rr = WR + 8;
+      return dy >= rr ? -1 : WX + Math.sqrt(rr * rr - dy * dy);
+    };
+    const maxWFor = (ty0, ty1) => { let w = 2 * Math.min(CX - fieldL, fieldR - CX); const wr = wheelRightAt(ty0, ty1); if (wr > 0) w = Math.min(w, 2 * (CX - wr - 14)); return w; };
+    const rowsEl = $("rows");
+    const mk = (cls, i) => { const e = document.createElement("div"); e.className = cls; e.dataset.i = i; rowsEl.appendChild(e); return e; };
+    function fitLine(el, raw, fmt, sizes, maxW) {
+      for (const fs of sizes) { el.style.fontSize = fs + "px"; el.innerHTML = fmt(raw); if (el.offsetWidth <= maxW) return; }
+      let s = String(raw);
+      while (s.length > 1 && el.offsetWidth > maxW) { s = s.slice(0, -1).trimEnd(); el.innerHTML = fmt(s) + "…"; }
+    }
+    const gaps = {};   // inline rows: x-extent of the text, so the dimension line breaks around it
+    for (let i = 0; i < n; i++) {
+      if (i === act) continue;
+      const it = items[i] || { label: "", value: "" }, y = yc(i), todo = i > act ? " todo" : "";
+      if (M.kind === "stack") {
+        const lb = mk("lb", i), vl = mk("vl" + todo, i);
+        fitLine(lb, it.label, lab, range(M.l, 30), maxWFor(y - 8 - 1.12 * M.l, y - 8));
+        fitLine(vl, it.value, esc, range(M.v, 32), maxWFor(y + 6, y + 6 + 1.12 * M.v));
+        lb.style.left = r1(CX - lb.offsetWidth / 2) + "px"; lb.style.top = r1(y - 8 - lb.offsetHeight) + "px";
+        vl.style.left = r1(CX - vl.offsetWidth / 2) + "px"; vl.style.top = r1(y + 6) + "px";
+      } else {
+        const rw = mk("rw", i), mh = 0.6 * Math.max(M.l, M.v), maxW = maxWFor(y - mh, y + mh);
+        const build = (ls, vs, L, V) => { rw.innerHTML = `<span class="li" style="font-size:${ls}px">${L}</span><span class="vi${todo}" style="font-size:${vs}px">${V}</span>`; };
+        let ls = M.l, vs = M.v;
+        for (;;) { build(ls, vs, lab(it.label), esc(it.value)); if (rw.offsetWidth <= maxW || (ls <= 30 && vs <= 32)) break; ls = Math.max(30, ls - 2); vs = Math.max(32, vs - 2); }
+        let L = String(it.label), V = String(it.value);
+        while (rw.offsetWidth > maxW && L.length > 4) { L = L.slice(0, -1).trimEnd(); build(ls, vs, lab(L) + "…", esc(V)); }
+        while (rw.offsetWidth > maxW && V.length > 1) { V = V.slice(0, -1).trimEnd(); build(ls, vs, lab(L) + "…", esc(V) + "…"); }
+        const x0 = CX - rw.offsetWidth / 2;
+        rw.style.left = r1(x0) + "px"; rw.style.top = r1(y - rw.offsetHeight / 2) + "px";
+        gaps[i] = [x0 - 16, x0 + rw.offsetWidth + 16];
+      }
+    }
+    // the item being copied right now sits on the cream reading plate on the arm
+    {
+      const it = items[act] || { label: "", value: "" };
+      const plate = mk("plate" + (M.one ? " one" : ""), act);
+      plate.id = "plate";
+      const pmaxW = plateR - plateL;
+      if (!M.one) {
+        plate.innerHTML = `<div class="pl"></div><div class="pv"></div>`;
+        fitLine(plate.querySelector(".pl"), it.label, lab, range(M.pl, 30), pmaxW - 42);
+        fitLine(plate.querySelector(".pv"), it.value, esc, range(M.pv, 32), pmaxW - 42);
+      } else {   // single-line plate: label + value share one line, truncated together
+        const build = (L, V) => { plate.innerHTML = `<span class="pl" style="font-size:30px">${L}</span><span class="pv" style="font-size:32px">${V}</span>`; };
+        let L = String(it.label), V = String(it.value);
+        build(lab(L), esc(V));
+        while (plate.offsetWidth > pmaxW && L.length > 4) { L = L.slice(0, -1).trimEnd(); build(lab(L) + "…", esc(V)); }
+        while (plate.offsetWidth > pmaxW && V.length > 1) { V = V.slice(0, -1).trimEnd(); build(lab(L) + "…", esc(V) + "…"); }
+      }
+      plate.style.left = r1(CX - plate.offsetWidth / 2) + "px"; plate.style.top = r1(ya - plate.offsetHeight / 2) + "px";
+    }
+
+    function keyPath(spine, dir, cutUpTo) {
+      const edge = spine + dir * W, bcx = spine + dir * W / 2;
+      const yJ = bowCY + Math.sqrt(RB * RB - (W / 2) * (W / 2));
+      let d = `M${spine},${r1(yJ)} A${RB},${RB} 0 1 ${dir > 0 ? 1 : 0} ${edge},${r1(yJ)} `;
+      d += `L${edge},${SHy} L${edge + dir * 16},${SHy} L${edge + dir * 16},${SHy + 22} L${edge},${SHy + 22} `;
+      for (let i = 0; i < n; i++) {
+        if (i > cutUpTo) continue;
+        const y = yc(i), dp = depth(i), fl = flank(i);
+        d += `L${edge},${r1(y - fbw / 2 - fl)} L${r1(edge - dir * dp)},${r1(y - fbw / 2)} L${r1(edge - dir * dp)},${r1(y + fbw / 2)} L${edge},${r1(y + fbw / 2 + fl)} `;
+      }
+      d += `L${edge},${TIPY} L${r1(spine + dir * W * 0.42)},${tipPoint} L${spine},${TIPY + 20} Z`;
+      return { d, edge, bcx };
+    }
+
+    // ---------- background: pegboard wall, rail of blanks, hanging sign, steel bench lip, dark bench ----------
+    let bg = `<defs>
+      <pattern id="peg" width="34" height="34" x="7" y="5" patternUnits="userSpaceOnUse"><circle cx="17" cy="17" r="3.4" fill="${INK}" opacity="0.12"/></pattern>
+      <radialGradient id="pool" gradientUnits="userSpaceOnUse" cx="540" cy="${(benchY + 1500) / 2}" r="780"><stop offset="0" stop-color="#ffffff" stop-opacity="0.05"/><stop offset="1" stop-color="#000000" stop-opacity="0.28"/></radialGradient>
+      <pattern id="brush" width="1080" height="7" patternUnits="userSpaceOnUse"><rect width="1080" height="1" y="3" fill="#ffffff" opacity="0.025"/></pattern>
+      <linearGradient id="cast" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0.55"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient>
+      <radialGradient id="screw" cx="0.38" cy="0.32" r="0.8"><stop offset="0" stop-color="#D3D7DA"/><stop offset="1" stop-color="#7C8288"/></radialGradient>
+      <filter id="signsh" x="-5%" y="-10%" width="110%" height="130%"><feDropShadow dx="0" dy="9" stdDeviation="8" flood-color="#3A3328" flood-opacity="0.32"/></filter>
+    </defs>
+    <rect width="1080" height="${lipY}" fill="${WALLC}"/>
+    <rect width="1080" height="${lipY}" fill="url(#peg)"/>
+    <rect y="${benchY}" width="1080" height="${1920 - benchY}" fill="${INK}"/>
+    <rect y="${benchY}" width="1080" height="${1920 - benchY}" fill="url(#pool)"/>
+    <rect y="${benchY}" width="1080" height="${1920 - benchY}" fill="url(#brush)"/>
+    <rect y="${benchY}" width="1080" height="24" fill="url(#cast)"/>
+    <rect y="${lipY}" width="1080" height="16" fill="#3A3F45"/>
+    <rect y="${lipY}" width="1080" height="1" fill="#ffffff" opacity="0.15"/>`;
+    // rail with hanging blanks; one hook is empty (that blank is in the machine)
+    const RY = 80;
+    const HANG = [[132, 1, 96], [302, 0, 84], [388, 1, 104], [474, 0, 90], [560, -1, 0], [646, 1, 98], [732, 0, 108], [950, 1, 88]];
+    bg += `<rect x="96" y="${RY}" width="888" height="10" rx="5" fill="#D2CEC5" stroke="#A39E94" stroke-width="2"/>`;
+    for (const x of [104, 976]) bg += `<rect x="${x - 9}" y="${RY - 9}" width="18" height="28" rx="4" fill="#B9B4AA" stroke="#8D8980" stroke-width="2"/>`;
+    for (const [x, kind, len] of HANG) {
+      if (kind < 0) { bg += `<path d="M${x},${RY + 10} v26 q0,16 -14,16 q-9,0 -9,-9" fill="none" stroke="#7E848A" stroke-width="6" stroke-linecap="round"/>`; continue; }
+      bg += `<path d="M${x},${RY + 10} v16 q0,10 -9,10" fill="none" stroke="#8D9399" stroke-width="4" stroke-linecap="round"/>`;
+      const f = kind ? "#DCC593" : "#C8CCCF", y = RY + 26, bw = 30;
+      bg += `<path d="M${x - bw / 2},${y + 30} H${x + bw / 2} V${y + 30 + len} L${x - bw * 0.1},${y + 44 + len} L${x - bw / 2},${y + 34 + len} Z" fill="${f}" stroke="#9A9A92" stroke-width="2.5" stroke-linejoin="round"/>
+        <circle cx="${x}" cy="${y + 16}" r="21" fill="${f}" stroke="#9A9A92" stroke-width="2.5"/>
+        <circle cx="${x}" cy="${y + 8}" r="6" fill="${WALLC}" stroke="#9A9A92" stroke-width="2"/>`;
+    }
+    // two chains from the rail to the sign's eyes
+    for (const x of [216, 864]) {
+      bg += `<path d="M${x},${RY + 10} v6" stroke="#7E848A" stroke-width="4"/>`;
+      for (let y = RY + 14; y < ST - 14; y += 20) bg += `<rect x="${x - 5.5}" y="${y}" width="11" height="17" rx="5.5" fill="none" stroke="#7E848A" stroke-width="3"/><rect x="${x - 1.5}" y="${y + 12}" width="3" height="11" rx="1.5" fill="#6A7076"/>`;
+      bg += `<circle cx="${x}" cy="${ST - 4}" r="8" fill="none" stroke="#7E848A" stroke-width="3.5"/>`;
+    }
+    // the enamel sign: cream field, inner ink rule, four screws
+    bg += `<g filter="url(#signsh)"><rect x="${SL}" y="${ST}" width="${SR - SL}" height="${SB - ST}" rx="18" fill="${ENAMEL}" stroke="#B3AC9F" stroke-width="2"/></g>
+      <rect x="${SL + 12}" y="${ST + 12}" width="${SR - SL - 24}" height="${SB - ST - 24}" rx="10" fill="none" stroke="${INK}" stroke-width="4"/>
+      <path d="M104,${r1(kMid)} H${r1(540 - kW / 2 - 24)} M${r1(540 + kW / 2 + 24)},${r1(kMid)} H976" stroke="${INK}" stroke-width="3"/>`;
+    const SCR = [[SL + 30, ST + 30, 20], [SR - 30, ST + 30, -35], [SL + 30, SB - 22, 62], [SR - 30, SB - 22, 8]];
+    for (const [x, y, a] of SCR) bg += `<circle cx="${x}" cy="${y}" r="9" fill="url(#screw)" stroke="${INK}" stroke-width="1.5"/><path d="M${-6},0 H6" transform="translate(${x},${y}) rotate(${a})" stroke="${INK}" stroke-width="2.2"/>`;
+    $("bg").innerHTML = bg;
+
+    // ---------- machine ----------
+    let s = `<defs>
+      <linearGradient id="steelM" gradientUnits="userSpaceOnUse" x1="${MS}" y1="0" x2="${ME - 16}" y2="0"><stop offset="0" stop-color="#C6CBCF"/><stop offset="0.55" stop-color="${STEEL}"/><stop offset="1" stop-color="#7C8288"/></linearGradient>
+      <linearGradient id="brassC" gradientUnits="userSpaceOnUse" x1="${CS}" y1="0" x2="${CE + 16}" y2="0"><stop offset="0" stop-color="#E3C88F"/><stop offset="0.55" stop-color="${BRASS}"/><stop offset="1" stop-color="#A88340"/></linearGradient>
+      <linearGradient id="steelV" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#CDD1D5"/><stop offset="1" stop-color="#7C8288"/></linearGradient>
+      <radialGradient id="disc" cx="0.58" cy="0.38" r="0.7"><stop offset="0" stop-color="#D3D7DA"/><stop offset="0.7" stop-color="${STEEL}"/><stop offset="1" stop-color="#6E747A"/></radialGradient>
+      <filter id="sh" x="-20%" y="-10%" width="140%" height="130%"><feDropShadow dx="10" dy="16" stdDeviation="9" flood-color="#000" flood-opacity="0.55"/></filter>
+      <filter id="shs" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="5" dy="8" stdDeviation="5" flood-color="#000" flood-opacity="0.5"/></filter>
+    </defs>`;
+
+    // carriage plate
+    const plY = JT - 26, plHt = tipPoint + 18 - plY;
+    s += `<rect x="46" y="${plY}" width="988" height="${plHt}" rx="26" fill="#25282C" stroke="#363A3F" stroke-width="2"/>`;
+    s += `<rect x="47" y="${plY + 1}" width="986" height="3" rx="1.5" fill="#ffffff" opacity="0.06"/>`;
+    for (const [x, y] of [[74, JB + 40], [1006, JB + 40], [74, plY + plHt - 28], [1006, plY + plHt - 28]])
+      s += `<circle cx="${x}" cy="${y}" r="10" fill="#2E3237" stroke="#14171A" stroke-width="2"/><path d="M${x - 6},${y} H${x + 6}" stroke="#14171A" stroke-width="2.5"/>`;
+
+    // keys: brass copy on the left (cut down to the arm), steel master on the right (fully cut)
+    const copy = keyPath(CS, +1, act);
+    const master = keyPath(MS, -1, n);
+    const holeY = bowCY - RB * 0.52, holeR = RB * 0.18;
+    const keyG = (k, fill, spine, dir) => {
+      const g0 = spine + dir * 22, g1 = spine + dir * 44;
+      return `<g filter="url(#sh)"><path d="${k.d}" fill="${fill}" stroke="#121417" stroke-width="3" stroke-linejoin="round"/></g>
+        <rect x="${Math.min(g0, g1)}" y="${SHy + 40}" width="22" height="${TIPY - 26 - SHy - 40}" rx="8" fill="#000" opacity="0.2"/>
+        <rect x="${Math.min(g0, g1) + (dir > 0 ? 18 : 2)}" y="${SHy + 44}" width="2" height="${TIPY - 34 - SHy - 40}" fill="#fff" opacity="0.35"/>
+        <circle cx="${k.bcx}" cy="${r1(holeY)}" r="${r1(holeR)}" fill="#1A1C1F" stroke="#121417" stroke-width="3"/>
+        <path d="M${k.bcx - RB * 0.58},${r1(bowCY + RB * 0.56)} Q${k.bcx},${r1(bowCY + RB * 0.72)} ${k.bcx + RB * 0.58},${r1(bowCY + RB * 0.56)}" fill="none" stroke="#000" stroke-opacity="0.22" stroke-width="3"/>`;
+    };
+    s += keyG(copy, "url(#brassC)", CS, +1);
+    s += keyG(master, "url(#steelM)", MS, -1);
+
+    // scribed (not yet cut) notches on the copy
+    for (let i = act + 1; i < n; i++) {
+      const y = yc(i), dp = depth(i), fl = flank(i);
+      s += `<path d="M${CE},${r1(y - fbw / 2 - fl)} L${r1(CE - dp)},${r1(y - fbw / 2)} L${r1(CE - dp)},${r1(y + fbw / 2)} L${CE},${r1(y + fbw / 2 + fl)}" fill="none" stroke="#121417" stroke-opacity="0.75" stroke-width="2.5" stroke-dasharray="6 5"/>`;
+    }
+
+    // vise clamps: bolted to the carriage from the outer side, gripping each blade below the shoulder
+    for (const [xx, w, knobX] of [[76, CE + 26 - 76, 76], [ME - 26, 1004 - (ME - 26), 1004]]) {
+      const cy = (JT + JB) / 2;
+      s += `<g filter="url(#shs)"><rect x="${xx}" y="${JT}" width="${w}" height="${JB - JT}" rx="6" fill="#353A3F" stroke="#121417" stroke-width="2.5"/>
+        <circle cx="${knobX}" cy="${cy}" r="30" fill="#2C3035" stroke="#121417" stroke-width="2.5"/></g>`;
+      for (let k = 0; k < 12; k++) { const a = k * Math.PI / 6; s += `<path d="M${r1(knobX + 24 * Math.cos(a))},${r1(cy + 24 * Math.sin(a))} L${r1(knobX + 29 * Math.cos(a))},${r1(cy + 29 * Math.sin(a))}" stroke="#121417" stroke-width="3"/>`; }
+      s += `<circle cx="${knobX}" cy="${cy}" r="11" fill="#4A4F55" stroke="#121417" stroke-width="2"/>`;
+      s += `<rect x="${xx + 4}" y="${JT + 4}" width="${w - 8}" height="4" rx="2" fill="#fff" opacity="0.14"/>`;
+      const mid = xx + w / 2;
+      for (const sx of [mid - w * 0.3, mid + w * 0.3]) s += `<circle cx="${r1(sx)}" cy="${cy + 2}" r="8" fill="#4A4F55" stroke="#121417" stroke-width="2"/><path d="M${r1(sx - 4.5)},${cy - 2.5} L${r1(sx + 4.5)},${cy + 6.5}" stroke="#121417" stroke-width="2.5"/>`;
+    }
+
+    // dimension lines: copy notch (done) or copy blank edge (to cut) -> master notch
+    const arrow = (x, y, dir) => `<path d="M${r1(x)},${r1(y)} l${-dir * 12},-6 l0,12 Z" fill="${STEEL}"/>`;
+    for (let i = 0; i < n; i++) {
+      if (i === act) continue;
+      const y = yc(i), dp = depth(i), done = i < act;
+      const xL = done ? CE - dp + 3 : CE + 3, xR = ME + dp - 3;
+      const segs = gaps[i] ? [[xL + 10, gaps[i][0]], [gaps[i][1], xR - 10]] : [[xL + 10, xR - 10]];
+      for (const [a, b] of segs) if (b > a) s += `<path d="M${r1(a)},${r1(y)} H${r1(b)}" stroke="${STEEL}" stroke-width="2" stroke-dasharray="${done ? "none" : "7 7"}" opacity="${done ? 0.85 : 0.7}"/>`;
+      s += arrow(xR, y, 1) + (done ? arrow(xL, y, -1) : `<circle cx="${r1(xL + 2)}" cy="${r1(y)}" r="5" fill="none" stroke="${STEEL}" stroke-width="2"/>`);
+    }
+
+    // tracer arm: milling wheel on the copy (left), rigid bar, stylus in the master's notch (right)
+    const stTip = ME + da - 3;
+    s += `<g filter="url(#shs)">
+      <rect x="${r1(WX)}" y="${r1(ya - 11)}" width="${r1(ME - 60 - WX)}" height="22" rx="4" fill="#3A3F45" stroke="#121417" stroke-width="2.5"/>
+      <path d="M${stTip},${r1(ya)} L${ME - 30},${r1(ya - 14)} L${ME - 30},${r1(ya + 14)} Z" fill="url(#steelV)" stroke="#121417" stroke-width="2.5" stroke-linejoin="round"/>
+      <rect x="${ME - 70}" y="${r1(ya - 22)}" width="42" height="44" rx="5" fill="url(#steelV)" stroke="#121417" stroke-width="2.5"/>
+    </g>`;
+    for (let k = 0; k < 7; k++) s += `<path d="M${r1(ME - 65 + k * 5.5)},${r1(ya - 18)} V${r1(ya + 18)}" stroke="#121417" stroke-opacity="0.45" stroke-width="1.5"/>`;
+    s += `<path d="M${ME - 26},${r1(ya)} H${stTip - 6}" stroke="#fff" stroke-opacity="0.5" stroke-width="1.5"/>`;
+
+    // wheel (teeth lean counter-clockwise: the face at the copy moves down, throwing chips down-left)
+    const NT = 32; let wp = "";
+    for (let k = 0; k < NT; k++) {
+      const a0 = (k / NT) * Math.PI * 2, a1 = ((k + 0.38) / NT) * Math.PI * 2, a2 = ((k + 1) / NT) * Math.PI * 2;
+      const P0 = [WX + (WR - 9) * Math.cos(a0), WY + (WR - 9) * Math.sin(a0)];
+      const P1 = [WX + WR * Math.cos(a1), WY + WR * Math.sin(a1)];
+      const P2 = [WX + (WR - 9) * Math.cos(a2), WY + (WR - 9) * Math.sin(a2)];
+      wp += (k ? "L" : "M") + r1(P0[0]) + "," + r1(P0[1]) + " L" + r1(P1[0]) + "," + r1(P1[1]) + " L" + r1(P2[0]) + "," + r1(P2[1]) + " ";
+    }
+    const pt = (r, a) => `${r1(WX + r * Math.cos(a))},${r1(WY + r * Math.sin(a))}`;
+    const arcCW = (r, a0, a1) => `M${pt(r, a0)} A${r1(r)},${r1(r)} 0 0 1 ${pt(r, a1)}`;
+    const arcCCW = (r, a0, a1) => `M${pt(r, a0)} A${r1(r)},${r1(r)} 0 0 0 ${pt(r, a1)}`;
+    const hexP = Array.from({ length: 6 }, (_, k) => pt(13, k * Math.PI / 3 + 0.3)).join(" ");
+    s += `<g filter="url(#sh)"><path d="${wp}Z" fill="url(#disc)" stroke="#121417" stroke-width="2.5" stroke-linejoin="round"/></g>
+      <circle cx="${r1(WX)}" cy="${r1(WY)}" r="${r1(WR - 24)}" fill="none" stroke="#121417" stroke-opacity="0.35" stroke-width="2"/>
+      <path d="${arcCW(WR - 34, -2.0, -0.55)}" fill="none" stroke="#fff" stroke-opacity="0.45" stroke-width="3" stroke-linecap="round"/>
+      <path d="${arcCW(WR - 34, 1.25, 2.55)}" fill="none" stroke="#000" stroke-opacity="0.25" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="${r1(WX)}" cy="${r1(WY)}" r="26" fill="#2E3237" stroke="${RED}" stroke-width="6"/>
+      <polygon points="${hexP}" fill="${STEEL}" stroke="#121417" stroke-width="2"/>`;
+    // spin arrow (counter-clockwise) on the upper left of the wheel, over the copy
+    const ra = WR + 18, aE = -2.89;
+    const ex = WX + ra * Math.cos(aE), ey = WY + ra * Math.sin(aE);
+    s += `<path d="${arcCCW(ra, -1.69, aE)}" fill="none" stroke="${RED}" stroke-width="6" stroke-linecap="round"/>
+      <path d="M${r1(ex - 9)},${r1(ey - 10)} L${r1(ex - 3)},${r1(ey + 14)} L${r1(ex + 15)},${r1(ey - 2)} Z" fill="${RED}"/>`;
+
+    // brass shavings thrown down-left from the contact point (hard-coded spray)
+    const CPx = CE - da, CPy = ya + WR * 0.35;
+    const FL = [[12, 16, 20, 1.9], [30, 4, -35, 1.4], [48, 28, 60, 1.7], [24, 46, 110, 1.5], [68, 12, -15, 1.3], [86, 42, 30, 1.8],
+      [58, 70, -60, 1.4], [104, 22, 80, 1.2], [40, 94, 150, 1.6], [118, 66, -25, 1.5], [82, 104, 95, 1.9], [130, 112, 15, 1.3],
+      [-14, 60, 70, 1.4], [-34, 88, -20, 1.2], [44, -26, 45, 1.2], [92, -44, -30, 1.4], [128, -18, 120, 1.0], [140, 40, -100, 1.1]];
+    for (const [dx, dy, rot, sc] of FL) {
+      const x = CPx - dx, y = CPy + dy;
+      if (y > tipPoint + 10 || x < 38) continue;
+      s += `<path transform="translate(${r1(x)},${r1(y)}) rotate(${-rot}) scale(${-sc},${sc})" d="M-8,3 C-7,-6 5,-9 9,-2 C5,-4 -1,-3 -3,4 Z" fill="${BRASS}" stroke="#7A5E2A" stroke-width="0.8"/>`;
+    }
+
+    // caption: a stretched paper key tag with a steel rim, tied by string to the copy's bow
+    const tagR = Math.min(tagH / 2, 40), eyeX = TX0 + 36, eyeY = tagT + tagH / 2;
+    s += `<defs><linearGradient id="rim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D3D7DA"/><stop offset="0.5" stop-color="${STEEL}"/><stop offset="1" stop-color="#6E747A"/></linearGradient></defs>
+      <g filter="url(#shs)"><rect x="${TX0}" y="${r1(tagT)}" width="${TX1 - TX0}" height="${r1(tagH)}" rx="${r1(tagR)}" fill="url(#rim)" stroke="#121417" stroke-width="2"/></g>
+      <rect x="${TX0 + RIM}" y="${r1(tagT + RIM)}" width="${TX1 - TX0 - RIM * 2}" height="${r1(tagH - RIM * 2)}" rx="${r1(tagR - RIM)}" fill="${PAPER}" stroke="#121417" stroke-opacity="0.4" stroke-width="1.5"/>
+      <path d="M${TX0 + tagR},${r1(tagT + 2.5)} H${TX1 - tagR}" stroke="#fff" stroke-opacity="0.55" stroke-width="2"/>
+      <circle cx="${eyeX}" cy="${r1(eyeY)}" r="16" fill="url(#steelV)" stroke="#121417" stroke-width="2"/>
+      <circle cx="${eyeX}" cy="${r1(eyeY)}" r="8.5" fill="${INK}"/>`;
+    // the string: through the bow hole, over the bow rim, knotted, down the left margin and through the tag's eyelet
+    const bcx = copy.bcx, Ax = bcx - RB * 0.8, Ay = bowCY - RB * 0.58, Bx = bcx - RB * 0.99, By = bowCY - RB * 0.1, Kx = 34, Ky = bowCY - 4;
+    const str = `M${bcx},${r1(holeY)} Q${r1(bcx - RB * 0.4)},${r1(holeY - RB * 0.22)} ${r1(Ax)},${r1(Ay)} Q${r1(Ax - 30)},${r1(Ay + 22)} ${Kx},${r1(Ky)}
+      M${r1(Bx)},${r1(By)} Q${r1(Bx - 22)},${r1(By + 10)} ${Kx},${r1(Ky)}
+      M${Kx},${r1(Ky)} C22,${r1(Ky + 160)} 40,${r1(Ky + 380)} 30,${r1((Ky + eyeY) / 2)} S22,${r1(eyeY - 70)} 40,${r1(eyeY - 22)} Q56,${r1(eyeY + 2)} ${eyeX},${r1(eyeY)}
+      M${eyeX},${r1(eyeY)} Q${TX0 + 4},${r1(eyeY + 30)} ${TX0 - 22},${r1(eyeY + 36)}`;
+    s += `<path d="${str}" transform="translate(2,3)" fill="none" stroke="#000" stroke-opacity="0.35" stroke-width="5" stroke-linecap="round"/>
+      <path d="${str}" fill="none" stroke="#E3DCCB" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="${Kx}" cy="${r1(Ky)}" r="5.5" fill="#E3DCCB" stroke="#8C8576" stroke-width="1.5"/>`;
+    $("mc").innerHTML = s;
+
+    // stamps on the bows
+    const stM = $("stM"), stC = $("stC");
+    for (const [el, cx] of [[stC, copy.bcx], [stM, master.bcx]]) {
+      el.style.left = r1(cx - el.offsetWidth / 2 + 0.6) + "px";
+      el.style.top = r1(bowCY + 8 - el.offsetHeight / 2) + "px";
+    }
+  }
+</script>
+</body>
+</html>

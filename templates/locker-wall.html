@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Locker Wall</title>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Stencil+Display:wght@800&family=Saira+Stencil+One&family=Red+Hat+Mono:wght@500;600&family=Red+Hat+Text:wght@500;600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Locker Wall: one changing-room locker bank seen in real perspective (CSS 3D,
+    one shared vanishing point). The hook line is spray-stencilled on the bank's
+    riveted name rail (the hl in amber paint), an enamel room sign carries the
+    series, each item is one locker (stencilled number, cream card, door), and
+    the door's opening angle is the match strength (attention as soft lookup).
+    A wooden key tag burned with the query word hangs from a brass hook on the
+    door-head rail; the matching lockers are lit amber and spill light onto the
+    slatted bench in front, whose base carries the laminated PERATURAN LOKER card
+    (the caption). Deterministic: every angle, grain line and coil loop comes
+    from data or is hard-coded; no randomness, no time.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #1F2A36; }
+  body { position: relative; color: #F4F4F2; font-family: "Red Hat Text", sans-serif; }
+
+  .layer { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; pointer-events: none; }
+  #room { z-index: 0; }
+  #bank { z-index: 1; }
+  #inside { z-index: 2; }
+  #doors { z-index: 3; }
+  #bench { z-index: 4; }
+  #shade { z-index: 5; }
+  #heads { z-index: 6; }
+  #tagfx { z-index: 7; }
+  #tag { z-index: 8; }
+  .txt { z-index: 9; }
+
+  /* ---- bank frame (2D, z = 0 plane) ---- */
+  .abs { position: absolute; }
+  .fascia { position: absolute; left: -40px; width: 1160px; background: linear-gradient(180deg, #33404E 0%, #2A3643 38%, #253039 100%); box-shadow: inset 0 3px 0 #4D5F72, inset 0 -5px 0 #19212A, 0 14px 20px rgba(5,8,12,.5); }
+  .rv { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #A2B4C6 0%, #56687B 55%, #222C37 100%); box-shadow: 0 1px 1px rgba(0,0,0,.55); }
+  .spray { position: absolute; border-radius: 6px; background: rgba(233,223,201,.06); filter: blur(7px); }
+  .void { background: #0B1016; box-shadow: inset 0 0 0 2px #0A0E13; }
+  .kick { background: linear-gradient(180deg, #3A4A5B, #303E4D); border-top: 2px solid #4E6175; }
+  .kick i { position: absolute; left: 22%; right: 22%; top: 28%; height: 38%; background: repeating-linear-gradient(90deg, #1A222B 0 7px, transparent 7px 15px); border-radius: 2px; }
+  .seam { background: linear-gradient(90deg, #2D3947 0, #121920 45%, #121920 60%, #4A5D71 100%); }
+  .rail { background: linear-gradient(180deg, #5C6F83, #506276); box-shadow: inset 0 2px 0 #7286A0, inset 0 -2px 0 #3D4D5E; }
+  .blank { position: absolute; background: #CFC6B2; border: 3px solid #7F8FA0; border-radius: 3px; opacity: .9; }
+
+  /* ---- door faces ---- */
+  .face { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 2px; }
+  .face.out { background: linear-gradient(90deg, #7D90A3 0%, #6F8295 38%, #62758A 100%); box-shadow: inset 0 0 0 2px rgba(15,22,30,.35), inset 3px 3px 0 rgba(200,214,228,.22); }
+  .face.out .lv { position: absolute; left: 20%; right: 20%; background: repeating-linear-gradient(180deg, #1C2630 0 7px, #9CB0C3 7px 9px, transparent 9px 17px); }
+  .face.out .hd { position: absolute; right: 9%; width: 9%; min-width: 14px; border-radius: 7px; background: linear-gradient(90deg, #26313D, #3A4858); box-shadow: inset 0 0 0 2px #1A222B, 0 2px 0 rgba(200,214,228,.25); }
+  .face.out .lk { position: absolute; right: 9%; width: 22px; height: 22px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #F6CE86, #C8913A 55%, #7A5520); box-shadow: 0 0 0 2px #2A333D; }
+  .face.out .lk::after { content: ""; position: absolute; left: 9px; top: 5px; width: 4px; height: 12px; border-radius: 2px; background: #3A2813; }
+  .face.out .dim { position: absolute; inset: 0; background: #0A0F15; }
+  .face.inn { transform: rotateY(180deg); background: linear-gradient(90deg, #5A6C80, #4B5C6F); box-shadow: inset 0 0 0 2px rgba(15,22,30,.4); }
+  .face.inn .ch { position: absolute; top: 4%; bottom: 4%; left: 36%; width: 20%; background: linear-gradient(90deg, #45566A, #63778C 40%, #4B5C70); border-radius: 3px; }
+  .face.inn .warm { position: absolute; inset: 0; }
+  .edge { position: absolute; top: 0; height: 100%; width: 12px; transform-origin: 0 50%; transform: rotateY(90deg); background: linear-gradient(180deg, #4A5B6D, #36444F); }
+
+  /* ---- number plates + locker cards ---- */
+  .hdr { position: absolute; }
+  .np { height: 64px; background: #18212B; border-radius: 4px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; box-shadow: inset 0 0 0 2px #0F151B; }
+  .num { font: 400 46px/1 "Saira Stencil One", sans-serif; color: #E9DFC9; letter-spacing: .02em; padding-top: 2px; }
+  .np.lit .num { color: #F2A33A; }
+  .slits { width: 34px; height: 28px; background: repeating-linear-gradient(180deg, #4E6074 0 4px, transparent 4px 9px); border-radius: 2px; }
+  .card { margin-top: 10px; background: #E9DFC9; border: 3px solid #8C9CAD; border-radius: 4px; padding: 8px 7px 10px; color: #1F2A36; box-shadow: 0 3px 0 rgba(8,12,16,.35); }
+  .card.lit { border-color: #F2A33A; box-shadow: 0 0 0 3px rgba(242,163,58,.25), 0 3px 0 rgba(8,12,16,.35); }
+  .lb { font-family: "Big Shoulders Stencil Display", sans-serif; font-weight: 800; line-height: 1.02; letter-spacing: .01em; color: #1F2A36; overflow-wrap: anywhere; }
+  .vl { font: 600 30px/1.18 "Red Hat Mono", monospace; letter-spacing: -.04em; color: #1F2A36; margin-top: 4px; overflow-wrap: anywhere; }
+
+  /* ---- foreground key tag ---- */
+  #tag { position: absolute; width: 224px; height: 380px; transform-origin: 112px 30px; }
+  #tag svg { position: absolute; left: 0; top: 0; width: 224px; height: 380px; overflow: visible; }
+  .tagq { position: absolute; left: 12px; width: 200px; text-align: center; font-family: "Saira Stencil One", sans-serif; font-weight: 400; line-height: .98; color: #3A2213; text-shadow: 0 1px 0 rgba(255,236,204,.45); }
+  .tagq .qw { white-space: nowrap; }
+
+  /* ---- enamel room sign (kicker), screwed to the top of the name rail ---- */
+  #sign { position: absolute; top: 300px; height: 52px; padding: 0 50px; display: flex; align-items: center; background: linear-gradient(180deg, #F1E8D4, #E2D7BE); border-radius: 12px; font: 600 26px/1 "Red Hat Mono", monospace; letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; color: #1F2A36; box-shadow: inset 0 0 0 4px #ECE2CB, inset 0 0 0 7px #1F2A36, 0 6px 14px rgba(4,7,10,.55); }
+  #sign::before, #sign::after { content: ""; position: absolute; top: 19px; width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #C9D3DC, #6F8295 60%, #2A3643); }
+  #sign::before { left: 18px; }
+  #sign::after { right: 18px; }
+
+  /* ---- title: spray-stencilled on the riveted name rail ---- */
+  #title { position: absolute; left: 110px; width: 860px; text-align: center; font-family: "Saira Stencil One", sans-serif; font-weight: 400; text-transform: uppercase; line-height: .96; letter-spacing: -.006em; color: #E9DFC9; text-wrap: balance; text-shadow: 0 0 2px rgba(233,223,201,.45), 0 0 14px rgba(233,223,201,.10); }
+  #title .tw { white-space: nowrap; }
+  #title .hl { color: #F2A33A; text-shadow: 0 0 2px rgba(242,163,58,.5), 0 0 16px rgba(242,163,58,.16); }
+  #sub { position: absolute; left: 110px; width: 860px; text-align: center; font: 600 40px/1.25 "Red Hat Text", sans-serif; color: #DCD3BF; text-wrap: balance; }
+
+  /* ---- laminated rules card bolted to the bench base: the caption slot ---- */
+  #rules { position: absolute; left: 90px; width: 900px; padding: 14px 24px 14px; background: #E9DFC9; border-radius: 10px; color: #1F2A36; box-shadow: 0 0 0 9px rgba(214,226,236,.14), 0 0 0 10px rgba(244,244,242,.26), 0 18px 30px rgba(4,7,10,.6); }
+  #rules::after { content: ""; position: absolute; right: 0; top: 0; width: 300px; height: 58px; border-radius: 0 10px 0 0; background: linear-gradient(115deg, rgba(255,255,255,0) 30%, rgba(255,255,255,.32) 48%, rgba(255,255,255,0) 66%); pointer-events: none; }
+  #rules .bolt { position: absolute; width: 16px; height: 16px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #D5DEE6, #7F92A5 55%, #2A3643); box-shadow: 0 1px 2px rgba(0,0,0,.6); }
+  .rh { font: 600 30px/1.2 "Red Hat Mono", monospace; letter-spacing: .14em; text-transform: uppercase; color: #1F2A36; padding-bottom: 8px; border-bottom: 3px solid #1F2A36; margin-bottom: 10px; }
+  #caption { font-family: "Red Hat Text", sans-serif; font-weight: 600; line-height: 1.24; text-align: left; text-wrap: pretty; }
+  #caption .w { color: #4E5A68; }
+  #caption .w.said { color: #1F2A36; }
+  #caption .now { background: #F2A33A; border-radius: 6px; padding: 0 .12em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  #caption .now .w { color: #1F2A36; }
+  .foot { display: flex; justify-content: space-between; align-items: flex-end; gap: 30px; margin-top: 12px; padding-top: 8px; border-top: 2px dashed rgba(31,42,54,.35); font: 500 26px/1.3 "Red Hat Mono", monospace; color: #4E5A68; }
+  .foot span:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg id="room" class="layer" data-layout-allow-overflow viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div id="bank" class="layer" data-layout-allow-overflow></div>
+<div id="inside" class="layer" data-layout-allow-overflow></div>
+<div id="doors" class="layer" data-layout-allow-overflow></div>
+<svg id="bench" class="layer" data-layout-allow-overflow viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div id="shade" class="layer"></div>
+<div id="heads" class="layer"></div>
+<svg id="tagfx" class="layer" data-layout-allow-overflow viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div id="tag" data-layout-allow-overflow></div>
+
+<div id="sign" class="txt"><span id="signtx"></span></div>
+<h1 id="title" class="txt"></h1>
+<div id="sub" class="txt"></div>
+<div id="rules" class="txt">
+  <div class="rh">Peraturan loker</div>
+  <div id="caption" data-slot="caption"></div>
+  <div class="foot" id="foot"><span id="src"></span><span id="date"></span></div>
+  <i class="bolt" style="left:-13px;top:-13px"></i><i class="bolt" style="right:-13px;top:-13px"></i>
+  <i class="bolt" style="left:-13px;bottom:-13px"></i><i class="bolt" style="right:-13px;bottom:-13px"></i>
+</div>
+
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  // Lay out only after the web fonts are in: all fitting below measures real glyph widths.
+  Promise.all(['800 100px "Big Shoulders Stencil Display"', '400 100px "Saira Stencil One"', '600 30px "Red Hat Mono"', '500 26px "Red Hat Mono"', '600 44px "Red Hat Text"', '600 40px "Red Hat Text"']
+    .map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const AMBER = "#F2A33A";
+
+  const items = (D.items || []).slice(0, 5);
+  const N = Math.max(1, items.length);
+  const hl = String(D.hl || "").trim(), hlL = hl.toLowerCase();
+  const t = String(D.title || "");
+
+  // ---------- enamel room sign: RUANG GANTI · series · ep ----------
+  const kick = String(D.kicker || "");
+  const series = String(D.series || kick.split("·")[0] || "").trim();
+  const ep = String(D.ep || kick.split("·")[1] || "").replace(/^\s*(ep\.?|episode)?\s*#?\s*/i, "").trim();
+  const sign = $("sign"), signTx = $("signtx");
+  const parts = [series, ep].filter(Boolean);
+  signTx.textContent = ["Ruang ganti"].concat(parts).join(" · ");
+  if (sign.offsetWidth > 900) signTx.textContent = parts.join(" · ");
+  if (sign.offsetWidth > 900) sign.style.letterSpacing = ".04em";
+  sign.style.left = Math.round(540 - sign.offsetWidth / 2) + "px";
+
+  // ---------- rules card: karaoke caption (active = hl if spoken, else the first word) + source ----------
+  const capText = String(D.caption || D.sub || "");
+  const cap = $("caption");
+  const words = []; { let pos = 0; for (const w of capText.split(/\s+/).filter(Boolean)) { const s = capText.indexOf(w, pos); words.push({ w, s, e: s + w.length }); pos = s + w.length; } }
+  let a0 = -1, a1 = -1;
+  if (hlL) { const i = capText.toLowerCase().indexOf(hlL); if (i >= 0) { a0 = i; a1 = i + hl.length; } }
+  const isAct = (o, k) => a0 >= 0 ? (o.s < a1 && o.e > a0) : k === 0;
+  let html = "", seen = false, k = 0;
+  while (k < words.length) {
+    if (isAct(words[k], k)) {
+      const grp = [];
+      while (k < words.length && isAct(words[k], k)) grp.push('<span class="w">' + esc(words[k++].w) + "</span>");
+      html += '<span class="now">' + grp.join(" ") + "</span> "; seen = true;
+    } else { html += '<span class="w' + (seen ? "" : " said") + '">' + esc(words[k++].w) + "</span> "; }
+  }
+  cap.innerHTML = html.trim();
+  $("src").textContent = D.source ? "Sumber: " + D.source : "";
+  $("date").textContent = D.date || "";
+  if (!D.source && !D.date) $("foot").remove();
+  let capFs = 46;
+  for (; capFs >= 40; capFs -= 1) { cap.style.fontSize = capFs + "px"; if (cap.offsetHeight <= capFs * 1.24 * 2 + 2) break; }
+  if (capFs < 40) { capFs = 40; cap.style.fontSize = "40px"; }
+  const rules = $("rules");
+  const cardTop = 1620 - rules.offsetHeight;
+  rules.style.top = cardTop + "px";
+
+  // ---------- bench + bank base, bottom-up from the card ----------
+  const NOSE = 22, apronTop = cardTop - 14, seatFrontY = apronTop - NOSE;
+  let SEAT = 56, KICK = 42, PH = 64;                       // a compact pass shrinks these before the bays get short
+  let seatBackY = seatFrontY - SEAT, yBayB = seatBackY - KICK;
+  const G = 16, X0 = 90, X1 = 990, STILE = 9;
+  const colW = (X1 - X0 - (N - 1) * G) / N;
+  const colX = i => X0 + i * (colW + G);
+
+  // ---------- match strength -> door angle ----------
+  // all values numbers in one unit: angle proportional to the value (ties share angle + light);
+  // otherwise: lockers whose label/value matches the query (hl text, its number or a word) open wide, the rest stand equally ajar
+  const parseVal = s => {
+    const raw = String(s == null ? "" : s).trim();
+    const m = raw.match(/(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:[.,]\d+)?)/);
+    if (!m) return null;
+    const n = /^\d{1,3}(\.\d{3})+(,\d+)?$/.test(m[1]) ? m[1].replace(/\./g, "").replace(",", ".") : m[1].replace(",", ".");
+    const unit = (raw.slice(0, m.index) + " " + raw.slice(m.index + m[0].length)).toLowerCase().replace(/[^a-z%$€£¥]+/g, " ").trim();
+    return { v: parseFloat(n), unit, neg: /-\s*$/.test(raw.slice(0, m.index)) };
+  };
+  const pv = items.map(it => parseVal(it.value));
+  const numeric = items.length > 1 && pv.every(p => p && isFinite(p.v) && !p.neg) && pv.every(p => p.unit === pv[0].unit);
+  const vmax = numeric ? Math.max(...pv.map(p => p.v)) : 0;
+  let ang, lit;
+  if (numeric && vmax > 0) {
+    ang = pv.map(p => 10 + 102 * p.v / vmax);
+    lit = pv.map(p => p.v === vmax);
+  } else {
+    const nums = s => (String(s).match(/\d+(?:[.,]\d+)?/g) || []).map(x => parseFloat(x.replace(",", ".")));
+    const hn = nums(hl), hw = hlL.split(/[^a-z0-9À-ɏ]+/).filter(w => w.length >= 4);
+    lit = items.map(it => { const s = (String(it.label || "") + " " + String(it.value || "")).toLowerCase();
+      return !!hlL && (s.includes(hlL) || nums(s).some(n => hn.includes(n)) || hw.some(w => s.includes(w))); });
+    if (!lit.some(Boolean)) lit[0] = true;
+    ang = lit.map(h => (h ? 112 : 24));
+  }
+
+  // ---------- plates + cards (measured first: they set the header height) ----------
+  const heads = $("heads");
+  const pad2 = n => (n < 10 ? "0" : "") + n;
+  heads.innerHTML = items.map((it, i) =>
+    '<div class="hdr" style="left:' + (colX(i) + 3).toFixed(1) + 'px;width:' + (colW - 6).toFixed(1) + 'px;top:0">' +
+      '<div class="np' + (lit[i] ? " lit" : "") + '"><span class="num">' + pad2(i + 1) + '</span><span class="slits"></span></div>' +
+      '<div class="card' + (lit[i] ? " lit" : "") + '"><div class="lb">' + esc(it.label) + '</div><div class="vl">' + esc(it.value) + "</div></div>" +
+    "</div>").join("");
+  const cards = [...heads.querySelectorAll(".card")], lbs = [...heads.querySelectorAll(".lb")];
+  // one label size for the whole bank: biggest that keeps every label to <= 2 lines without breaking words
+  let lbFs = 48;
+  const probe = document.createElement("span");
+  probe.style.cssText = "position:absolute;visibility:hidden;white-space:nowrap;font-family:'Big Shoulders Stencil Display';font-weight:800;letter-spacing:.01em";
+  document.body.appendChild(probe);
+  const wordW = (w, fs) => { probe.style.fontSize = fs + "px"; probe.textContent = w; return probe.offsetWidth; };
+  const lbOk = () => lbs.every(el => el.offsetHeight <= lbFs * 1.02 * 2 + 2 && el.scrollWidth <= el.clientWidth + 1 &&
+    String(el.textContent).split(/\s+/).every(w => wordW(w, lbFs) <= el.clientWidth + 1));
+  for (; lbFs >= 30; lbFs -= 2) { lbs.forEach(el => el.style.fontSize = lbFs + "px"); if (lbOk()) break; }
+  if (lbFs < 30) { lbFs = 30; lbs.forEach(el => el.style.fontSize = "30px"); }
+  const cardH = Math.max(...cards.map(c => c.offsetHeight));
+  cards.forEach(c => c.style.height = cardH + "px");
+  let headH = 12 + PH + 10 + cardH + 22;
+
+  // ---------- title: stencil words, the hl range in amber paint ----------
+  const titleEl = $("title");
+  const at = hl ? t.toLowerCase().indexOf(hlL) : -1, atE = at < 0 ? -1 : at + hl.length;
+  { let th = "", pos = 0;
+    for (const w of t.split(/\s+/).filter(Boolean)) {
+      const s = t.indexOf(w, pos), e = s + w.length; pos = e;
+      const cut = (x, y) => esc(t.slice(x, y));
+      let inner = cut(s, e);
+      if (at >= 0 && s < atE && e > at) { const p = Math.max(s, at), q = Math.min(e, atE); inner = cut(s, p) + '<span class="hl">' + cut(p, q) + "</span>" + cut(q, e); }
+      th += '<span class="tw">' + inner + "</span> ";
+    }
+    titleEl.innerHTML = th.trim(); }
+  const subEl = $("sub");
+  const hasSub = !!(D.caption && D.sub && D.caption !== D.sub);
+  if (hasSub) subEl.textContent = D.sub; else subEl.remove();
+  const subH = hasSub ? 18 + subEl.offsetHeight : 0;
+
+  // biggest title (<= 3 lines) that still leaves the door bays at least MINBAY tall
+  const FT = 326, TT = 370, FPB = 30, MINBAY = 330;
+  const tws = [...titleEl.querySelectorAll(".tw")];
+  let titleFs = 136;
+  const fitTitle = (minFs, minBay) => {
+    for (titleFs = 136; titleFs >= minFs; titleFs -= 2) {
+      titleEl.style.fontSize = titleFs + "px";
+      const h = titleEl.offsetHeight, lines = Math.round(h / (titleFs * 0.96));
+      if (tws.every(s => s.offsetWidth <= 860) && lines <= 3 && h <= 340 && yBayB - (TT + h + subH + FPB + headH) >= minBay) return true;
+    }
+    titleFs = minFs; titleEl.style.fontSize = minFs + "px"; return false;
+  };
+  if (!fitTitle(80, MINBAY)) {
+    // dense data (long title + sub + long caption + 5 two-line cards): lower seat, kick and number plates first
+    SEAT = 40; KICK = 30; PH = 54; seatBackY = seatFrontY - SEAT; yBayB = seatBackY - KICK; headH = 12 + PH + 10 + cardH + 22;
+    if (!fitTitle(80, MINBAY)) fitTitle(72, 230);
+  }
+  heads.querySelectorAll(".np").forEach(el => { el.style.height = PH + "px"; });
+  heads.querySelectorAll(".num").forEach(el => { el.style.fontSize = (PH < 64 ? 40 : 46) + "px"; });
+  const titleH = titleEl.offsetHeight;
+  titleEl.style.top = TT + "px";
+  if (hasSub) subEl.style.top = (TT + titleH + 18) + "px";
+  const fasciaB = TT + titleH + subH + FPB;
+  const yHead = fasciaB, yBay = yHead + headH, bayH = yBayB - yBay;
+  heads.querySelectorAll(".hdr").forEach(h => h.style.top = (yHead + 12) + "px");
+
+  // ---------- bank frame: riveted name rail, column rails, bays, kick plates ----------
+  const cols = []; for (let i = -1; i <= N; i++) cols.push(i);
+  let bank = '<div class="abs" style="left:-40px;top:' + FT + 'px;width:1160px;height:' + (seatBackY - FT) + 'px;background:linear-gradient(180deg,#56697D,#4A5C6F 55%,#3F5062)"></div>';
+  bank += '<div class="fascia" style="top:' + FT + "px;height:" + (fasciaB - FT) + 'px"></div>';
+  for (let x = 14; x < 1080; x += 52) {
+    bank += '<i class="rv" style="left:' + (x - 6) + "px;top:" + (FT + 9) + 'px"></i><i class="rv" style="left:' + (x - 6) + "px;top:" + (fasciaB - 21) + 'px"></i>';
+  }
+  // stencil overspray: the soft rectangle the stencil sheet left round each painted line
+  { const lines = [];
+    tws.forEach(s => { const top = s.offsetTop; let L = lines.find(l => Math.abs(l.top - top) < 4); if (!L) lines.push(L = { top, l: 1e9, r: -1e9 }); L.l = Math.min(L.l, s.offsetLeft); L.r = Math.max(L.r, s.offsetLeft + s.offsetWidth); });
+    lines.forEach(L => { bank += '<div class="spray" style="left:' + (110 + L.l - 20) + "px;top:" + (TT + L.top - 4) + "px;width:" + (L.r - L.l + 40) + "px;height:" + Math.round(titleFs * 0.98) + 'px"></div>'; }); }
+  for (const i of cols) {
+    const x = colX(i);
+    bank += '<div class="abs rail" style="left:' + x + "px;top:" + yHead + "px;width:" + colW + "px;height:" + headH + 'px"></div>';
+    bank += '<div class="abs void" style="left:' + (x + STILE) + "px;top:" + yBay + "px;width:" + (colW - 2 * STILE) + "px;height:" + bayH + 'px"></div>';
+    bank += '<div class="abs kick" style="left:' + (x + 6) + "px;top:" + (yBayB + 6) + "px;width:" + (colW - 12) + "px;height:" + (KICK - 10) + 'px"><i></i></div>';
+    bank += '<div class="abs seam" style="left:' + (x + colW) + "px;top:" + yHead + "px;width:" + G + "px;height:" + (seatBackY - yHead) + 'px"></div>';
+    if (i < 0 || i >= N) {
+      // neighbouring lockers of the same bank, closed (no text: they run off the frame)
+      bank += '<div class="abs" style="left:' + (x + 6) + "px;top:" + (yHead + 12) + "px;width:" + (colW - 12) + 'px;height:' + PH + 'px;background:#18212B;border-radius:4px"></div>';
+      bank += '<div class="blank" style="left:' + (x + 6) + "px;top:" + (yHead + 22 + PH) + "px;width:" + (colW - 12) + "px;height:" + cardH + 'px"></div>';
+      bank += '<div class="abs" style="left:' + (x + STILE) + "px;top:" + yBay + "px;width:" + (colW - 2 * STILE) + "px;height:" + bayH + 'px">' + doorOut(0, bayH) + "</div>";
+    }
+  }
+  $("bank").innerHTML = bank;
+
+  function doorOut(dimA, h) {
+    const lvH = Math.round(h * 0.12);
+    return '<div class="face out">' +
+      '<div class="lv" style="top:' + Math.round(h * 0.06) + "px;height:" + lvH + 'px"></div>' +
+      '<div class="lv" style="top:' + Math.round(h * 0.82) + "px;height:" + lvH + 'px"></div>' +
+      '<div class="lk" style="top:' + Math.round(h * 0.38) + 'px"></div>' +
+      '<div class="hd" style="top:' + Math.round(h * 0.45) + "px;height:" + Math.round(h * 0.15) + 'px"></div>' +
+      '<div class="dim" style="opacity:' + dimA.toFixed(2) + '"></div></div>';
+  }
+
+  // one camera for everything: eye level a little below the top of the doors
+  const P = 1500, VX = 540, VY = Math.round(yBay + bayH * 0.2), DEPTH = 300;
+  const proj = (x, y, z) => { const s = P / (P - z); return [VX + (x - VX) * s, VY + (y - VY) * s]; };
+
+  // ---------- interiors (3D, clipped to the doorway) + doors ----------
+  let inside = "", doors = "";
+  items.forEach((it, i) => {
+    const L = colX(i) + STILE, Wb = colW - 2 * STILE, T = yBay, Hb = bayH;
+    const po = (VX - L).toFixed(1) + "px " + (VY - T).toFixed(1) + "px";
+    const on = lit[i], w = Math.min(1, ang[i] / 80);
+    const back = on ? "linear-gradient(180deg,#FFD58E 0%,#F2A33A 30%,#C7741F 75%,#8E4F17 100%)" : "linear-gradient(180deg,#1C2630,#121920)";
+    const side = on ? "linear-gradient(90deg,#E5932F,#A9601B)" : "linear-gradient(90deg,#28333F,#1A222B)";
+    const ceil = on ? "#FFE3AE" : "#141B22";
+    const flo = on ? "linear-gradient(180deg,#F7B256,#D98A2D)" : "linear-gradient(180deg,#2E3A47,#232D38)";
+    const glow = on ? "" : '<div class="abs" style="inset:0;transform:translateZ(-' + (DEPTH - 1) + 'px);background:radial-gradient(ellipse 80% 55% at 50% 0%,rgba(242,163,58,' + (0.08 + 0.2 * w).toFixed(2) + '),transparent 75%)"></div>';
+    const shelfY = Math.round(Hb * 0.27);
+    inside += '<div class="abs" style="left:' + L + "px;top:" + T + "px;width:" + Wb + "px;height:" + Hb + "px;overflow:hidden;perspective:" + P + "px;perspective-origin:" + po + '">' +
+      '<div class="abs" style="left:0;top:0;width:' + Wb + "px;height:" + Hb + "px;transform:translateZ(-" + DEPTH + "px);background:" + back + '"></div>' + glow +
+      '<div class="abs" style="left:0;top:0;width:' + Wb + "px;height:" + DEPTH + "px;transform-origin:50% 0;transform:rotateX(-90deg);background:" + ceil + '"></div>' +
+      '<div class="abs" style="left:0;top:' + Hb + "px;width:" + Wb + "px;height:" + DEPTH + "px;transform-origin:50% 0;transform:rotateX(-90deg);background:" + flo + '"></div>' +
+      '<div class="abs" style="left:0;top:0;width:' + DEPTH + "px;height:" + Hb + "px;transform-origin:0 50%;transform:rotateY(90deg);background:" + side + '"></div>' +
+      '<div class="abs" style="left:' + Wb + "px;top:0;width:" + DEPTH + "px;height:" + Hb + "px;transform-origin:0 50%;transform:rotateY(90deg);background:" + side + '"></div>' +
+      // hat shelf: top surface + front lip + its shadow on the back panel
+      '<div class="abs" style="left:0;top:' + shelfY + "px;width:" + Wb + "px;height:" + (DEPTH - 8) + "px;transform-origin:50% 0;transform:translateZ(-8px) rotateX(-90deg);background:" + (on ? "#FFD48A" : "#33404E") + '"></div>' +
+      '<div class="abs" style="left:0;top:' + shelfY + "px;width:" + Wb + "px;height:10px;transform:translateZ(-8px);background:" + (on ? "#B8691D" : "#3D4B5A") + '"></div>' +
+      '<div class="abs" style="left:0;top:' + (shelfY + 10) + "px;width:" + Wb + "px;height:" + Math.round(Hb * 0.16) + "px;transform:translateZ(-" + (DEPTH - 2) + "px);background:linear-gradient(180deg,rgba(0,0,0," + (on ? ".28" : ".4") + '),transparent)"></div>' +
+      // coat hook on the back panel
+      '<div class="abs" style="left:' + (Wb / 2 - 5) + "px;top:" + (shelfY + Math.round(Hb * 0.12)) + "px;width:10px;height:34px;border-radius:0 0 8px 8px;border:4px solid " + (on ? "#7A4A15" : "#8C6A3A") + ";border-top:0;transform:translateZ(-" + (DEPTH - 3) + 'px)"></div>' +
+      "</div>";
+    // the door: hinge on the left, swings toward the camera by its angle
+    const th = ang[i];
+    doors += '<div class="abs" style="left:' + L + "px;top:" + T + "px;width:" + Wb + "px;height:" + Hb + "px;perspective:" + P + "px;perspective-origin:" + po + '">' +
+      '<div class="abs" style="inset:0;transform-style:preserve-3d;transform-origin:0 50%;transform:rotateY(' + (-th).toFixed(1) + 'deg)">' +
+        doorOut(0.06 + 0.3 * Math.min(1, th / 80), Hb) +
+        '<div class="face inn"><div class="ch"></div><div class="warm" style="background:' + (on ? "linear-gradient(270deg,rgba(242,163,58,.46),rgba(242,163,58,.08) 75%)" : "linear-gradient(270deg,rgba(242,163,58," + (0.05 + 0.12 * w).toFixed(2) + "),transparent)") + '"></div></div>' +
+        '<div class="edge" style="left:' + Wb + 'px"></div>' +
+      "</div></div>";
+  });
+  $("inside").innerHTML = inside;
+  $("doors").innerHTML = doors;
+
+  // ---------- room: plain painted wall, towel-hook rail, shadow under the bank top ----------
+  let room = '<defs><linearGradient id="wl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#17202A"/><stop offset="1" stop-color="#26323F"/></linearGradient>' +
+    '<linearGradient id="rw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#A8805A"/><stop offset="1" stop-color="#7A5A38"/></linearGradient>' +
+
+    '<linearGradient id="ao" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#05080C" stop-opacity="0"/><stop offset="1" stop-color="#05080C" stop-opacity=".5"/></linearGradient>' +
+    '<filter id="sb" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="5"/></filter></defs>';
+  room += '<rect width="1080" height="1920" fill="url(#wl)"/>';
+  // wooden hook rail with six steel J-hooks; a striped towel on the last one
+  room += '<rect x="-20" y="178" width="1120" height="38" fill="#05080C" opacity=".45" filter="url(#sb)" transform="translate(0 8)"/>' +
+    '<rect x="-20" y="170" width="1120" height="38" rx="3" fill="url(#rw)"/><rect x="-20" y="170" width="1120" height="3" fill="#C9A274" opacity=".7"/>';
+  [100, 280, 460, 640, 820, 1000].forEach(x => {
+    room += '<circle cx="' + (x - 46) + '" cy="189" r="4" fill="#4E3820"/>' +
+      '<path d="M' + x + " 196v24q0 24 22 24q14 0 14 -14" + '" fill="none" stroke="#05080C" stroke-opacity=".4" stroke-width="7" stroke-linecap="round" transform="translate(6 8)" filter="url(#sb)"/>' +
+      '<ellipse cx="' + x + '" cy="189" rx="10" ry="12" fill="#56697D" stroke="#1A222B" stroke-width="2"/>' +
+      '<path d="M' + x + " 194v26q0 24 22 24q14 0 14 -14" + '" fill="none" stroke="#1A222B" stroke-width="9" stroke-linecap="round"/>' +
+      '<path d="M' + x + " 194v26q0 24 22 24q14 0 14 -14" + '" fill="none" stroke="#9DB0C2" stroke-width="5" stroke-linecap="round"/>';
+  });
+  room +='<rect x="0" y="' + (FT - 44) + '" width="1080" height="44" fill="url(#ao)"/>';
+  $("room").innerHTML = room;
+
+  // ---------- slatted bench in front of the bank, its base carrying the rules card ----------
+  const sB = (seatFrontY - VY) / (seatBackY - VY), ZB = P * (1 - 1 / sB);
+  const pt = p => p[0].toFixed(1) + " " + p[1].toFixed(1);
+  let bench = '<defs><linearGradient id="wd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#A27A4A"/><stop offset="1" stop-color="#BC9562"/></linearGradient>' +
+    '<linearGradient id="ns" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#97703F"/><stop offset="1" stop-color="#6A4B29"/></linearGradient>' +
+    '<linearGradient id="ap" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2C3846"/><stop offset="1" stop-color="#18212A"/></linearGradient>' +
+    '<linearGradient id="us" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#05080C" stop-opacity=".6"/><stop offset="1" stop-color="#05080C" stop-opacity="0"/></linearGradient>' +
+    '<linearGradient id="sp" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + AMBER + '" stop-opacity=".85"/><stop offset="1" stop-color="' + AMBER + '" stop-opacity=".3"/></linearGradient></defs>';
+  bench += '<rect x="0" y="' + seatBackY + '" width="1080" height="' + (seatFrontY - seatBackY + 1) + '" fill="#0C1117"/>';
+  const SL = 4, gap = ZB * 0.045;
+  for (let s = 0; s < SL; s++) {
+    const z0 = ZB * s / SL + (s ? gap / 2 : 0), z1 = ZB * (s + 1) / SL - (s < SL - 1 ? gap / 2 : 0);
+    bench += '<path d="M' + pt(proj(-500, seatBackY, z0)) + "L" + pt(proj(1580, seatBackY, z0)) + "L" + pt(proj(1580, seatBackY, z1)) + "L" + pt(proj(-500, seatBackY, z1)) + 'Z" fill="url(#wd)"/>';
+    // two faint grain lines per slat
+    [0.35, 0.7].forEach((f, g) => { const y = proj(0, seatBackY, z0 + (z1 - z0) * f)[1]; bench += '<path d="M0 ' + y.toFixed(1) + (g ? "H1080" : "H640M760 " + y.toFixed(1) + "H1080") + '" stroke="#7E5C35" stroke-width="1.4" opacity=".45"/>'; });
+  }
+  // light from each open locker falling forward onto the slats and the front edge
+  items.forEach((_, i) => {
+    const L = colX(i) + STILE, R = L + colW - 2 * STILE, w = Math.min(1, ang[i] / 80);
+    const op = lit[i] ? 0.85 : 0.05 + 0.12 * w;
+    const fl = proj(L - 16, seatBackY, ZB), fr = proj(R + 16, seatBackY, ZB);
+    bench += '<path d="M' + L + " " + seatBackY + "L" + R + " " + seatBackY + "L" + pt(fr) + "L" + pt(fl) + 'Z" fill="url(#sp)" opacity="' + op.toFixed(2) + '"/>';
+    if (lit[i]) bench += '<rect x="' + fl[0].toFixed(1) + '" y="' + seatFrontY + '" width="' + (fr[0] - fl[0]).toFixed(1) + '" height="' + NOSE + '" fill="' + AMBER + '" opacity=".28"/>';
+  });
+  bench += '<rect x="0" y="' + (seatBackY - 1) + '" width="1080" height="7" fill="#05080C" opacity=".45"/>';
+  bench += '<rect x="0" y="' + seatFrontY + '" width="1080" height="' + NOSE + '" fill="url(#ns)"/><rect x="0" y="' + seatFrontY + '" width="1080" height="2" fill="#D9B783" opacity=".75"/>';
+  items.forEach((_, i) => { if (!lit[i]) return; const fl = proj(colX(i) + STILE - 16, seatBackY, ZB), fr = proj(colX(i) + colW - STILE + 16, seatBackY, ZB);
+    bench += '<rect x="' + fl[0].toFixed(1) + '" y="' + seatFrontY + '" width="' + (fr[0] - fl[0]).toFixed(1) + '" height="' + NOSE + '" fill="' + AMBER + '" opacity=".3"/>'; });
+  bench += '<rect x="0" y="' + apronTop + '" width="1080" height="' + (1800 - apronTop) + '" fill="url(#ap)"/>' +
+    '<rect x="0" y="' + apronTop + '" width="1080" height="34" fill="url(#us)"/>';
+  for (let x = 60; x < 1080; x += 80) bench += '<rect x="' + x + '" y="1692" width="44" height="9" rx="4" fill="#0E141A"/><rect x="' + x + '" y="1712" width="44" height="9" rx="4" fill="#0E141A"/>';
+  bench += '<rect x="0" y="1800" width="1080" height="120" fill="#0B1015"/><rect x="0" y="1800" width="1080" height="18" fill="#05080C" opacity=".7"/>';
+  $("bench").innerHTML = bench;
+
+  // amber halo round each lit locker, soft overhead light, edge vignette
+  const halos = items.map((_, i) => lit[i] ? "radial-gradient(ellipse " + (colW * 1.1).toFixed(0) + "px " + (bayH * 0.75).toFixed(0) + "px at " + (colX(i) + colW / 2).toFixed(0) + "px " + (yBay + bayH * 0.45).toFixed(0) + "px, rgba(242,163,58,.16), rgba(242,163,58,0) 100%)" : "").filter(Boolean);
+  $("shade").style.background = halos.concat([
+    "radial-gradient(ellipse 820px 1150px at 540px 860px, rgba(255,240,215,.05), rgba(255,240,215,0) 70%)",
+    "radial-gradient(ellipse 760px 1240px at 540px 960px, rgba(6,9,13,0) 62%, rgba(6,9,13,.55) 100%)"]).join(",");
+
+  // ---------- foreground key tag: burned with the QUERY word, hung from a brass hook on the door-head rail ----------
+  const tag = $("tag");
+  const firstLit = lit.indexOf(true);
+  const query = (hl || (items[firstLit] || {}).label || t.split(/\s+/)[0] || "").toUpperCase();
+  const tagS = clamp((seatBackY + 4 - (yBay + 40)) / 380, 0.45, 1);
+  // pick the hanging point (column seams + unlit column centres) that hides the least of the lit interiors and wide-open doors
+  const hw = 112 * tagS + 18;
+  const litR = items.map((_, i) => (lit[i] ? [colX(i) + STILE, colX(i) + colW - STILE] : null)).filter(Boolean);
+  const sweep = items.map((_, i) => (ang[i] > 90 ? [colX(i) + STILE + (colW - 2 * STILE) * Math.cos(ang[i] * Math.PI / 180) * 1.25, colX(i) + STILE] : null)).filter(Boolean);
+  const ov = (p, q, r) => Math.max(0, Math.min(q, r[1]) - Math.max(p, r[0]));
+  const cands = [];
+  for (let i = 0; i < N - 1; i++) cands.push(colX(i + 1) - G / 2);
+  for (let i = 0; i < N; i++) if (!lit[i]) cands.push(colX(i) + colW / 2);
+  let best = null, bestC = Infinity;
+  for (const x0 of cands) {
+    const x = clamp(x0, 70 + hw, 890 - hw);
+    const c =litR.reduce((s, r) => s + 2 * ov(x - hw, x + hw, r), 0) + sweep.reduce((s, r) => s + ov(x - hw, x + hw, r), 0) + 0.05 * Math.abs(x - 540);
+    if (c < bestC) { bestC = c; best = x; }
+  }
+  if (best == null) best = clamp(540, 70 + hw, 890 - hw);
+  const right = best >= 540;                              // the tag tilts toward the centre
+  let tagX = Math.round(best - 112);
+  const tagY = Math.round(Math.min(seatBackY + 4 - 380 * tagS, Math.max(yBay + 40, yBay + bayH * 0.46 - 150 * tagS)));
+  const grain = ["M22 14C30 70 16 130 26 190S18 262 24 300", "M44 8C50 60 40 120 48 176S42 250 46 300", "M70 6C64 70 76 128 68 188S74 256 70 300",
+    "M118 6C124 66 112 124 120 186S114 252 120 300", "M146 10C140 64 152 126 144 182S150 254 146 300", "M170 16C176 72 166 132 174 192S168 262 172 296",
+    "M92 60C100 82 84 104 94 128", "M132 196C126 220 140 236 132 262"];
+  tag.innerHTML =
+    '<svg viewBox="0 0 224 380" xmlns="http://www.w3.org/2000/svg">' +
+      '<defs><linearGradient id="tg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E2C08C"/><stop offset=".55" stop-color="#D2AA72"/><stop offset="1" stop-color="#B98E57"/></linearGradient>' +
+      '<linearGradient id="br" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F6CE86"/><stop offset=".5" stop-color="#C8913A"/><stop offset="1" stop-color="#7A5520"/></linearGradient></defs>' +
+      // brass key on the bottom eyelet
+      '<g transform="rotate(' + (right ? 9 : -9) + ' 112 300)"><circle cx="112" cy="320" r="16" fill="none" stroke="url(#br)" stroke-width="8"/>' +
+      '<path d="M107 334H117V376H107Z M117 352H127V358H117Z M117 365H124V371H117Z" fill="url(#br)" stroke="#6B4A1C" stroke-width="1.5"/></g>' +
+      '<rect x="3" y="3" width="218" height="300" rx="22" fill="url(#tg)" stroke="#7A5428" stroke-width="4"/>' +
+      '<g transform="scale(1.143 1)">' + grain.map(d => '<path d="' + d + '" fill="none" stroke="#A47A45" stroke-width="2" stroke-opacity=".45"/>').join("") + "</g>" +
+      '<rect x="11" y="11" width="202" height="284" rx="16" fill="none" stroke="#F3DDB4" stroke-opacity=".55" stroke-width="2"/>' +
+      '<path d="M44 64H180M44 276H180" stroke="#5A3A1E" stroke-width="3" stroke-opacity=".55" stroke-linecap="round"/>' +
+      '<circle cx="112" cy="34" r="16" fill="url(#br)" stroke="#6B4A1C" stroke-width="2"/><circle cx="112" cy="34" r="8" fill="#2A1D10"/>' +
+      '<circle cx="112" cy="290" r="6" fill="#6B4A1C"/>' +
+      '<ellipse cx="112" cy="20" rx="13" ry="17" fill="none" stroke="#6B4A1C" stroke-width="6"/><ellipse cx="112" cy="20" rx="13" ry="17" fill="none" stroke="url(#br)" stroke-width="3.5"/>' +
+    "</svg>" +
+    '<div class="tagq" id="tagq">' + query.split(/\s+/).filter(Boolean).map(w => '<span class="qw">' + esc(w) + "</span>").join(" ") + "</div>" +
+    '<div id="eye" style="position:absolute;left:110px;top:32px;width:4px;height:4px"></div>';
+  // the query: as big as the tag allows (<= 3 lines, no broken words), always smaller than the title
+  const tq = $("tagq"), qws = [...tq.querySelectorAll(".qw")];
+  let qFs = Math.min(96, titleFs - 10);
+  for (; qFs >= 30; qFs -= 2) { tq.style.fontSize = qFs + "px"; if (qws.every(s => s.offsetWidth <= 200) && tq.offsetHeight <= 196) break; }
+  if (qFs < 30) { tq.style.fontSize = "30px"; tq.style.overflowWrap = "anywhere"; qws.forEach(s => s.style.whiteSpace = "normal"); }
+  tq.style.top = Math.round(72 + (198 - tq.offsetHeight) / 2) + "px";
+  tag.style.top = tagY + "px";
+  tag.style.transform = "perspective(900px) rotateY(" + (right ? -18 : 18) + "deg) rotateZ(" + (right ? 6 : -6) + "deg) scale(" + tagS.toFixed(3) + ")";
+  tag.style.left = tagX + "px";
+  // keep the whole rotated tag (key included) out of the action-button strip and off the left edge
+  { const r = tag.getBoundingClientRect(); if (r.right > 890) tagX -= Math.ceil(r.right - 890); if (r.left < 70) tagX += Math.ceil(70 - r.left); tag.style.left = tagX + "px"; }
+
+  // translucent plastic wrist coil from the brass hook down to the tag's ring; soft shadows on the doors behind
+  const er = tag.getBoundingClientRect(), eye = $("eye").getBoundingClientRect();
+  const ex = eye.left + eye.width / 2, ey = eye.top + eye.height / 2;
+  const hx = Math.round(ex + (right ? -8 : 8)), hy = yBay - 2;
+  const A = [hx, hy + 18], E = [ex, ey - 32 * tagS], C = [(A[0] + E[0]) / 2 + (right ? 14 : -14), (A[1] + E[1]) / 2];
+  const bez = u => [(1 - u) * (1 - u) * A[0] + 2 * (1 - u) * u * C[0] + u * u * E[0], (1 - u) * (1 - u) * A[1] + 2 * (1 - u) * u * C[1] + u * u * E[1]];
+  const len = Math.hypot(E[0] - A[0], E[1] - A[1]);
+  const turns = Math.max(4, Math.round(len / 9)), rr = 11, pts = [], STEPS = 520;
+  for (let s = 0; s <= STEPS; s++) {
+    const u = s / STEPS, p = bez(u), q = bez(Math.min(1, u + 0.003)), o = bez(Math.max(0, u - 0.003));
+    let dx = q[0] - o[0], dy = q[1] - o[1]; const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
+    const ph = 2 * Math.PI * turns * u;
+    pts.push([p[0] + dy * rr * Math.cos(ph) - dx * rr * 0.4 * Math.sin(ph), p[1] - dx * rr * Math.cos(ph) - dy * rr * 0.4 * Math.sin(ph), Math.sin(ph) < 0]);
+  }
+  const run = front => { let d = "", on = false; pts.forEach(p => { if (p[2] === front) { d += (on ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1); on = true; } else on = false; }); return d; };
+  const coil = "M" + A[0] + " " + (A[1] - 12) + "L" + pts.map(p => p[0].toFixed(1) + " " + p[1].toFixed(1)).join("L") + "L" + ex.toFixed(1) + " " + (ey - 24 * tagS).toFixed(1);
+  const sx = right ? -30 : 30;
+  $("tagfx").innerHTML = '<defs><filter id="bl" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="16"/></filter>' +
+    '<linearGradient id="hk" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F6CE86"/><stop offset="1" stop-color="#8A5E22"/></linearGradient></defs>' +
+    '<rect x="' + (er.left + sx + 8).toFixed(1) + '" y="' + (er.top + 36).toFixed(1) + '" width="' + (er.width - 16).toFixed(1) + '" height="' + (er.height * 0.74).toFixed(1) + '" rx="26" fill="#05080C" opacity=".5" filter="url(#bl)"/>' +
+    '<path d="' + coil + '" transform="translate(' + sx + ' 24)" fill="none" stroke="#05080C" stroke-width="6" opacity=".35" filter="url(#bl)"/>' +
+    // brass cup hook screwed to the door-head rail
+    '<rect x="' + (hx - 14) + '" y="' + (hy - 12) + '" width="28" height="18" rx="4" fill="url(#hk)" stroke="#5E4118" stroke-width="2"/>' +
+    '<path d="M' + hx + " " + (hy + 4) + "V" + (hy + 18) + "a7 7 0 0 0 14 0" + '" fill="none" stroke="url(#hk)" stroke-width="5" stroke-linecap="round"/>' +
+    '<path d="' + coil + '" fill="none" stroke="#B8691D" stroke-opacity=".38" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '<path d="' + run(true) + '" fill="none" stroke="' + AMBER + '" stroke-opacity=".62" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '<path d="' + run(true) + '" fill="none" stroke="#FFE6BE" stroke-opacity=".8" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" transform="translate(-1 -1)"/>';
+  }
+</script>
+</body>
+</html>

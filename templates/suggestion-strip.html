@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wdth,wght@75..100,400..700&family=Martian+Mono:wdth,wght@75..112.5,400..600&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Suggestion Strip: a whole phone screen in a light chat app with the keyboard up.
+    Top: status bar + app header (avatar = ep, name = series, grey subtitle = date).
+    Title = the last received message bubble; D.hl sits in it as an inserted-suggestion word.
+    Composer = the karaoke caption, typed like a reply (typed ink, composing word + caret, ghost rest).
+    Keyboard = the items. n <= 3: one candidate slot per item in the suggestion strip (label + value).
+    n >= 4 (or when the strip cannot hold label >= 32 / value >= 30): the strip keeps the pick and its
+    two neighbours, and the full list opens as the expanded-suggestions panel (numbered 2-column
+    candidate grid) in place of the q-p and a-l rows; z-m and the bottom row stay.
+    Pick = item whose label/value equals D.hl, else the largest comparable value, else the middle.
+    The space bar carries the source like a language label.
+    Metaphor: a base language model is a giant suggestion bar that only continues text.
+  */
+  :root { --bg: #F2F1EC; --white: #FFFFFF; --ink: #1B1D22; --blue: #2F6BFF; --tray: #D8D5CC; --mut: #45474D; --ghost: #6B6A65; --key2: #C2BEB2; --deep: #2559E6; --line: #DCD9D1; --tint: #E4EBFF; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--bg); }
+  body { position: relative; color: var(--ink); font-family: "Instrument Sans", sans-serif; }
+
+  /* app bar: status row + chat header */
+  .appbar { position: absolute; left: 0; top: 0; width: 1080px; height: 412px; background: var(--white); border-bottom: 2px solid var(--line); }
+  .clock { position: absolute; left: 90px; top: 172px; font-weight: 600; font-size: 34px; line-height: 1.1; letter-spacing: -0.01em; color: var(--ink); }
+  .avatar { position: absolute; left: 90px; top: 300px; width: 90px; height: 90px; border-radius: 50%; background: #1D4FD6; color: var(--white); display: flex; align-items: center; justify-content: center; font: 600 28px "Martian Mono", monospace; letter-spacing: -0.02em; white-space: nowrap; }
+  .who { position: absolute; left: 206px; top: 300px; width: 560px; }
+  .who .name { font-weight: 600; font-size: 40px; line-height: 1.1; letter-spacing: -0.015em; color: var(--ink); white-space: nowrap; }
+  .who .subt { margin-top: 4px; font-weight: 500; font-size: 28px; line-height: 1.2; color: var(--mut); white-space: nowrap; }
+
+  /* last received bubble = title */
+  .bubble { position: absolute; left: 60px; max-width: 960px; background: var(--white); border-radius: 8px 40px 40px 40px; padding: 22px 40px 26px; box-shadow: 0 3px 0 rgba(27, 29, 34, 0.08); }
+  .title { font-weight: 600; line-height: 1.04; letter-spacing: -0.03em; color: var(--ink); text-wrap: balance; }
+  /* the tint starts below the line above, so it never paints over that line's descenders */
+  .title .hl { position: relative; white-space: nowrap; color: var(--deep); padding: 0 0.08em; }
+  .title .hl::before { content: ""; position: absolute; left: 0; right: 0; top: 0.14em; bottom: -0.02em; background: var(--tint); border-radius: 0.12em; box-shadow: inset 0 -0.06em 0 var(--blue); }
+  .title .hl > span { position: relative; }
+
+  /* composer */
+  .field { position: absolute; left: 60px; width: 960px; background: var(--white); border-radius: 50px; border: 2px solid var(--line); box-shadow: 0 2px 0 rgba(27, 29, 34, 0.05); }
+  .cap { position: absolute; left: 104px; width: 796px; line-height: 1.3; font-weight: 500; letter-spacing: -0.01em; }
+  .cap .w { color: var(--ink); }
+  .cap .w.next { color: var(--ghost); }
+  .cap .w.on { color: #1D4FD6; background: var(--tint); border-radius: 8px; padding: 0 6px; margin: 0 -2px; box-shadow: inset 0 -5px 0 var(--blue); }
+  .cap .caret { display: inline-block; width: 4px; height: 1.05em; margin: 0 2px 0 5px; background: var(--blue); border-radius: 2px; vertical-align: -0.17em; }
+
+  /* keyboard */
+  .tray { position: absolute; left: 0; width: 1080px; bottom: 0; background: var(--tray); border-top: 2px solid #CAC6BB; }
+  .slot { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; }
+  .slot .lb { font-weight: 600; line-height: 1.08; letter-spacing: -0.015em; color: var(--ink); white-space: nowrap; }
+  .slot .vl { font-family: "Martian Mono", monospace; font-stretch: 87.5%; font-weight: 500; line-height: 1.1; color: var(--mut); white-space: nowrap; letter-spacing: -0.02em; }
+  .slot.pick .lb { color: var(--deep); font-weight: 700; }
+  .slot.pick .vl { color: var(--deep); font-weight: 600; }
+  .chip { position: absolute; background: var(--white); border-radius: 30px; box-shadow: 0 4px 0 rgba(27, 29, 34, 0.2); }
+  .ring { position: absolute; border-style: solid; border-color: var(--blue); }
+  .sep { position: absolute; width: 2px; background: #B6B2A7; border-radius: 1px; }
+
+  /* expanded-suggestions panel */
+  .cand { position: absolute; background: var(--white); border-radius: 16px; box-shadow: 0 4px 0 rgba(27, 29, 34, 0.22); display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+  .cand .ix { position: absolute; left: 24px; top: 50%; transform: translateY(-50%); font: 500 28px "Martian Mono", monospace; line-height: 1; color: var(--ghost); }
+  .cand .glb { font-weight: 600; line-height: 1.06; letter-spacing: -0.015em; color: var(--ink); white-space: nowrap; }
+  .cand .gvl { font-family: "Martian Mono", monospace; font-weight: 500; line-height: 1.12; letter-spacing: -0.02em; color: var(--mut); white-space: nowrap; }
+  .cand.pick { box-shadow: 0 0 0 4px var(--blue), 0 4px 0 rgba(27, 29, 34, 0.22); }
+  .cand.pick .glb, .cand.pick .gvl, .cand.pick .ix { color: var(--deep); }
+  .cand.pick .glb { font-weight: 700; }
+
+  .key { position: absolute; background: var(--white); border-radius: 16px; box-shadow: 0 4px 0 rgba(27, 29, 34, 0.24); display: flex; align-items: center; justify-content: center; font-weight: 400; font-size: 48px; line-height: 1; color: #2A2C32; }
+  .key.fn { background: var(--key2); font-size: 34px; font-weight: 600; letter-spacing: 0.01em; }
+  .key.space { padding: 0 22px; }
+  .key.space .src { display: block; text-wrap: balance; text-align: center; font-weight: 500; color: var(--mut); line-height: 1.2; }
+  .day { position: absolute; background: var(--white); border-radius: 20px; padding: 8px 24px; font-weight: 500; font-size: 26px; line-height: 1.2; color: var(--mut); white-space: nowrap; box-shadow: 0 2px 0 rgba(27, 29, 34, 0.06); }
+  svg.ic { position: absolute; overflow: visible; }
+</style>
+</head>
+<body>
+<div class="appbar"></div>
+<div class="clock">09.41</div>
+<div class="avatar" id="ava"></div>
+<div class="who"><div class="name" id="name"></div><div class="subt" id="subt"></div></div>
+<div class="bubble" id="bubble"><div class="title" id="title"></div></div>
+<div class="field" id="field"></div>
+<div class="cap" id="cap" data-slot="caption"></div>
+<div class="tray" id="tray"></div>
+<div id="kb"></div>
+<script>
+  // Fallback sample so the file also opens on its own in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const fontsIn = Promise.all(['600 100px "Instrument Sans"', '700 44px "Instrument Sans"', '500 44px "Instrument Sans"', '500 30px "Martian Mono"', '600 30px "Martian Mono"']
+    .map(f => document.fonts.load(f))).then(() => document.fonts.ready).catch(() => {});
+  fontsIn.then(render);
+  // re-lay out if a face finishes loading after the first pass (render is idempotent)
+  document.fonts.addEventListener("loadingdone", () => render());
+
+  function render() {
+    const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const str = s => String(s == null ? "" : s);
+    const $ = id => document.getElementById(id);
+    const kb = $("kb");
+    kb.innerHTML = "";
+    const add = (cls, x, y, w, h, html, attrs, parent) => {
+      const el = document.createElement("div"); el.className = cls;
+      Object.assign(el.style, { left: x + "px", top: y + "px", width: w + "px" });
+      if (h != null) el.style.height = h + "px";
+      if (html != null) el.innerHTML = html;
+      if (attrs) for (const k in attrs) el.setAttribute(k, attrs[k]);
+      (parent || kb).appendChild(el); return el;
+    };
+    const svg = (x, y, w, h, inner, parent) => {
+      const s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      s.setAttribute("class", "ic"); s.setAttribute("viewBox", `0 0 ${w} ${h}`); s.setAttribute("width", w); s.setAttribute("height", h);
+      s.style.left = x + "px"; s.style.top = y + "px"; s.innerHTML = inner; (parent || kb).appendChild(s); return s;
+    };
+    // text measuring with the real web fonts
+    const probe = document.createElement("span");
+    probe.style.cssText = "position:absolute;left:-9999px;top:0;white-space:nowrap";
+    document.body.appendChild(probe);
+    const LS = "-0.015em";
+    const tw = (txt, font, ls, st) => { probe.style.font = font; probe.style.fontStretch = st + "%"; probe.style.letterSpacing = ls; probe.textContent = txt; return probe.getBoundingClientRect().width; };
+
+    // ---- status bar + chat header (phone furniture)
+    svg(816, 176, 48, 36, '<g fill="#1B1D22"><rect x="0" y="26" width="8" height="10" rx="2"/><rect x="13" y="18" width="8" height="18" rx="2"/><rect x="26" y="9" width="8" height="27" rx="2"/><rect x="39" y="0" width="8" height="36" rx="2"/></g>');
+    svg(880, 176, 46, 36, '<g fill="none" stroke="#1B1D22" stroke-width="5" stroke-linecap="round"><path d="M3 12a29 29 0 0 1 40 0"/><path d="M10 20a19 19 0 0 1 26 0"/></g><circle cx="23" cy="30" r="5" fill="#1B1D22"/>');
+    svg(940, 178, 52, 32, '<rect x="2" y="2" width="42" height="28" rx="8" fill="none" stroke="#1B1D22" stroke-width="4"/><rect x="8" y="8" width="26" height="16" rx="3" fill="#1B1D22"/><rect x="47" y="11" width="4" height="10" rx="2" fill="#1B1D22"/>');
+    svg(36, 322, 32, 46, '<path d="M26 4 6 23l20 19" fill="none" stroke="#1B1D22" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>');
+    svg(812, 324, 60, 40, '<g fill="none" stroke="#1B1D22" stroke-width="4.5" stroke-linejoin="round"><rect x="3" y="5" width="38" height="30" rx="7"/><path d="M41 15l15-9v28l-15-9z"/></g>');
+    svg(898, 320, 44, 48, '<path d="M12 4l8 2 4 11-6 5c3 7 8 12 15 15l5-6 11 4 2 8c-1 4-5 6-9 5C22 44 6 28 4 12c0-4 3-8 8-8z" fill="none" stroke="#1B1D22" stroke-width="4.5" stroke-linejoin="round"/>');
+    svg(968, 322, 14, 44, '<g fill="#1B1D22"><circle cx="7" cy="6" r="5"/><circle cx="7" cy="22" r="5"/><circle cx="7" cy="38" r="5"/></g>');
+
+    const name = $("name"), ava = $("ava");
+    name.textContent = str(D.series || D.kicker);
+    for (let fs = 40; fs >= 30; fs -= 2) { name.style.fontSize = fs + "px"; if (name.scrollWidth <= 560) break; }
+    $("subt").textContent = str(D.date);
+    const initials = str(D.series || D.kicker).split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase();
+    ava.textContent = str(D.ep || initials || "AI");
+    const avW = (fs, st) => tw(ava.textContent, "600 " + fs + 'px "Martian Mono"', "-0.02em", st) <= 72;
+    let avF = [30, 28, 26].find(fs => avW(fs, 100)), avS = 100;
+    if (!avF) { avF = 26; avS = 75; }
+    ava.style.fontSize = avF + "px"; ava.style.fontStretch = avS + "%";
+
+    // ---- items: which one is the pick (the pressed / greedy candidate)
+    const items = (D.items || []).slice(0, 5);
+    const n = items.length;
+    const hl = str(D.hl).trim().toLowerCase();
+    const num = s => { const m = str(s).match(/[-+]?\d[\d.,]*/); if (!m) return null;
+      const t = m[0].replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", "."); const x = parseFloat(t); return isNaN(x) ? null : { x, unit: str(s).replace(m[0], "").replace(/[±~≈]/g, "").trim().toLowerCase() }; };
+    let pick = -1;
+    if (hl) pick = items.findIndex(it => str(it.label).trim().toLowerCase() === hl || str(it.value).trim().toLowerCase() === hl);
+    if (pick < 0 && hl) pick = items.findIndex(it => str(it.label).trim().length >= 3 && hl.includes(str(it.label).trim().toLowerCase()));
+    if (pick < 0 && n) {
+      const nv = items.map(it => num(it.value));
+      if (nv.every(v => v) && nv.every(v => v.unit === nv[0].unit) && nv.some(v => v.x !== nv[0].x)) {
+        pick = 0; nv.forEach((v, i) => { if (v.x > nv[pick].x) pick = i; });
+      }
+    }
+    if (pick < 0) pick = Math.floor((n - 1) / 2);
+
+    // ---- keyboard geometry, bottom-up (bottom row ends at y 1616, inside the safe zone)
+    const KX = 12, KG = 14, KW = 93, KH = 96, RG = 14, Y3 = 1520;
+    const ry = r => Y3 - (3 - r) * (KH + RG);
+    const S_X0 = 76, S_X1 = 900, SW = S_X1 - S_X0;
+
+    // best two-line split of a label (balanced), measured
+    const split2 = (label, font, st) => {
+      const w = label.split(/\s+/).filter(Boolean);
+      if (w.length < 2) return { width: tw(label, font, LS, st), lines: [label] };
+      let best = null;
+      for (let k = 1; k < w.length; k++) {
+        const a = w.slice(0, k).join(" "), b = w.slice(k).join(" ");
+        const m = Math.max(tw(a, font, LS, st), tw(b, font, LS, st));
+        if (!best || m < best.width) best = { width: m, lines: [a, b] };
+      }
+      return best;
+    };
+    // plan one strip: every slot sized to its own text, label floor 32 px, value floor 30 px
+    const planStrip = (list, pk, f, two, st, withVal, chipIn) => {
+      const PAD = list.length >= 3 ? 34 : 40, PICK_PAD = 46;
+      const v = withVal ? Math.max(30, Math.min(44, Math.round(f * 0.84))) : 0;
+      const cells = list.map((it, i) => {
+        const font = (i === pk ? 700 : 600) + " " + f + 'px "Instrument Sans"';
+        const label = str(it.label);
+        const L = two ? split2(label, font, st) : { width: tw(label, font, LS, st), lines: [label] };
+        const vw = withVal ? tw(str(it.value), (i === pk ? 600 : 500) + " " + v + 'px "Martian Mono"', "-0.02em", 87.5) : 0;
+        return { L, need: Math.max(L.width, vw) + PAD + (i === pk ? PICK_PAD : 0) };
+      });
+      const lines = Math.max(...cells.map(c => c.L.lines.length));
+      const h = lines * f * 1.08 + (withVal ? 8 + v * 1.1 : 0);
+      const sum = cells.reduce((a, c) => a + c.need, 0);
+      return sum <= SW && h <= chipIn - 20 ? { f, v, st, cells, sum, withVal } : null;
+    };
+    const fitStrip = (list, pk, withVal, chipIn) => {
+      let P = null;
+      for (let f = withVal ? 56 : 46; f >= 38 && !P; f -= 2) P = planStrip(list, pk, f, false, 100, withVal, chipIn);
+      for (let f = withVal ? 48 : 40; f >= 32 && !P; f -= 2) P = planStrip(list, pk, f, true, 100, withVal, chipIn) || planStrip(list, pk, f, false, 86, withVal, chipIn) || planStrip(list, pk, f, true, 86, withVal, chipIn);
+      for (let f = 36; f >= 32 && !P; f -= 2) P = planStrip(list, pk, f, false, 76, withVal, chipIn) || planStrip(list, pk, f, true, 76, withVal, chipIn);
+      return P;
+    };
+    // draw one strip; returns false when any text would leave its slot / pressed chip
+    const drawStrip = (list, pk, P, S_TOP, S_H, layer) => {
+      const extra = (SW - P.sum) / list.length;
+      const sx = [S_X0];
+      P.cells.forEach((c, i) => sx.push(sx[i] + c.need + extra));
+      const INS = S_H >= 160 ? 18 : 12;
+      const cx = sx[pk] + 18, cw = sx[pk + 1] - sx[pk] - 36, cy = S_TOP + INS, chh = S_H - 2 * INS;
+      const ov = { "data-layout-allow-overlap": "" };
+      add("ring", cx - 18, cy - 18, cw + 36, chh + 36, null, ov, layer).style.cssText += "border-width:2px;border-radius:48px;opacity:.18";
+      add("ring", cx - 9, cy - 9, cw + 18, chh + 18, null, ov, layer).style.cssText += "border-width:3px;border-radius:39px;opacity:.45";
+      add("chip", cx, cy, cw, chh, null, ov, layer);
+      let ok = true;
+      list.forEach((it, i) => {
+        const w = sx[i + 1] - sx[i];
+        const lab = P.cells[i].L.lines.map(esc).join("<br>");
+        const el = add("slot" + (i === pk ? " pick" : ""), sx[i], S_TOP, w, S_H, '<div class="lb">' + lab + "</div>" + (P.withVal ? '<div class="vl">' + esc(it.value) + "</div>" : ""), null, layer);
+        const lb = el.firstChild, vl = P.withVal ? el.lastChild : null;
+        lb.style.fontSize = P.f + "px"; lb.style.fontStretch = P.st + "%";
+        if (vl) vl.style.fontSize = P.v + "px";
+        // pick text is measured against the white chip, the others against their slot
+        const room = i === pk ? cw - 16 : w - 10;
+        [lb, vl].forEach(t => { if (t && Math.max(t.scrollWidth, t.getBoundingClientRect().width) > room + 0.5) ok = false; });
+        const hgt = lb.offsetHeight + (vl ? 8 + vl.offsetHeight : 0);
+        if (hgt > chh - 6) ok = false;
+      });
+      for (let i = 1; i < list.length; i++) {
+        if (i === pk || i === pk + 1) continue;
+        add("sep", Math.round(sx[i] - 1), S_TOP + Math.round(S_H * 0.26), 2, Math.round(S_H * 0.48), null, null, layer);
+      }
+      return ok;
+    };
+    const stripMic = (S_TOP, S_H) => svg(950, S_TOP + S_H / 2 - 30, 48, 60,
+      '<g fill="none" stroke="#45474D" stroke-width="4.5" stroke-linecap="round"><rect x="14" y="3" width="20" height="34" rx="10"/><path d="M6 27c0 10 8 17 18 17s18-7 18-17M24 44v12M15 56h18"/></g>');
+
+    let trayTop = 0, mode = "panel";
+    // (a) strip only: n <= 3 and every item fits at label >= 32 / value >= 30
+    if (n && n <= 3) {
+      const S_H = 216, S_TOP = ry(0) - 12 - S_H;
+      const P = fitStrip(items, pick, true, S_H - 36);
+      if (P) {
+        const layer = add("", 0, 0, 1080, 1920); layer.style.position = "absolute";
+        if (drawStrip(items, pick, P, S_TOP, S_H, layer)) {
+          mode = "strip"; trayTop = S_TOP - 14; stripMic(S_TOP, S_H);
+          const rows = ["qwertyuiop", "asdfghjkl"];
+          [...rows[0]].forEach((c, i) => add("key", KX + i * (KW + KG), ry(0), KW, KH, c));
+          [...rows[1]].forEach((c, i) => add("key", KX + (KW + KG) / 2 + i * (KW + KG), ry(1), KW, KH, c));
+        } else layer.remove();
+      }
+    }
+    // (b) expanded-suggestions panel: strip keeps pick + 2 neighbours, full list as a numbered 2-column grid
+    if (mode === "panel" && n) {
+      // fonts for the grid: one size for every cell, label 42 -> 34, value 36 -> 32 (never below)
+      const cellOf = i => { const span = i === n - 1 && n % 2 === 1, col = i % 2;
+        const x0 = span || col === 0 ? KX : 466, x1 = span || col === 1 ? 900 : 452, tx = col === 1 && !span ? 544 : 90;
+        return { x0, x1, tx, room: x1 - 22 - tx }; };
+      const lw = (f, st) => items.every((it, i) => tw(str(it.label), (i === pick ? 700 : 600) + " " + f + 'px "Instrument Sans"', LS, st) <= cellOf(i).room);
+      const vw = (v, st) => items.every((it, i) => tw(str(it.value), (i === pick ? 600 : 500) + " " + v + 'px "Martian Mono"', "-0.02em", st) <= cellOf(i).room);
+      let GF = null, GV = null;
+      for (const [f, st] of [[42, 100], [40, 100], [42, 88], [40, 88], [38, 100], [38, 88], [36, 88], [38, 76], [36, 76], [34, 76]]) if (lw(f, st)) { GF = { f, st }; break; }
+      for (const [v, st] of [[36, 87.5], [34, 87.5], [36, 75], [34, 75], [32, 75]]) if (vw(v, st)) { GV = { v, st }; break; }
+      const wrapL = !GF, wrapV = !GV;
+      GF = GF || { f: 34, st: 76 }; GV = GV || { v: 32, st: 75 };
+
+      const G_BOT = ry(2) - 14, GG = 10, rowsN = Math.ceil(n / 2);
+      const cells = items.map((it, i) => {
+        const c = cellOf(i);
+        const el = add("cand" + (i === pick ? " pick" : ""), c.x0, 0, c.x1 - c.x0, null,
+          '<span class="ix">' + (i + 1) + '</span><div class="glb">' + esc(it.label) + '</div><div class="gvl">' + esc(it.value) + "</div>");
+        el.style.padding = `11px 22px 11px ${c.tx - c.x0}px`;
+        const g = el.children[1], v = el.children[2];
+        g.style.fontSize = GF.f + "px"; g.style.fontStretch = GF.st + "%";
+        v.style.fontSize = GV.v + "px"; v.style.fontStretch = GV.st + "%";
+        if (wrapL) { g.style.whiteSpace = "normal"; g.style.overflowWrap = "anywhere"; }
+        if (wrapV) { v.style.whiteSpace = "normal"; v.style.overflowWrap = "anywhere"; }
+        return el;
+      });
+      // each row is as tall as its tallest cell (a wrapped long value only grows its own row)
+      const rowH = [];
+      cells.forEach((el, i) => { const r = Math.floor(i / 2); rowH[r] = Math.max(rowH[r] || 0, el.scrollHeight); });
+      const G_TOP = G_BOT - (rowH.reduce((a, b) => a + b, 0) + (rowsN - 1) * GG);
+      const rowY = [G_TOP]; rowH.forEach((h, r) => rowY.push(rowY[r] + h + GG));
+      cells.forEach((el, i) => { const r = Math.floor(i / 2); el.style.top = rowY[r] + "px"; el.style.height = rowH[r] + "px"; });
+      // collapse key beside the panel (decoration, under the action-button column)
+      add("key fn", 914, G_TOP, 1068 - 914, G_BOT - G_TOP, "");
+      svg(914 + 77 - 24, G_TOP + (G_BOT - G_TOP) / 2 - 14, 48, 28, '<path d="M4 4l20 20L44 4" fill="none" stroke="#1B1D22" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>');
+
+      // the strip: pick in the centre slot, its neighbours either side (labels only)
+      let win;
+      if (n < 3) win = items.map((_, i) => i);
+      else {
+        // like a real bar: best in the middle; at the ends the next-best go left, then right
+        win = pick === 0 ? [1, 0, 2] : pick === n - 1 ? [n - 2, n - 1, n - 3] : [pick - 1, pick, pick + 1];
+      }
+      const list = win.map(i => items[i]), pk = win.indexOf(pick);
+      let S_H = 120, P = fitStrip(list, pk, false, S_H - 24);
+      if (!P) { S_H = 156; P = fitStrip(list, pk, false, S_H - 24); }
+      const S_TOP = G_TOP - 12 - S_H;
+      if (P) drawStrip(list, pk, P, S_TOP, S_H);
+      stripMic(S_TOP, S_H);
+      trayTop = S_TOP - 14;
+    }
+    if (!n) trayTop = ry(0) - 230;
+    probe.remove();
+    $("tray").style.top = trayTop + "px";
+
+    // z-m row + bottom row (always)
+    const FW = 132, inner0 = KX + FW + 28;
+    add("key fn", KX, ry(2), FW, KH, "");
+    svg(KX + FW / 2 - 24, ry(2) + KH / 2 - 26, 48, 52, '<path d="M24 4 4 26h11v20h18V26h11z" fill="none" stroke="#1B1D22" stroke-width="4" stroke-linejoin="round"/>');
+    [..."zxcvbnm"].forEach((c, i) => add("key", inner0 + i * (KW + KG), ry(2), KW, KH, c));
+    const bx = 1080 - KX - FW;
+    add("key fn", bx, ry(2), FW, KH, "");
+    svg(bx + FW / 2 - 34, ry(2) + KH / 2 - 22, 68, 44, '<g fill="none" stroke="#1B1D22" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"><path d="M22 3h40a3 3 0 0 1 3 3v32a3 3 0 0 1-3 3H22L3 22z"/><path d="M33 14l16 16M49 14 33 30"/></g>');
+    const y3 = ry(3);
+    const w123 = 150, wc = 93, wret = 190, wsp = 1056 - w123 - wc * 2 - wret - 4 * KG;
+    let x = KX;
+    add("key fn", x, y3, w123, KH, "?123"); x += w123 + KG;
+    add("key", x, y3, wc, KH, ","); x += wc + KG;
+    const sp = add("key space", x, y3, wsp, KH, '<span class="src">' + esc(D.source || "") + "</span>"); x += wsp + KG;
+    add("key", x, y3, wc, KH, "."); x += wc + KG;
+    add("key fn", x, y3, wret, KH, "");
+    svg(x + wret / 2 - 30, y3 + KH / 2 - 22, 60, 44, '<path d="M54 4v16a6 6 0 0 1-6 6H8M20 12 6 26l14 14" fill="none" stroke="#1B1D22" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>');
+    const src = sp.firstChild;
+    for (let fs = 30; fs >= 26; fs -= 1) { src.style.fontSize = fs + "px"; if (src.offsetHeight <= KH - 12) break; }
+
+    // under-keyboard bar: globe + dictation, home indicator (decoration under the TikTok UI)
+    const yb = y3 + KH + 40;
+    svg(64, yb, 56, 56, '<g fill="none" stroke="#45474D" stroke-width="4"><circle cx="28" cy="28" r="24"/><ellipse cx="28" cy="28" rx="11" ry="24"/><path d="M4 28h48M9 15h38M9 41h38"/></g>');
+    svg(964, yb, 52, 56, '<g fill="none" stroke="#45474D" stroke-width="4" stroke-linecap="round"><rect x="15" y="3" width="22" height="32" rx="11"/><path d="M5 26c0 12 9 19 21 19s21-7 21-19M26 45v8"/></g>');
+    add("", 400, 1878, 280, 10, null).style.cssText += "position:absolute;background:#1B1D22;opacity:.55;border-radius:5px";
+
+    // ---- composer field + karaoke caption (sits right on the keyboard)
+    const cap = str(D.caption || D.sub);
+    const words = [...cap.matchAll(/\S+/g)].map(m => ({ s: m[0], a: m.index, b: m.index + m[0].length }));
+    let a0 = 0, a1 = 0; // active word range [a0, a1]
+    const hp = hl ? cap.toLowerCase().indexOf(hl) : -1;
+    if (hp >= 0) {
+      const he = hp + hl.length;
+      a0 = words.findIndex(w => w.b > hp); a1 = a0;
+      while (a1 + 1 < words.length && words[a1 + 1].a < he) a1++;
+    }
+    let ch = "";
+    words.forEach((w, i) => {
+      if (i === a0) ch += '<span class="w on">' + words.slice(a0, a1 + 1).map(x => esc(x.s)).join(" ") + '</span><span class="caret"></span> ';
+      else if (i > a0 && i <= a1) return;
+      else ch += '<span class="w ' + (i < a0 ? "done" : "next") + '">' + esc(w.s) + "</span> ";
+    });
+    const capEl = $("cap"); capEl.innerHTML = ch.trim();
+    const twoL = fs => capEl.offsetHeight <= fs * 1.3 * 2 + 4;
+    let fitC = false; capEl.style.fontStretch = "100%";
+    for (let cfs = 46; cfs >= 40 && !fitC; cfs -= 2) { capEl.style.fontSize = cfs + "px"; fitC = twoL(cfs); }
+    if (!fitC) for (const st of [92, 86, 80]) { capEl.style.fontStretch = st + "%"; if (twoL(40)) break; }
+    const F_BOT = trayTop - 18, F_H = Math.max(124, capEl.offsetHeight + 44), F_TOP = F_BOT - F_H;
+    const field = $("field"); Object.assign(field.style, { top: F_TOP + "px", height: F_H + "px" });
+    capEl.style.top = Math.round(F_TOP + (F_H - capEl.offsetHeight) / 2) + "px";
+    svg(60 + 960 - 98, F_BOT - 98, 76, 76,
+      '<circle cx="38" cy="38" r="38" fill="#2F6BFF"/><path d="M38 54V23M25 35l13-13 13 13" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>');
+
+    // ---- last received bubble = title (anchored above the composer, like a real chat)
+    const t = str(D.title), at = hl ? t.toLowerCase().indexOf(hl) : -1;
+    const titleEl = $("title"), bub = $("bubble");
+    titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl"><span>' + esc(t.slice(at, at + hl.length)) + "</span></span>" + esc(t.slice(at + hl.length));
+    const B_BOT = F_TOP - 22, B_MIN = 412 + 22;
+    bub.style.width = ""; bub.style.maxWidth = "960px";
+    // biggest size that fits; but prefer 2 lines when that costs at most ~12% of the size (cleaner breaks)
+    let fAny = 0, f2 = 0;
+    for (let fs = 124; fs >= 56; fs -= 2) {
+      titleEl.style.fontSize = fs + "px";
+      if (bub.offsetHeight > B_BOT - B_MIN) continue;
+      if (!fAny) fAny = fs;
+      if (Math.round(titleEl.offsetHeight / (fs * 1.04)) <= 2) { f2 = fs; break; }
+    }
+    titleEl.style.fontSize = (f2 && f2 >= 90 && f2 >= fAny * 0.88 ? f2 : fAny || 56) + "px";
+    // shrink-wrap the bubble to its widest line
+    const rg = document.createRange(); rg.selectNodeContents(titleEl);
+    const rs = [...rg.getClientRects()];
+    if (rs.length) {
+      const wMax = Math.max(...rs.map(r => r.right)) - Math.min(...rs.map(r => r.left));
+      bub.style.width = Math.min(960, Math.ceil(wMax) + 80 + 4) + "px";
+    }
+    bub.style.top = (B_BOT - bub.offsetHeight) + "px";
+    // bubble tail (top-left)
+    svg(40, B_BOT - bub.offsetHeight, 26, 26, '<path d="M26 0H6C2 0 0 4 3 7l23 19z" fill="#FFFFFF"/>');
+    // day chip in the gap between header and bubble (only when there is room for it)
+    const gapTop = 412, gapBot = B_BOT - bub.offsetHeight;
+    if (gapBot - gapTop >= 96) {
+      const day = document.createElement("div"); day.className = "day"; day.textContent = "Hari ini"; kb.appendChild(day);
+      day.style.left = Math.round(540 - day.offsetWidth / 2) + "px";
+      day.style.top = Math.round((gapTop + gapBot - day.offsetHeight) / 2) + "px";
+    }
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Dry Transfer</title>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Dry Transfer ("huruf gosok"). A paste-up board: the title is lettering
+    already rubbed onto the artwork paper (non-photo-blue baselines, one blue
+    spacing tick per glyph). The rub-down sheet lies on top of it, tilted, its
+    translucent carrier film overlapping the title's last line. Each item is
+    one ROW of the sheet: the label as the specimen (size S, token cuts at
+    "·"), the value as the tally, and under it a quantity row of the label's
+    own LETTERS at ~0.5 S in frequency order. Holes = letters already used,
+    and how many are used comes from the data (fewer tokens / bigger value =
+    used more). The burnisher is parked on D.hl, the piece just rubbed.
+    The caption is a line still being rubbed down: the active word is grey
+    ink under a film chip. Fully deterministic: no randomness, fixed tables.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #E7E4F0; }
+  body { position: relative; color: #1E1E24; font-family: "Schibsted Grotesk", sans-serif; }
+
+  svg.layer { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  .kick { position: absolute; left: 90px; right: 90px; top: 296px; display: flex; justify-content: space-between; gap: 30px;
+          font: 500 28px "IBM Plex Mono", monospace; letter-spacing: 0.06em; color: #3B3848; white-space: nowrap; }
+  .kick b { font-weight: 600; color: #1E1E24; text-transform: uppercase; letter-spacing: 0.1em; }
+
+  .title { position: absolute; left: 90px; width: 900px; top: 352px; font-weight: 800; line-height: 1.04;
+           letter-spacing: -0.028em; color: #1E1E24; }
+  .title .hl { color: #C24D1C; }
+
+  #sheet { position: absolute; transform-origin: 50% 50%; }
+  #sheet > svg, #sheet > canvas { position: absolute; left: 0; top: 0; }
+  #ghost { opacity: 0.55; }
+  #txt { position: absolute; left: 0; top: 0; }
+
+  .sh { position: absolute; font: 500 26px "IBM Plex Mono", monospace; letter-spacing: 0.12em; color: #3D4B94; white-space: nowrap; text-transform: uppercase; line-height: 1.2; }
+  .sh b { font-weight: 600; color: #2E3A7E; }
+  .code { position: absolute; font: 600 30px "IBM Plex Mono", monospace; color: #3D4B94; line-height: 1.2; white-space: nowrap; }
+  .pc { position: absolute; font-weight: 700; letter-spacing: -0.012em; color: #1E1E24; white-space: pre; line-height: 1.2; }
+  .st { position: absolute; font-weight: 700; color: #1E1E24; white-space: pre; line-height: 1.2; }
+  .val { position: absolute; font-family: "IBM Plex Mono", monospace; font-weight: 600; color: #1E1E24; text-align: right; line-height: 1.2; }
+  .src { position: absolute; font: 500 26px "Schibsted Grotesk", sans-serif; color: #34313F; line-height: 1.25; }
+  .src i { font-style: normal; font: 500 26px "IBM Plex Mono", monospace; letter-spacing: 0.08em; color: #3D4B94; text-transform: uppercase; }
+
+  .cap { position: absolute; left: 90px; width: 810px; font-weight: 500; line-height: 1.3; color: #5C576E; letter-spacing: -0.005em; }
+  .cap .w { white-space: nowrap; }
+  .cap .past { color: #1E1E24; }
+  /* the active word = a piece mid-transfer: grey ink still under its film chip, guide bar under it, corner lifting */
+  .cap .on { position: relative; color: #45404F; font-weight: 600; border-radius: 2px; padding: 0 11px 9px;
+             background:
+               linear-gradient(#4A5BA8, #4A5BA8) no-repeat 50% calc(100% - 2px) / 62% 4px,
+               linear-gradient(180deg, rgba(255,255,255,0.62) 0, rgba(255,255,255,0) 38%),
+               #D3CBE5;
+             box-shadow: 0 0 0 1.5px #ADA2CC, 3px 6px 10px rgba(46, 36, 90, 0.16);
+             -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  .cap .on::after { content: ""; position: absolute; right: -2px; top: -2px; width: 17px; height: 17px;
+                    background: linear-gradient(225deg, #E7E4F0 0 50%, #F2EFF8 50% 100%); box-shadow: -2px 2px 3px rgba(46, 36, 90, 0.18); }
+</style>
+</head>
+<body>
+<svg class="layer" id="paper" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="kick"><span id="kick"></span><span id="date"></span></div>
+<div class="title" id="title"></div>
+<div id="sheet">
+  <svg id="film" xmlns="http://www.w3.org/2000/svg"></svg>
+  <canvas id="ghost"></canvas>
+  <svg id="ink" xmlns="http://www.w3.org/2000/svg"></svg>
+  <div id="txt"></div>
+</div>
+<svg class="layer" id="tool" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="cap" id="cap" data-slot="caption"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const FONTS = ['800 100px "Schibsted Grotesk"', '700 80px "Schibsted Grotesk"', '700 30px "Schibsted Grotesk"', '600 44px "Schibsted Grotesk"',
+                 '500 44px "Schibsted Grotesk"', '500 26px "IBM Plex Mono"', '600 38px "IBM Plex Mono"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const INK = "#1E1E24", BLUE = "#4A5BA8", ORANGE = "#E26D3D", PENCIL = "#8E9AD0";
+  const $ = id => document.getElementById(id);
+  const NS = "http://www.w3.org/2000/svg";
+  const svgEl = (parent, tag, attrs) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent.appendChild(e); return e; };
+  const r1 = v => Math.round(v * 10) / 10;
+
+  // Off-canvas measuring span (removed at the end).
+  const M = document.createElement("span");
+  M.style.cssText = "position:absolute;left:-4000px;top:0;white-space:pre;visibility:hidden";
+  document.body.appendChild(M);
+  const tw = (text, font, ls) => { M.style.font = font; M.style.letterSpacing = ls || "normal"; M.textContent = text; return M.getBoundingClientRect().width; };
+  const cv = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+  const fm = font => { cv.font = font; const m = cv.measureText("Hg"); return { asc: m.fontBoundingBoxAscent, desc: m.fontBoundingBoxDescent }; };
+
+  // ---------- kicker + title ----------
+  const series = D.series || "", ep = D.ep || "";
+  $("kick").innerHTML = series ? "<b>" + esc(series) + "</b>" + (ep ? " · " + esc(ep) : "") : esc(D.kicker || "");
+  $("date").textContent = D.date || "";
+
+  const t = String(D.title || ""), hl = String(D.hl || "").trim();
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  titleEl.innerHTML = at < 0 ? esc(t)
+    : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(1, items.length);
+  const maxTitleH = n >= 5 ? 252 : 290;
+  let tfs = 124;
+  for (; tfs >= 72; tfs -= 2) { titleEl.style.fontSize = tfs + "px"; if (titleEl.offsetHeight <= maxTitleH && titleEl.scrollWidth <= 900) break; }
+  const tm = fm('800 ' + tfs + 'px "Schibsted Grotesk"');
+
+  // every rubbed-down glyph of the title, with its line
+  const glyphs = [];
+  const rg = document.createRange();
+  const walker = document.createTreeWalker(titleEl, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const s = node.data, isHl = !!(node.parentElement && node.parentElement.closest(".hl"));
+    for (let i = 0; i < s.length;) {
+      const len = s.codePointAt(i) > 0xffff ? 2 : 1;
+      if (!/\s/.test(s[i])) {
+        rg.setStart(node, i); rg.setEnd(node, i + len);
+        const rc = rg.getClientRects()[0];
+        if (rc && rc.width > 0) glyphs.push({ x: rc.left, w: rc.width, top: rc.top, hl: isHl });
+      }
+      i += len;
+    }
+  }
+  const lineTops = [];
+  glyphs.forEach(g => { if (!lineTops.some(v => Math.abs(v - g.top) < tfs * 0.4)) lineTops.push(g.top); });
+  lineTops.sort((a, b) => a - b);
+  glyphs.forEach(g => { g.line = lineTops.findIndex(v => Math.abs(v - g.top) < tfs * 0.4); });
+  const bases = lineTops.map(v => v + tm.asc);
+  if (!bases.length) bases.push(352 + tm.asc);
+
+  // ---------- the artwork paper: grain, crop marks, pencil baselines, spacing ticks ----------
+  const paper = $("paper");
+  const defs = svgEl(paper, "defs", {});
+  const grain = svgEl(defs, "filter", { id: "grain", x: "0", y: "0", width: "100%", height: "100%" });
+  svgEl(grain, "feTurbulence", { type: "fractalNoise", baseFrequency: "0.85", numOctaves: "2", seed: "7", result: "n" });
+  svgEl(grain, "feColorMatrix", { type: "matrix", values: "0 0 0 0 0.12  0 0 0 0 0.10  0 0 0 0 0.20  0 0 0 0.55 0" });
+  svgEl(paper, "rect", { x: 0, y: 0, width: 1080, height: 1920, filter: "url(#grain)", opacity: "0.16" });
+  const crop = (x, y, sx, sy) => {
+    svgEl(paper, "line", { x1: x, y1: y + sy * 14, x2: x, y2: y + sy * 58, stroke: PENCIL, "stroke-width": 2.5 });
+    svgEl(paper, "line", { x1: x + sx * 14, y1: y, x2: x + sx * 58, y2: y, stroke: PENCIL, "stroke-width": 2.5 });
+  };
+  crop(150, 214, -1, -1); crop(930, 214, 1, -1); crop(150, 1700, -1, 1); crop(930, 1700, 1, 1);
+  const pencilLine = by => {
+    svgEl(paper, "line", { x1: 40, y1: r1(by), x2: 1040, y2: r1(by), stroke: PENCIL, "stroke-width": 3 });
+    svgEl(paper, "line", { x1: 54, y1: r1(by - 16), x2: 54, y2: r1(by + 18), stroke: PENCIL, "stroke-width": 3 });
+  };
+  bases.forEach(b => pencilLine(b + 3));
+  // one spacing tick per rubbed glyph; the hl glyphs (just rubbed) keep the darker transfer guide
+  glyphs.forEach(g => {
+    svgEl(paper, "rect", { x: r1(g.x + g.w * 0.2), y: r1(bases[g.line] + tfs * 0.15), width: r1(Math.max(4, g.w * 0.6)), height: r1(Math.max(4, tfs * 0.042)),
+      fill: g.hl ? BLUE : PENCIL });
+  });
+
+  // ---------- where the sheet lies ----------
+  const lastL = bases.length - 1, lastBase = bases[lastL];
+  const lastGl = glyphs.filter(g => g.line === lastL);
+  const lastX0 = lastGl.length ? Math.min(...lastGl.map(g => g.x)) : 90, lastX1 = lastGl.length ? Math.max(...lastGl.map(g => g.x + g.w)) : 600;
+  const hlG = glyphs.filter(g => g.hl);
+  const hlLine = hlG.length ? Math.max(...hlG.map(g => g.line)) : -1;
+  const hlOn = hlG.filter(g => g.line === hlLine);
+  const hlX0 = hlOn.length ? Math.min(...hlOn.map(g => g.x)) : 0, hlX1 = hlOn.length ? Math.max(...hlOn.map(g => g.x + g.w)) : 0;
+  // tilt so the film rises over the far side of the last line and leaves the freshly rubbed hl clear
+  const theta = (hlLine === lastL && (hlX0 + hlX1) / 2 < (lastX0 + lastX1) / 2) ? -4 : 4;
+  const TH = theta * Math.PI / 180, sn = Math.sin(TH), cs = Math.cos(TH), tn = Math.tan(TH);
+  const W = 920, SL = 60, CX = SL + W / 2;
+  const far = theta > 0 ? lastX0 : lastX1;
+  let yTopC = lastBase - 0.3 * tfs - (far - CX) * tn;          // film covers ~0.3 em of the far side of the last line
+  if (hlLine === lastL) { const near = theta > 0 ? hlX0 : hlX1; yTopC = Math.max(yTopC, lastBase + 8 - (near - CX) * tn); }
+  const botC = 1462 - Math.max((900 - CX) * tn, (90 - CX) * tn);
+  const H = Math.round((botC - yTopC) * cs);
+  const CY = yTopC + H / (2 * cs);
+  const sheet = $("sheet");
+  sheet.style.left = SL + "px"; sheet.style.top = r1(CY - H / 2) + "px"; sheet.style.width = W + "px"; sheet.style.height = H + "px";
+  sheet.style.transform = "rotate(" + theta + "deg)";
+  const lyFor = (lx, gy) => H / 2 + (gy - CY - (lx - W / 2) * sn) / cs;          // local y at local x that lands on global y
+  const lxFor = (gx, ly) => W / 2 + (gx - CX + (ly - H / 2) * sn) / cs;          // local x at local y that lands on global x
+  const edgeY = gx => CY + H / (2 * cs) + (gx - CX) * tn;                        // global y of the sheet's bottom edge
+
+  const film = $("film"), ink = $("ink"), txt = $("txt");
+  [film, ink].forEach(s => { s.setAttribute("width", W); s.setAttribute("height", H); s.setAttribute("viewBox", "0 0 " + W + " " + H); });
+  const gc = $("ghost"); gc.width = W * 2; gc.height = H * 2; gc.style.width = W + "px"; gc.style.height = H + "px";
+  const gx = gc.getContext("2d"); gx.scale(2, 2);
+
+  const fdefs = svgEl(film, "defs", {});
+  const lin = (id, stops, x2, y2) => { const g = svgEl(fdefs, "linearGradient", { id, x1: "0", y1: "0", x2: x2 || "0", y2: y2 || "1" }); stops.forEach(([o, c, a]) => svgEl(g, "stop", { offset: o, "stop-color": c, "stop-opacity": a == null ? 1 : a })); };
+  lin("filmFill", [["0", "#CEC6E4"], ["0.5", "#C8BFE0"], ["1", "#C3BADD"]]);
+  lin("sheen", [["0", "#FFFFFF", 0.42], ["0.28", "#FFFFFF", 0.06], ["0.45", "#FFFFFF", 0], ["0.8", "#FFFFFF", 0.1], ["1", "#FFFFFF", 0]], "1", "0.35");
+  lin("flap", [["0", "#F4F1FA"], ["0.55", "#E2DCEF"], ["1", "#C9C0DE"]], "1", "0");
+  const fsh = svgEl(fdefs, "filter", { id: "fsh", x: "-40%", y: "-40%", width: "180%", height: "180%" });
+  svgEl(fsh, "feDropShadow", { dx: "-4", dy: "6", stdDeviation: "5", "flood-color": "#2E245A", "flood-opacity": "0.3" });
+  const sblur = svgEl(fdefs, "filter", { id: "sblur", x: "-10%", y: "-10%", width: "120%", height: "120%" });
+  svgEl(sblur, "feGaussianBlur", { stdDeviation: "9" });
+  const soft = svgEl(fdefs, "filter", { id: "soft", x: "-30%", y: "-30%", width: "160%", height: "160%" });
+  svgEl(soft, "feGaussianBlur", { stdDeviation: "1.4" });
+
+  // carrier film: translucent, so the rubbed title shows through where it overlaps; top-right corner peeled back
+  const PC = 112;
+  const body = `M0,0 L${W - PC},0 L${W},${PC} L${W},${H} L0,${H} Z`;
+  svgEl(film, "path", { d: body, fill: "#2E245A", opacity: 0.16, filter: "url(#sblur)", transform: "translate(7,12)" });
+  svgEl(film, "path", { d: body, fill: "url(#filmFill)", "fill-opacity": 0.46 });
+  svgEl(film, "path", { d: body, fill: "url(#sheen)" });
+  svgEl(film, "path", { d: body, fill: "none", stroke: "#FFFFFF", "stroke-width": 2.4, opacity: 0.75 });
+  svgEl(film, "path", { d: body, fill: "none", stroke: "#A69BC6", "stroke-width": 1, opacity: 0.9, transform: "translate(0.8,1.2)" });
+  svgEl(film, "path", { d: `M${W - PC},0 L${W},${PC} L${W - PC + 7},${PC - 7} Z`, fill: "url(#flap)", filter: "url(#fsh)" });
+  const cross = (x, y) => { svgEl(film, "circle", { cx: x, cy: y, r: 9, fill: "none", stroke: BLUE, "stroke-width": 1.6 });
+    svgEl(film, "line", { x1: x - 15, y1: y, x2: x + 15, y2: y, stroke: BLUE, "stroke-width": 1.6 });
+    svgEl(film, "line", { x1: x, y1: y - 15, x2: x, y2: y + 15, stroke: BLUE, "stroke-width": 1.6 }); };
+  cross(26, H - 26); cross(W - 26, H - 26);
+
+  // ---------- sheet print: header clears the title, footer carries the source ----------
+  const clearY = lastBase + 0.27 * tfs + 16;
+  const headTop = Math.max(54, Math.ceil(Math.max(lyFor(60, clearY), lyFor(780, clearY))));
+  const codeX = 58, labelX = 122;
+  const srcEl = document.createElement("div"); srcEl.className = "src";
+  srcEl.innerHTML = "<i>Sumber</i>&nbsp; " + esc(D.source || "");
+  srcEl.style.left = codeX + "px"; srcEl.style.width = "720px";
+  txt.appendChild(srcEl);
+  const srcH = srcEl.offsetHeight;
+  const srcTop = H - 30 - srcH;
+  srcEl.style.top = r1(srcTop) + "px";
+  const rowsTop = headTop + 66, rowsBottom = srcTop - 24;
+  const rowH = (rowsBottom - rowsTop) / n;
+
+  // right edge of the tallies: keep every row clear of the app buttons (x > 900, y 900-1500) after the tilt
+  let VR = 830;
+  for (let r = 0; r <= n; r++) {
+    const ly = rowsTop + r * rowH;
+    const gy = CY + (VR - W / 2) * sn + (ly - H / 2) * cs;
+    if (gy > 860 && gy < 1540) VR = Math.min(VR, Math.floor(lxFor(894, ly)));
+  }
+
+  const hdr = (html, x, top) => { const e = document.createElement("div"); e.className = "sh"; e.innerHTML = html; e.style.left = x + "px"; e.style.top = r1(top) + "px"; txt.appendChild(e); return e; };
+  hdr("Huruf gosok · <b>Sisa stok</b>", codeX, headTop);
+  const legW = tw("TERPAKAI", '500 26px "IBM Plex Mono"', "0.12em");
+  const legR = Math.min(VR, W - PC - 20);
+  hdr("Terpakai", legR - legW, headTop);
+  svgEl(film, "line", { x1: codeX, y1: headTop + 46, x2: VR, y2: headTop + 46, stroke: BLUE, "stroke-width": 2 });
+  svgEl(film, "line", { x1: codeX, y1: headTop + 52, x2: VR, y2: headTop + 52, stroke: BLUE, "stroke-width": 1, opacity: 0.6 });
+  svgEl(film, "line", { x1: codeX, y1: r1(srcTop - 14), x2: VR, y2: r1(srcTop - 14), stroke: BLUE, "stroke-width": 1.5, opacity: 0.7 });
+
+  // ---------- data → how much of each row's stock is used ----------
+  const vals = items.map(it => String(it.value == null ? "" : it.value));
+  const MAG = { ribu: 1e3, rb: 1e3, juta: 1e6, jt: 1e6, miliar: 1e9, milyar: 1e9, triliun: 1e12 };
+  const num = v => {
+    const s = v.toLowerCase();
+    const m = s.match(/([-+±]?)(\d[\d.,]*)\s*(ribu|rb|juta|jt|miliar|milyar|triliun)?/);
+    if (m) {
+      let d = m[2].replace(/[.,]$/, "");
+      if (d.includes(",")) d = d.replace(/\./g, "").replace(",", ".");
+      else if (/^\d{1,3}(\.\d{3})+$/.test(d)) d = d.replace(/\./g, "");
+      const f = parseFloat(d);
+      return isFinite(f) ? f * (m[3] ? MAG[m[3]] : 1) : NaN;
+    }
+    const w = s.match(/(ribu|juta|miliar|milyar|triliun)/);
+    return w ? MAG[w[1]] : NaN;
+  };
+  const nums = vals.map(num);
+  let ratio;
+  if (vals.length && vals.every((v, i) => /token/i.test(v) && nums[i] > 0)) {
+    const mn = Math.min(...nums);                       // fewer tokens = a more frequent piece = used more
+    ratio = nums.map(v => Math.min(0.85, Math.max(0.18, 0.85 * mn / v)));
+  } else if (vals.length && nums.every(v => isFinite(v))) {
+    const lv = [...new Set(nums)].sort((a, b) => b - a);  // bigger value = used more (dense rank)
+    ratio = nums.map(v => lv.length > 1 ? 0.85 - 0.65 * lv.indexOf(v) / (lv.length - 1) : 0.5);
+  } else {
+    ratio = vals.map((v, i) => n > 1 ? 0.85 - 0.65 * i / (n - 1) : 0.5);   // fall back to item order
+  }
+
+  // ---------- sizes: label specimen S, letter stock s ≈ 0.5 S ----------
+  const rows = items.map(it => {
+    const lab = String(it.label == null ? "" : it.label);
+    const ps = lab.split("·").map(s => s.trim()).filter(Boolean);
+    return ps.length ? ps : [lab || "—"];
+  });
+  const PF = s => '700 ' + s + 'px "Schibsted Grotesk"';
+  const LS = "-0.012em";
+  const labW100 = Math.max(1, ...rows.map(ps => ps.reduce((a, p) => a + tw(p, PF(100), LS), 0) + (ps.length - 1) * 30));
+  const valMax = Math.max(290, Math.floor(VR - labelX - 36 - labW100 * 0.58));   // short labels lend room to long values
+  let vfs = 40, valW = 0;
+  for (; vfs >= 30; vfs -= 1) { valW = Math.max(0, ...vals.map(v => tw(v, '600 ' + vfs + 'px "IBM Plex Mono"'))); if (valW <= valMax) break; }
+  const valWrap = valW > valMax;
+  valW = Math.min(Math.ceil(valW) + 2, valMax);
+  const budget = VR - valW - 36 - labelX;
+  const capS = Math.min(96, Math.round(tfs * 0.8));
+  let S = capS;
+  const stockOf = S => Math.max(30, Math.round(S * 0.5));
+  for (; S > 40; S--) { const s = stockOf(S); if (S * labW100 / 100 <= budget && 1.44 * S + 1.34 * s + 12 <= rowH) break; }
+  const s = stockOf(S);
+  const L = (1.44 * S + 2 * 1.34 * s + 0.26 * s + 12 <= rowH) ? 2 : 1;
+  const pm = fm(PF(S)), sm = fm(PF(s));
+  const lineBox = S * 1.2, sBox = s * 1.2;
+  const baseOf = (top, box, m) => top + (box - (m.asc + m.desc)) / 2 + m.asc;
+  const barH = Math.max(5, Math.round(S * 0.075)), sBar = Math.max(3, Math.round(s * 0.09));
+  const gapP = Math.round(S * 0.3), gapS = Math.round(s * 0.52);
+
+  // glyph edge points (for the cracked ink left at a used letter's edges), measured from the real glyph
+  const edgeCache = new Map();
+  const edges = ch => {
+    if (edgeCache.has(ch)) return edgeCache.get(ch);
+    cv.font = PF(s);
+    const mt = cv.measureText(ch), pad = 4;
+    const ox = pad + mt.actualBoundingBoxLeft, oy = pad + mt.actualBoundingBoxAscent;
+    const wpx = Math.max(2, Math.ceil(mt.actualBoundingBoxLeft + mt.actualBoundingBoxRight) + pad * 2);
+    const hpx = Math.max(2, Math.ceil(mt.actualBoundingBoxAscent + mt.actualBoundingBoxDescent) + pad * 2);
+    cv.canvas.width = wpx; cv.canvas.height = hpx;
+    cv.font = PF(s); cv.fillStyle = "#000"; cv.fillText(ch, ox, oy);
+    const data = cv.getImageData(0, 0, wpx, hpx).data;
+    const pts = [];
+    [[0.2, -1], [0.58, 1], [0.9, -1]].forEach(([fy, dir]) => {
+      const y = Math.min(hpx - 1, Math.round(pad + fy * (hpx - pad * 2)));
+      for (let k = 0; k < wpx; k++) {
+        const x = dir < 0 ? k : wpx - 1 - k;
+        if (data[(y * wpx + x) * 4 + 3] > 128) { pts.push([x - ox, y - oy, dir]); break; }
+      }
+    });
+    const res = { pts, l: -mt.actualBoundingBoxLeft, r: mt.actualBoundingBoxRight, a: mt.actualBoundingBoxAscent, d: mt.actualBoundingBoxDescent };
+    edgeCache.set(ch, res);
+    return res;
+  };
+
+  // a used letter: burnished clear patch, the ghost outline of the letter that was there,
+  // two or three cracked ink fragments on its edges, two short burnish strokes
+  const PATCH = [[-0.05, 0.02], [0.32, -0.06], [0.7, 0.04], [1.04, -0.02], [1.07, 0.5], [1.02, 1.05], [0.62, 1.08], [0.28, 0.98], [-0.04, 1.04], [-0.08, 0.46]];
+  const STROKES = [[[0.1, 0.84, 0.6, 0.2], [0.46, 0.96, 0.94, 0.4]], [[0.06, 0.6, 0.5, 0.08], [0.36, 0.98, 0.96, 0.46]], [[0.14, 0.96, 0.86, 0.16], [0.56, 1.0, 1.0, 0.64]]];
+  let holeN = 0;
+  const drawHole = (ch, x, base, bar) => {
+    const e = edges(ch);
+    const pad = s * 0.09;
+    const X0 = x + Math.min(0, e.l) - pad, X1 = x + Math.max(e.r, s * 0.3) + pad, Y0 = base - Math.max(e.a, s * 0.5) - pad, Y1 = base + e.d + pad;
+    const w = X1 - X0, h = Y1 - Y0;
+    svgEl(film, "path", { d: "M" + PATCH.map(([fx, fy]) => r1(X0 + fx * w) + "," + r1(Y0 + fy * h)).join("L") + "Z", fill: "#F1EEF9", opacity: 0.95, filter: "url(#soft)" });
+    STROKES[holeN % STROKES.length].forEach(([a, b, c, d]) => {
+      const p = `M${r1(X0 + a * w)},${r1(Y0 + b * h)} Q${r1(X0 + (a + c) / 2 * w + 2)},${r1(Y0 + (b + d) / 2 * h + 2)} ${r1(X0 + c * w)},${r1(Y0 + d * h)}`;
+      svgEl(film, "path", { d: p, fill: "none", stroke: "#FFFFFF", "stroke-width": 1.8, opacity: 0.95, "stroke-linecap": "round" });
+    });
+    gx.font = PF(s); gx.lineWidth = 1.7; gx.strokeStyle = "#7C70AA"; gx.lineJoin = "round"; gx.strokeText(ch, x, base);
+    const a = Math.max(2.4, s * 0.075);
+    e.pts.slice(0, holeN % 2 ? 2 : 3).forEach(([px, py, dir]) => {
+      const fx = x + px, fy = base + py;
+      svgEl(ink, "path", { d: `M${r1(fx)},${r1(fy - a * 0.55)} L${r1(fx - dir * a * 1.05)},${r1(fy - a * 0.05)} L${r1(fx - dir * a * 0.15)},${r1(fy + a * 0.7)} Z`, fill: INK, opacity: 0.72 });
+    });
+    if (bar) svgEl(film, "rect", { x: r1(x + bar * 0.12), y: r1(base + s * 0.26), width: r1(bar * 0.76), height: sBar, fill: BLUE, opacity: 0.42 });
+    holeN++;
+  };
+
+  // ---------- rows ----------
+  let target = null;
+  const vm = fm('600 ' + vfs + 'px "IBM Plex Mono"'), cm = fm('600 30px "IBM Plex Mono"');
+  rows.forEach((ps, r) => {
+    const rowTop = rowsTop + r * rowH;
+    const blockH = 1.44 * S + L * 1.34 * s + (L - 1) * 0.26 * s;
+    const top0 = rowTop + Math.max(4, (rowH - blockH) / 2);
+    const base0 = baseOf(top0, lineBox, pm);
+
+    if (r > 0) svgEl(film, "line", { x1: codeX, y1: r1(rowTop), x2: VR, y2: r1(rowTop), stroke: "#A89DC9", "stroke-width": 1.5, "stroke-dasharray": "2 7", "stroke-linecap": "round" });
+
+    const code = document.createElement("div"); code.className = "code"; code.textContent = String(r + 1).padStart(2, "0");
+    code.style.left = codeX + "px"; code.style.top = r1(base0 - (36 - (cm.asc + cm.desc)) / 2 - cm.asc) + "px"; txt.appendChild(code);
+
+    // the specimen: the label at size S, token cuts at "·", one guide bar per piece
+    let px = labelX;
+    ps.forEach((p, i) => {
+      const pw = tw(p, PF(S), LS);
+      const e = document.createElement("div"); e.className = "pc"; e.textContent = p;
+      e.style.left = r1(px) + "px"; e.style.top = r1(top0) + "px"; e.style.fontSize = S + "px"; txt.appendChild(e);
+      svgEl(film, "rect", { x: r1(px + pw * 0.06), y: r1(base0 + S * 0.24), width: r1(pw * 0.88), height: barH, fill: BLUE });
+      if (i < ps.length - 1) {
+        const cx = px + pw + gapP / 2;
+        svgEl(film, "line", { x1: r1(cx), y1: r1(base0 - S * 0.78), x2: r1(cx), y2: r1(base0 + S * 0.32), stroke: ORANGE, "stroke-width": 4.5, "stroke-linecap": "round", "stroke-dasharray": "0.1 10" });
+      }
+      px += pw + gapP;
+    });
+
+    // the tally
+    const v = document.createElement("div"); v.className = "val"; v.textContent = vals[r];
+    v.style.fontSize = vfs + "px"; v.style.left = (VR - valW) + "px"; v.style.width = valW + "px";
+    v.style.whiteSpace = valWrap ? "normal" : "nowrap"; if (valWrap) v.style.textWrap = "balance";
+    v.style.top = r1(base0 - (vfs * 1.2 - (vm.asc + vm.desc)) / 2 - vm.asc) + "px"; txt.appendChild(v);
+
+    // the quantity row: the label's own letters, most frequent first, copies in proportion
+    const letters = [...ps.join("")].filter(ch => !/\s/.test(ch));
+    if (!letters.length) return;
+    const cnt = new Map(); letters.forEach(ch => cnt.set(ch, (cnt.get(ch) || 0) + 1));
+    const order = [...cnt.keys()].sort((a, b) => cnt.get(b) - cnt.get(a) || letters.indexOf(a) - letters.indexOf(b));
+    const wOf = new Map(order.map(ch => [ch, tw(ch, PF(s))]));
+    const A = VR - labelX;
+    const A0 = valWrap && 2.4 * vfs > lineBox + 0.24 * S ? VR - valW - 24 - labelX : A;   // a wrapped tally hangs into stock line 1
+    const avg = letters.reduce((acc, ch) => acc + wOf.get(ch), 0) / letters.length + gapS;
+    const C = Math.ceil(L * (A + gapS) / avg) + 2;
+    let copies = order.map(ch => Math.max(1, Math.round(C * cnt.get(ch) / letters.length)));
+    const lay = cps => {
+      const out = [[]]; let x = 0;
+      for (let i = 0; i < order.length; i++) for (let c = 0; c < cps[i]; c++) {
+        const w = wOf.get(order[i]);
+        if (x + w > (out.length === 1 ? A0 : A)) { if (out.length === L) return null; out.push([]); x = 0; }
+        out[out.length - 1].push({ ch: order[i], x: labelX + x, w }); x += w + gapS;
+      }
+      return out;
+    };
+    let lines = lay(copies), guard = 0;
+    while (!lines && guard++ < 400) {
+      let mi = -1;                                       // trim the group that has the most copies per occurrence
+      copies.forEach((c, i) => { if (c > 1 && (mi < 0 || c / cnt.get(order[i]) > copies[mi] / cnt.get(order[mi]))) mi = i; });
+      if (mi < 0) { copies.pop(); order.pop(); if (!order.length) break; } else copies[mi]--;
+      lines = lay(copies);
+    }
+    if (!lines) return;
+    const slots = lines.reduce((a, l) => a + l.length, 0);
+    const used = Math.max(1, Math.min(slots - (r === 0 ? 2 : 1), Math.round(ratio[r] * slots)));
+    let k = 0;
+    lines.forEach((ln, li) => {
+      const top = top0 + 1.44 * S + li * (1.34 * s + 0.26 * s);
+      const base = baseOf(top, sBox, sm);
+      ln.forEach(sl => {
+        if (k < used) drawHole(sl.ch, sl.x, base, sl.w);
+        else {
+          const e = document.createElement("div"); e.className = "st"; e.textContent = sl.ch;
+          e.style.left = r1(sl.x) + "px"; e.style.top = r1(top) + "px"; e.style.fontSize = s + "px"; txt.appendChild(e);
+          const bar = svgEl(film, "rect", { x: r1(sl.x + sl.w * 0.12), y: r1(base + s * 0.26), width: r1(sl.w * 0.76), height: sBar, fill: BLUE, "data-stock": "" });
+          if (!target && r === 0) target = bar;            // next piece to rub: the first unused STOCK letter of row 01
+        }
+        k++;
+      });
+    });
+    if (!target && r === rows.length - 1) {                // fallback: first unused stock letter in any row (never a label)
+      const any = film.querySelectorAll("rect[data-stock]");
+      if (any.length) target = any[0];
+    }
+  });
+  if (target) { target.setAttribute("fill", ORANGE); target.setAttribute("height", sBar + 2); }
+
+  // header legend swatch: one used letter, drawn the same way as the holes
+  drawHole("a", legR - legW - s * 0.95, headTop + 25, 0);
+
+  // ---------- burnisher, parked on the hl word (the piece just rubbed) ----------
+  const tool = $("tool");
+  const tdefs = svgEl(tool, "defs", {});
+  const grad = (id, stops) => { const g = svgEl(tdefs, "linearGradient", { id, x1: "0", y1: "0", x2: "0", y2: "1" }); stops.forEach(([o, c]) => svgEl(g, "stop", { offset: o, "stop-color": c })); };
+  grad("steel", [["0", "#6E6B7E"], ["0.22", "#F7F6FB"], ["0.5", "#A9A6B9"], ["1", "#45424F"]]);
+  grad("collar", [["0", "#7C7890"], ["0.25", "#ECEAF4"], ["0.6", "#9D99B0"], ["1", "#4E4A5C"]]);
+  grad("handle", [["0", "#B4522A"], ["0.2", "#F59C74"], ["0.45", "#E26D3D"], ["1", "#9A4020"]]);
+  const blur = svgEl(tdefs, "filter", { id: "blur", x: "-10%", y: "-60%", width: "120%", height: "220%" });
+  svgEl(blur, "feGaussianBlur", { stdDeviation: "6" });
+  const onG = hlOn.length ? hlOn : lastGl;
+  const ref = onG.length ? onG : [{ x: 600, w: 40, line: lastL }];
+  const refLine = ref[0].line == null ? lastL : ref[0].line;
+  const gx0 = Math.min(...ref.map(g => g.x)), gx1 = Math.max(...ref.map(g => g.x + g.w));
+  const dir = (gx0 + gx1) / 2 >= 540 ? -1 : 1;           // body runs toward the frame centre, under the neighbouring words
+  const tipG = dir < 0 ? ref.reduce((a, g) => (g.x < a.x ? g : a)) : ref.reduce((a, g) => (g.x > a.x ? g : a));
+  const tipX = tipG.x + tipG.w * (dir < 0 ? 0.32 : 0.68), tipY = bases[refLine] - tfs * 0.07;
+  const K = 0.6, ANG = Math.atan2(tfs * 0.24, 300) * 180 / Math.PI;   // drops ~0.24 em below the baseline by the collar
+  const shape = g => {
+    svgEl(g, "path", { d: "M 0,0 C 0,-6 4,-7.5 10,-7.5 L 214,-10 L 214,10 L 10,7.5 C 4,7.5 0,6 0,0 Z", fill: "url(#steel)" });
+    svgEl(g, "path", { d: "M 210,-17 L 296,-19 L 296,19 L 210,17 Z", fill: "url(#collar)" });
+    [232, 248, 264].forEach(x => svgEl(g, "line", { x1: x, y1: -17.5, x2: x, y2: 17.5, stroke: "#4E4A5C", "stroke-width": 1.4, opacity: 0.55 }));
+    svgEl(g, "path", { d: "M 294,-24 C 296,-26 300,-26 304,-26 L 900,-23 L 900,23 L 304,26 C 300,26 296,26 294,24 Z", fill: "url(#handle)" });
+    svgEl(g, "rect", { x: 330, y: -17, width: 560, height: 4.5, rx: 2.2, fill: "#FFFFFF", opacity: 0.28 });
+    svgEl(g, "line", { x1: 318, y1: -25, x2: 318, y2: 25, stroke: "#7E3518", "stroke-width": 2.4, opacity: 0.7 });
+  };
+  const tf = (x, y) => `translate(${r1(x)},${r1(y)}) scale(${dir * K},${K}) rotate(${r1(ANG)})`;
+  const shadow = svgEl(tool, "g", { transform: tf(tipX + 8, tipY + 14), filter: "url(#blur)", opacity: 0.3, "data-layout-allow-overflow": "" });
+  svgEl(shadow, "path", { d: "M 0,0 L 214,-10 L 296,-19 L 900,-23 L 900,23 L 296,19 L 214,10 Z", fill: "#2A2150" });
+  shape(svgEl(tool, "g", { transform: tf(tipX, tipY), "data-layout-allow-overflow": "" }));
+  // fresh burnish marks on the paper around the tip
+  [[10, -6, 34, -14], [16, 4, 44, -2]].forEach(([a, b, c, d]) => svgEl(tool, "path", {
+    d: `M${r1(tipX - dir * a)},${r1(tipY + b)} L${r1(tipX - dir * c)},${r1(tipY + d)}`, stroke: "#FFFFFF", "stroke-width": 2.2, opacity: 0.75, "stroke-linecap": "round" }));
+
+  // ---------- caption: a line still being rubbed down, on its own pencil baseline ----------
+  const capEl = $("cap");
+  const capText = String(D.caption || D.sub || "").trim();
+  let pre = capText, act = "", post = "";
+  const ci = hl ? capText.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  if (ci >= 0) {
+    let a = ci, b = ci + hl.length;
+    while (a > 0 && !/\s/.test(capText[a - 1])) a--;
+    while (b < capText.length && !/\s/.test(capText[b])) b++;
+    pre = capText.slice(0, a); act = capText.slice(a, b); post = capText.slice(b);
+  } else {
+    const m = capText.match(/^\S+/); act = m ? m[0] : ""; pre = ""; post = capText.slice(act.length);
+  }
+  const words = (s, cls) => s.trim() ? s.trim().split(/\s+/).map(w => '<span class="w ' + cls + '">' + esc(w) + "</span>") : [];
+  capEl.innerHTML = [...words(pre, "past"), act ? '<span class="w on">' + esc(act) + "</span>" : "", ...words(post, "next")].filter(Boolean).join(" ");
+  const capTop = Math.round(Math.max(edgeY(90), edgeY(900)) + 34);
+  capEl.style.top = capTop + "px";
+  let cfs = 46;
+  for (; cfs >= 40; cfs -= 1) { capEl.style.fontSize = cfs + "px"; if (capEl.offsetHeight <= cfs * 1.3 * 2 + 4) break; }
+  const capM = fm('500 ' + cfs + 'px "Schibsted Grotesk"');
+  const capLines = [];
+  capEl.querySelectorAll(".w").forEach(w => { const rc = w.getClientRects()[0]; if (rc && !capLines.some(v => Math.abs(v - rc.top) < cfs * 0.5)) capLines.push(rc.top); });
+  capLines.forEach(top => pencilLine(top + capM.asc + 6));
+
+  M.remove();
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Price Picks</title>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Bricolage+Grotesque:wght@500;600;700&family=Permanent+Marker&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Price Picks: a market stall seen from above. Heaps of shallots, garlic,
+    dried chilies, candlenut and rice sit on a cobalt woven tarp; each heap is
+    pierced by a hand-cut kraft cardboard price card on a bamboo skewer, the
+    number written in thick marker. Heap height = the item's value, so the
+    stall reads as a physical bar chart. The "hero" item (the one hl points at,
+    else the cheapest) has collapsed to a pinch: a dashed chalk ghost shows the
+    heap it used to be, and its card was rewritten (old figure scribbled out,
+    new figure in red marker with a down arrow).
+    Fully deterministic: grains are placed on a jittered grid using a fixed
+    sin-hash, card cuts and creases are hard-coded.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #213F95; }
+  body { position: relative; font-family: "Bricolage Grotesque", sans-serif; color: #F4EEDF; }
+  #stall { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  .top { position: absolute; left: 90px; right: 90px; top: 296px; height: 50px; display: flex; align-items: center; justify-content: space-between; }
+  .kick { font: 700 32px "Big Shoulders Display", sans-serif; letter-spacing: 0.16em; text-transform: uppercase; color: #F4EEDF; }
+  .eptag { position: relative; font: 400 34px "Permanent Marker", cursive; color: #161616; padding: 2px 18px 0; line-height: 46px; transform: rotate(2.5deg);
+           background: #CFAB76; clip-path: polygon(3% 6%, 97% 0, 100% 92%, 52% 100%, 0 96%); }
+
+  .title { position: absolute; left: 90px; width: 900px; top: 360px; font-family: "Big Shoulders Display", sans-serif; font-weight: 800;
+           text-transform: uppercase; line-height: 0.9; letter-spacing: 0.004em; color: #F4EEDF; }
+  .patch { color: #161616; padding: 0 0.1em; margin: 0 -0.02em; -webkit-box-decoration-break: clone; box-decoration-break: clone;
+           background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath d='M1 7 L22 2 L48 5 L71 0 L99 4 L97 50 L100 95 L63 99 L37 96 L2 100 L4 52Z' fill='%23CFAB76'/%3E%3C/svg%3E") 0 58% / 100% 0.9em no-repeat; }
+
+  #cards { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  .cw { position: absolute; filter: drop-shadow(9px 14px 9px rgba(7, 16, 52, 0.5)); }
+  .card { position: relative; background-color: #CFAB76; padding: 15px 20px 11px; overflow: hidden;
+          background-image: repeating-linear-gradient(90deg, rgba(120, 82, 34, 0.07) 0 3px, rgba(0, 0, 0, 0) 3px 10px),
+                            linear-gradient(170deg, rgba(255, 246, 225, 0.18), rgba(110, 72, 30, 0.12)); }
+  .card .peel { position: absolute; right: 0; top: 0; width: 72px; height: 56px; }
+  .card .lb { position: relative; font: 400 34px "Permanent Marker", cursive; line-height: 1.1; color: #161616; }
+  .card .vl { position: relative; font: 400 80px "Permanent Marker", cursive; line-height: 1.06; color: #161616; white-space: nowrap; display: flex; align-items: center; gap: 0.08em; }
+  .card .vl .arr { flex: none; width: 0.4em; height: 0.78em; }
+  .card .old { display: block; width: 128px; height: 34px; margin: 6px 0 0 2px; }
+  .card.hero .vl { color: #6E1512; }
+  .staple { position: absolute; left: 50%; top: 7px; width: 34px; height: 10px; margin-left: -17px; }
+
+  .cap { position: absolute; left: 90px; width: 810px; font-weight: 500; line-height: 1.24; color: #F4EEDF; }
+  .cap .w { white-space: nowrap; }
+  .cap .on { font-weight: 700; }
+
+  .tape { position: absolute; left: 70px; width: 940px; display: flex; justify-content: space-between; align-items: center; gap: 36px;
+          padding: 9px 40px 8px; font: 600 27px "Bricolage Grotesque", sans-serif; line-height: 1.25; color: #161616; transform: rotate(-0.5deg);
+          background: #ECE2C6; clip-path: polygon(0 8%, 1.2% 30%, 0.2% 52%, 1.4% 74%, 0.3% 96%, 99.6% 100%, 98.8% 76%, 100% 54%, 98.9% 30%, 99.8% 4%); }
+  .tape span:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg id="stall" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <pattern id="weave" width="7" height="7" patternUnits="userSpaceOnUse">
+      <path d="M0 0.5H7M0 4H7" stroke="#FFFFFF" stroke-opacity="0.045" stroke-width="1" />
+      <path d="M0.5 0V7M4 0V7" stroke="#0A1640" stroke-opacity="0.07" stroke-width="1" />
+    </pattern>
+    <radialGradient id="light" cx="0.28" cy="0.3" r="0.95">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.07" />
+      <stop offset="0.55" stop-color="#000000" stop-opacity="0" />
+      <stop offset="1" stop-color="#050C2A" stop-opacity="0.35" />
+    </radialGradient>
+    <linearGradient id="riceFill" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#FCF9F2" />
+      <stop offset="0.6" stop-color="#E9E2D3" />
+      <stop offset="1" stop-color="#C4B9A3" />
+    </linearGradient>
+    <linearGradient id="sideShade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#0A1645" stop-opacity="0" />
+      <stop offset="0.55" stop-color="#0A1645" stop-opacity="0.04" />
+      <stop offset="1" stop-color="#0A1645" stop-opacity="0.3" />
+    </linearGradient>
+    <pattern id="grains" width="38" height="34" patternUnits="userSpaceOnUse">
+      <g fill="#FFFFFF" fill-opacity="0.9" stroke="#8F836C" stroke-opacity="0.7" stroke-width="0.8">
+        <ellipse cx="5" cy="6" rx="3.6" ry="1.5" transform="rotate(24 5 6)" />
+        <ellipse cx="17" cy="3" rx="3.6" ry="1.5" transform="rotate(-38 17 3)" />
+        <ellipse cx="29" cy="8" rx="3.6" ry="1.5" transform="rotate(70 29 8)" />
+        <ellipse cx="11" cy="15" rx="3.6" ry="1.5" transform="rotate(-12 11 15)" />
+        <ellipse cx="23" cy="17" rx="3.6" ry="1.5" transform="rotate(50 23 17)" />
+        <ellipse cx="34" cy="20" rx="3.6" ry="1.5" transform="rotate(-64 34 20)" />
+        <ellipse cx="4" cy="25" rx="3.6" ry="1.5" transform="rotate(84 4 25)" />
+        <ellipse cx="16" cy="28" rx="3.6" ry="1.5" transform="rotate(16 16 28)" />
+        <ellipse cx="28" cy="29" rx="3.6" ry="1.5" transform="rotate(-30 28 29)" />
+      </g>
+    </pattern>
+    <filter id="soft" x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="9" /></filter>
+    <filter id="softer" x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="16" /></filter>
+    <pattern id="anyam" width="22" height="22" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="22" height="22" fill="#D2B178" />
+      <rect width="11" height="11" fill="#B9965B" /><rect x="11" y="11" width="11" height="11" fill="#B9965B" />
+      <path d="M0 0.5H22M0 11.5H22M0.5 0V22M11.5 0V22" stroke="#7E5E2E" stroke-opacity="0.45" stroke-width="1" />
+    </pattern>
+    <filter id="crease" x="-5%" y="-50%" width="110%" height="200%"><feGaussianBlur stdDeviation="2.4" /></filter>
+  </defs>
+
+  <!-- tarp -->
+  <rect width="1080" height="1920" fill="#213F95" />
+  <rect width="1080" height="1700" fill="url(#weave)" />
+  <!-- fold creases: the tarp was folded in quarters -->
+  <g fill="none" data-layout-allow-overflow>
+    <path d="M-20 252 C180 246 400 262 610 255 S900 246 1100 254" stroke="#0E2366" stroke-opacity="0.7" stroke-width="7" filter="url(#crease)" transform="translate(0 6)" />
+    <path d="M-20 252 C180 246 400 262 610 255 S900 246 1100 254" stroke="#4C69C2" stroke-opacity="0.6" stroke-width="2.5" />
+    <path d="M-20 1006 C220 1000 430 1014 640 1008 S920 998 1100 1005" stroke="#0E2366" stroke-opacity="0.55" stroke-width="7" filter="url(#crease)" transform="translate(0 6)" />
+    <path d="M-20 1006 C220 1000 430 1014 640 1008 S920 998 1100 1005" stroke="#4C69C2" stroke-opacity="0.45" stroke-width="2.5" />
+    <path d="M548 250 C544 560 553 860 546 1180 S551 1520 547 1650" stroke="#0E2366" stroke-opacity="0.45" stroke-width="6" filter="url(#crease)" transform="translate(6 0)" />
+    <path d="M548 250 C544 560 553 860 546 1180 S551 1520 547 1650" stroke="#4C69C2" stroke-opacity="0.35" stroke-width="2" />
+    <path d="M40 1560 C120 1590 170 1610 250 1640" stroke="#0E2366" stroke-opacity="0.45" stroke-width="6" filter="url(#crease)" />
+    <path d="M880 1648 C930 1600 990 1575 1090 1560" stroke="#0E2366" stroke-opacity="0.45" stroke-width="6" filter="url(#crease)" />
+  </g>
+  <rect width="1080" height="1700" fill="url(#light)" />
+  <!-- hem with grommets, then the market floor -->
+  <rect y="1700" width="1080" height="220" fill="#1C1B19" />
+  <path d="M0 1752 H1080 M0 1840 H1080 M210 1700 V1920 M640 1700 V1920" stroke="#3A3834" stroke-width="3" />
+  <path d="M0 1700 H1080 V1716 H0Z" fill="#0B1233" opacity="0.6" />
+  <rect y="1644" width="1080" height="58" fill="#2B4BA8" />
+  <path d="M0 1644 H1080" stroke="#14286A" stroke-width="4" />
+  <path d="M0 1654 H1080 M0 1692 H1080" stroke="#F4EEDF" stroke-opacity="0.45" stroke-width="2" stroke-dasharray="10 8" />
+  <g>
+    <circle cx="60" cy="1673" r="15" fill="#B8954D" stroke="#7A5F2A" stroke-width="3" /><circle cx="60" cy="1673" r="7" fill="#1C1B19" />
+    <circle cx="380" cy="1673" r="15" fill="#B8954D" stroke="#7A5F2A" stroke-width="3" /><circle cx="380" cy="1673" r="7" fill="#1C1B19" />
+    <circle cx="700" cy="1673" r="15" fill="#B8954D" stroke="#7A5F2A" stroke-width="3" /><circle cx="700" cy="1673" r="7" fill="#1C1B19" />
+    <circle cx="1020" cy="1673" r="15" fill="#B8954D" stroke="#7A5F2A" stroke-width="3" /><circle cx="1020" cy="1673" r="7" fill="#1C1B19" />
+    <path d="M380 1673 C372 1730 395 1790 362 1920" fill="none" stroke="#C9B48A" stroke-width="7" stroke-linecap="round" />
+  </g>
+  <!-- the vendor's reserve tray (tampah), cropped by the frame -->
+  <g data-layout-allow-overflow>
+    <circle cx="1000" cy="44" r="236" fill="#08133F" opacity="0.5" filter="url(#softer)" transform="translate(-14 22)" />
+    <circle cx="985" cy="30" r="232" fill="url(#anyam)" />
+    <circle cx="985" cy="30" r="232" fill="none" stroke="#A07C43" stroke-width="20" />
+    <circle cx="985" cy="30" r="242" fill="none" stroke="#6F5226" stroke-width="2.5" />
+    <circle cx="985" cy="30" r="221" fill="none" stroke="#6F5226" stroke-opacity="0.6" stroke-width="2" />
+    <g id="tray"></g>
+  </g>
+  <g id="goods"></g>
+</svg>
+
+<div id="cards"></div>
+<div class="top"><span class="kick" id="kick"></span><span class="eptag" id="ep"></span></div>
+<div class="title" id="title"></div>
+<div class="cap" id="cap" data-slot="caption"></div>
+<div class="tape" id="tape"><span id="src"></span><span id="date"></span></div>
+
+<script>
+  // Built-in sample so the file also opens standalone.
+  const D = window.D || { series: "AI dalam angka", ep: "#01", kicker: "AI dalam angka · #01",
+    title: "1 chat ke AI = oven nyala 1 detik", hl: "1 detik", sub: "Kecil? Kalikan miliaran chat tiap hari.",
+    items: [{ label: "Listrik per chat", value: "0,34 Wh" }, { label: "Setara oven", value: "±1 dtk" }, { label: "Chat per hari", value: "miliaran" }],
+    source: "klaim OpenAI, Jun 2025", date: "per 14 Okt 2026" };
+
+  const FONTS = ['800 120px "Big Shoulders Display"', '700 32px "Big Shoulders Display"', '400 84px "Permanent Marker"', '500 44px "Bricolage Grotesque"', '700 44px "Bricolage Grotesque"', '600 27px "Bricolage Grotesque"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+  const hl = String(D.hl || "").trim(), hlL = hl.toLowerCase();
+
+  // ---------- header ----------
+  $("kick").textContent = D.series || String(D.kicker || "").split("·")[0].trim();
+  const ep = String(D.ep || "").trim();
+  if (ep) $("ep").textContent = ep; else $("ep").remove();
+
+  // ---------- title: hl sits on a hand-cut kraft patch ----------
+  const t = String(D.title || "");
+  const at = hlL ? t.toLowerCase().indexOf(hlL) : -1;
+  const titleEl = $("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="patch">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  for (let fs = 136; fs >= 76; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (titleEl.offsetHeight <= 300) break; }
+  const titleBottom = titleEl.offsetTop + titleEl.offsetHeight;
+
+  // ---------- source strip (masking tape on the tarp edge) ----------
+  $("src").textContent = D.source || "";
+  $("date").textContent = D.date || "";
+  const tape = $("tape");
+  tape.style.top = (1620 - tape.offsetHeight) + "px";
+  const tapeTop = 1620 - tape.offsetHeight;
+
+  // ---------- karaoke caption ----------
+  const capEl = $("cap");
+  const cap = String(D.caption || D.sub || "").trim();
+  const words = cap.split(/\s+/).filter(Boolean);
+  let pos = 0; const ranges = words.map(w => { const s = cap.indexOf(w, pos); pos = s + w.length; return [s, pos]; });
+  const ci = hlL ? cap.toLowerCase().indexOf(hlL) : -1;
+  let active = ci < 0 ? [0] : words.map((w, i) => i).filter(i => ranges[i][1] > ci && ranges[i][0] < ci + hl.length);
+  if (!active.length) active = [0];
+  capEl.innerHTML = words.map((w, i) => '<span class="w' + (active.includes(i) ? " on patch" : "") + '">' + esc(w) + "</span>").join(" ");
+  for (let fs = 46; fs >= 40; fs -= 1) { capEl.style.fontSize = fs + "px"; if (capEl.offsetHeight <= fs * 1.24 * 2 + 4) break; }
+  const capTop = tapeTop - 22 - capEl.offsetHeight;
+  capEl.style.top = capTop + "px";
+
+  // ---------- values: numeric parse decides heap height ----------
+  const parse = v => {
+    const s = String(v == null ? "" : v);
+    const m = s.match(/(\d{1,3}(?:\.\d{3})+|\d+(?:[.,]\d+)?)/);
+    if (!m) return null;
+    const num = /^\d{1,3}(\.\d{3})+$/.test(m[1]) ? parseFloat(m[1].replace(/\./g, "")) : parseFloat(m[1].replace(",", "."));
+    return { num, unit: s.slice(m.index + m[1].length).trim().toLowerCase() };
+  };
+  const P = items.map(it => parse(it.value));
+  const sameUnit = P.every(p => p) && P.every(p => p.unit === P[0].unit);
+  // hero = the item hl points at; ties (or no match) go to the smallest number; else the last item
+  let pool = items.map((it, i) => i).filter(i => hlL && ((items[i].label || "").toLowerCase().includes(hlL) || String(items[i].value || "").toLowerCase().includes(hlL)));
+  if (pool.length !== 1) {
+    const base = pool.length ? pool : items.map((it, i) => i);
+    const num = base.filter(i => P[i]);
+    pool = [num.length ? num.reduce((a, b) => (P[b].num < P[a].num ? b : a)) : base[base.length - 1]];
+  }
+  const hero = pool[0];
+  const maxV = sameUnit ? Math.max(...P.map(p => p.num), 1e-9) : 1;
+  const DEF = [1, 0.8, 0.92, 0.72, 0.86];
+  const size = items.map((it, i) => sameUnit ? 0.3 + 0.7 * Math.max(0, P[i].num) / maxV : DEF[i]);
+
+  // ---------- layout plan ----------
+  const PLAN = { 1: [1], 2: [2], 3: [2, 1], 4: [2, 2], 5: [3, 2] }[n] || [n];
+  const XS = { 1: [520], 2: [316, 706], 3: [232, 500, 768] };
+  const CW = { 1: 400, 2: 350, 3: 252 };
+  const HW = { 1: 540, 2: 410, 3: 300 };
+  const KINDS = ["shallot", "garlic", "chili", "candlenut", "rice"];
+  const CUTS = [
+    "1% 4%, 40% 0, 99% 3%, 100% 94%, 62% 100%, 0 97%",
+    "0 1%, 58% 3%, 100% 0, 98% 98%, 30% 100%, 2% 95%",
+    "2% 0, 100% 4%, 99% 52%, 100% 99%, 0 100%, 1% 48%",
+    "0 3%, 100% 0, 97% 97%, 46% 100%, 2% 99%",
+    "1% 0, 62% 2%, 99% 5%, 100% 100%, 0 96%"
+  ];
+  const ROT = [-2.2, 1.8, -1.2, 2.4, -1.6];
+  // peeled outer liner showing the corrugated flutes (one corner, decoration only)
+  const PEEL = '<svg class="peel" viewBox="0 0 72 56" aria-hidden="true"><path d="M72 0 H14 L22 12 L10 24 L26 34 L18 46 L40 52 L72 56Z" fill="#B48C55" opacity="0.55"/><path d="M28 2 C32 10 24 18 28 26 S32 40 28 50 M40 2 C44 10 36 18 40 26 S44 40 40 52 M52 2 C56 10 48 18 52 26 S56 40 52 54 M64 2 C68 10 60 18 64 26 S68 40 64 54" stroke="#7A5527" stroke-opacity="0.55" stroke-width="2.2" fill="none"/></svg>';
+
+  // rows of items, reading order
+  let k0 = 0;
+  const rows = PLAN.map((k, r) => { const ids = []; for (let c = 0; c < k; c++) ids.push(k0 + c); k0 += k; return { k, ids, sc: r === PLAN.length - 1 ? 1 : 0.94 }; });
+
+  // ---------- cards ----------
+  const cardsEl = $("cards");
+  const cardEls = [];
+  rows.forEach(row => row.ids.forEach((i, c) => {
+    const it = items[i], isHero = i === hero;
+    const w = CW[row.k];
+    const wrap = document.createElement("div");
+    wrap.className = "cw";
+    wrap.style.width = w + "px";
+    const arrow = isHero ? '<svg class="arr" viewBox="0 0 34 66" aria-hidden="true"><path d="M17 4 C16 22 18 38 17 56 M5 42 L17 60 L29 41" fill="none" stroke="#6E1512" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' : "";
+    const old = isHero ? '<svg class="old" viewBox="0 0 150 40" aria-hidden="true"><path d="M6 28 C14 6 24 36 36 12 S54 34 66 10 S86 36 98 12 S118 34 128 12 S142 30 146 18" fill="none" stroke="#161616" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 22 C34 30 70 12 104 26 S136 18 148 24" fill="none" stroke="#161616" stroke-width="5.5" stroke-linecap="round"/><path d="M10 14 C40 22 80 4 140 12" fill="none" stroke="#161616" stroke-width="4.5" stroke-linecap="round"/></svg>' : "";
+    wrap.innerHTML = '<div class="card' + (isHero ? " hero" : "") + '" style="clip-path:polygon(' + CUTS[i % 5] + ')">'
+      + (i % 5 === 1 ? PEEL : "")
+      + '<div class="lb">' + esc(it.label) + "</div>" + old + '<div class="vl">' + arrow + "<span>" + esc(it.value) + "</span></div></div>"
+      + '<svg class="staple" viewBox="0 0 34 10" aria-hidden="true"><path d="M3 8 V3 H31 V8" fill="none" stroke="#8D9096" stroke-width="2.6"/><path d="M3 3 H31" stroke="#D9DCE0" stroke-width="1"/></svg>';
+    cardsEl.appendChild(wrap);
+    const lb = wrap.querySelector(".lb"), vl = wrap.querySelector(".vl");
+    for (let f = 36; f >= 30; f -= 1) { lb.style.fontSize = f + "px"; if (lb.offsetHeight <= f * 1.1 * 2 + 2) break; }
+    for (let f = 80; f >= 46; f -= 2) { vl.style.fontSize = f + "px"; if (vl.scrollWidth <= vl.clientWidth) break; }
+    cardEls[i] = wrap;
+  }));
+
+  // ---------- vertical fit ----------
+  const SK = 22;
+  const bandTop = titleBottom + 40, bandBot = capTop - 26;
+  rows.forEach(row => { row.ch = Math.max(...row.ids.map(i => cardEls[i].offsetHeight)); row.W = HW[row.k] * row.sc; row.ry = row.W * 0.11; });
+  const fixed = rows.reduce((a, r) => a + r.ch + SK, 0) + rows[rows.length - 1].ry + rows.slice(0, -1).reduce((a, r) => a + r.ry * 0.5 + 6, 0);
+  const sumW = rows.reduce((a, r) => a + r.W, 0);
+  const alpha = Math.max(0.2, Math.min(0.6, (bandBot - bandTop - fixed) / sumW));
+  const used = fixed + alpha * sumW;
+  let y = bandTop + Math.max(0, (bandBot - bandTop - used) * 0.35);
+  rows.forEach(row => { row.top = y; row.H = alpha * row.W; row.by = y + row.ch + SK + row.H; y = row.by + row.ry * 0.5 + 6; });
+
+  // ---------- heaps ----------
+  const hsh = (a, b) => { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return x - Math.floor(x); };
+  const mix = (a, b, t) => { const p = h => [1, 3, 5].map(k => parseInt(h.slice(k, k + 2), 16)); const A = p(a), B = p(b); return "#" + A.map((v, k) => Math.round(v + (B[k] - v) * t).toString(16).padStart(2, "0")).join(""); };
+  const COL = {
+    shallot:   { l: "#CF7E98", b: "#97435F", d: "#561D35", s: "#3F1426", sz: 34 },
+    garlic:    { l: "#FFFBF2", b: "#E9DFCC", d: "#AE9C84", s: "#857358", sz: 42 },
+    chili:     { l: "#CF4B3B", b: "#9A2620", d: "#56120E", s: "#380B08", sz: 64 },
+    candlenut: { l: "#F6EBD0", b: "#DCC79C", d: "#A08257", s: "#76603E", sz: 28 },
+    rice:      { l: "#FFFFFF", b: "#EEE7D8", d: "#BDB19A", s: "#9B8F78", sz: 0 }
+  };
+  const SHAPE = {
+    shallot: '<path d="M0,-0.62 C0.1,-0.44 0.48,-0.3 0.48,0.06 C0.48,0.36 0.26,0.48 0,0.48 C-0.26,0.48 -0.48,0.36 -0.48,0.06 C-0.48,-0.3 -0.1,-0.44 0,-0.62Z" fill="F" stroke="S" stroke-width="0.05"/><path d="M-0.3,-0.04 C-0.28,-0.2 -0.18,-0.3 -0.07,-0.36" fill="none" stroke="L" stroke-width="0.07" stroke-linecap="round"/><path d="M0.02,-0.5 C0.1,-0.2 0.16,0.1 0.1,0.42" fill="none" stroke="S" stroke-opacity="0.45" stroke-width="0.04"/>',
+    garlic: '<path d="M0,-0.62 C0.06,-0.5 0.1,-0.42 0.2,-0.36 C0.46,-0.24 0.56,0.02 0.5,0.22 C0.44,0.44 0.22,0.52 0,0.52 C-0.22,0.52 -0.44,0.44 -0.5,0.22 C-0.56,0.02 -0.46,-0.24 -0.2,-0.36 C-0.1,-0.42 -0.06,-0.5 0,-0.62Z" fill="F" stroke="S" stroke-width="0.045"/><path d="M0,-0.34 C-0.07,0 -0.05,0.3 0,0.5 M-0.24,-0.28 C-0.38,0 -0.32,0.3 -0.18,0.46 M0.24,-0.28 C0.38,0 0.32,0.3 0.18,0.46" fill="none" stroke="#A88AA0" stroke-opacity="0.7" stroke-width="0.035"/><ellipse cx="0" cy="0.5" rx="0.13" ry="0.05" fill="#8C7A5E"/><path d="M-0.32,-0.12 C-0.3,-0.22 -0.24,-0.28 -0.16,-0.32" fill="none" stroke="L" stroke-width="0.07" stroke-linecap="round"/>',
+    chili: '<path d="M-0.5,-0.05 C-0.3,-0.14 0.1,-0.12 0.36,-0.06 C0.47,-0.03 0.53,0.02 0.5,0.045 C0.3,0.07 -0.1,0.12 -0.44,0.085 C-0.53,0.06 -0.55,0 -0.5,-0.05Z" fill="F" stroke="S" stroke-width="0.03"/><path d="M-0.5,0 C-0.56,-0.02 -0.6,-0.06 -0.64,-0.05" fill="none" stroke="#6B5530" stroke-width="0.05" stroke-linecap="round"/><path d="M-0.3,-0.075 C-0.05,-0.1 0.15,-0.08 0.32,-0.045" fill="none" stroke="L" stroke-width="0.035" stroke-linecap="round"/>',
+    candlenut: '<path d="M-0.46,-0.1 C-0.44,-0.38 -0.12,-0.5 0.12,-0.46 C0.38,-0.42 0.5,-0.2 0.48,0.06 C0.46,0.34 0.24,0.48 -0.02,0.46 C-0.3,0.44 -0.48,0.22 -0.46,-0.1Z" fill="F" stroke="S" stroke-width="0.05"/><path d="M-0.06,-0.04 q0.1,-0.07 0.2,0" fill="none" stroke="S" stroke-width="0.06" stroke-linecap="round"/><path d="M-0.3,-0.1 C-0.28,-0.24 -0.18,-0.32 -0.06,-0.34" fill="none" stroke="L" stroke-width="0.08" stroke-linecap="round"/>'
+  };
+  const prof = u => { const a = 1 - u * u; return a <= 0 ? 0 : Math.pow(a, 0.85); };
+  function item(kind, x, yy, s, r, t) {
+    const c = COL[kind];
+    const fill = t < 0.5 ? mix(c.l, c.b, t * 2) : mix(c.b, c.d, (t - 0.5) * 2);
+    const hi = mix(c.l, "#FFFFFF", 0.4);
+    return '<g transform="translate(' + x.toFixed(1) + " " + yy.toFixed(1) + ") rotate(" + r.toFixed(0) + ") scale(" + s.toFixed(1) + ')">' + SHAPE[kind].replace(/"F"/g, '"' + fill + '"').replace(/"S"/g, '"' + c.s + '"').replace(/"L"/g, '"' + hi + '"') + "</g>";
+  }
+  function heap(kind, cx, by, W, H, seed, scale) {
+    const rx = W / 2, ry = W * 0.11;
+    const bump = kind === "rice" ? (u => (2.2 * Math.sin(u * 41 + seed) + 1.4 * Math.sin(u * 97 + seed * 3)) * (1 - u * u)) : (() => 0);
+    const topY = x => { const u = (x - cx) / rx; if (Math.abs(u) >= 1) return by; return Math.min(by - ry * Math.sqrt(1 - u * u), by - H * prof(u) - bump(u)); };
+    const botY = x => { const u = (x - cx) / rx; if (Math.abs(u) >= 1) return by; return by + ry * Math.sqrt(1 - u * u); };
+    let out = '<ellipse cx="' + (cx + W * 0.07) + '" cy="' + (by + ry * 0.45) + '" rx="' + rx * 1.05 + '" ry="' + ry * 1.5 + '" fill="#08133F" opacity="0.55" filter="url(#soft)"/>'
+            + '<ellipse cx="' + (cx + W * 0.2) + '" cy="' + (by + ry * 0.8) + '" rx="' + rx * 0.95 + '" ry="' + ry * 1.3 + '" fill="#08133F" opacity="0.3" filter="url(#softer)"/>';
+    const pts = [];
+    for (let k = 0; k <= 60; k++) { const x = cx - rx + 2 * rx * k / 60; pts.push([x, topY(x)]); }
+    for (let k = 60; k >= 0; k--) { const x = cx - rx + 2 * rx * k / 60; pts.push([x, botY(x)]); }
+    const sil = "M" + pts.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join("L") + "Z";
+    if (kind === "rice") {
+      out += '<path d="' + sil + '" fill="url(#riceFill)"/><path d="' + sil + '" fill="url(#grains)"/><path d="' + sil + '" fill="url(#sideShade)"/>';
+      // loose grains on the rim
+      for (let k = 0; k < 26; k++) { const a = hsh(k, seed) * Math.PI * 2, rr = 0.92 + hsh(k + 40, seed) * 0.22; const x = cx + Math.cos(a) * rx * rr, yy = by + Math.sin(a) * ry * rr; if (yy < by - ry * 0.3) continue;
+        out += '<ellipse cx="' + x.toFixed(1) + '" cy="' + yy.toFixed(1) + '" rx="3.6" ry="1.5" fill="#F3EEE3" stroke="#9B8F78" stroke-width="0.6" transform="rotate(' + (hsh(k + 80, seed) * 180).toFixed(0) + " " + x.toFixed(1) + " " + yy.toFixed(1) + ')"/>'; }
+      return out;
+    }
+    const sz = COL[kind].sz * scale;
+    const sp = kind === "chili" ? sz * 0.3 : sz * 0.56;
+    const list = [];
+    let j = 0;
+    for (let yy = by - H - ry; yy <= by + ry + sp; yy += sp * 0.86, j++) {
+      for (let x = cx - rx + (j % 2) * sp / 2; x <= cx + rx; x += sp) {
+        const q = j * 97 + Math.round((x - cx) / sp) + 500;
+        const px = x + (hsh(q, seed) - 0.5) * sp * 0.7, py = yy + (hsh(q + 13, seed) - 0.5) * sp * 0.6;
+        const tY = topY(px), bY = botY(px);
+        if (py < tY + sz * (kind === "chili" ? 0.06 : 0.2) || py > bY - sz * (kind === "chili" ? 0.04 : 0.14)) continue;
+        const u = (px - cx) / rx, v = (py - tY) / Math.max(1, bY - tY);
+        let tt = 0.34 + 0.3 * u + 0.36 * v * v + (hsh(q + 29, seed) - 0.5) * 0.34;
+        tt = Math.max(0, Math.min(1, tt));
+        const rot = kind === "chili" ? hsh(q + 7, seed) * 360 : (hsh(q + 7, seed) - 0.5) * 140;
+        const s2 = sz * (0.86 + hsh(q + 3, seed) * 0.28);
+        list.push([py, item(kind, px, py, s2, rot, tt)]);
+      }
+    }
+    list.sort((a, b) => a[0] - b[0]);
+    out += list.map(e => e[1]).join("");
+    return out;
+  }
+
+  // ---------- assemble stall ----------
+  let svg = "";
+  rows.forEach(row => {
+    const layer = { shadow: "", ghost: "", skew: "", heaps: "" };
+    row.ids.forEach((i, c) => {
+      const kind = KINDS[i % 5], isHero = i === hero;
+      const cx = XS[row.k][c];
+      const card = cardEls[i];
+      const cw = CW[row.k];
+      card.style.left = (cx - cw / 2) + "px";
+      card.style.top = row.top + "px";
+      card.style.transform = "rotate(" + ROT[i % 5] + "deg)";
+      const s = isHero ? 0.15 : size[i];
+      const W = isHero ? row.W * 0.4 : row.W * (0.74 + 0.26 * s);
+      const H = row.H * s;
+      const scale = row.sc * (row.k === 3 ? 0.88 : 1);
+      // bamboo skewer from behind the card down into the heap
+      const top = row.top - 16, x0 = cx + (ROT[i % 5] < 0 ? 5 : -5), x1 = cx + (ROT[i % 5] < 0 ? -9 : 9);
+      const yEnd = isHero ? row.by + 2 : row.by - H * 0.55;
+      layer.skew += '<path d="M' + x0 + " " + top + " L" + x1 + " " + yEnd + '" stroke="#7E6131" stroke-width="9" stroke-linecap="round"/>'
+                  + '<path d="M' + (x0 - 1) + " " + (top + 2) + " L" + (x1 - 1) + " " + yEnd + '" stroke="#E4CB93" stroke-width="5" stroke-linecap="round"/>';
+      if (isHero) {
+        // dashed chalk ghost of the heap it used to be
+        const GW = row.W, GH = row.H, grx = GW / 2, gry = GW * 0.11;
+        const gp = [];
+        for (let k = 0; k <= 48; k++) { const x = cx - grx + GW * k / 48, u = (x - cx) / grx; gp.push([x, Math.min(row.by - gry * Math.sqrt(Math.max(0, 1 - u * u)), row.by - GH * prof(u))]); }
+        const front = [];
+        for (let k = 48; k >= 0; k--) { const x = cx - grx + GW * k / 48, u = (x - cx) / grx; front.push([x, row.by + gry * Math.sqrt(Math.max(0, 1 - u * u))]); }
+        const dTop = "M" + gp.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join("L");
+        layer.ghost += '<path d="' + dTop + "L" + front.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join("L") + 'Z" fill="#F4EEDF" fill-opacity="0.07"/>'
+                     + '<path d="' + dTop + '" fill="none" stroke="#F4EEDF" stroke-opacity="0.78" stroke-width="4.5" stroke-dasharray="16 12" stroke-linecap="round"/>'
+                     + '<path d="M' + front.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join("L") + '" fill="none" stroke="#F4EEDF" stroke-opacity="0.5" stroke-width="3.5" stroke-dasharray="10 12"/>';
+        // a few strays left behind on the tarp
+        const STRAY = [[-0.62, 0.35], [0.58, 0.55], [0.8, -0.1], [-0.38, -0.55], [0.25, 0.85], [-0.84, -0.1]];
+        STRAY.forEach((p, k) => { if (kind === "rice") { const x = cx + p[0] * grx, yy = row.by + p[1] * gry; layer.ghost += '<ellipse cx="' + x.toFixed(1) + '" cy="' + yy.toFixed(1) + '" rx="3.6" ry="1.5" fill="#F3EEE3" transform="rotate(' + (k * 47) + " " + x.toFixed(1) + " " + yy.toFixed(1) + ')"/>'; }
+          else layer.ghost += item(kind, cx + p[0] * grx * 0.9, row.by + p[1] * gry * 1.4, COL[kind].sz * scale * 0.95, k * 61 - 90, 0.45 + (k % 3) * 0.12); });
+      }
+      layer.heaps += heap(kind, cx, row.by, W, Math.max(H, W * 0.06), 11 + i * 7, scale);
+    });
+    svg += layer.ghost + layer.skew + layer.heaps;
+  });
+  $("goods").innerHTML = svg;
+  $("tray").innerHTML = heap("shallot", 962, 150, 300, 96, 5, 0.95);
+  }
+</script>
+</body>
+</html>

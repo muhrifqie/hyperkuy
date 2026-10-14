@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Saira+Extra+Condensed:wght@800&family=Saira+Semi+Condensed:wght@500;700&family=Roboto+Mono:wght@500;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Photo Finish: a line-scan photo-finish print lying on the judges' desk. The print carries all the type:
+    - black results band on top = camera header line (series · heat · date) + the title, right-aligned
+      toward the finish; the hl word is cursor red and the red readout tab + cursor line hang straight
+      down from it into the lanes (F = x of the hl word, clamped to 700..890).
+    - lanes 1..n = items in their own order; each racer is a hard-coded line-scan sprinter (head, leaning
+      jersey torso with a bib = lane number, forward arm) with a dash smear tail.
+    - finishing positions come from the DATA: values that parse with one shared unit are ranked (largest
+      nearest the line), gaps proportional to the relative difference, and only lanes within 1% of the
+      leader sit inside the grey "± galat" band. Otherwise item order = finishing order, evenly staggered.
+    - black timing scale (unlabelled ticks, no invented times) + the judges' result slip glued under it
+      = the karaoke caption.
+    Deterministic: fixed-seed LCG for streaks, fixed figure paths scaled to lane height.
+  */
+  :root { --paper: #F7F6F2; --ink: #121212; --red: #D7263D; --blue: #2B59C3; --yel: #F2C14E; --mute: #57544D; --desk: #DAD7CF; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--desk); }
+  body { position: relative; color: var(--ink); font-family: "Saira Semi Condensed", sans-serif; }
+  #art { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* camera header line inside the black band */
+  .cam { position: absolute; left: 90px; width: 900px; top: 322px; font: 700 26px "Roboto Mono", monospace; line-height: 34px;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--paper); white-space: nowrap; }
+  .cam i { font-style: normal; color: #A9A69E; }
+
+  /* title: largest element, set in the results band, right-aligned toward the finish line */
+  .title { position: absolute; left: 90px; font-family: "Saira Extra Condensed", sans-serif; font-weight: 800; text-transform: uppercase;
+    line-height: 0.94; letter-spacing: 0.004em; color: var(--paper); text-align: right; }
+  .title .hl { color: var(--red); white-space: nowrap; }
+  .title .bl { display: inline-block; width: 0; height: 0; vertical-align: baseline; }
+
+  /* cursor readout tab (hangs under the hl word) */
+  .tab { position: absolute; height: 54px; display: flex; align-items: center; justify-content: center; padding: 0 18px;
+    background: var(--red); color: #FFFFFF; font: 700 30px "Roboto Mono", monospace; letter-spacing: 0.01em; white-space: nowrap; }
+
+  /* lane tag: judges' annotation card = lane no | LABEL / value */
+  .tag { position: absolute; display: flex; align-items: stretch; background: #FFFFFF; border: 3px solid var(--ink); white-space: nowrap; }
+  .tag .no { display: flex; align-items: center; justify-content: center; width: 50px; flex: none; background: var(--ink); color: var(--paper);
+    font: 700 30px "Roboto Mono", monospace; }
+  .tag .tx { display: flex; flex-direction: column; justify-content: center; padding: 3px 14px 5px; }
+  .tag .lb { font: 700 34px "Saira Semi Condensed", sans-serif; text-transform: uppercase; letter-spacing: 0.01em; line-height: 1.08; color: var(--ink); }
+  .tag .vl { font: 500 30px "Roboto Mono", monospace; line-height: 1.2; letter-spacing: -0.01em; color: var(--ink); }
+  .tag.wrap .lb { white-space: normal; }
+
+  .gal { position: absolute; font: 700 28px "Roboto Mono", monospace; color: var(--yel); white-space: nowrap; letter-spacing: 0.02em; }
+
+  /* judges' result slip glued under the timing scale */
+  .slip { position: absolute; left: 70px; width: 850px; background: #FFFFFF; border: 2px solid var(--ink); padding: 12px 20px 16px 20px;
+    box-shadow: 0 7px 0 rgba(18, 18, 18, 0.13); }
+  .slab { display: flex; align-items: center; gap: 14px; font: 700 26px "Roboto Mono", monospace; letter-spacing: 0.12em; color: var(--ink);
+    text-transform: uppercase; white-space: nowrap; line-height: 34px; }
+  .slab::after { content: ""; flex: 1; height: 0; border-top: 3px dotted var(--ink); opacity: 0.45; }
+  .cap { margin-top: 8px; width: 806px; font: 500 46px "Saira Semi Condensed", sans-serif; line-height: 1.3; color: var(--mute); }
+  .cap .w { display: inline; position: relative; }
+  .cap .done { color: var(--ink); }
+  .cap .on { position: relative; color: #FFFFFF; background: var(--red); font-weight: 700; padding: 0 0.16em; margin: 0 -0.02em;
+    -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  .cap .on::after { content: ""; position: absolute; left: 50%; bottom: -7px; margin-left: -8px; border-left: 8px solid transparent;
+    border-right: 8px solid transparent; border-top: 8px solid var(--red); }
+
+  .foot { position: absolute; left: 90px; width: 900px; font: 500 26px "Roboto Mono", monospace; line-height: 1.3; color: var(--mute); }
+  .foot b { color: var(--ink); font-weight: 700; }
+</style>
+</head>
+<body>
+<svg id="art" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+<div id="layer"></div>
+<div class="cam" id="cam"></div>
+<div class="title" id="title"></div>
+<div class="slip" id="slip"><div class="slab">Keputusan juri</div><div class="cap" id="cap" data-slot="caption"></div></div>
+<div class="foot" id="src"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series_id: "ai-in-numbers", series: "AI dalam angka", ep: "#03", kicker: "AI dalam angka · #03",
+    title: "Menang 0,1 poin. Beneran menang?", hl: "0,1 poin",
+    sub: "Selisih skor lebih kecil dari galat ukur itu namanya seri.",
+    items: [{ label: "Model A", value: "88,4" }, { label: "Model B", value: "88,3" }, { label: "Model C", value: "86,9" }, { label: "Model D", value: "85,7" }],
+    source: "ilustrasi — skor benchmark fiktif", date: "per 14 Okt 2026" };
+
+  const fontsIn = Promise.all(['800 136px "Saira Extra Condensed"', '700 34px "Saira Semi Condensed"', '500 46px "Saira Semi Condensed"',
+    '700 46px "Saira Semi Condensed"', '500 26px "Roboto Mono"', '700 30px "Roboto Mono"'].map(f => document.fonts.load(f)))
+    .then(() => document.fonts.ready).catch(() => {});
+  fontsIn.then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+  const INK = "#121212", PAPER = "#F7F6F2", RED = "#D7263D", BLUE = "#2B59C3", YEL = "#F2C14E", MUTE = "#57544D";
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(items.length, 1);
+  const layer = $("layer");
+  const svg = [];
+  const add = (cls, html, css) => { const e = document.createElement("div"); e.className = cls; e.innerHTML = html; Object.assign(e.style, css || {}); layer.appendChild(e); return e; };
+
+  // Fixed-seed LCG: identical streaks on every render.
+  let seed = 20261014;
+  const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+
+  const PX0 = 48, PX1 = 1032, PT = 300;               // print sheet
+  const FMIN = 700, FMAX = 890, FDEF = 820;            // finish-line x range (follows the hl word)
+
+  // ---- camera header line: SERIES · HEAT #ep · DATE
+  const series = D.series || (D.kicker ? String(D.kicker).split("·")[0].trim() : "");
+  const sep = ' <i>·</i> ';
+  const camParts = [series ? esc(series) : "", D.ep ? "Heat " + esc(D.ep) : "", D.date ? esc(D.date) : ""].filter(Boolean);
+  const cam = $("cam");
+  cam.innerHTML = camParts.join(sep) || esc(D.kicker || "");
+  if (cam.scrollWidth > 900) cam.style.letterSpacing = "0.02em";
+  if (cam.scrollWidth > 900) { cam.style.whiteSpace = "normal"; }
+  const camBottom = 322 + cam.offsetHeight;
+  const ruleY = camBottom + 12;
+
+  // ---- title (largest element), right-aligned so the hl word sits over the finish line
+  const t = D.title || "", hl = D.hl || "";
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  titleEl.innerHTML = at < 0 ? esc(t)
+    : esc(t.slice(0, at)) + '<span class="hl" id="hl"><i class="bl" id="bl"></i>' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  const TT = ruleY + 22;
+  titleEl.style.top = TT + "px";
+  let tfs = 136;
+  const fitTitle = xR => {
+    titleEl.style.width = (xR - 90) + "px";
+    for (tfs = 136; tfs >= 80; tfs -= 2) {
+      titleEl.style.fontSize = tfs + "px";
+      if (titleEl.offsetHeight <= 270 && titleEl.scrollWidth <= titleEl.clientWidth + 1) break;
+    }
+  };
+  const hlCenter = () => { const r = $("hl").getBoundingClientRect(); return r.left + r.width / 2; };
+  fitTitle(990);
+  let F = FDEF, hlC = null;
+  if (at >= 0) {
+    hlC = hlCenter();
+    if (hlC > FMAX) { fitTitle(Math.max(900, Math.round(990 - (hlC - FMAX)))); hlC = hlCenter(); }
+    F = Math.round(Math.min(FMAX, Math.max(FMIN, hlC)));
+  }
+  const titleBottom = TT + titleEl.offsetHeight;
+
+  // ---- readout tab position (value decided after the data mapping)
+  const tabTop = titleBottom + 18, TABH = 54;
+  const LT = tabTop + TABH;                              // results band ends at the tab bottom; lanes start
+
+  // ---- bottom-up: source line, result slip, then the print bottom
+  const srcEl = $("src");
+  srcEl.innerHTML = D.source ? "<b>Sumber:</b> " + esc(D.source) : "";
+  const footTop = 1616 - srcEl.offsetHeight;
+  srcEl.style.top = footTop + "px";
+
+  // caption (karaoke). Active word = hl if it is in the caption, else the first word.
+  const capText = String(D.caption || D.sub || "");
+  const words = capText.split(/\s+/).filter(Boolean);
+  const normW = w => w.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+  let a0 = 0, a1 = 0;
+  if (hl) {
+    const hw = hl.split(/\s+/).map(normW).filter(Boolean), key = hw.join(" ");
+    for (let i = 0; key && i + hw.length <= words.length; i++) {
+      if (words.slice(i, i + hw.length).map(normW).join(" ") === key) { a0 = i; a1 = i + hw.length - 1; break; }
+    }
+  }
+  let capHTML = "";
+  for (let i = 0; i < words.length; i++) {
+    if (i === a0) { capHTML += '<span class="w on">' + esc(words.slice(a0, a1 + 1).join(" ")) + "</span> "; i = a1; continue; }
+    capHTML += '<span class="w' + (i < a0 ? " done" : "") + '">' + esc(words[i]) + "</span> ";
+  }
+  const capEl = $("cap");
+  capEl.innerHTML = capHTML.trim();
+  let cfs = 46;
+  for (; cfs >= 44; cfs -= 2) { capEl.style.fontSize = cfs + "px"; if (capEl.offsetHeight <= cfs * 1.3 * 2 + 4) break; }
+  const spans = () => capEl.querySelectorAll(".w");
+  while (capEl.offsetHeight > cfs * 1.3 * 2 + 4 && spans().length > 1) {       // > 2 lines: cut trailing words, keep the active one
+    const all = spans(), last = all[all.length - 1];
+    if (last.classList.contains("on")) break;
+    last.previousSibling && last.previousSibling.nodeType === 3 && last.previousSibling.remove();
+    last.remove();
+    const nl = spans()[spans().length - 1];
+    nl.textContent = nl.textContent.replace(/[\s,.;:!?…-]+$/, "") + "…";
+  }
+  const slip = $("slip");
+  const slipTop = footTop - 20 - slip.offsetHeight;
+  slip.style.top = slipTop + "px";
+
+  const PB = slipTop + 8;                                // slip is glued over the bottom edge of the print
+  const SH = 66, LB = PB - SH;                           // timing scale
+  const laneH = (LB - LT) / n;
+
+  // ---- lane tags (left), capped at 420 px
+  const TAG_X = 92, TAG_MAX = 420;
+  const tags = items.map((it, i) => {
+    const e = add("tag", '<span class="no">' + (i + 1) + '</span><span class="tx"><span class="lb">' + esc(it.label) + '</span><span class="vl">' + esc(it.value) + "</span></span>");
+    const lb = e.querySelector(".lb");
+    let fs = 34;
+    while (e.offsetWidth > TAG_MAX && fs > 30) { fs -= 2; lb.style.fontSize = fs + "px"; }
+    if (e.offsetWidth > TAG_MAX) { e.classList.add("wrap"); e.style.width = TAG_MAX + "px"; }
+    e.style.left = TAG_X + "px";
+    e.style.top = (LT + i * laneH + (laneH - e.offsetHeight) / 2).toFixed(1) + "px";
+    return e;
+  });
+  const tagR = Math.max(TAG_X + 200, ...tags.map(e => TAG_X + e.offsetWidth));
+
+  // ---- data -> finishing positions
+  const NUM = /\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+,\d+|\d+\.\d+|\d+/;
+  const parseVal = v => {
+    const s = String(v == null ? "" : v), m = s.match(NUM);
+    if (!m) return null;
+    let tx = m[0];
+    if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(tx)) tx = tx.replace(/\./g, "");   // Indonesian thousands
+    tx = tx.replace(",", ".");
+    const dm = tx.match(/\.(\d+)$/), pre = s.slice(0, m.index), suf = s.slice(m.index + m[0].length).trim();
+    const neg = /[-−]\s*$/.test(pre);
+    return { v: (neg ? -1 : 1) * parseFloat(tx), dec: dm ? dm[1].length : 0, unit: pre.replace(/[-−±~≈<>≤≥+\s]/g, "").toLowerCase() + "|" + suf.toLowerCase(), suf };
+  };
+  const P = items.map(it => parseVal(it.value));
+  const byValue = n >= 2 && P.every(p => p) && P.every(p => p.unit === P[0].unit);
+  const order = items.map((_, i) => i);
+  if (byValue) order.sort((a, b) => (P[b].v - P[a].v) || (a - b));
+  const rank = []; order.forEach((idx, r) => { rank[idx] = r; });
+
+  const figH = laneH * 0.88, fs_ = figH / 100, SX = 1.2, figW = 72 * fs_ * SX;
+  const S = Math.max(60, F - (tagR + 18 + figW));        // room behind the line for trailing chests
+  const THR = 0.01;
+  let bandHalf = 30, gap = new Array(n).fill(0), readout = "SERI?";
+  if (byValue) {
+    const vmax = P[order[0]].v, vmin = P[order[n - 1]].v;
+    const den = Math.abs(vmax) > 0 ? Math.abs(vmax) : ((vmax - vmin) || 1);
+    const rel = P.map(p => (vmax - p.v) / den);
+    const relmax = Math.max(...rel);
+    const K = relmax > 0 ? Math.min(4000, S / relmax) : 0;
+    bandHalf = Math.max(26, Math.min(48, THR * K));
+    gap = rel.map(r => r <= THR + 1e-9 ? r * K : Math.min(S, Math.max(r * K, bandHalf + 16)));
+    const p0 = P[order[0]], p1 = P[order[1]], dec = Math.max(p0.dec, p1.dec);
+    const d = Math.abs(p0.v - p1.v);
+    const num = d.toLocaleString("id-ID", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+    const u = p0.suf && p0.suf.length <= 6 ? (/^%/.test(p0.suf) ? "" : " ") + p0.suf : "";
+    readout = "Δ " + num + u;
+  } else {
+    const step = n > 1 ? S / (n - 1) : 0;
+    gap = items.map((_, i) => i === 0 ? 0 : Math.max(bandHalf + 16, i * step));
+  }
+  const fronts = gap.map(g => F - g);
+
+  // ---- print sheet + drop shadow
+  svg.push('<rect x="' + (PX0 + 7) + '" y="' + (PT + 9) + '" width="' + (PX1 - PX0) + '" height="' + (PB - PT) + '" fill="' + INK + '" opacity="0.16"/>');
+  svg.push('<rect x="' + PX0 + '" y="' + PT + '" width="' + (PX1 - PX0) + '" height="' + (PB - PT) + '" fill="#FCFBF8"/>');
+
+  // lanes: alternating tint + static track smeared into horizontal streaks
+  for (let i = 0; i < n; i++) {
+    const y0 = LT + i * laneH;
+    if (i % 2 === 1) svg.push('<rect x="' + PX0 + '" y="' + y0.toFixed(1) + '" width="' + (PX1 - PX0) + '" height="' + laneH.toFixed(1) + '" fill="' + INK + '" opacity="0.035"/>');
+  }
+  for (let y = LT + 3; y < LB - 2; y += 4 + Math.floor(rnd() * 7)) {
+    const o = 0.02 + rnd() * 0.05, w = rnd() < 0.12 ? 2 : 1;
+    svg.push('<rect x="' + PX0 + '" y="' + y + '" width="' + (PX1 - PX0) + '" height="' + w + '" fill="' + INK + '" opacity="' + o.toFixed(3) + '"/>');
+  }
+  for (let i = 1; i < n; i++) {
+    const y = LT + i * laneH;
+    svg.push('<rect x="' + PX0 + '" y="' + (y - 1.5).toFixed(1) + '" width="' + (PX1 - PX0) + '" height="3" fill="' + INK + '" opacity="0.5"/>');
+  }
+
+  // ---- error band straddling the finish line (behind the racers)
+  svg.push('<rect x="' + (F - bandHalf) + '" y="' + LT + '" width="' + (2 * bandHalf) + '" height="' + (LB - LT) + '" fill="' + INK + '" opacity="0.10"/>');
+  for (const ex of [F - bandHalf, F + bandHalf])
+    svg.push('<line x1="' + ex + '" y1="' + LT + '" x2="' + ex + '" y2="' + LB + '" stroke="' + INK + '" stroke-width="2" stroke-dasharray="10 8" opacity="0.55"/>');
+
+  // ---- racers: line-scan sprinter (fixed paths, unit box: chest at x=0, head top y=0, feet y=100) + dash smear tail
+  const DIG = ["M5 1 L5 13 M2.4 3.6 L5 1", "M1.4 4 Q1.4 1 5 1 Q8.6 1 8.6 4.2 Q8.6 7 1.4 13 L8.8 13", "M1.4 2.4 Q5 0 8 3 Q8.4 6 4.4 7 Q8.8 7.8 8.4 10.6 Q6.6 14 1.2 12",
+    "M7 13 L7 1 L1 9.4 L9.2 9.4", "M8.4 1 L2.4 1 L1.6 6.6 Q5.6 4.8 8.2 7.6 Q9.4 11.6 5.4 13 Q2.6 13.4 1.2 11.4"];
+  const ROWS = [[10, -16, 7, 0], [22, -25, 5, 1], [30, -33, 7, 1], [38, -37, 7, 1], [46, -39, 7, 1], [53, -40, 5, 1], [60, -44, 6, 0], [72, -48, 4, 0], [86, -57, 3, 0], [96, -64, 3, 0]];
+  const racer = (i, front) => {
+    const y0 = LT + i * laneH, top = y0 + laneH * 0.05, s = fs_;
+    const r = rank[i], hero = r <= 1;
+    const jer = r === 0 ? BLUE : r === 1 ? YEL : MUTE;
+    const op = hero ? 1 : 0.8;
+    // tail first (behind the figure)
+    for (const [uy, ux, th, isJ] of ROWS) {
+      const yk = top + uy * s, h = Math.max(2.5, th * s * 0.9), col = isJ ? jer : INK;
+      let x = front + ux * s * SX + 2;
+      const firstLen = 30 + rnd() * 70;
+      svg.push('<rect x="' + (x - firstLen).toFixed(1) + '" y="' + (yk - h / 2).toFixed(1) + '" width="' + firstLen.toFixed(1) + '" height="' + h.toFixed(1) + '" fill="' + col + '" opacity="' + (0.85 * op).toFixed(2) + '"/>');
+      x -= firstLen + 6 + rnd() * 14;
+      while (x > PX0 + 8) {
+        const dist = front - x;
+        const l = Math.min(x - (PX0 + 8), 8 + rnd() * (dist < 300 ? 56 : 30));
+        const o = Math.max(0.08, Math.min(0.75, 0.95 - dist / 560)) * op;
+        svg.push('<rect x="' + (x - l).toFixed(1) + '" y="' + (yk - h / 2).toFixed(1) + '" width="' + l.toFixed(1) + '" height="' + h.toFixed(1) + '" fill="' + col + '" opacity="' + o.toFixed(3) + '"/>');
+        x -= l + 5 + rnd() * 22;
+      }
+    }
+    const st = 'fill="none" stroke="' + INK + '" stroke-linecap="round" stroke-linejoin="round"';
+    svg.push('<g transform="translate(' + front.toFixed(1) + ' ' + top.toFixed(1) + ') scale(' + (s * SX).toFixed(4) + ' ' + s.toFixed(4) + ')" opacity="' + op + '">' +
+      '<polyline points="-24,24 -40,34 -50,25" ' + st + ' stroke-width="6.5"/>' +                       // back arm
+      '<polyline points="-38,61 -48,79 -62,95 -70,98.5" ' + st + ' stroke-width="7"/>' +              // rear leg, toe-off
+      '<path d="M-24 56 L-39 53 L-43 63 L-24 66 Z" fill="' + INK + '"/>' +                            // shorts
+      '<polyline points="-28,61 -8,70 -15,89 -5,92" ' + st + ' stroke-width="7.5"/>' +               // lead leg, knee up
+      '<path d="M-15 18 L-6 20 Q1 23 0 30 Q-2 40 -17 50 L-24 57 L-39 54 Q-37 44 -33 37 Q-28 25 -15 18 Z" fill="' + jer + '" stroke="' + INK + '" stroke-width="2.4" stroke-linejoin="round"/>' +
+      '<g transform="rotate(27 -22 37)"><rect x="-30" y="30" width="16" height="14" fill="#FFFFFF" stroke="' + INK + '" stroke-width="1.5"/>' +
+      '<path d="' + DIG[Math.min(i, 4)] + '" transform="translate(-26.6 31.6) scale(0.72 0.8)" fill="none" stroke="' + INK + '" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></g>' +
+      '<ellipse cx="-8" cy="10.5" rx="7.5" ry="8" fill="' + INK + '"/>' +                            // head
+      '<polyline points="-13,24 -12,41 -2,45" ' + st + ' stroke-width="6.5"/>' +                     // forward arm
+      '</g>');
+  };
+  // trailing racers first so heroes sit on top of the stack
+  order.slice().reverse().forEach(i => racer(i, fronts[i]));
+
+  // ---- results band (black) + camera rule
+  svg.push('<rect x="' + PX0 + '" y="' + PT + '" width="' + (PX1 - PX0) + '" height="' + (LT - PT) + '" fill="' + INK + '"/>');
+  svg.push('<rect x="90" y="' + ruleY + '" width="900" height="2" fill="' + PAPER + '" opacity="0.28"/>');
+
+  // ---- red cursor: stem from the hl word, tab notch, line through every lane
+  if (hlC !== null) {
+    const base = $("bl").getBoundingClientRect().top;
+    const onLast = titleBottom - base < tfs * 0.6;
+    if (onLast) {
+      const y1 = base + Math.round(tfs * 0.08);
+      if (Math.abs(hlC - F) < 3) svg.push('<rect x="' + (F - 2) + '" y="' + y1 + '" width="4" height="' + (tabTop - y1) + '" fill="' + RED + '"/>');
+      else svg.push('<path d="M' + hlC.toFixed(1) + ' ' + y1 + ' V' + (tabTop - 8) + ' H' + F + ' V' + tabTop + '" stroke="' + RED + '" stroke-width="4" fill="none"/>');
+    }
+  }
+  svg.push('<path d="M' + (F - 13) + ' ' + LT + ' L' + (F + 13) + ' ' + LT + ' L' + F + ' ' + (LT + 15) + ' Z" fill="' + RED + '"/>');
+  svg.push('<rect x="' + (F - 2) + '" y="' + LT + '" width="4" height="' + (LB - LT) + '" fill="' + RED + '"/>');
+  svg.push('<path d="M' + (F - 12) + ' ' + LB + ' L' + (F + 12) + ' ' + LB + ' L' + F + ' ' + (LB - 14) + ' Z" fill="' + RED + '"/>');
+
+  // ---- timing scale: unlabelled ticks (no invented times) + the error bracket
+  svg.push('<rect x="' + PX0 + '" y="' + LB + '" width="' + (PX1 - PX0) + '" height="' + SH + '" fill="' + INK + '"/>');
+  for (let x = F % 30; x <= PX1; x += 30) {
+    if (x < PX0 + 4 || x > PX1 - 4) continue;
+    const major = Math.abs(x - F) % 150 === 0;
+    svg.push('<rect x="' + (x - 1) + '" y="' + LB + '" width="2" height="' + (major ? 22 : 11) + '" fill="' + PAPER + '" opacity="' + (major ? 1 : 0.65) + '"/>');
+  }
+  svg.push('<path d="M' + (F - bandHalf) + ' ' + (LB + 5) + ' V' + (LB + 16) + ' H' + (F + bandHalf) + ' V' + (LB + 5) + '" stroke="' + YEL + '" stroke-width="3" fill="none"/>');
+  svg.push('<rect x="' + PX0 + '" y="' + PT + '" width="' + (PX1 - PX0) + '" height="' + (PB - PT) + '" fill="none" stroke="' + INK + '" stroke-width="3"/>');
+  const gal = add("gal", "± galat");
+  gal.style.left = Math.max(110, F - bandHalf - 14 - gal.offsetWidth) + "px";
+  gal.style.top = (LB + 22) + "px";
+
+  // ---- readout tab hanging under the hl word
+  const tab = add("tab", esc(readout), { top: tabTop + "px" });
+  tab.style.left = Math.round(Math.min(PX1 - 16 - tab.offsetWidth, F - tab.offsetWidth / 2)) + "px";
+
+  $("art").innerHTML = svg.join("");
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Teleprompter</title>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600;700;800&family=DM+Mono:wght@400;500&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Teleprompter (teleprompter): the talent's view into a broadcast prompter.
+    The front opening of the hood frames a 45-degree beam-splitter glass; behind it
+    the camera lens, in front of it the face-up monitor that shows the same script
+    upside-down (that is what the glass reflects the right way up). The hook line
+    (title) is the live script line parked on the reading line next to the single
+    cue arrow; the items are the upcoming lines; the line already read slides into
+    the hood's top wall. A prompter-software status strip runs along the glass
+    bottom edge, the on-air subtitle bar hangs under the hood.
+    Metaphor: the presenter reads every line in the same calm voice, right or not;
+    an AI sounds equally sure either way. Confidence readouts and the producer's
+    red strike are drawn ONLY when an item carries `conf` / `flag` (or `wrong`).
+    Deterministic: every shape is hard-coded or computed from data.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #0B0C0E; }
+  body { position: relative; color: #E9E7E1; font-family: "Schibsted Grotesk", sans-serif; }
+  #scene { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* live script line on the reading line */
+  .title { position: absolute; left: 240px; top: 410px; width: 716px; font-weight: 800; line-height: 1.0; letter-spacing: -0.026em; color: #F4F2EC; }
+  /* prompter emphasis = reverse video */
+  .title .hl { white-space: nowrap; background: #F4F2EC; color: #0B0C0E; padding: 0 0.07em; margin: 0 -0.01em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+
+  /* upcoming script lines */
+  .row { position: absolute; left: 150px; width: 750px; display: flex; align-items: flex-start; gap: 14px; }
+  .row .gut { flex: 0 0 76px; display: flex; flex-direction: column; font: 500 30px/1.0 "DM Mono", monospace; color: #8F8D86; white-space: nowrap; }
+  .row .tx { flex: 1 1 auto; min-width: 0; font-weight: 600; line-height: 1.1; letter-spacing: -0.012em; color: #A9A7A0; }
+  .row .tx .lb, .row .tx .v { white-space: nowrap; }
+  .row .tx .v { color: #E2E0D9; font-weight: 700; }
+  .row .tx .d { color: #8F8D86; }
+  .row .tx .cek { display: inline-block; font: 500 30px/1 "DM Mono", monospace; letter-spacing: 0.02em; color: #0B0C0E; background: #E04E3E; padding: 6px 10px 5px; margin-left: 14px; vertical-align: 0.18em; }
+  .row .rt { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; white-space: nowrap; }
+  .row .rt .k { font: 500 30px/1.0 "DM Mono", monospace; color: #7EA2EE; letter-spacing: 0.04em; }
+  .row .rt .big { font: 500 64px/1 "DM Mono", monospace; color: #F4F2EC; letter-spacing: -0.03em; margin: 2px 0 3px; }
+  .row .rt .n { font: 500 26px/1.0 "Schibsted Grotesk", sans-serif; color: #9C9A93; }
+  #strikes { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; pointer-events: none; }
+
+  /* prompter-software status strip along the glass bottom edge */
+  .strip { position: absolute; left: 150px; top: 1182px; width: 750px; height: 48px; display: flex; align-items: center; gap: 20px; padding: 0 16px;
+           background: #17191E; border-top: 2px solid #2E3138; font: 500 30px "DM Mono", monospace; color: #D6D4CD; white-space: nowrap; text-transform: uppercase; }
+  .strip .slug { flex: 1 1 auto; min-width: 0; }
+  .strip .cnt { color: #F2A23A; }
+  .strip .spd { display: flex; align-items: center; gap: 10px; }
+  .strip .spd b { font-weight: 500; color: #F4F2EC; }
+
+  /* on-air subtitle bar under the hood */
+  .cap { position: absolute; left: 90px; top: 1442px; width: 900px; text-align: center; }
+  .cap p { display: inline; font-weight: 500; font-size: 44px; line-height: 1.3; letter-spacing: -0.014em; word-spacing: -0.04em; color: #B3B1AA;
+           background: rgba(4, 4, 5, 0.9); padding: 3px 12px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  .cap .w { white-space: nowrap; }
+  .cap .said { color: #F4F2EC; }
+  .cap .now, .cap .said { font-weight: 600; }
+  .cap .now { color: #F2A23A; text-decoration: underline; text-decoration-color: #F2A23A; text-decoration-thickness: 5px; text-underline-offset: 9px; }
+
+  /* source + date on a strip of console tape stuck to the pan head */
+  .tape { position: absolute; left: 540px; transform: translateX(-50%); max-width: 900px; width: max-content; text-align: center;
+          font: 500 26px/1.15 "Schibsted Grotesk", sans-serif; color: #17181B; background: #DCD8CC; padding: 5px 20px 5px;
+          clip-path: polygon(0 4%, 3px 22%, 0 40%, 4px 58%, 0 78%, 3px 100%, 100% 96%, calc(100% - 3px) 76%, 100% 55%, calc(100% - 4px) 36%, 100% 18%, calc(100% - 2px) 0); }
+</style>
+</head>
+<body>
+<svg id="scene" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <radialGradient id="studio" cx="0.55" cy="0.28" r="0.85">
+      <stop offset="0" stop-color="#191A1E" />
+      <stop offset="1" stop-color="#0B0C0E" />
+    </radialGradient>
+    <pattern id="weave" width="6" height="6" patternUnits="userSpaceOnUse">
+      <rect width="6" height="6" fill="#202126" />
+      <rect width="3" height="6" fill="#24252A" />
+      <rect y="3" width="6" height="1" fill="#1D1E22" />
+    </pattern>
+    <linearGradient id="lipLight" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.08" />
+      <stop offset="0.2" stop-color="#FFFFFF" stop-opacity="0" />
+      <stop offset="1" stop-color="#000000" stop-opacity="0.22" />
+    </linearGradient>
+    <linearGradient id="ceil" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#040405" />
+      <stop offset="1" stop-color="#0B0C0F" />
+    </linearGradient>
+    <linearGradient id="wallL" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#16181D" />
+      <stop offset="1" stop-color="#08090B" />
+    </linearGradient>
+    <linearGradient id="wallR" x1="1" y1="0" x2="0" y2="0">
+      <stop offset="0" stop-color="#121418" />
+      <stop offset="1" stop-color="#08090B" />
+    </linearGradient>
+    <radialGradient id="backG" cx="0.5" cy="0.32" r="0.8">
+      <stop offset="0" stop-color="#111318" />
+      <stop offset="1" stop-color="#07080A" />
+    </radialGradient>
+    <linearGradient id="plateL" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#383C44" />
+      <stop offset="1" stop-color="#1F2227" />
+    </linearGradient>
+    <linearGradient id="plateR" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2E3138" />
+      <stop offset="1" stop-color="#1A1C21" />
+    </linearGradient>
+    <linearGradient id="bezel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1A1C20" />
+      <stop offset="1" stop-color="#25282D" />
+    </linearGradient>
+    <linearGradient id="screenGlow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#C9D6E6" stop-opacity="0.02" />
+      <stop offset="1" stop-color="#C9D6E6" stop-opacity="0.07" />
+    </linearGradient>
+    <radialGradient id="lensG" cx="0.4" cy="0.34" r="0.78">
+      <stop offset="0" stop-color="#202842" />
+      <stop offset="0.55" stop-color="#11151F" />
+      <stop offset="1" stop-color="#090B10" />
+    </radialGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0" />
+      <stop offset="0.5" stop-color="#DDE6F2" stop-opacity="0.05" />
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+    <radialGradient id="tallyGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FF5B48" stop-opacity="0.55" />
+      <stop offset="1" stop-color="#FF5B48" stop-opacity="0" />
+    </radialGradient>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="8" /></filter>
+    <clipPath id="backClip"><rect x="141" y="346" width="820" height="892" /></clipPath>
+  </defs>
+
+  <rect width="1080" height="1920" fill="url(#studio)" />
+
+  <!-- camera body behind the hood: carry handle, viewfinder, top deck -->
+  <g>
+    <rect x="436" y="110" width="30" height="90" fill="#202328" />
+    <rect x="742" y="110" width="30" height="90" fill="#202328" />
+    <rect x="404" y="90" width="400" height="28" rx="14" fill="#2A2D33" />
+    <rect x="414" y="91" width="380" height="5" rx="2.5" fill="#4C515A" />
+    <rect x="318" y="176" width="564" height="150" rx="22" fill="#1D1F24" />
+    <rect x="330" y="176" width="540" height="4" rx="2" fill="#40444C" />
+    <g stroke="#2B2E34" stroke-width="5" stroke-linecap="round">
+      <line x1="700" y1="212" x2="700" y2="262" /><line x1="722" y1="212" x2="722" y2="262" /><line x1="744" y1="212" x2="744" y2="262" />
+      <line x1="766" y1="212" x2="766" y2="262" /><line x1="788" y1="212" x2="788" y2="262" />
+    </g>
+    <rect x="222" y="146" width="214" height="110" rx="16" fill="#23262B" />
+    <rect x="232" y="147" width="194" height="4" rx="2" fill="#4A4E57" />
+    <rect x="242" y="168" width="174" height="70" rx="8" fill="#121418" />
+    <rect x="242" y="168" width="174" height="70" rx="8" fill="none" stroke="#30343B" stroke-width="2" />
+    <circle cx="852" cy="206" r="10" fill="#3A1A17" />
+    <circle cx="852" cy="206" r="6" fill="#E04E3E" />
+  </g>
+
+  <!-- pedestal: pan head, pan bars, column and steering ring (drawn under the hood) -->
+  <g>
+    <path d="M482 1520 L150 1858" stroke="#2C2F35" stroke-width="26" stroke-linecap="round" />
+    <path d="M478 1512 L146 1850" stroke="#454951" stroke-width="3" stroke-linecap="round" />
+    <path d="M238 1768 L150 1858" stroke="#1A1C20" stroke-width="36" stroke-linecap="round" />
+    <path d="M718 1520 L1004 1806" stroke="#2A2D33" stroke-width="26" stroke-linecap="round" />
+    <path d="M722 1512 L1008 1798" stroke="#41454D" stroke-width="3" stroke-linecap="round" />
+    <path d="M926 1728 L1004 1806" stroke="#1A1C20" stroke-width="36" stroke-linecap="round" />
+    <rect x="562" y="1540" width="76" height="380" fill="#1F2227" />
+    <rect x="568" y="1540" width="6" height="380" fill="#363A41" />
+    <ellipse cx="600" cy="1852" rx="300" ry="42" fill="none" stroke="#2C2F35" stroke-width="14" />
+    <path d="M318 1838 A300 42 0 0 1 882 1838" fill="none" stroke="#454951" stroke-width="3" />
+    <rect x="470" y="1452" width="260" height="98" rx="16" fill="#212429" />
+    <rect x="480" y="1453" width="240" height="4" rx="2" fill="#3C4048" />
+    <rect x="432" y="1420" width="336" height="40" rx="8" fill="#282B31" />
+    <rect x="440" y="1421" width="320" height="4" rx="2" fill="#44484F" />
+  </g>
+
+  <!-- inside the hood opening (front 40..1040 x 312..1400; back plane 141..961 x 346..1238) -->
+  <rect x="141" y="346" width="820" height="892" fill="url(#backG)" />
+  <polygon points="40,312 1040,312 961,346 141,346" fill="url(#ceil)" />
+  <polygon points="40,312 141,346 141,1238" fill="url(#wallL)" />
+  <polygon points="1040,312 961,346 961,1238" fill="url(#wallR)" />
+  <!-- camera lens at the back of the hood, seen through the glass (built by script) -->
+  <g clip-path="url(#backClip)"><g id="lens" transform="translate(560 640)"></g></g>
+
+  <!-- the face-up prompter monitor below the glass -->
+  <polygon points="141,1238 961,1238 1040,1400 40,1400" fill="url(#bezel)" />
+  <polygon points="168.6,1244 931,1244 996,1390 84,1390" fill="#0A0C0F" />
+  <polygon points="168.6,1244 931,1244 996,1390 84,1390" fill="url(#screenGlow)" />
+
+  <!-- read line + the monitor's upside-down script (painted by script from the live text) -->
+  <image id="raster" x="0" y="0" width="1080" height="1920" />
+
+  <!-- the glass: faint tint, sheen and bright edges (the 45-degree beam splitter) -->
+  <polygon points="40,312 1040,312 961,1238 141,1238" fill="#A9BED6" fill-opacity="0.035" />
+  <polygon points="40,312 330,312 141,760" fill="url(#sheen)" />
+  <polygon points="1040,312 1040,420 760,1238 680,1238" fill="#DDE6F2" fill-opacity="0.018" />
+
+  <!-- side plates of the glass holder: the wedge between glass and monitor -->
+  <polygon points="40,312 141,1238 40,1400" fill="url(#plateL)" />
+  <polygon points="1040,312 961,1238 1040,1400" fill="url(#plateR)" />
+  <circle cx="92" cy="1262" r="22" fill="#2E3137" stroke="#5A606A" stroke-width="3" />
+  <circle cx="92" cy="1262" r="7" fill="#151619" />
+  <circle cx="1008" cy="1262" r="17" fill="#2A2D33" stroke="#4E535C" stroke-width="3" />
+  <circle cx="1008" cy="1262" r="5" fill="#151619" />
+  <line x1="40" y1="312" x2="141" y2="1238" stroke="#B4BFCC" stroke-opacity="0.7" stroke-width="3.5" />
+  <line x1="1040" y1="312" x2="961" y2="1238" stroke="#B4BFCC" stroke-opacity="0.55" stroke-width="3" />
+  <line x1="141" y1="1238" x2="961" y2="1238" stroke="#C3CCD7" stroke-opacity="0.75" stroke-width="3" />
+  <line x1="141" y1="1241.5" x2="961" y2="1241.5" stroke="#5E6670" stroke-opacity="0.8" stroke-width="2" />
+
+  <!-- hood front: fabric frame around the opening, metal rim, stitching -->
+  <path fill="url(#weave)" fill-rule="evenodd"
+        d="M44 282 H1036 A30 30 0 0 1 1066 312 V1396 A30 30 0 0 1 1036 1426 H44 A30 30 0 0 1 14 1396 V312 A30 30 0 0 1 44 282 Z
+           M48 312 H1032 A8 8 0 0 1 1040 320 V1392 A8 8 0 0 1 1032 1400 H48 A8 8 0 0 1 40 1392 V320 A8 8 0 0 1 48 312 Z" />
+  <path fill="url(#lipLight)" fill-rule="evenodd"
+        d="M44 282 H1036 A30 30 0 0 1 1066 312 V1396 A30 30 0 0 1 1036 1426 H44 A30 30 0 0 1 14 1396 V312 A30 30 0 0 1 44 282 Z
+           M48 312 H1032 A8 8 0 0 1 1040 320 V1392 A8 8 0 0 1 1032 1400 H48 A8 8 0 0 1 40 1392 V320 A8 8 0 0 1 48 312 Z" />
+  <rect x="15" y="283" width="1050" height="1142" rx="29" fill="none" stroke="#34373E" stroke-width="2" />
+  <rect x="26" y="294" width="1028" height="1120" rx="20" fill="none" stroke="#3A3D44" stroke-width="1.5" stroke-dasharray="9 7" />
+  <rect x="40" y="312" width="1000" height="1088" rx="8" fill="none" stroke="#42464E" stroke-width="3" />
+  <line x1="44" y1="283.5" x2="1036" y2="283.5" stroke="#51555D" stroke-width="2" />
+  <!-- talent tally lamp: lit = this camera is on air -->
+  <ellipse cx="600" cy="298" rx="150" ry="40" fill="url(#tallyGlow)" />
+  <rect x="544" y="285" width="112" height="24" rx="7" fill="#2A1513" />
+  <rect x="551" y="289" width="98" height="16" rx="5" fill="#FF5B48" />
+  <rect x="557" y="290" width="86" height="4" rx="2" fill="#FFC2B8" fill-opacity="0.8" />
+
+  <!-- single left-margin cue arrow (positioned on the reading line by script) -->
+  <polygon id="cue" points="160,0 204,25 160,50" fill="#F2A23A" />
+</svg>
+
+<div class="title" id="title"></div>
+<div id="rows"></div>
+<svg id="strikes" viewBox="0 0 1080 1920" aria-hidden="true" data-layout-allow-overlap></svg>
+<div class="strip" id="strip">
+  <span class="slug" id="slug"></span>
+  <span class="cnt" id="cnt"></span>
+  <span class="spd"><svg width="26" height="30" viewBox="0 0 26 30" aria-hidden="true"><polygon points="13,1 24,12 2,12" fill="#8F8D86" /><polygon points="2,18 24,18 13,29" fill="#8F8D86" /></svg><span>Laju <b>1,0×</b></span></span>
+</div>
+<div class="cap" id="cap" data-slot="caption"><p id="capText"></p></div>
+<div class="tape" id="tape"></div>
+
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const TOP = 410; // top of the live line (reading line)
+
+  // ---- the lens (static geometry, built once) ----
+  (function buildLens() {
+    const P = a => [Math.cos(a * Math.PI / 180), Math.sin(a * Math.PI / 180)];
+    const arc = (r, a1, a2) => { const [c1, s1] = P(a1), [c2, s2] = P(a2);
+      return "M" + (r * c1).toFixed(1) + " " + (r * s1).toFixed(1) + " A" + r + " " + r + " 0 " + (a2 - a1 > 180 ? 1 : 0) + " 1 " + (r * c2).toFixed(1) + " " + (r * s2).toFixed(1); };
+    const hex = r => [0, 60, 120, 180, 240, 300].map(a => { const [c, s] = P(a + 15); return (r * c).toFixed(1) + "," + (r * s).toFixed(1); }).join(" ");
+    document.getElementById("lens").innerHTML =
+      '<circle r="272" fill="#14161B" />' +
+      '<circle r="272" fill="none" stroke="#4A505A" stroke-width="4" />' +
+      '<path d="' + arc(271, 186, 300) + '" fill="none" stroke="#BCC4D0" stroke-width="6" stroke-linecap="round" />' +
+      '<path d="' + arc(271, 326, 380) + '" fill="none" stroke="#727986" stroke-width="5" stroke-linecap="round" />' +
+      '<circle r="254" fill="none" stroke="#22262D" stroke-width="22" stroke-dasharray="3 6" />' +
+      '<path d="' + arc(254, 200, 280) + '" fill="none" stroke="#40454E" stroke-width="22" stroke-dasharray="3 6" />' +
+      '<circle r="239" fill="none" stroke="#2E333B" stroke-width="2" />' +
+      '<circle r="226" fill="url(#lensG)" />' +
+      '<circle r="226" fill="none" stroke="#6C7380" stroke-width="3" />' +
+      '<path d="' + arc(188, 198, 264) + '" fill="none"  stroke="#6F7EEA" stroke-opacity="0.5" stroke-width="38" stroke-linecap="round" filter="url(#soft)" />' +
+      '<path d="' + arc(188, 206, 256) + '" fill="none" stroke="#B0BAF6" stroke-opacity="0.7" stroke-width="6" stroke-linecap="round" />' +
+      '<path d="' + arc(150, 16, 74) + '" fill="none" stroke="#F2A23A" stroke-opacity="0.3" stroke-width="16" stroke-linecap="round" filter="url(#soft)" />' +
+      '<path d="' + arc(150, 26, 62) + '" fill="none" stroke="#F6C27A" stroke-opacity="0.45" stroke-width="3" stroke-linecap="round" />' +
+      '<circle r="130" fill="none" stroke="#2A2F38" stroke-width="2" />' +
+      '<polygon points="' + hex(88) + '" fill="#050608" stroke="#232831" stroke-width="2" />' +
+      '<ellipse cx="-112" cy="-122" rx="44" ry="15" transform="rotate(-44 -112 -122)" fill="#E3E8F0" fill-opacity="0.26" />' +
+      '<circle cx="-70" cy="-84" r="6" fill="#E3E8F0" fill-opacity="0.42" />';
+  })();
+
+  // Measure only after the web fonts are in.
+  Promise.all(['800 104px "Schibsted Grotesk"', '700 56px "Schibsted Grotesk"', '600 56px "Schibsted Grotesk"', '600 44px "Schibsted Grotesk"', '500 44px "Schibsted Grotesk"',
+               '500 26px "Schibsted Grotesk"', '500 30px "DM Mono"'].map(f => document.fonts.load(f)))
+    .then(() => document.fonts.ready).catch(() => {}).then(render);
+
+  function render() {
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const pad2 = x => String(x).padStart(2, "0");
+    const items = (D.items || []).slice(0, 5);
+    const n = items.length;
+
+    // ---- status strip: story slug · line counter · speed ----
+    const slugTxt = D.series && D.ep ? D.series + " · " + D.ep : (D.kicker || D.series || "");
+    const slugEl = $("slug"), strip = $("strip");
+    slugEl.textContent = slugTxt;
+    $("cnt").textContent = "02/" + pad2(n + 2);
+    const slugOver = () => slugEl.scrollWidth > slugEl.clientWidth + 1 || strip.scrollWidth > strip.clientWidth + 1;
+    for (let f = 30; slugOver() && f > 26; f -= 1) strip.style.fontSize = (f - 1) + "px";
+    if (slugOver()) {
+      // shorten the series name, never the episode number
+      const head = D.series && D.ep ? String(D.series) : slugTxt, tail = D.series && D.ep ? " · " + D.ep : "";
+      let s = head;
+      while (s.length > 3 && slugOver()) { s = s.slice(0, -1); slugEl.textContent = s.trim() + "…" + tail; }
+    }
+
+    // ---- live line: title on the reading line, hl in reverse video ----
+    const t = String(D.title || ""), hl = String(D.hl || "");
+    const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    const titleEl = $("title");
+    titleEl.style.top = TOP + "px";
+    titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+    const setTitle = fs => { titleEl.style.fontSize = fs + "px"; return titleEl.offsetHeight; };
+
+    // ---- upcoming lines: number + read time in the margin, conf/flag only when the data has them ----
+    const hasConf = it => it && it.conf != null && it.conf !== "";
+    const fmtConf = c => { if (typeof c === "number") return Math.round(c <= 1 ? c * 100 : c) + "%"; const s = String(c).trim(); return /%$/.test(s) || !/^[\d.,]+$/.test(s) ? s : s + "%"; };
+    const flagIdx = items.findIndex(it => it && (it.flag || it.wrong));
+    const roIdx = flagIdx >= 0 && hasConf(items[flagIdx]) ? flagIdx : items.findIndex(hasConf);
+    const readTime = it => { const ch = (String(it.label || "") + " " + String(it.value || "")).trim().length; const s = Math.max(1, Math.round(ch / 14)); return Math.floor(s / 60) + ":" + pad2(s % 60); };
+    const rowsEl = $("rows");
+    const rows = items.map((it, i) => {
+      const r = document.createElement("div");
+      r.className = "row";
+      let right = "";
+      if (i === roIdx) right = '<div class="rt"><span class="k">YAKIN</span><span class="big">' + esc(fmtConf(it.conf)) + '</span><span class="n">ilustrasi</span></div>';
+      else if (hasConf(it)) right = '<div class="rt"><span class="k">' + esc(fmtConf(it.conf)) + "</span></div>";
+      const lab = String(it.label || ""), val = String(it.value || "");
+      r.innerHTML = '<div class="gut"><span>' + pad2(i + 3) + "</span><span>" + readTime(it) + "</span></div>" +
+        '<div class="tx"><span class="lb">' + esc(lab) + (lab && val ? '<span class="d"> —</span>' : "") + "</span> " + '<span class="v">' + esc(val) + "</span>" +
+        (i === flagIdx ? '<span class="cek">CEK?</span>' : "") + "</div>" + right;
+      rowsEl.appendChild(r);
+      return r;
+    });
+    const BOTTOM = 1168, GAP_T = 30, GAP_MIN = 10;
+    const layRows = (fs, tf) => {
+      let sum = 0;
+      rows.forEach(r => {
+        r.querySelector(".tx").style.fontSize = fs + "px";
+        r.querySelector(".gut").style.marginTop = ((fs * 1.1 - 60) / 2).toFixed(1) + "px";
+        const big = r.querySelector(".big"); if (big) big.style.fontSize = Math.max(56, Math.min(72, tf - 28)) + "px";
+        sum += r.offsetHeight;
+      });
+      return sum;
+    };
+    const oneLine = fs => rows.every(r => r.querySelector(".tx").offsetHeight <= fs * 1.1 * 1.5);
+    // a title fits when it is at most 4 lines and no word overflows the glass
+    const titleOk = tf => { const h = setTitle(tf); return h <= tf * 4 + 4 && titleEl.scrollWidth <= 716; };
+    const fits = (tf, fs, single) => titleOk(tf) && layRows(fs, tf) + titleEl.offsetHeight + GAP_T + Math.max(0, n - 1) * GAP_MIN <= BOTTOM - TOP && (!single || oneLine(fs));
+    // preference: title 116-96 px with one-line items, then wrapped items, then smaller titles;
+    // inside a pass the fewest title lines win, then the biggest title size
+    let tfs = 72, ifs = 44;
+    search: for (const [t0, t1] of [[116, 96], [94, 72]]) for (const single of [true, false]) {
+      const cands = [];
+      for (let tf = t0; tf >= t1; tf -= 2) for (let fs = 62; fs >= (single ? 52 : 44); fs -= 2)
+        if (fits(tf, fs, single)) { cands.push({ tf, fs, lines: Math.round(titleEl.offsetHeight / tf) }); break; }
+      if (cands.length) { const L = Math.min(...cands.map(c => c.lines)); const c = cands.find(c => c.lines === L); tfs = c.tf; ifs = c.fs; break search; }
+    }
+    setTitle(tfs);
+    const sumH = layRows(ifs, tfs);
+    const itemsTop = TOP + titleEl.offsetHeight + GAP_T;
+    const gap = n > 1 ? Math.min(44, Math.max(GAP_MIN, (BOTTOM - itemsTop - sumH) / (n - 1))) : 0;
+    let y = itemsTop;
+    rows.forEach(r => { r.style.top = y + "px"; y += r.offsetHeight + gap; });
+
+    // producer's red strike across a flagged line (drawn, not text)
+    if (flagIdx >= 0) {
+      const tx = rows[flagIdx].querySelector(".tx"), lb = tx.querySelector(".lb"), v = tx.querySelector(".v");
+      const rects = [...lb.getClientRects(), ...v.getClientRects()];
+      const lines = [];
+      rects.forEach(b => { const L = lines.find(l => Math.abs(l.cy - (b.top + b.height / 2)) < b.height / 3);
+        if (L) { L.x0 = Math.min(L.x0, b.left); L.x1 = Math.max(L.x1, b.right); } else lines.push({ cy: b.top + b.height / 2, x0: b.left, x1: b.right }); });
+      $("strikes").innerHTML = lines.map(l => '<path d="M' + (l.x0 - 8).toFixed(1) + " " + (l.cy + 6).toFixed(1) + " Q" + ((l.x0 + l.x1) / 2).toFixed(1) + " " + (l.cy - 2).toFixed(1) + " " + (l.x1 + 8).toFixed(1) + " " + (l.cy - 7).toFixed(1) +
+        '" fill="none" stroke="#E04E3E" stroke-width="8" stroke-linecap="round" />').join("");
+    }
+
+    // cue arrow on the first line of the live script line
+    const cueY = TOP + tfs * 0.5;
+    $("cue").setAttribute("transform", "translate(0 " + (cueY - 25).toFixed(1) + ")");
+
+    // ---- on-air subtitle: active = hl if it is in the caption, else the first word ----
+    const cap = String(D.caption || D.sub || "").trim();
+    const words = [];
+    cap.replace(/\S+/g, (w, idx) => { words.push({ w, a: idx, b: idx + w.length }); return w; });
+    const hit = hl ? cap.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    let on0 = 0, on1 = 0;
+    if (hit >= 0) {
+      const he = hit + hl.length;
+      on0 = Math.max(0, words.findIndex(x => x.b > hit)); on1 = on0;
+      while (on1 + 1 < words.length && words[on1 + 1].a < he) on1++;
+    }
+    const capText = $("capText");
+    let ch = "";
+    for (let i = 0; i < words.length; i++) {
+      if (i === on0) { ch += '<span class="now">' + words.slice(on0, on1 + 1).map(x => '<span class="w">' + esc(x.w) + "</span>").join(" ") + "</span>"; i = on1; }
+      else ch += '<span class="w' + (i < on0 ? " said" : "") + '">' + esc(words[i].w) + "</span>";
+      if (i < words.length - 1) ch += " ";
+    }
+    capText.innerHTML = ch;
+    const capEl = $("cap"), tape = $("tape");
+    tape.textContent = [D.source ? "Sumber: " + D.source : "", D.date || ""].filter(Boolean).join("  ·  ");
+    const fitCap = () => { tape.style.top = (capEl.offsetTop + capEl.offsetHeight + 14) + "px"; return tape.offsetTop + tape.offsetHeight; };
+    // the subtitle stays 1-2 lines (44 -> 40 px), then the tape tucks under it inside the safe zone
+    for (let f = 44; f >= 40; f -= 1) { capText.style.fontSize = f + "px"; if (capEl.offsetHeight <= 2 * f * 1.3 + 4 && fitCap() <= 1620) break; }
+    if (fitCap() > 1620) { capEl.style.top = Math.max(1430, 1442 - (fitCap() - 1620)) + "px"; fitCap(); }
+    if (!tape.textContent) tape.style.display = "none";
+
+    paintRaster(titleEl, rowsEl, strip, flagIdx >= 0 ? $("strikes") : null, tfs);
+  }
+
+  // The read line on the glass and the monitor's upside-down copy of the live script.
+  function paintRaster(titleEl, rowsEl, strip, strikes, tfs) {
+    const OX = 141, OY = 346, W = 820, H = 892;
+    const readTxt = String(D.kicker || (D.series && D.ep ? D.series + " · " + D.ep : D.series || ""));
+    const src = document.createElement("canvas"); src.width = W; src.height = H;
+    const s = src.getContext("2d");
+    let rfs = 84;
+    s.font = '800 ' + rfs + 'px "Schibsted Grotesk"';
+    while (rfs > 36 && s.measureText(readTxt).width > 680) { rfs -= 2; s.font = '800 ' + rfs + 'px "Schibsted Grotesk"'; }
+    const readFont = s.font, readBase = 352 + Math.round(rfs * 0.36);
+    s.textBaseline = "alphabetic"; s.fillStyle = "#77756F"; s.fillText(readTxt, 240 - OX, readBase - OY);
+    s.fillStyle = "#F2A23A"; s.beginPath(); const cy = TOP + tfs * 0.5 - OY; s.moveTo(160 - OX, cy - 25); s.lineTo(204 - OX, cy); s.lineTo(160 - OX, cy + 25); s.fill();
+    document.querySelectorAll(".title .hl, .strip, .row .cek").forEach(el => {
+      s.fillStyle = getComputedStyle(el).backgroundColor;
+      for (const b of el.getClientRects()) s.fillRect(b.left - OX, b.top - OY, b.width, b.height);
+    });
+    s.textBaseline = "middle";
+    [titleEl, rowsEl, strip].forEach(root => {
+      const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      let node;
+      while ((node = walk.nextNode())) {
+        const el = node.parentElement, cs = getComputedStyle(el);
+        s.font = cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily;
+        s.fillStyle = cs.color;
+        const txt = cs.textTransform === "uppercase" ? node.textContent.toUpperCase() : node.textContent;
+        const re = /\S+/g; let m;
+        while ((m = re.exec(node.textContent))) {
+          const rg = document.createRange(); rg.setStart(node, m.index); rg.setEnd(node, m.index + m[0].length);
+          const b = rg.getClientRects()[0]; if (!b) continue;
+          s.fillText(txt.substr(m.index, m[0].length), b.left - OX, b.top + b.height / 2 - OY);
+        }
+      }
+    });
+    if (strikes) strikes.querySelectorAll("path").forEach(p => { s.strokeStyle = "#E04E3E"; s.lineWidth = 8; s.lineCap = "round"; s.stroke(new Path2D(p.getAttribute("d"))); });
+
+    const c = document.createElement("canvas"); c.width = 1080; c.height = 1920;
+    const g = c.getContext("2d");
+    // line 01, already read: sliding up into the hood's top wall
+    g.save(); g.beginPath(); g.rect(OX, OY, W, 90); g.clip();
+    g.font = readFont; g.fillStyle = "#64625D"; g.textBaseline = "alphabetic"; g.fillText(readTxt, 240, readBase);
+    const fade = g.createLinearGradient(0, OY, 0, OY + 30);
+    fade.addColorStop(0, "rgba(5,5,6,1)"); fade.addColorStop(1, "rgba(5,5,6,0)");
+    g.fillStyle = fade; g.fillRect(OX, OY, W, 30);
+    g.restore();
+    // face-up monitor: same script, upside down, in perspective (vanishing point 600,500)
+    const VX = 600, EY = 500, yF = 1390, yB = 1244, xLF = 84, xRF = 996;
+    const sB = (yB - EY) / (yF - EY), depth = sc => (1 / sc - 1) / (1 / sB - 1);
+    g.globalAlpha = 0.86;
+    for (let yy = yB; yy < yF; yy++) {
+      const s0 = (yy - EY) / (yF - EY), s1 = (yy + 1 - EY) / (yF - EY);
+      const sy0 = depth(s1) * H, sy1 = depth(s0) * H;
+      const xl = VX + (xLF - VX) * s0, xr = VX + (xRF - VX) * s0;
+      g.drawImage(src, 0, sy0, W, Math.max(0.5, sy1 - sy0), xl, yy, xr - xl, 1);
+    }
+    g.globalAlpha = 1;
+    document.getElementById("raster").setAttribute("href", c.toDataURL("image/png"));
+  }
+</script>
+</body>
+</html>

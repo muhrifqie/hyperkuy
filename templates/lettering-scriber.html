@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Lettering Scriber</title>
+<link href="https://fonts.googleapis.com/css2?family=B612+Mono:wght@400;700&family=Public+Sans:wght@500;600;800&family=Caveat:wght@600&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Lettering Scriber: a draughtsman's lettering set on drafting film.
+    Everything the scriber writes (title, fields, the FORMAT RUSAK mark) is drawn with ONE
+    single-stroke glyph set (monoline, round ends) - the same glyphs that are engraved as
+    grooves in the orange template. The fields are lettered on a tracing overlay hinged under
+    the tape, one per template step: faint ghost edges show where the template sat for each
+    earlier field. The steel scriber is parked with its tracer pin in the "}" groove and the
+    pen nib right after the lettered "}" directly above it.
+    Metaphor: structured output / constrained decoding (the pen can only follow the grooves).
+    Everything renders from window.D; irregular shapes are hard-coded.
+  */
+  :root { --film: #EEF1F4; --ink: #1B2330; --orange: #E25A2C; --orange-ink: #B1411A; --steel: #8A96A6; --blue: #2E5BBA; --ink-soft: #46505F; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--film); }
+  body { position: relative; color: var(--ink); font-family: "Public Sans", sans-serif; }
+
+  #sheet { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  .meta { position: absolute; left: 90px; right: 90px; top: 292px; display: flex; justify-content: space-between; align-items: baseline;
+          font: 700 28px "B612 Mono", monospace; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); }
+  .meta b { color: var(--ink); font-weight: 700; }
+  .meta .date { font-weight: 400; letter-spacing: 0.02em; text-transform: none; }
+
+  .free { position: absolute; left: 96px; font: 600 50px "Caveat", cursive; line-height: 1.2; color: var(--ink); white-space: nowrap; transform-origin: 0 50%; transform: rotate(-1.2deg); }
+  .free span { position: relative; display: inline-block; margin-right: 0.22em; }
+  #strike { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; overflow: visible; pointer-events: none; }
+
+  .cap { position: absolute; left: 90px; width: 810px; text-wrap: balance; font: 600 46px "Public Sans", sans-serif; line-height: 1.24; color: var(--ink-soft); }
+  .cap .w { display: inline; }
+  .cap.clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+  /* active karaoke word: lettered in template orange, standing on a short blue guideline with an orange start tick */
+  .cap .on { position: relative; color: var(--orange-ink); font-weight: 800; }
+  .cap .on::after { content: ""; position: absolute; left: -6px; right: -6px; bottom: -1px; height: 4px; border-radius: 2px; background: var(--blue); }
+  .cap .on::before { content: ""; position: absolute; left: -6px; bottom: -1px; width: 4px; height: 18px; border-radius: 2px; background: var(--orange-ink); }
+
+  .foot { position: absolute; left: 90px; width: 810px; font: 500 26px "Public Sans", sans-serif; color: var(--ink-soft); line-height: 1.3; text-wrap: pretty; }
+  .foot b { font: 700 26px "B612 Mono", monospace; color: var(--ink); letter-spacing: 0.04em; margin-right: 10px; }
+</style>
+</head>
+<body>
+<svg id="sheet" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" role="img" data-layout-allow-overlap data-layout-allow-overflow></svg>
+<div class="meta"><span id="kick"></span><span class="date" id="date"></span></div>
+<div class="free" id="free" data-layout-allow-overlap></div>
+<svg id="strike" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+<div class="cap" id="cap" data-slot="caption"></div>
+<div class="foot" id="foot"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const FONTS = ['700 28px "B612 Mono"', '400 28px "B612 Mono"', '600 46px "Public Sans"', '800 46px "Public Sans"', '500 26px "Public Sans"', '600 50px Caveat'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  // ---- single-stroke lettering glyphs (cap height 64, baseline y=64; width, centre-line path) ----
+  // The same set is engraved in the template and drawn by the pen: the title, the fields and the mark.
+  const O_ = "M20,0 C7,0 0,13 0,32 C0,51 7,64 20,64 C33,64 40,51 40,32 C40,13 33,0 20,0 Z";
+  const S_ = "M32,10 C29,3 23,0 16,0 C8,0 2,5 2,15 C2,25 10,28 17,31 C26,34 33,38 33,48 C33,58 26,64 16,64 C8,64 3,60 0,53";
+  const GL = {
+    "A": [40, "M0,64 L20,0 L40,64 M7,42 L33,42"],
+    "B": [34, "M0,64 L0,0 L19,0 C28,0 32,6 32,15 C32,24 27,30 19,30 L0,30 M19,30 C29,30 34,37 34,47 C34,57 28,64 19,64 L0,64"],
+    "C": [36, "M36,12 C33,4 27,0 19,0 C7,0 0,13 0,32 C0,51 7,64 19,64 C27,64 33,60 36,52"],
+    "D": [36, "M0,0 L0,64 L14,64 C29,64 36,52 36,32 C36,12 29,0 14,0 Z"],
+    "E": [31, "M31,0 L0,0 L0,64 L31,64 M0,31 L24,31"],
+    "F": [30, "M30,0 L0,0 L0,64 M0,31 L23,31"],
+    "G": [38, "M37,12 C34,4 28,0 20,0 C7,0 0,13 0,32 C0,51 7,64 20,64 C30,64 38,58 38,46 L38,36 L22,36"],
+    "H": [35, "M0,0 L0,64 M35,0 L35,64 M0,31 L35,31"],
+    "I": [0, "M0,0 L0,64"],
+    "J": [28, "M28,0 L28,47 C28,58 22,64 14,64 C6,64 1,59 0,51"],
+    "K": [34, "M0,0 L0,64 M33,0 L0,39 M11,26 L34,64"],
+    "L": [29, "M0,0 L0,64 L29,64"],
+    "M": [44, "M0,64 L0,0 L22,42 L44,0 L44,64"],
+    "N": [36, "M0,64 L0,0 L36,64 L36,0"],
+    "O": [40, O_],
+    "P": [33, "M0,64 L0,0 L19,0 C28,0 33,7 33,17 C33,27 28,34 19,34 L0,34"],
+    "Q": [41, O_ + " M24,46 L41,67"],
+    "R": [34, "M0,64 L0,0 L19,0 C28,0 33,7 33,16 C33,26 27,32 18,32 L0,32 M16,32 L34,64"],
+    "S": [33, S_],
+    "T": [36, "M0,0 L36,0 M18,0 L18,64"],
+    "U": [35, "M0,0 L0,44 C0,57 7,64 17.5,64 C28,64 35,57 35,44 L35,0"],
+    "V": [40, "M0,0 L20,64 L40,0"],
+    "W": [52, "M0,0 L12,64 L26,12 L40,64 L52,0"],
+    "X": [36, "M0,0 L36,64 M36,0 L0,64"],
+    "Y": [38, "M0,0 L19,34 L38,0 M19,34 L19,64"],
+    "Z": [34, "M1,0 L34,0 L0,64 L34,64"],
+    "0": [33, "M16.5,0 C5,0 0,13 0,32 C0,51 5,64 16.5,64 C28,64 33,51 33,32 C33,13 28,0 16.5,0 Z"],
+    "1": [14, "M0,12 L14,0 L14,64"],
+    "2": [33, "M1,13 C3,5 9,0 16,0 C25,0 31,6 31,15 C31,25 24,33 0,64 L33,64"],
+    "3": [33, "M2,7 C6,2 11,0 16,0 C25,0 31,6 31,15 C31,24 25,30 14,30 C26,30 33,37 33,47 C33,57 26,64 16,64 C10,64 4,61 0,56"],
+    "4": [34, "M25,64 L25,0 L0,44 L34,44"],
+    "5": [33, "M31,0 L6,0 L3,28 C7,25 12,24 17,24 C27,24 33,31 33,43 C33,56 26,64 16,64 C10,64 4,61 0,56"],
+    "6": [33, "M30,7 C27,2 22,0 17,0 C6,0 0,13 0,34 C0,54 6,64 17,64 C27,64 33,56 33,45 C33,34 27,27 17,27 C9,27 3,31 0,38"],
+    "7": [33, "M0,0 L33,0 L11,64"],
+    "8": [33, "M16.5,30 C8,30 3,24 3,15 C3,6 9,0 16.5,0 C24,0 30,6 30,15 C30,24 25,30 16.5,30 C7,30 0,37 0,47 C0,57 7,64 16.5,64 C26,64 33,57 33,47 C33,37 26,30 16.5,30 Z"],
+    "9": [33, "M3,57 C6,62 11,64 16,64 C27,64 33,51 33,30 C33,10 27,0 16,0 C6,0 0,8 0,19 C0,30 6,37 16,37 C24,37 30,33 33,26"],
+    ".": [0, "M0,64 L0,64.1"],
+    ",": [4, "M2,60 L2,63 C2,68 1,72 -2,77"],
+    ":": [0, "M0,24 L0,24.1 M0,64 L0,64.1"],
+    ";": [4, "M2,24 L2,24.1 M2,60 L2,63 C2,68 1,72 -2,77"],
+    "!": [0, "M0,0 L0,44 M0,64 L0,64.1"],
+    "?": [30, "M0,13 C2,5 8,0 15,0 C24,0 30,6 30,15 C30,24 24,28 18,32 C15,34 15,38 15,45 M15,64 L15,64.1"],
+    "\"": [12, "M0,0 L0,16 M12,0 L12,16"],
+    "'": [0, "M0,0 L0,16"],
+    "-": [22, "M0,36 L22,36"],
+    "–": [32, "M0,36 L32,36"],
+    "—": [44, "M0,36 L44,36"],
+    "+": [32, "M0,36 L32,36 M16,20 L16,52"],
+    "=": [32, "M0,27 L32,27 M0,45 L32,45"],
+    "±": [32, "M0,28 L32,28 M16,12 L16,44 M0,60 L32,60"],
+    "×": [28, "M0,22 L28,50 M28,22 L0,50"],
+    "%": [38, "M2,64 L36,0 M8,0 C3,0 0,5 0,12 C0,19 3,24 8,24 C13,24 16,19 16,12 C16,5 13,0 8,0 Z M30,40 C25,40 22,45 22,52 C22,59 25,64 30,64 C35,64 38,59 38,52 C38,45 35,40 30,40 Z"],
+    "/": [26, "M0,70 L26,-6"],
+    "(": [14, "M14,-4 C4,10 0,22 0,32 C0,42 4,54 14,68"],
+    ")": [14, "M0,-4 C10,10 14,22 14,32 C14,42 10,54 0,68"],
+    "[": [12, "M12,-4 L0,-4 L0,68 L12,68"],
+    "]": [12, "M0,-4 L12,-4 L12,68 L0,68"],
+    "{": [18, "M18,-4 C10,-4 8,0 8,10 L8,22 C8,29 5,32 0,32 C5,32 8,35 8,42 L8,54 C8,64 10,68 18,68"],
+    "}": [18, "M0,-4 C8,-4 10,0 10,10 L10,22 C10,29 13,32 18,32 C13,32 10,35 10,42 L10,54 C10,64 8,68 0,68"],
+    "·": [0, "M0,34 L0,34.1"],
+    "&": [36, "M36,64 L9,24 C5,17 5,0 17,0 C27,0 29,12 23,19 L6,39 C0,47 1,64 16,64 C25,64 31,58 34,48"],
+    "#": [34, "M12,2 L8,62 M28,2 L24,62 M0,22 L34,22 M0,42 L34,42"],
+    "@": [44, "M31,22 L28,44 C27,51 34,52 37,46 C42,36 40,8 22,8 C9,8 0,20 0,36 C0,53 11,64 25,64 C31,64 36,62 40,59 M30,30 C28,25 25,22 21,22 C14,22 10,30 10,37 C10,43 13,46 18,46 C24,46 28,40 29,33"],
+    "*": [26, "M13,4 L13,30 M2,10 L24,24 M24,10 L2,24"],
+    "<": [28, "M28,16 L0,36 L28,56"],
+    ">": [28, "M0,16 L28,36 L0,56"],
+    "$": [33, S_ + " M16,-6 L16,70"],
+    "_": [32, "M0,72 L32,72"],
+    "…": [28, "M0,64 L0,64.1 M14,64 L14,64.1 M28,64 L28,64.1"],
+    "→": [38, "M0,36 L38,36 M26,24 L38,36 L26,48"],
+    "✗": [38, "M0,-2 L38,66 M38,-2 L0,66"],
+    "✓": [36, "M0,36 L12,58 L36,4"],
+    "°": [14, "M7,0 C3,0 0,3 0,7 C0,11 3,14 7,14 C11,14 14,11 14,7 C14,3 11,0 7,0 Z"],
+    "^": [26, "M0,24 L13,0 L26,24"],
+    "~": [32, "M0,38 C6,28 12,28 16,34 C20,40 26,40 32,30"],
+    "|": [0, "M0,-6 L0,70"]
+  };
+  const SPACE_U = 24;
+  const CHMAP = { "“": "\"", "”": "\"", "„": "\"", "«": "\"", "»": "\"", "‘": "'", "’": "'", "`": "'", "•": "·", "‧": "·", "∙": "·",
+    "−": "-", "‐": "-", "‑": "-", " ": " ", "≈": "~", "✕": "✗", "✘": "✗", "✔": "✓", "→": "→" };
+  const normCh = c => [...c.normalize("NFD").replace(/[̀-ͯ]/g, "")].map(x => CHMAP[x] || x).join("").toUpperCase();
+  // [{ch, k}] from a string, uppercase, every char tagged with class k
+  const chars = (s, k) => [...String(s == null ? "" : s)].flatMap(c => [...normCh(c)].map(ch => ({ ch, k })));
+  // move a glyph's centre-line coordinates to the page (strokes stay monoline: widths are set in px)
+  const tp = (d, ox, oy, sx, sy) => d.replace(/(-?\d*\.?\d+),(-?\d*\.?\d+)/g, (m, a, b) => (ox + a * sx).toFixed(1) + "," + (oy + b * sy).toFixed(1));
+  // lay a run of chars out at cap height C: condensed glyphs (cond), gap in glyph units
+  function setRun(cs, C, cond, gapU) {
+    const s = C / 64; let x = 0; const g = [];
+    for (const c of cs) {
+      const e = GL[c.ch];
+      if (c.ch === " " || !e) { x += SPACE_U * s; continue; }
+      g.push({ ch: c.ch, k: c.k, x, w: e[0] * cond * s }); x += (e[0] * cond + gapU) * s;
+    }
+    const last = g[g.length - 1];
+    return { g, width: last ? last.x + last.w : 0 };
+  }
+  // run → { k: pathData } at page position (ox = left, oy = cap line)
+  function inkRun(run, ox, oy, C, cond) {
+    const s = C / 64, out = {};
+    for (const q of run.g) out[q.k] = (out[q.k] || "") + tp(GL[q.ch][1], ox + q.x, oy, s * cond, s) + " ";
+    return out;
+  }
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+  const INK = "#1B2330", FILM = "#EEF1F4", OR = "#E25A2C", ORI = "#B1411A", BLUE = "#2E5BBA", STEEL = "#A9B3C0", STEEL_D = "#8A96A6", STEEL_L = "#DCE1E8";
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(1, items.length);
+  const f1 = v => v.toFixed(1);
+  const sheet = $("sheet");
+  sheet.setAttribute("aria-label", String(D.title || ""));
+  const strokeP = (d, col, w, extra) => d ? '<path d="' + d + '" fill="none" stroke="' + col + '" stroke-width="' + w + '" stroke-linecap="round" stroke-linejoin="round"' + (extra || "") + "/>" : "";
+
+  // ---- meta -----------------------------------------------------------------
+  const ep = String(D.ep || "").replace(/^#/, "");
+  $("kick").innerHTML = D.series ? esc(D.series) + (ep ? " · <b>No. " + esc(ep) + "</b>" : "") : esc(D.kicker || "");
+  $("date").textContent = D.date || "";
+
+  // ---- title: lettered by the scriber, uppercase single-stroke, on blue guidelines ----
+  const t = String(D.title || ""), hl = String(D.hl || "");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const tc = [...t].flatMap((c, i) => [...normCh(c)].map(ch => ({ ch, k: (at >= 0 && i >= at && i < at + hl.length) ? "hl" : "ink" })));
+  // words; a highlighted phrase is one unbreakable unit
+  let words = []; { let cur = []; for (const c of tc) { if (c.ch === " ") { if (cur.length) words.push(cur); cur = []; } else cur.push(c); } if (cur.length) words.push(cur); }
+  for (let i = 0; i < words.length - 1; i++) {
+    const a = words[i], b = words[i + 1];
+    if (a[a.length - 1].k === "hl" && b[0].k === "hl") { words.splice(i, 2, a.concat([{ ch: " ", k: "hl" }], b)); i--; }
+  }
+  const T_COND = 0.9, T_MAXW = 900;
+  const wrapAt = C => {
+    const gapU = 12 + Math.max(4.5, C * 0.1) / (C / 64), sp = (SPACE_U + gapU) * C / 64;   // a space also carries the glyph gap before it
+    const lines = []; let cur = [], cw = 0;
+    for (const w of words) {
+      const ww = setRun(w, C, T_COND, gapU).width;
+      if (ww > T_MAXW) return null;
+      if (cur.length && cw + sp + ww > T_MAXW) { lines.push(cur); cur = []; cw = 0; }
+      cw += (cur.length ? sp : 0) + ww; cur.push(w);
+    }
+    if (cur.length) lines.push(cur);
+    return lines;
+  };
+  const best = {};
+  for (let C = 86; C >= 40; C -= 1) { const L = wrapAt(C); if (!L) continue; const k = L.length; if (k <= 3 && !best[k]) best[k] = { C, L }; }
+  const CAPL = { 1: 84, 2: 74, 3: 64 };
+  // biggest letters win, but each extra line costs 5 px of cap height (keeps the title compact)
+  let pick = null, score = -1;
+  for (const k of [1, 2, 3]) {
+    if (!best[k]) continue;
+    const C = Math.min(best[k].C, CAPL[k]), sc = C - 5 * (k - 1);
+    if (sc > score) { score = sc; pick = { C, L: wrapAt(C) }; }
+  }
+  if (!pick) pick = { C: 40, L: wrapAt(40) || [words] };
+  const Ct = pick.C, tLines = pick.L, TLP = Math.round(Ct * 1.44), TSW = Math.max(4.5, Ct * 0.1);
+  const T0 = 366;                                               // cap line of the first title line
+  const titleBase = T0 + (tLines.length - 1) * TLP + Ct;
+
+  // ---- caption (measured first: it pins the bottom of the object) ---------
+  const capText = String(D.caption || D.sub || "");
+  const capEl = $("cap");
+  {
+    const ws = capText.split(/\s+/).filter(Boolean);
+    let pos = 0; const ranges = ws.map(w => { const s = capText.indexOf(w, pos); pos = s + w.length; return [s, pos]; });
+    const hs = hl ? capText.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    let act = hs < 0 ? [0] : ranges.map((r, i) => (r[0] < hs + hl.length && r[1] > hs) ? i : -1).filter(i => i >= 0);
+    if (!act.length) act = [0];
+    let html = "", i = 0;
+    while (i < ws.length) {
+      if (act.includes(i)) { const grp = []; while (i < ws.length && act.includes(i)) grp.push(ws[i++]); html += '<span class="w on">' + esc(grp.join(" ")) + "</span> "; }
+      else html += '<span class="w">' + esc(ws[i++]) + "</span> ";
+    }
+    capEl.innerHTML = html.trim();
+    let fit = false;
+    for (let fs = 46; fs >= 40; fs -= 2) { capEl.style.fontSize = fs + "px"; if (capEl.offsetHeight <= fs * 1.24 * 2 + 4) { fit = true; break; } }
+    if (!fit) {
+      // a karaoke line shows one 2-line chunk at a time: start the chunk early enough that the active word is in it
+      const two = 40 * 1.24 * 2 + 4, a0 = act[0];
+      for (let s = 0; s <= a0; s++) {
+        let h = s ? "… " : "";
+        for (let j = s; j < ws.length; j++) h += act.includes(j) ? (j === a0 ? '<span class="w on">' + esc(act.map(k => ws[k]).join(" ")) + "</span> " : "") : '<span class="w">' + esc(ws[j]) + "</span> ";
+        capEl.innerHTML = h.trim();
+        const on = capEl.querySelector(".on");
+        if (!on || on.offsetTop + on.offsetHeight <= two) break;
+      }
+      capEl.classList.add("clamp");
+    }
+  }
+  const capH = capEl.offsetHeight;
+
+  // ---- fields: structure from the template (orange), content in ink --------
+  // row i: [indent or "{ "] "LABEL": "VALUE",   last row: "}" alone (the active row above the template)
+  const rowCs = items.map((it, i) => {
+    const last = i === items.length - 1;
+    return chars(i === 0 ? "{ " : "", "p").concat(chars("\"", "p"), chars(it.label, "ink"), chars("\":", "p"), chars(" ", "p"), chars("\"", "p"), chars(it.value, "ink"), chars(last ? "\"" : "\",", "p"));
+  });
+  const R_X0 = 100, R_MAXW = 780;
+  let Cr = 46, rCond = 0.86, rGap = 0, indent = 0, runs = [];
+  const fitRows = () => {
+    rGap = 10 + Math.max(3.4, Cr * 0.115) / (Cr / 64);
+    runs = rowCs.map(cs => setRun(cs, Cr, rCond, rGap));
+    // rows 2..n are indented to line up under the first quote
+    const first = setRun(chars("{ ", "p").concat(chars("\"", "p")), Cr, rCond, rGap);
+    indent = first.g[first.g.length - 1].x;
+    return Math.max(...runs.map((r, i) => r.width + (i ? indent : 0)));
+  };
+  while (Cr > 29 && fitRows() > R_MAXW) Cr -= 1;
+  while (rCond > 0.7 && fitRows() > R_MAXW) rCond -= 0.02;
+  fitRows();
+  const R = n + 1;                                              // n fields + the closing "}" row
+
+  // ---- freehand attempt: the same fields written loose, with the format broken ----
+  const freeEl = $("free");
+  const lo = s => String(s == null ? "" : s).replace(/·/g, "").toLowerCase();
+  const parts = [];
+  if (items[0]) parts.push("{ " + lo(items[0].label) + lo(items[0].value) + ",");          // no quotes, label runs into value
+  if (items[1]) parts.push("\"" + lo(items[1].value) + "\": " + lo(items[1].label) + ",,");                       // value in the key slot
+  if (items[2]) parts.push(lo(items[2].label) + " " + lo(items[2].value) + " \"");                                // unclosed quote, no brace
+  const jit = [0, 5, -4, 6, -2, 4, -5, 3, 6, -3, 2, -5];
+  const freeHtml = ps => ps.join(" ").split(/\s+/).map((x, k) => '<span style="top:' + jit[k % jit.length] + 'px">' + esc(x) + "</span>").join("");
+  let used = [];
+  for (const p of parts) { used.push(p); freeEl.innerHTML = freeHtml(used); if (freeEl.scrollWidth > 790) { used.pop(); break; } }
+  if (!used.length) used = parts.slice(0, 1);
+  freeEl.innerHTML = freeHtml(used);
+  const FREE_H = 62, MARK_C = 27, MARK_SW = 3.6;
+
+  // ---- vertical layout ---------------------------------------------------------
+  // template top sits just under the active ("}") row; caption 30 below the template; source under the caption.
+  // fit the field size, the template step (P) and the template height (TH) into the room above the caption,
+  // then hand any slack to the gaps (title → freehand, verdict → fields); what is left stays at the bottom.
+  const foot = $("foot"); foot.innerHTML = "<b>SUMBER</b>" + esc(D.source || "");
+  const FOOT_H = foot.offsetHeight, LIMIT = 1612, EDGE = 18;
+  const freeTop0 = titleBase + 38;
+  const rowsTop0 = freeTop0 + FREE_H + 8 + MARK_C + 34;          // cap line of field row 1
+  const avail = LIMIT - rowsTop0;
+  let TH = 280, P = Cr * 2.3;
+  const need = () => (R - 1) * P + Cr + EDGE + TH + 12 + 30 + capH + 22 + FOOT_H;
+  while (need() > avail && (P > Cr * 2.05 || TH > 240)) { if (P > Cr * 2.05) P -= 1; if (need() > avail && TH > 240) TH -= 4; }
+  while (need() > avail && Cr > 29) { Cr -= 1; fitRows(); P = Cr * 2.05; }
+  let slack = Math.max(0, avail - need());
+  { const dp = Math.min(slack / (R - 1), Cr * 2.6 - P); if (dp > 0) { P += dp; slack -= dp * (R - 1); } }
+  { const dt = Math.min(slack, 300 - TH); if (dt > 0) { TH += dt; slack -= dt; } }
+  const gapA = Math.round(Math.min(44, slack * 0.35)), gapB = Math.round(Math.min(30, slack * 0.25));
+  const RSW = Math.max(3.4, Cr * 0.115);
+  const freeTop = freeTop0 + gapA, rowsTop = rowsTop0 + gapA + gapB;
+  const rowCap = i => rowsTop + i * P;                           // cap line of row i
+  const rowBase = i => rowCap(i) + Cr;
+  const Tt = rowBase(R - 1) + EDGE;
+  const capTop = Tt + TH + 12 + 30;
+  const footTop = capTop + capH + 22;
+
+  freeEl.style.top = freeTop + "px";
+  capEl.style.top = capTop + "px";
+  foot.style.top = footTop + "px";
+
+  // ================================ SVG =======================================
+  let svg = '<defs>' +
+    '<filter id="grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="11" result="t"/>' +
+      '<feColorMatrix type="matrix" values="0 0 0 0 0.10  0 0 0 0 0.14  0 0 0 0 0.19  0 0 0 0.07 0"/></filter>' +
+    '<radialGradient id="sheen" cx="0.22" cy="0.18" r="0.9"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.55"/><stop offset="0.6" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>' +
+    '<filter id="soft" x="-20%" y="-20%" width="140%" height="160%"><feColorMatrix type="matrix" values="0 0 0 0 0.106  0 0 0 0 0.137  0 0 0 0 0.188  0 0 0 1 0"/><feGaussianBlur stdDeviation="7"/></filter>' +
+    '<filter id="softer" x="-20%" y="-40%" width="140%" height="200%"><feGaussianBlur stdDeviation="12"/></filter>' +
+    '<linearGradient id="tpl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#EE7A50" stop-opacity="0.92"/><stop offset="0.5" stop-color="' + OR + '" stop-opacity="0.88"/><stop offset="1" stop-color="#D4501F" stop-opacity="0.92"/></linearGradient>' +
+    '<linearGradient id="glint" x1="0" y1="0" x2="1" y2="0.35"><stop offset="0.30" stop-color="#FFFFFF" stop-opacity="0"/><stop offset="0.40" stop-color="#FFFFFF" stop-opacity="0.2"/><stop offset="0.44" stop-color="#FFFFFF" stop-opacity="0.04"/><stop offset="0.47" stop-color="#FFFFFF" stop-opacity="0.14"/><stop offset="0.56" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>' +
+    '<linearGradient id="plate" gradientUnits="userSpaceOnUse" x1="120" y1="' + f1(Tt - 20) + '" x2="470" y2="' + f1(Tt + 250) + '"><stop offset="0" stop-color="#E6EAF0"/><stop offset="0.45" stop-color="' + STEEL + '"/><stop offset="1" stop-color="#7C8899"/></linearGradient>' +
+    '<linearGradient id="barrel" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3A4557"/><stop offset="0.45" stop-color="' + INK + '"/><stop offset="1" stop-color="#0F141C"/></linearGradient>' +
+    '</defs>';
+
+  // drafting board, base film taped at the top
+  const FT = 150, FB = 1830;
+  svg += '<rect width="1080" height="1920" fill="#D5DBE3"/>';
+  svg += '<rect x="-20" y="' + (FT + 3) + '" width="1120" height="' + (FB - FT) + '" fill="' + INK + '" fill-opacity="0.10" filter="url(#softer)"/>';
+  svg += '<rect x="-20" y="' + FT + '" width="1120" height="' + (FB - FT) + '" fill="' + FILM + '"/>';
+  svg += '<rect x="-20" y="' + FT + '" width="1120" height="' + (FB - FT) + '" fill="url(#sheen)"/>';
+  svg += '<rect width="1080" height="1920" filter="url(#grain)"/>';
+  svg += '<path d="M-20 ' + (FT + 0.8) + ' H1100 M-20 ' + (FB - 0.8) + ' H1100" stroke="#FFFFFF" stroke-opacity="0.9" stroke-width="1.6"/>';
+
+  // ---- tracing overlay, hinged under the tape: carries the fields --------------
+  // (drawn under the lettering so the base-film title keeps full ink contrast)
+  const OV_T = 136, OV_B = 1712;
+  svg += '<path d="M1053 ' + (OV_T + 30) + ' V' + (OV_B + 2) + ' H40" fill="none" stroke="' + INK + '" stroke-opacity="0.12" stroke-width="8" filter="url(#soft)"/>';
+  svg += '<rect x="28" y="' + OV_T + '" width="1024" height="' + (OV_B - OV_T) + '" fill="#FFFFFF" fill-opacity="0.2" stroke="#FFFFFF" stroke-opacity="0.95" stroke-width="2"/>';
+  svg += '<path d="M28.5 ' + (OV_T + 40) + ' V' + (OV_B - 0.5) + ' H1051.5 V' + (OV_T + 40) + '" fill="none" stroke="' + STEEL_D + '" stroke-opacity="0.4" stroke-width="1.2"/>';
+
+  // tape strips over both sheets (hard-coded torn ends)
+  const tape = (x, y, w, h, rot) => '<g transform="translate(' + x + ',' + y + ') rotate(' + rot + ')"><path d="M0 0 L' + w + ' 0 L' + (w - 4) + ' 7 L' + (w + 2) + ' 15 L' + (w - 3) + ' 24 L' + (w + 1) + ' 33 L' + (w - 2) + ' 42 L' + w + ' ' + h +
+    ' L0 ' + h + ' L4 ' + (h - 8) + ' L-2 ' + (h - 17) + ' L3 ' + (h - 27) + ' L-1 ' + (h - 36) + ' L3 ' + (h - 45) + ' Z" fill="#FFFFFF" fill-opacity="0.66" stroke="' + STEEL_D + '" stroke-opacity="0.45" stroke-width="1.5"/></g>';
+  svg += tape(64, FT - 30, 170, 62, -3.5) + tape(856, FT - 26, 160, 60, 2.5);
+
+  // ---- title guidelines + lettering (on the base film) -----------------------
+  let tInk = "", tHl = "", tGuide = "", tHeavy = "";
+  tLines.forEach((line, li) => {
+    const cs = []; line.forEach((w, wi) => { if (wi) cs.push({ ch: " ", k: w[0].k === "hl" && line[wi - 1][line[wi - 1].length - 1].k === "hl" ? "hl" : "ink" }); cs.push(...w); });
+    const gapU = 12 + TSW / (Ct / 64);
+    const run = setRun(cs, Ct, T_COND, gapU);
+    const y = T0 + li * TLP, x0 = 90;
+    const p = inkRun(run, x0, y, Ct, T_COND);
+    tInk += p.ink || ""; tHl += p.hl || "";
+    tGuide += "M66 " + f1(y - TSW * 0.5 - 2) + " H1014 M66 " + f1(y + Ct + TSW * 0.5 + 2) + " H1014 ";
+    const hg = run.g.filter(q => q.k === "hl");
+    if (hg.length) { const a = x0 + hg[0].x - 8, b = x0 + hg[hg.length - 1].x + hg[hg.length - 1].w + 8; tHeavy += "M" + f1(a) + " " + f1(y + Ct + TSW * 0.5 + 3) + " H" + f1(b) + " "; }
+  });
+  svg += '<path d="' + tGuide + '" stroke="' + BLUE + '" stroke-opacity="0.42" stroke-width="1.6"/>';
+  if (tHeavy) svg += '<path d="' + tHeavy + '" stroke="' + BLUE + '" stroke-width="5" stroke-linecap="round"/>';
+  svg += strokeP(tInk, INK, f1(TSW)) + strokeP(tHl, ORI, f1(TSW));
+
+  // ---- ghost edges: where the template sat for each earlier field (fading to the right) ----
+  const TL = 30;                                                 // template's left end (current position)
+  const GOFF = [16, -10, 24, -4, 10];
+  svg += '<linearGradient id="ghostFade" gradientUnits="userSpaceOnUse" x1="20" y1="0" x2="1040" y2="0"><stop offset="0" stop-color="' + OR + '"/><stop offset="0.55" stop-color="' + OR + '" stop-opacity="0.75"/><stop offset="1" stop-color="' + OR + '" stop-opacity="0"/></linearGradient>';
+  for (let i = 0; i < R - 1; i++) {
+    const yE = rowBase(i) + EDGE, xl = TL + GOFF[i % GOFF.length], age = (R - 2 - i);
+    const op = Math.max(0.24, 0.5 - age * 0.07);
+    svg += '<path d="M' + f1(xl) + " " + f1(yE + 40) + " V" + f1(yE + 16) + " Q" + f1(xl) + " " + f1(yE) + " " + f1(xl + 16) + " " + f1(yE) + ' H1060" fill="none" stroke="url(#ghostFade)" stroke-opacity="' + op.toFixed(2) + '" stroke-width="2.2" stroke-dasharray="12 7"/>';
+    let tk = ""; for (let x = xl + 24; x <= 1040; x += 12) { const big = ((x - xl - 24) / 12) % 5 === 0; tk += "M" + f1(x) + " " + f1(yE + 2) + " V" + f1(yE + (big ? 11 : 6)) + " "; }
+    svg += '<path d="' + tk + '" stroke="url(#ghostFade)" stroke-opacity="' + (op * 0.6).toFixed(2) + '" stroke-width="1.6"/>';
+  }
+
+  // ---- the fields, lettered on the overlay --------------------------------------
+  let rInk = "", rP = "";
+  runs.forEach((run, i) => { const p = inkRun(run, R_X0 + (i ? indent : 0), rowCap(i), Cr, rCond); rInk += p.ink || ""; rP += p.p || ""; });
+  const closeRun = setRun(chars("}", "p"), Cr, rCond, rGap);
+  { const p = inkRun(closeRun, R_X0, rowCap(R - 1), Cr, rCond); rP += p.p; }
+  svg += strokeP(rInk, INK, f1(RSW)) + strokeP(rP, ORI, f1(RSW));
+
+  // ---- template: translucent orange lettering guide with engraved grooves ----------
+  const GC = Math.round(TH * 0.44), GS = GC / 64, gTop = Tt + Math.round(TH * 0.15), SG = Tt + Math.round(TH * 0.815);
+  svg += '<rect x="' + (TL - 8) + '" y="' + f1(Tt + 22) + '" width="1160" height="' + TH + '" fill="' + INK + '" fill-opacity="0.24" filter="url(#softer)"/>';
+  svg += '<rect x="' + TL + '" y="' + f1(Tt + 10) + '" width="1160" height="' + TH + '" rx="18" fill="#A93C15" fill-opacity="0.92"/>';
+  svg += '<rect x="' + TL + '" y="' + f1(Tt) + '" width="1160" height="' + TH + '" rx="18" fill="url(#tpl)"/>';
+  svg += '<path d="M' + (TL + 14) + " " + f1(Tt + 2) + ' H1100" stroke="#FFD9C6" stroke-opacity="0.8" stroke-width="2.5"/>';
+  let ticks = "";
+  for (let x = TL + 24; x <= 1092; x += 12) { const big = ((x - TL - 24) / 12) % 5 === 0; ticks += "M" + x + " " + f1(Tt + 5) + " V" + f1(Tt + (big ? 22 : 13)) + " "; }
+  svg += '<path d="' + ticks + '" stroke="#8C3212" stroke-opacity="0.7" stroke-width="2"/>';
+  const engrave = (d, w) => '<path d="' + d + '" transform="translate(1.4,1.8)" fill="none" stroke="#F8B795" stroke-width="' + w + '" stroke-linecap="round" stroke-linejoin="round"/>' +
+                            '<path d="' + d + '" transform="translate(-1.4,-1.8)" fill="none" stroke="#8C3212" stroke-width="' + w + '" stroke-linecap="round" stroke-linejoin="round"/>' +
+                            '<path d="' + d + '" fill="none" stroke="#C24A1C" stroke-width="' + (w - 3) + '" stroke-linecap="round" stroke-linejoin="round"/>';
+  const SEQ = ["{", "}", "\"", ":", ",", "A", "B", "C", "D", "E", "F", "G", "H", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+  const GW = 14;                                                 // groove width (px)
+  let gx = TL + 22, gClose = null;
+  for (const ch of SEQ) {
+    if (gx > 1090) break;
+    const d = tp(GL[ch][1], gx, gTop, GS, GS);
+    svg += engrave(d, GW);
+    if (ch === "}") gClose = { x: gx, d };
+    gx += GL[ch][0] * GS + 30;
+  }
+  // the "}" the tracer sits in: ink-dark groove floor
+  svg += strokeP(gClose.d, "#5E1F09", 6);
+  // straight guide groove for the tail pin
+  svg += '<path d="M' + (TL + 14) + " " + f1(SG + 1.8) + ' H1100" stroke="#F8B795" stroke-width="15"/>';
+  svg += '<path d="M' + (TL + 14) + " " + f1(SG - 1.8) + ' H1100" stroke="#8C3212" stroke-width="15"/>';
+  svg += '<path d="M' + (TL + 14) + " " + f1(SG) + ' H1100" stroke="#C24A1C" stroke-width="12"/>';
+  svg += '<rect x="' + TL + '" y="' + f1(Tt) + '" width="1160" height="' + TH + '" rx="18" fill="url(#glint)"/>';
+  // engraved size mark "140" on the lower rim
+  { const r = setRun(chars("140", "m"), 15, 1, 16); const p = inkRun(r, 560, SG + 20, 15, 1); svg += engrave(p.m, 4.5); }
+
+  // ---- scriber: flat steel plate (pen socket, tracer pin, tail pin) + technical pen ----
+  const closeRight = R_X0 + closeRun.width + RSW / 2;
+  const yRow = rowCap(R - 1) + Cr / 2;
+  const N = { x: closeRight + 12, y: yRow };                    // nib: right after the lettered "}"
+  const u = { x: 0.84, y: 0.54 }; { const l = Math.hypot(u.x, u.y); u.x /= l; u.y /= l; }   // pen leans to the lower right, clear of the grooves
+  const along = (d, o) => ({ x: N.x + u.x * d - u.y * (o || 0), y: N.y + u.y * d + u.x * (o || 0) });
+  const S = along(60);                                           // pen socket on the plate
+  const T = { x: gClose.x + 18 * GS, y: gTop + 32 * GS };        // tracer pin: the tip of the "}" groove
+  const L = { x: S.x + 290, y: SG };                             // tail pin in the straight groove
+  const K = { x: (S.x + T.x + 48 + L.x) / 3 + 6, y: (S.y + T.y + 4 + L.y) / 3 + 4 };   // adjusting screw
+  const P2 = p => f1(p.x) + " " + f1(p.y);
+  const Tp = { x: T.x + 48, y: T.y + 4 };                       // plate corner; a slim finger reaches the tracer pin
+  const tri = "M" + P2(S) + " L" + P2(Tp) + " L" + P2(L) + " Z";
+  const cen = { x: (S.x + Tp.x + L.x) / 3, y: (S.y + Tp.y + L.y) / 3 };
+  const shrink = (p, k) => ({ x: cen.x + (p.x - cen.x) * k, y: cen.y + (p.y - cen.y) * k });
+  const triIn = "M" + P2(shrink(S, 0.42)) + " L" + P2(shrink(Tp, 0.42)) + " L" + P2(shrink(L, 0.42)) + " Z";
+  const RP = 22, RI = 9;
+  const pin = (p, r) => '<circle cx="' + f1(p.x) + '" cy="' + f1(p.y) + '" r="' + r + '" fill="' + STEEL + '" stroke="' + INK + '" stroke-width="3"/>' +
+                        '<circle cx="' + f1(p.x) + '" cy="' + f1(p.y) + '" r="' + f1(r * 0.42) + '" fill="' + INK + '"/>' +
+                        '<circle cx="' + f1(p.x - r * 0.18) + '" cy="' + f1(p.y - r * 0.18) + '" r="' + f1(r * 0.14) + '" fill="' + STEEL_L + '"/>';
+  const knurl = (c, r0, r1, k) => { let d = ""; for (let i = 0; i < k; i++) { const a = i / k * Math.PI * 2; d += "M" + f1(c.x + Math.cos(a) * r0) + " " + f1(c.y + Math.sin(a) * r0) + " L" + f1(c.x + Math.cos(a) * r1) + " " + f1(c.y + Math.sin(a) * r1) + " "; } return d; };
+  const scriber = id => {
+    let sc = '<mask id="cut' + id + '" maskUnits="userSpaceOnUse" x="0" y="0" width="1080" height="1920"><rect width="1080" height="1920" fill="#fff"/>' +
+             '<path d="' + triIn + '" fill="#000" stroke="#000" stroke-width="' + (2 * RI) + '" stroke-linejoin="round"/></mask>';
+    sc += '<g mask="url(#cut' + id + ')">';
+    sc += '<path d="' + tri + '" fill="' + INK + '" stroke="' + INK + '" stroke-width="' + (2 * RP + 6) + '" stroke-linejoin="round"/>';
+    sc += '<path d="' + tri + '" fill="url(#plate)" stroke="url(#plate)" stroke-width="' + (2 * RP) + '" stroke-linejoin="round"/>';
+    sc += '<path d="' + triIn + '" fill="' + INK + '" stroke="' + INK + '" stroke-width="' + (2 * RI + 6) + '" stroke-linejoin="round"/>';
+    sc += "</g>";
+    // bevel light along the plate's upper edge + an engraved height scale (adjustable scriber)
+    const ex = L.x - S.x, ey = L.y - S.y, el = Math.hypot(ex, ey), ux = ex / el, uy = ey / el, nx = uy, ny = -ux;
+    const e0 = { x: S.x + nx * (RP - 5) + ux * 30, y: S.y + ny * (RP - 5) + uy * 30 }, e1 = { x: L.x + nx * (RP - 5) - ux * 10, y: L.y + ny * (RP - 5) - uy * 10 };
+    sc += '<path d="M' + P2(e0) + " L" + P2(e1) + '" stroke="#FFFFFF" stroke-opacity="0.6" stroke-width="3" stroke-linecap="round"/>';
+    let sk = ""; for (let k = 0; k <= 14; k++) { const d = el * 0.42 + k * 9, o = (k % 5 === 0) ? 13 : 8, b = { x: S.x + ux * d + nx * (RP - 9), y: S.y + uy * d + ny * (RP - 9) };
+      sk += "M" + P2(b) + " L" + f1(b.x - nx * o) + " " + f1(b.y - ny * o) + " "; }
+    sc += '<path d="' + sk + '" stroke="' + INK + '" stroke-opacity="0.55" stroke-width="1.8" stroke-linecap="round"/>';
+    // the finger from the plate corner to the tracer pin
+    sc += '<path d="M' + P2(Tp) + " L" + P2(T) + '" stroke="' + INK + '" stroke-width="22" stroke-linecap="round"/>';
+    sc += '<path d="M' + P2(Tp) + " L" + P2(T) + '" stroke="' + STEEL + '" stroke-width="16" stroke-linecap="round"/>';
+    sc += '<path d="M' + f1(Tp.x) + " " + f1(Tp.y - 4) + " L" + f1(T.x) + " " + f1(T.y - 4) + '" stroke="' + STEEL_L + '" stroke-width="3" stroke-linecap="round"/>';
+    // adjusting screw
+    sc += '<circle cx="' + f1(K.x) + '" cy="' + f1(K.y) + '" r="25" fill="' + STEEL + '" stroke="' + INK + '" stroke-width="3"/>';
+    sc += '<path d="' + knurl(K, 18, 25, 26) + '" stroke="' + INK + '" stroke-width="1.8"/>';
+    sc += '<circle cx="' + f1(K.x) + '" cy="' + f1(K.y) + '" r="12" fill="' + STEEL_L + '" stroke="' + INK + '" stroke-width="2.5"/>';
+    sc += '<path d="M' + f1(K.x - 8) + " " + f1(K.y + 3) + " L" + f1(K.x + 8) + " " + f1(K.y - 3) + '" stroke="' + INK + '" stroke-width="3" stroke-linecap="round"/>';
+    // tail pin in the straight groove, tracer pin in the "}" groove
+    sc += pin(L, 15) + pin(T, 16);
+    // pen socket (knurled ring) + technical pen
+    sc += '<circle cx="' + f1(S.x) + '" cy="' + f1(S.y) + '" r="29" fill="' + STEEL + '" stroke="' + INK + '" stroke-width="3"/>';
+    sc += '<path d="' + knurl(S, 22, 29, 30) + '" stroke="' + INK + '" stroke-width="1.8"/>';
+    // steel nib cone touching the film, then the barrel (butt end at the cone, round cap at the top)
+    const c0 = along(1), c1 = along(13, -4), c2 = along(13, 4), c3 = along(24, -11), c4 = along(24, 11);
+    sc += '<polygon points="' + [c0, c1, c3, c4, c2].map(P2).join(" ") + '" fill="' + STEEL_L + '" stroke="' + INK + '" stroke-width="2.5" stroke-linejoin="round"/>';
+    const b0 = along(24), b1 = along(108);
+    sc += '<path d="M' + P2(b0) + " L" + P2(b1) + '" stroke="' + INK + '" stroke-width="36" stroke-linecap="butt"/>';
+    sc += '<circle cx="' + f1(b1.x) + '" cy="' + f1(b1.y) + '" r="18" fill="' + INK + '"/>';
+    const h0 = along(28, -9), h1 = along(104, -9);
+    sc += '<path d="M' + P2(h0) + " L" + P2(h1) + '" stroke="#5A667A" stroke-width="5" stroke-linecap="round"/>';
+    const bb0 = along(74), bb1 = along(88);
+    sc += '<path d="M' + P2(bb0) + " L" + P2(bb1) + '" stroke="' + BLUE + '" stroke-width="37"/>';
+    sc += '<circle cx="' + f1(N.x) + '" cy="' + f1(N.y) + '" r="3.6" fill="' + INK + '"/>';
+    return sc;
+  };
+  svg += '<g transform="translate(14,20)" opacity="0.3" filter="url(#soft)">' + scriber("s") + "</g>";
+  svg += scriber("m");
+  // non-repro blue registration marks: the "}" groove the tracer follows ↔ the "}" the nib just lettered
+  {
+    const ic = { x: R_X0 + closeRun.width / 2, y: yRow }, ir = Cr * 0.62 + 8;
+    const gc = { x: gClose.x + 9 * GS, y: gTop + 32 * GS }, grx = 9 * GS + 20, gry = 36 * GS + 12;
+    const lx = Math.min(ic.x, gc.x) - 4;
+    svg += '<circle cx="' + f1(ic.x) + '" cy="' + f1(ic.y) + '" r="' + f1(ir) + '" fill="none" stroke="' + BLUE + '" stroke-width="2.4" stroke-dasharray="5 6" stroke-linecap="round"/>';
+    svg += '<ellipse cx="' + f1(gc.x) + '" cy="' + f1(gc.y) + '" rx="' + f1(grx) + '" ry="' + f1(gry) + '" fill="none" stroke="' + BLUE + '" stroke-width="2.6" stroke-dasharray="6 7" stroke-linecap="round"/>';
+    svg += '<path d="M' + f1(lx) + " " + f1(ic.y + ir) + " L" + f1(lx) + " " + f1(gc.y - gry) + '" stroke="' + BLUE + '" stroke-width="2.4" stroke-dasharray="5 6" stroke-linecap="round"/>';
+  }
+
+  sheet.innerHTML = svg;
+
+  // ---- freehand strike + lettered verdict -----------------------------------------
+  const fr = freeEl.getBoundingClientRect();
+  const x0 = fr.left - 8, x1 = fr.right + 8, ym = fr.top + fr.height * 0.56;
+  const wob = [0, -4, 3, -3, 5, -3, 2, -4, 3];
+  const seg = 8;
+  let d1 = "M" + f1(x0) + " " + f1(ym + 6);
+  for (let i = 1; i <= seg; i++) { const x = x0 + (x1 - x0) * i / seg, y = ym + 6 - (10 * i / seg) + wob[i]; d1 += " Q" + f1(x - (x1 - x0) / seg / 2) + " " + f1(y + wob[i - 1]) + " " + f1(x) + " " + f1(y); }
+  let st = '<path d="' + d1 + '" fill="none" stroke="' + OR + '" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.9"/>';
+  const mark = setRun(chars("✗", "x").concat(chars(" FORMAT RUSAK", "m")), MARK_C, 0.9, 12 + MARK_SW / (MARK_C / 64));
+  const mx = Math.max(96, Math.min(990, fr.right) - mark.width), my = freeTop + FREE_H + 8;
+  const mp = inkRun(mark, mx, my, MARK_C, 0.9);
+  st += strokeP(mp.x, ORI, 5.5) + strokeP(mp.m, ORI, MARK_SW);
+  $("strike").innerHTML = st;
+  }
+</script>
+</body>
+</html>

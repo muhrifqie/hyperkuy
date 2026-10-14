@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Petrol Pump</title>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Petrol Pump: the face of a roadside fuel dispenser in red enamel, standing on a
+    concrete island against a pale forecourt wall. Metaphor: the pump's linked counters,
+    TOTAL (Rp) = LITER x HARGA/LITER. Tokens are litres, price per 1 jt token is the
+    price per litre, and the money counter only rolls because the litre counter rolls.
+    Crown = lit grade sign carrying the series + pump number (episode).
+    Title = decal lettering centred on the enamel face; D.hl = a die-cut yellow grade decal.
+    Items = the meter: item 1 is the big TOTAL register (centred), items 2..n are the
+    smaller registers (label left, drum wheels right, unit printed on the glass).
+    Numbers sit on drum wheels; short whole numbers are padded with muted leading zeros
+    (a real register reads 0002); any word value is a printed insert card in the window.
+    When items 1-3 really multiply (v1 = v2 x v3 x 10^3k) the glass prints "=" and "x"
+    between those counters; otherwise no operator is printed (never a false equation).
+    Caption = the cream instruction plate under the grade buttons (karaoke line).
+    Date = the blue calibration ("tera") sticker on the meter glass.
+    Fully deterministic, decoration is SVG, all text is HTML.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #E6DFD2; }
+  body { position: relative; color: #F4F1EA; font-family: "IBM Plex Sans Condensed", sans-serif; }
+  #art { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* crown: lit grade sign */
+  .sign { position: absolute; left: 132px; top: 297px; font: 800 40px/1.2 "Big Shoulders Display", sans-serif; letter-spacing: 0.1em; text-transform: uppercase; color: #15171C; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .no { position: absolute; top: 294px; height: 54px; display: flex; align-items: center; padding: 2px 16px 0; border-radius: 7px; background: #15171C; color: #F4F1EA; font: 800 36px/1 "Big Shoulders Display", sans-serif; letter-spacing: 0.06em; white-space: nowrap; }
+
+  /* title: decal lettering on the enamel face, hl = die-cut grade decal */
+  .title { position: absolute; left: 100px; top: 404px; width: 760px; text-align: center; text-wrap: balance; font-family: "Big Shoulders Display", sans-serif; font-weight: 900; text-transform: uppercase; line-height: 0.92; letter-spacing: 0.006em; color: #F4F1EA; }
+  .title .hlw { white-space: nowrap; }
+  .title .hl { display: inline-block; white-space: normal; line-height: 0.92; color: #15171C; background: #F2C14E; border: 0.035em solid #C98F22; border-radius: 0.07em; padding: 0.05em 0.1em 0.01em; margin: 0.03em 0.02em 0.07em; transform: rotate(-1.6deg); box-shadow: 0.025em 0.05em 0 rgba(70, 12, 8, 0.35); }
+
+  .lab { position: absolute; font: 600 30px/1.14 "IBM Plex Mono", monospace; letter-spacing: 0.03em; text-transform: uppercase; color: #F4F1EA; text-wrap: balance; }
+  .lab.hero { text-align: center; }
+  .unit { position: absolute; font: 600 30px/1.1 "IBM Plex Mono", monospace; color: #F4F1EA; text-align: left; }
+  .unit.hero { font-size: 38px; }
+  .pre { position: absolute; font: 600 34px/1.1 "IBM Plex Mono", monospace; color: #F4F1EA; text-align: right; white-space: nowrap; }
+
+  /* drum wheels */
+  .wh { position: absolute; border-radius: 5px; display: flex; align-items: center; justify-content: center; color: #15171C; font-family: "Big Shoulders Display", sans-serif; font-weight: 800; line-height: 1;
+        background: linear-gradient(180deg, #A39D90 0%, #DCD6C9 13%, #F7F4EC 36%, #F7F4EC 64%, #DCD6C9 87%, #A39D90 100%); }
+  .wh.z { background: linear-gradient(180deg, #6F6A60 0%, #ACA697 14%, #C3BDAF 40%, #C3BDAF 60%, #ACA697 86%, #6F6A60 100%); }
+  .wh.z svg { display: block; }
+  .sep { position: absolute; display: flex; align-items: flex-end; justify-content: center; color: #F4F1EA; font-family: "Big Shoulders Display", sans-serif; font-weight: 800; line-height: 1; }
+  /* printed insert card for word values */
+  .card { position: absolute; border-radius: 6px; display: flex; align-items: center; justify-content: center; text-align: center; padding: 6px 22px 4px; color: #15171C;
+          font-family: "Big Shoulders Display", sans-serif; font-weight: 800; line-height: 0.98; letter-spacing: 0.04em; text-transform: uppercase;
+          background: linear-gradient(180deg, #DCD6C9 0%, #F7F4EC 18%, #F7F4EC 82%, #DCD6C9 100%); outline: 2px solid rgba(21, 23, 28, 0.32); outline-offset: -8px; }
+  .op { position: absolute; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #F4F1EA; color: #15171C; font: 800 40px/1 "Big Shoulders Display", sans-serif; padding-top: 2px; }
+
+  .src { position: absolute; font: 500 26px/1.25 "IBM Plex Sans Condensed", sans-serif; color: #F4F1EA; }
+  .tera { position: absolute; display: flex; align-items: center; gap: 10px; background: #2E5AAC; color: #F4F1EA; font: 600 26px/1.1 "IBM Plex Sans Condensed", sans-serif; padding: 8px 16px 9px 12px; border-radius: 8px; transform: rotate(-3deg); white-space: nowrap; box-shadow: 0 3px 0 #1D3B73; }
+  .tera svg { flex: none; }
+
+  .cap { position: absolute; left: 92px; width: 774px; padding: 24px 44px 26px; border-radius: 12px; color: #15171C;
+         font: 500 44px/1.24 "IBM Plex Sans Condensed", sans-serif;
+         background:
+           radial-gradient(circle at 18px 18px, #8C867A 0 5px, #F4F1EA 6px) top left / 36px 36px no-repeat,
+           radial-gradient(circle at 18px 18px, #8C867A 0 5px, #F4F1EA 6px) top right / 36px 36px no-repeat,
+           radial-gradient(circle at 18px 18px, #8C867A 0 5px, #F4F1EA 6px) bottom left / 36px 36px no-repeat,
+           radial-gradient(circle at 18px 18px, #8C867A 0 5px, #F4F1EA 6px) bottom right / 36px 36px no-repeat,
+           #F4F1EA;
+         box-shadow: 0 7px 0 #8A231C; }
+  .cap { text-wrap: balance; }
+  .cap .w { white-space: nowrap; }
+  /* active word: printed in red enamel, like the step numbers on a pump's instruction plate */
+  .cap .on { font-weight: 700; color: #F4F1EA; background: #BF3329; border-radius: 6px; padding: 0 9px; margin: 0 -1px; box-shadow: inset 0 -5px 0 #8A231C; }
+</style>
+</head>
+<body>
+<svg id="art" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overflow></svg>
+<div class="sign" id="sign"></div>
+<div class="no" id="no"></div>
+<div class="title" id="title"></div>
+<div id="meter"></div>
+<div class="cap" id="cap" data-slot="caption"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series_id: "ai-in-numbers", series: "AI dalam angka", ep: "#02", kicker: "AI dalam angka · #02",
+    title: "Satu jawaban AI = Rp 47", hl: "Rp 47",
+    sub: "Token itu literan: makin panjang jawabannya, makin jauh angkanya jalan.",
+    items: [{ label: "Total bayar", value: "Rp 47" }, { label: "Token keluar", value: "1.580 token" }, { label: "Harga per 1 jt", value: "Rp 30.000" }],
+    source: "ilustrasi, harga contoh", date: "per 14 Okt 2026" };
+
+  const FONTS = ['900 100px "Big Shoulders Display"', '800 100px "Big Shoulders Display"', '600 30px "IBM Plex Mono"', '500 30px "IBM Plex Mono"',
+                 '500 44px "IBM Plex Sans Condensed"', '600 26px "IBM Plex Sans Condensed"', '700 44px "IBM Plex Sans Condensed"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+  const RED_D = "#8A231C", CREAM = "#F4F1EA", INK = "#15171C", YEL = "#F2C14E", BLUE = "#2E5AAC";
+  const items = (D.items || []).slice(0, 5);
+  const meter = $("meter");
+  const mk = (cls, html, css) => { const el = document.createElement("div"); el.className = cls; el.innerHTML = html; Object.assign(el.style, css || {}); meter.appendChild(el); return el; };
+
+  /* ---------- crown: lit grade sign = series + pump number (episode) ---------- */
+  const SIGN_X0 = 104, SIGN_X1 = 840, SIGN_Y0 = 284, SIGN_Y1 = 358;
+  const noEl = $("no");
+  noEl.textContent = "NO. " + String(D.ep || "#01").replace(/^#/, "");
+  const noW = noEl.offsetWidth;
+  noEl.style.left = (SIGN_X1 - 12 - noW) + "px";
+  const signEl = $("sign");
+  signEl.textContent = D.series || D.kicker || "";
+  const signMax = SIGN_X1 - 12 - noW - 28 - 132;
+  signEl.style.maxWidth = signMax + "px";
+  for (let fs = 40; fs >= 26; fs -= 2) { signEl.style.fontSize = fs + "px"; signEl.style.top = Math.round(321 - fs * 0.6) + "px"; if (signEl.scrollWidth <= signMax) break; }
+
+  /* ---------- title: centred decal lettering, D.hl on a die-cut grade decal ---------- */
+  const t = D.title || "", hl = D.hl || "";
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  const rest = at < 0 ? "" : t.slice(at + hl.length), tail = (rest.match(/^[.,:;!?…)"'”]+/) || [""])[0];
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hlw"><span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(tail) + "</span>" + esc(rest.slice(tail.length));
+  const TITLE_TOP = 404;
+  let titleFs = 132;
+  for (; titleFs >= 72; titleFs -= 2) {
+    titleEl.style.fontSize = titleFs + "px";
+    if (titleEl.offsetHeight <= 282 && titleEl.scrollWidth <= 762) break;
+  }
+  titleFs = Math.max(72, titleFs);
+  const titleBottom = TITLE_TOP + titleEl.offsetHeight;
+
+  /* ---------- caption plate (karaoke line): D.caption || D.sub ---------- */
+  const capText = String(D.caption || D.sub || "").trim();
+  const words = capText.split(/\s+/).filter(Boolean);
+  let a0 = 0, a1 = 0; // active word range [a0, a1]
+  if (hl) {
+    const low = capText.toLowerCase(), k = low.indexOf(hl.toLowerCase());
+    if (k >= 0) {
+      let pos = 0; a0 = -1;
+      words.forEach((w, i) => { const s = low.indexOf(w.toLowerCase(), pos), e = s + w.length; pos = e;
+        if (e > k && s < k + hl.length) { if (a0 < 0) a0 = i; a1 = i; } });
+      if (a0 < 0) a0 = a1 = 0;
+    }
+  }
+  const capEl = $("cap");
+  // words s..e-1 as spans; the active word (or hl phrase) gets one wrapper; cut ends get an ellipsis
+  const build = (s, e) => {
+    let html = s > 0 ? "…" : "";
+    for (let i = s; i < e; i++) {
+      if (i === a0 || (i === s && a0 < s && a1 >= s)) html += '<span class="on">';
+      html += '<span class="w">' + esc(words[i]) + (i === e - 1 && e < words.length ? "…" : "") + '</span>';
+      if (i === a1 || (i === e - 1 && a0 < e && a1 >= e)) html += '</span>';
+      if (i < e - 1) html += " ";
+    }
+    capEl.innerHTML = html;
+  };
+  const fits = fs => capEl.offsetHeight <= 2 * fs * 1.24 + 54;
+  let cs = 0, ce = words.length, cfs = 46;
+  build(cs, ce);
+  for (; cfs >= 40; cfs--) { capEl.style.fontSize = cfs + "px"; if (fits(cfs)) break; }
+  if (cfs < 40) {
+    // still more than two lines at 40 px: show the window of the voice-over that holds the active word
+    cfs = 40; capEl.style.fontSize = "40px";
+    while (ce - cs > 1 && !fits(40)) { if (ce - 1 > a1) ce--; else cs++; build(cs, ce); }
+  }
+  const CAP_BOTTOM = 1606, capH = capEl.offsetHeight, capTop = CAP_BOTTOM - capH;
+  capEl.style.top = capTop + "px";
+
+  /* ---------- vertical frame of the meter ---------- */
+  const GRADE_H = 58, gradeTop = capTop - 26 - GRADE_H;
+  const DB = gradeTop - 22;                       // display bezel bottom
+  const DT = Math.max(titleBottom + 34, 680);     // display bezel top
+  const GX0 = 104, GX1 = 848;                     // glass
+  const IX0 = 130, IX1 = 822, MIDX = (IX0 + IX1) / 2; // content inside the glass
+
+  /* ---------- footer on the glass: source + tera sticker (date) ---------- */
+  const seal = '<svg width="30" height="30" viewBox="0 0 30 30"><circle cx="15" cy="15" r="12.5" fill="none" stroke="#F4F1EA" stroke-width="2.4"/><path d="M9 15.5l4 4 8-9" fill="none" stroke="#F4F1EA" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const tera = mk("tera", seal + "<span>" + esc(D.date || "") + "</span>");
+  const teraW = tera.offsetWidth, teraH = tera.offsetHeight;
+  const src = mk("src", D.source ? "Sumber: " + esc(D.source) : "", { left: IX0 + "px", width: (IX1 - IX0 - teraW - 30) + "px" });
+  const footH = Math.max(src.offsetHeight, teraH);
+  const footTop = DB - 26 - footH;
+  src.style.top = (footTop + (footH - src.offsetHeight) / 2) + "px";
+  tera.style.left = (IX1 - teraW + 6) + "px";
+  tera.style.top = (footTop + (footH - teraH) / 2) + "px";
+
+  /* ---------- values ---------- */
+  // split a value into prefix / wheel cells / unit; anything without a number is a printed insert card
+  function parseValue(v) {
+    v = String(v == null ? "" : v).trim().replace(/\s+/g, " ");
+    const m = v.match(/^(.*?)(\d(?:[\d.,]*\d)?)(.*)$/);
+    if (!m) return { pre: "", card: v, cells: [], unit: "", num: NaN };
+    let pre = m[1].trim(), unit = m[3].trim();
+    const cells = [];
+    let signed = false;
+    if (/^[±~≈<>+\-−]$/.test(pre)) { cells.push({ k: "d", c: pre }); pre = ""; signed = true; }
+    for (const c of m[2]) cells.push(/[.,]/.test(c) ? { k: "s", c } : { k: "d", c });
+    return { pre, cells, unit, num: signed ? NaN : toNum(m[2]), plain: !signed && !/[.,]/.test(m[2]) };
+  }
+  // "1.580" → 1580, "0,34" → 0.34, "0.25" → 0.25, "1,234,567" → 1234567
+  function toNum(s) {
+    const d = s.includes("."), c = s.includes(",");
+    if (d && c) s = s.lastIndexOf(".") > s.lastIndexOf(",") ? s.replace(/,/g, "") : s.replace(/\./g, "").replace(",", ".");
+    else if (c) s = /^\d{1,3}(,\d{3}){2,}$/.test(s) ? s.replace(/,/g, "") : s.replace(",", ".");
+    else if (d && /^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, "");
+    return parseFloat(s);
+  }
+  const rows = items.map((it, i) => Object.assign({ label: it.label || "", hero: i === 0 }, parseValue(it.value)));
+  const small = rows.filter(r => !r.hero);
+
+  // the pump's own formula: TOTAL = LITER x HARGA/LITER, printed only when the numbers really multiply
+  let formula = false;
+  if (rows.length >= 3) {
+    const [v1, v2, v3] = rows.slice(0, 3).map(r => r.num);
+    if (v1 > 0 && v2 > 0 && v3 > 0 && v2 !== 1 && v3 !== 1) {
+      const d = Math.log10(v1) - Math.log10(v2 * v3);
+      for (let k = -12; k <= 12; k += 3) if (Math.abs(d - k) < 0.045) formula = true;
+    }
+  }
+
+  // labels, units, prefixes
+  const COL = 256; // label column of the small registers
+  rows.forEach(r => {
+    r.labEl = r.hero ? mk("lab hero", '<span>' + esc(r.label) + "</span>", { left: IX0 + "px", width: (IX1 - IX0) + "px" })
+                     : mk("lab", '<span>' + esc(r.label) + "</span>", { left: IX0 + "px", width: COL + "px" });
+    r.labH = r.labEl.offsetHeight;
+    r.labW = Math.ceil(r.labEl.firstChild.getBoundingClientRect().width) + 2;
+    if (!r.hero) r.labEl.style.width = r.labW + "px";   // a small label box hugs its text so a window may sit right of it
+    const UMAX = r.hero ? 220 : 150;
+    r.unitEl = r.unit ? mk("unit" + (r.hero ? " hero" : ""), esc(r.unit)) : null;
+    if (r.unitEl) { r.unitEl.style.maxWidth = UMAX + "px"; r.unitW = Math.min(UMAX, r.unitEl.offsetWidth + 1); r.unitEl.style.width = r.unitW + "px"; r.unitH = r.unitEl.offsetHeight; } else { r.unitW = 0; r.unitH = 0; }
+    r.preEl = r.pre ? mk("pre", esc(r.pre)) : null;
+    r.preW = r.preEl ? r.preEl.offsetWidth : 0;
+  });
+  const unitCol = Math.max(0, ...small.map(r => r.unitW));
+  const wheelsRight = IX1 - (unitCol ? unitCol + 16 : 0);   // right edge of the small registers' windows
+
+  // printed insert cards: font follows the register height, wraps to 2 lines when the phrase is long
+  rows.forEach(r => { if (r.card != null) r.cardEl = mk("card", esc(r.card), { visibility: "hidden" }); });
+  const rowLeft = r => IX0 + r.labW + 28;   // first x a small register's window may use
+  const cardAvail = r => r.hero ? (IX1 - IX0 - 2 * 8) : (wheelsRight - rowLeft(r) - 2 * 8);
+  function fitCard(r, h) {
+    const el = r.cardEl, avail = cardAvail(r);
+    let fs = Math.max(40, Math.min(r.hero ? 88 : 62, Math.round(h * (r.hero ? 0.56 : 0.6))));
+    el.style.width = ""; el.style.whiteSpace = "nowrap"; el.style.fontSize = fs + "px";
+    while (el.offsetWidth > avail && fs > 40) { fs = Math.max(40, fs - 2); el.style.fontSize = fs + "px"; }
+    if (el.offsetWidth > avail) { el.style.whiteSpace = "normal"; el.style.width = avail + "px"; }
+    return { w: el.offsetWidth, h: Math.max(h, el.offsetHeight) };
+  }
+
+  /* ---------- solve register heights ---------- */
+  // the title stays the largest type: hero digits (0.8 x wheel height) <= 0.88 x title size
+  const heroCap = Math.min(178, Math.floor(titleFs * 1.1));
+  const RH_MAX = Math.min(112, Math.floor(heroCap * 0.8));
+  const heroH = r => Math.min(heroCap, Math.round(r * 1.62));
+  const PAD = 7, ROW_GAP = 12, HERO_GAP = 36, OP_GAP = 56;
+  const baseGap = j => j === 0 ? (formula ? OP_GAP : HERO_GAP) : formula && j === 1 ? OP_GAP : formula && j === 2 ? HERO_GAP : ROW_GAP;
+  const heroBlock = r => { const h = heroH(r); return rows[0].labH + 10 + (rows[0].cardEl ? fitCard(rows[0], h).h : h) + 2 * PAD; };
+  const rowBlock = (q, r) => Math.max(q.labH, q.unitH, (q.cardEl ? fitCard(q, r).h : r) + 2 * PAD);
+  const need = r => (rows.length ? heroBlock(r) : 0) + small.reduce((s, q, j) => s + baseGap(j) + rowBlock(q, r), 0);
+  const top0 = DT + 30, bottom0 = footTop - 22, avail = bottom0 - top0;
+  let RH = RH_MAX; while (RH > 48 && need(RH) > avail) RH -= 2;
+  const extra = Math.max(0, avail - need(RH));
+  // spend spare glass on air between the registers, centre the rest
+  const gapAdd = small.length ? Math.min(46, extra / (small.length + 2)) : 0;
+  let y = top0 + (extra - gapAdd * small.length) / 2;
+
+  const frames = [];   // dark recess windows (SVG)
+  const rules = [];    // hairlines on the glass [y, x gap centre or null]
+  const zero = (w, h, fs) => {
+    const zw = Math.round(fs * 0.38), zh = Math.round(fs * 0.8), sw = Math.max(5, Math.round(fs * 0.12));
+    return '<svg width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + " " + h + '"><rect x="' + ((w - zw) / 2 + sw / 2) + '" y="' + ((h - zh) / 2 + sw / 2 + h * 0.02) + '" width="' + (zw - sw) + '" height="' + (zh - sw) + '" rx="' + Math.round(zw * 0.42) + '" fill="none" stroke="#625D54" stroke-width="' + sw + '"/></svg>';
+  };
+  // lay out the wheel cells of one register; returns width + draw(x, cy)
+  function wheels(r, h, availW, pad) {
+    const sepW = Math.round(h * 0.24), gap = Math.max(5, Math.round(h * 0.06));
+    let w = Math.round(h * 0.6);
+    const nD = r.cells.filter(c => c.k !== "s").length, nS = r.cells.length - nD;
+    const content = (ww, n) => n * ww + nS * sepW + Math.max(0, r.cells.length + (n - nD) - 1) * gap;
+    let fsScale = 1;
+    if (content(w, nD) > availW) { const w2 = Math.floor((availW - nS * sepW - (r.cells.length - 1) * gap) / Math.max(1, nD)); fsScale = w2 / w; w = w2; }
+    let zeros = r.plain ? Math.max(0, pad - nD) : 0;
+    while (zeros > 0 && content(w, nD + zeros) > availW) zeros--;
+    const cells = Array(zeros).fill({ k: "z", c: "0" }).concat(r.cells);
+    const totalW = content(w, nD + zeros);
+    const fsD = Math.round(h * 0.8 * fsScale);
+    return { totalW, draw(x, cy) {
+      cells.forEach(c => {
+        if (c.k === "s") { mk("sep", esc(c.c), { left: x + "px", top: (cy - h / 2) + "px", width: sepW + "px", height: (h - h * 0.12) + "px", fontSize: fsD + "px" }); x += sepW + gap; return; }
+        if (c.k === "z") mk("wh z", zero(w, h, fsD), { left: x + "px", top: (cy - h / 2) + "px", width: w + "px", height: h + "px" });
+        else mk("wh", esc(c.c), { left: x + "px", top: (cy - h / 2) + "px", width: w + "px", height: h + "px", fontSize: fsD + "px", paddingTop: Math.round(h * 0.04) + "px" });
+        x += w + gap;
+      });
+    } };
+  }
+
+  rows.forEach((r, i) => {
+    if (r.hero) {
+      // TOTAL register: centred group [prefix][window][unit], label centred above with the grade lamp
+      r.labEl.style.top = y + "px";
+      const span = r.labEl.firstChild;
+      r.lamp = [IX0 + ((IX1 - IX0) - span.offsetWidth) / 2 - 22, y + r.labH / 2];
+      y += r.labH + 10;
+      const h = heroH(RH);
+      const side = (r.preW ? r.preW + 14 : 0) + (r.unitW ? r.unitW + 18 : 0);
+      if (r.cardEl) {
+        const c = fitCard(r, h), cy = y + PAD + c.h / 2;
+        Object.assign(r.cardEl.style, { visibility: "", height: c.h + "px", left: (MIDX - c.w / 2) + "px", top: (cy - c.h / 2) + "px" });
+        frames.push([MIDX - c.w / 2 - PAD, cy - c.h / 2 - PAD, c.w + 2 * PAD, c.h + 2 * PAD]);
+        y = cy + c.h / 2 + PAD;
+      } else {
+        const L = wheels(r, h, IX1 - IX0 - side - 2 * PAD, 4);
+        const groupW = side + L.totalW + 2 * PAD;
+        const wx = IX0 + ((IX1 - IX0) - groupW) / 2 + (r.preW ? r.preW + 14 : 0) + PAD, cy = y + PAD + h / 2;
+        L.draw(wx, cy);
+        frames.push([wx - PAD, cy - h / 2 - PAD, L.totalW + 2 * PAD, h + 2 * PAD]);
+        if (r.preEl) { r.preEl.style.left = (wx - PAD - 14 - r.preW) + "px"; r.preEl.style.top = (cy + h / 2 - r.preEl.offsetHeight - 2) + "px"; }
+        if (r.unitEl) { r.unitEl.style.left = (wx + L.totalW + PAD + 18) + "px"; r.unitEl.style.top = (cy + h / 2 - r.unitH) + "px"; }
+        y = cy + h / 2 + PAD;
+      }
+    } else {
+      const j = i - 1, g = baseGap(j) + gapAdd;
+      rules.push([y + g / 2, formula && j < 2 ? (j === 0 ? "=" : "×") : (j === 0 || (formula && j === 2) ? "" : null)]);
+      y += g;
+      const bh = rowBlock(r, RH), cy = y + bh / 2;
+      r.labEl.style.top = (cy - r.labH / 2) + "px";
+      const left = rowLeft(r) + (r.preW ? r.preW + 14 : 0);
+      if (r.cardEl) {
+        const c = fitCard(r, RH);
+        Object.assign(r.cardEl.style, { visibility: "", height: c.h + "px", left: (wheelsRight - PAD - c.w) + "px", top: (cy - c.h / 2) + "px" });
+        frames.push([wheelsRight - 2 * PAD - c.w, cy - c.h / 2 - PAD, c.w + 2 * PAD, c.h + 2 * PAD]);
+      } else {
+        const L = wheels(r, RH, wheelsRight - left - 2 * PAD, 3);
+        const wx = wheelsRight - PAD - L.totalW;
+        L.draw(wx, cy);
+        frames.push([wx - PAD, cy - RH / 2 - PAD, L.totalW + 2 * PAD, RH + 2 * PAD]);
+        if (r.preEl) { r.preEl.style.left = (wx - PAD - 12 - r.preW) + "px"; r.preEl.style.top = (cy - r.preEl.offsetHeight / 2) + "px"; }
+      }
+      if (r.unitEl) { r.unitEl.style.left = (wheelsRight + 16) + "px"; r.unitEl.style.top = (cy - r.unitH / 2) + "px"; }
+      y = cy + bh / 2;
+    }
+  });
+  // printed operators between the linked counters
+  rules.forEach(([ry, op]) => { if (op) mk("op", op, { left: (MIDX - 24) + "px", top: (ry - 24) + "px" }); });
+
+  /* ---------- the pump itself (SVG) ---------- */
+  const R = (x, y, w, h, fill, extra) => '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" fill="' + fill + '"' + (extra || "") + "/>";
+  const P = (d, fill, extra) => '<path d="' + d + '" fill="' + fill + '"' + (extra || "") + "/>";
+  let g = "";
+  g += '<defs>' +
+    '<linearGradient id="face" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#BF3329"/><stop offset="0.7" stop-color="#BA3128"/><stop offset="1" stop-color="#AE2D25"/></linearGradient>' +
+    '<linearGradient id="side" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#8E251E"/><stop offset="1" stop-color="#741D18"/></linearGradient>' +
+    '<linearGradient id="spout" x1="0" x2="1"><stop offset="0" stop-color="#6E7178"/><stop offset="0.45" stop-color="#B7B9BE"/><stop offset="1" stop-color="#5E6168"/></linearGradient>' +
+    '<linearGradient id="floor" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#C9C0AF"/><stop offset="1" stop-color="#ADA393"/></linearGradient>' +
+    '<linearGradient id="lit" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#FFFDF7"/><stop offset="0.55" stop-color="#FBF6EA"/><stop offset="1" stop-color="#E9E1CF"/></linearGradient>' +
+    '<clipPath id="glass"><rect x="' + GX0 + '" y="' + (DT + 18) + '" width="' + (GX1 - GX0) + '" height="' + (DB - DT - 36) + '" rx="18"/></clipPath>' +
+    '</defs>';
+  // forecourt wall: pale concrete panels
+  g += R(0, 0, 1080, 1920, "#E6DFD2");
+  for (let x = 30; x < 1080; x += 210) g += P("M" + x + ",0V1712", "none", ' stroke="#DAD2C3" stroke-width="3"');
+  for (let yy = 300; yy < 1712; yy += 420) g += P("M0," + yy + "H1080", "none", ' stroke="#DAD2C3" stroke-width="3"');
+  // canopy fascia with downlights, and the pool of light they throw on the wall
+  g += R(0, 0, 1080, 150, INK) + R(0, 150, 1080, 8, "#2A2D35") + P("M0,128H1080", "none", ' stroke="' + YEL + '" stroke-width="8"');
+  [150, 540, 930].forEach(x => g += P("M" + (x - 84) + ",158h168l-18,16h-132z", "#2A2D35") + R(x - 62, 170, 124, 6, CREAM, ' rx="3"'));
+  // cast shadow of the cabinet on the wall (light from the upper left)
+  g += P("M1012,300L1080,322V1712H1012Z", "#000", ' opacity="0.07"');
+  // concrete island
+  g += R(0, 1706, 1080, 46, "#D6CEBF") + R(0, 1752, 1080, 168, "url(#floor)") + P("M0,1752H1080", "none", ' stroke="' + YEL + '" stroke-width="6"');
+  g += P("M40,1712H1030L1060,1736H20Z", "#000", ' opacity="0.12"');
+  // side face (2.5D) and crown side
+  g += P("M902,360L1012,392V1690L902,1712Z", "url(#side)");
+  g += P("M902,700L1012,716", "none", ' stroke="#62180F" stroke-width="2" opacity="0.6"');
+  g += P("M882,262L976,292V368L882,362Z", "#0B0C0F");
+  // crown housing with the lit grade sign
+  g += P("M60,366V304Q60,262 102,262H840Q882,262 882,304V366Z", INK);
+  g += R(SIGN_X0 - 6, SIGN_Y0 - 6, SIGN_X1 - SIGN_X0 + 12, SIGN_Y1 - SIGN_Y0 + 12, "#2A2D35", ' rx="14"');
+  g += R(SIGN_X0, SIGN_Y0, SIGN_X1 - SIGN_X0, SIGN_Y1 - SIGN_Y0, "url(#lit)", ' rx="10"');
+  g += P("M" + (SIGN_X0 + 14) + "," + (SIGN_Y0 + 4) + "H" + (SIGN_X1 - 14), "none", ' stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" opacity="0.9"');
+  // front face
+  g += P("M46,1712V378Q46,358 66,358H882Q902,358 902,378V1712Z", "url(#face)");
+  g += R(64, 376, 820, 1318, "none", ' rx="12" stroke="#9E2921" stroke-width="3"');
+  g += R(67, 379, 814, 1312, "none", ' rx="10" stroke="#CF4E42" stroke-width="1.5" opacity="0.7"');
+  const screw = (x, y) => '<circle cx="' + x + '" cy="' + y + '" r="9" fill="#D8D1C3" stroke="' + RED_D + '" stroke-width="2"/>' + P("M" + (x - 5) + "," + (y + 3) + "L" + (x + 5) + "," + (y - 3), "none", ' stroke="#8C867A" stroke-width="2.4" stroke-linecap="round"');
+  g += screw(84, 396) + screw(864, 396) + screw(84, 1672) + screw(864, 1672);
+  // kick plate
+  g += R(46, 1690, 856, 22, INK) + P("M902,1690L1012,1670V1690L902,1712Z", "#0B0C0F");
+
+  // display bezel: lip, body, glass, glare
+  g += R(86, DT + 12, 780, DB - DT, RED_D, ' rx="30"');
+  g += R(86, DT, 780, DB - DT, INK, ' rx="30"');
+  g += P("M116," + (DT + 2) + "H836", "none", ' stroke="#3A3D45" stroke-width="3" stroke-linecap="round"');
+  g += R(GX0, DT + 18, GX1 - GX0, DB - DT - 36, "#1B1E25", ' rx="18" stroke="#0A0B0D" stroke-width="3"');
+  g += '<g clip-path="url(#glass)">' + P("M" + (GX0 + 70) + "," + (DT + 18) + "h250L" + (GX0 + 60) + "," + (DB - 18) + "h-250Z", "#FFFFFF", ' opacity="0.035"') +
+       P("M" + (GX0 + 360) + "," + (DT + 18) + "h60L" + (GX0 + 150) + "," + (DB - 18) + "h-60Z", "#FFFFFF", ' opacity="0.03"') + "</g>";
+  // register windows (dark recesses with a bevel)
+  frames.forEach(([x, y0, w, h]) => {
+    g += R(x, y0, w, h, "#0A0B0D", ' rx="9"') + P("M" + (x + 8) + "," + (y0 + h + 1.5) + "H" + (x + w - 8), "none", ' stroke="#3A3D45" stroke-width="2"');
+  });
+  // grade lamp in front of the TOTAL label
+  if (rows.length) g += '<circle cx="' + rows[0].lamp[0] + '" cy="' + rows[0].lamp[1] + '" r="9" fill="' + YEL + '"/>';
+  // hairlines between registers; an operator breaks its line
+  rules.forEach(([ry, op]) => {
+    if (op === null) return;
+    if (op) g += P("M" + IX0 + "," + ry + "H" + (MIDX - 40) + "M" + (MIDX + 40) + "," + ry + "H" + IX1, "none", ' stroke="#4A4E58" stroke-width="2"');
+    else g += P("M" + IX0 + "," + ry + "H" + IX1, "none", ' stroke="#363942" stroke-width="2"');
+  });
+  g += P("M" + IX0 + "," + (footTop - 12) + "H" + IX1, "none", ' stroke="#363942" stroke-width="2"');
+
+  // grade selector: three enamel push buttons + the reset lever
+  const gy = gradeTop;
+  [[YEL, "#B8902F", INK, 1, true], [CREAM, "#B3AC9E", INK, 2, false], [BLUE, "#1D3B73", CREAM, 3, false]].forEach(([cap, base, pip, n, pressed], i) => {
+    const bx = 92 + i * 150, dy = pressed ? 6 : 0;
+    g += R(bx, gy + 10, 132, GRADE_H - 10, base, ' rx="10"');
+    g += R(bx, gy + dy, 132, GRADE_H - 10, cap, ' rx="10"');
+    for (let k = 0; k < n; k++) g += '<circle cx="' + (bx + 66 + (k - (n - 1) / 2) * 20) + '" cy="' + (gy + dy + (GRADE_H - 10) / 2) + '" r="5.5" fill="' + pip + '"/>';
+  });
+  // vent slots
+  for (let k = 0; k < 4; k++) g += R(560, gy + 8 + k * 12, 150, 5, RED_D, ' rx="2.5"');
+  // reset lever (hub + handle)
+  g += P("M824," + (gy + 30) + "L752," + (gy + 8), "none", ' stroke="' + INK + '" stroke-width="14" stroke-linecap="round"');
+  g += '<circle cx="752" cy="' + (gy + 8) + '" r="12" fill="' + INK + '"/>' + '<circle cx="824" cy="' + (gy + 30) + '" r="26" fill="' + INK + '"/><circle cx="824" cy="' + (gy + 30) + '" r="9" fill="#8C8F96"/>';
+
+  // nozzle seated in its boot on the side face + hose to the ground
+  const HOSE = "M1052,468C1100,488 1090,640 1070,820C1050,1000 1064,1260 1046,1480C1030,1660 992,1800 960,1940";
+  g += P(HOSE, "none", ' stroke="' + INK + '" stroke-width="28" stroke-linecap="round"');
+  g += P(HOSE, "none", ' stroke="#3A3D45" stroke-width="5" stroke-linecap="round" transform="translate(-7,0)"');
+  g += '<g transform="translate(-16,4)">';
+  g += P("M962,650L966,560Q968,530 978,516", "none", ' stroke="url(#spout)" stroke-width="20" stroke-linecap="round"');
+  g += P("M960,522L972,478Q978,462 996,460L1052,454Q1068,454 1070,470L1072,494Q1072,508 1058,510L1004,516Q990,518 984,532Z", INK);
+  g += P("M982,472L1050,465", "none", ' stroke="#4A4D55" stroke-width="4" stroke-linecap="round"');
+  g += P("M1060,452L1080,449Q1086,449 1086,455L1087,480Q1087,486 1081,487L1062,490Z", "#2A2D35");
+  g += P("M1070,451L1071,488", "none", ' stroke="#4A4D55" stroke-width="3"');
+  g += P("M998,520L1056,514Q1064,514 1064,522V530Q1064,538 1056,538L1002,544Z", "#2A2D35");
+  g += P("M984,534Q980,584 1014,586L1050,582Q1070,580 1068,560L1066,542", "none", ' stroke="' + YEL + '" stroke-width="11" stroke-linecap="round"');
+  g += "</g>";
+  g += R(912, 600, 84, 96, INK, ' rx="12"') + R(912, 600, 84, 14, "#2A2D35", ' rx="7"');
+  g += P("M912,696L996,696L1012,700V706L912,706Z", "#000", ' opacity="0.18"');
+
+  $("art").innerHTML = g;
+  }
+</script>
+</body>
+</html>

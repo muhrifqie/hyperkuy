@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Martian+Mono:wdth,wght@75..112.5,400..700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Seven Pieces (seven-pieces): seven flat lacquered tangram pieces on a pale sand board.
+    The target figure (a sitting cat) is printed as a black silhouette; six lacquered pieces
+    already sit on it with thin black seams, the seventh (the big vermilion triangle, carrying
+    D.hl) is still sliding down-left into its black slot. Items = the named pieces, each tied
+    to its piece by a hairline leader like a puzzle-book solution page.
+    Metaphor: a model owns a fixed set of pieces (its token vocabulary) and composes endless
+    new sentences by rearranging them; it does not look answers up.
+    Geometry is an exact tangram (square of side 4: large tri hyp 4, medium legs 2,
+    small hyp 2, square diag 2, parallelogram 2 x 1), all hard-coded. Deterministic.
+  */
+  :root { --sand: #F1E9DD; --ink: #1C1C1C; --verm: #C4441F; --blue: #2F5DA8; --ochre: #E8B04A; --cream: #FBF6EE; --mute: #5E554C; --late: #6B6259; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--sand); }
+  body { position: relative; color: var(--ink); font-family: "Bricolage Grotesque", sans-serif; }
+
+  #grain, #fig { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  .top { position: absolute; left: 90px; right: 90px; top: 294px; display: flex; justify-content: space-between; align-items: baseline;
+         font: 600 26px "Martian Mono", monospace; font-stretch: 80%; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink); }
+  .top .set { color: var(--mute); }
+
+  .title { position: absolute; left: 90px; width: 900px; top: 350px; font-weight: 800; letter-spacing: -0.025em; line-height: 1.02; color: var(--ink); }
+  .title .hl { position: relative; display: inline-block; white-space: nowrap; padding: 0 0.36em; margin: 0 -0.04em; color: var(--cream); z-index: 0; }
+  .title .hl::before { content: ""; position: absolute; left: 0; right: 0; top: 0.1em; bottom: 0.02em; background: var(--verm);
+                       clip-path: polygon(0.3em 0, 100% 0, calc(100% - 0.3em) 100%, 0 100%); z-index: 0; }
+  .title .hl > span, .cap .on > span { position: relative; z-index: 1; }
+
+  .lab { position: absolute; }
+  .lab .lb { font-weight: 700; font-size: 40px; line-height: 1.06; letter-spacing: -0.01em; color: var(--ink); }
+  .lab .vl { margin-top: 6px; font: 500 30px "Martian Mono", monospace; font-stretch: 85%; line-height: 1.15; color: var(--mute); }
+  .lab.r { text-align: left; }
+
+  .card { position: absolute; width: 250px; height: 280px; background: var(--cream); border: 3px solid var(--ink); border-radius: 6px;
+          box-shadow: 8px 10px 0 rgba(28, 28, 28, 0.12); transform: rotate(-3.5deg); transform-origin: 50% 50%; }
+  .card .ct, .card .cb { position: absolute; left: 0; right: 0; text-align: center; font: 600 26px "Martian Mono", monospace; font-stretch: 78%;
+                         letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink); line-height: 1; }
+  .card .ct { top: 16px; }
+  .card .cb { bottom: 16px; color: var(--mute); }
+  .card svg { position: absolute; left: 0; top: 0; width: 250px; height: 280px; }
+  #slab { position: absolute; font-weight: 800; color: var(--cream); white-space: nowrap; letter-spacing: -0.02em; line-height: 1; text-align: center; }
+
+  .cap { position: absolute; left: 90px; width: 800px; font-weight: 600; font-size: 44px; line-height: 1.24; color: var(--late); }
+  .cap .w { display: inline; }
+  .cap .said { color: var(--ink); }
+  .cap .on { position: relative; display: inline-block; padding: 0 0.3em; margin: 0 -0.06em; color: var(--cream); z-index: 0; }
+  .cap .on::before { content: ""; position: absolute; left: 0; right: 0; top: 0.12em; bottom: 0.04em; background: var(--blue);
+                     clip-path: polygon(0.22em 0, 100% 0, calc(100% - 0.22em) 100%, 0 100%); z-index: 0; }
+
+  .foot { position: absolute; left: 90px; right: 90px; top: 1560px; display: flex; justify-content: space-between; gap: 32px;
+          font: 500 26px "Martian Mono", monospace; font-stretch: 78%; line-height: 1.25; color: var(--mute); }
+  .foot span:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg id="grain" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+<div class="top"><span id="kick"></span><span class="set" id="set">Tangram · 7 keping</span></div>
+<div class="title" id="title"></div>
+<svg id="fig" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+<div class="card" id="card"><svg id="cardsil" viewBox="0 0 250 280" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg><div class="ct">Kartu 07</div><div class="cb" id="cardb">6/7 terpasang</div></div>
+<div id="labels"></div>
+<div id="slab"></div>
+<div class="cap" id="cap" data-slot="caption"></div>
+<div class="foot"><span id="src"></span><span id="date"></span></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const fontsIn = ['800 100px "Bricolage Grotesque"', '700 40px "Bricolage Grotesque"', '600 44px "Bricolage Grotesque"', '500 30px "Martian Mono"', '600 26px "Martian Mono"'];
+  Promise.all(fontsIn.map(f => document.fonts.load(f))).then(() => document.fonts.ready).catch(() => {}).then(render);
+
+  function render() {
+    const NS = "http://www.w3.org/2000/svg";
+    const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const C = { ink: "#1C1C1C", verm: "#C4441F", blue: "#2F5DA8", ochre: "#E8B04A", sand: "#F1E9DD", cream: "#FBF6EE" };
+    const fig = document.getElementById("fig");
+    const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); (parent || fig).appendChild(e); return e; };
+
+    // --- sand grain (fixed LCG seed: deterministic) ---
+    let seed = 20261014; const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
+    let dots = "";
+    for (let i = 0; i < 1500; i++) {
+      const x = rnd() * 1080, y = rnd() * 1920, r = 0.7 + rnd() * 1.5, dark = rnd() < 0.62;
+      dots += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(2)}" fill="${dark ? "#8A7B66" : "#FFFFFF"}" opacity="${(dark ? 0.18 + rnd() * 0.14 : 0.5).toFixed(2)}"/>`;
+    }
+    document.getElementById("grain").innerHTML = dots;
+
+    // --- header + title ---
+    document.getElementById("kick").textContent = D.kicker || [D.series, D.ep].filter(Boolean).join(" · ");
+    const t = D.title || "", hlRaw = D.hl || "";
+    const at = hlRaw ? t.toLowerCase().indexOf(hlRaw.toLowerCase()) : -1;
+    const titleEl = document.getElementById("title");
+    titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl"><span>' + esc(t.slice(at, at + hlRaw.length)) + "</span></span>" + esc(t.slice(at + hlRaw.length));
+    for (let fs = 124; fs >= 76; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (titleEl.offsetHeight <= 3 * fs * 1.02 + 4 && titleEl.offsetHeight <= 300 && titleEl.scrollWidth <= 900) break; }
+    const titleBottom = 350 + titleEl.offsetHeight;
+    const slideWord = at >= 0 ? t.slice(at, at + hlRaw.length) : (t.replace(/[.!?,]+$/, "").split(/\s+/).pop() || "");
+
+    // --- meta footer (anchored to the bottom of the safe zone) ---
+    document.getElementById("src").textContent = D.source ? "Sumber: " + D.source : "";
+    document.getElementById("date").textContent = D.date || "";
+    const foot = document.querySelector(".foot");
+    const footTop = 1614 - foot.offsetHeight;
+    foot.style.top = footTop + "px";
+
+    // --- caption (karaoke), sits right above the footer ---
+    const capEl = document.getElementById("cap");
+    const words = String(D.caption || D.sub || "").split(/\s+/).filter(Boolean);
+    const strip = w => w.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+    let active = 0;
+    if (hlRaw) {
+      const hw = hlRaw.split(/\s+/).map(strip).filter(Boolean);
+      for (let i = 0; hw.length && i + hw.length <= words.length; i++) if (hw.every((w, j) => strip(words[i + j]) === w)) { active = i; break; }
+    }
+    capEl.innerHTML = words.map((w, i) => '<span class="w' + (i < active ? " said" : "") + (i === active ? " on" : "") + '">' + (i === active ? "<span>" + esc(w) + "</span>" : esc(w)) + "</span>").join(" ");
+    for (let fs = 46; fs >= 40; fs -= 2) { capEl.style.fontSize = fs + "px"; if (capEl.offsetHeight <= fs * 1.24 * 2 + 4) break; }
+    const capTop = footTop - 22 - capEl.offsetHeight;
+    capEl.style.top = capTop + "px";
+
+    // --- figure geometry (units: tangram square side = 4) ---
+    const P = {
+      S1: [[0, 3], [1, 2], [0, 1]],             // left ear
+      S2: [[2, 3], [1, 2], [2, 1]],             // right ear
+      Sq: [[1, 2], [2, 3], [1, 4], [0, 3]],     // head
+      M:  [[0, 4], [2, 4], [2, 6]],             // chest
+      L2: [[0, 4], [0, 8], [2, 6]],             // back
+      L1: [[0, 8], [4, 8], [2, 6]],             // haunch: the sliding piece
+      T:  [[0, 8], [-2, 8], [-3, 7], [-1, 7]],  // tail (parallelogram)
+    };
+    const fill = { S1: C.ochre, S2: C.ochre, Sq: C.blue, M: C.ochre, L2: C.blue, T: C.ochre, L1: C.verm };
+    const objTop = titleBottom + 48;
+    const BASE = Math.min(1416, capTop - 44);            // y of the figure's floor line
+    const u = Math.min(100, (BASE - objTop - 6) / 7);    // ear tips sit at unit y = 1
+    const X0 = 892 - 5 * u;                              // sliding piece ends at x 892, tail starts >= x 92
+    const X = ux => X0 + ux * u, Y = uy => BASE - (8 - uy) * u;
+    const toPx = pts => pts.map(p => [X(p[0]), Y(p[1])]);
+    const str = pts => pts.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ");
+    const cen = pts => [pts.reduce((a, p) => a + p[0], 0) / pts.length, pts.reduce((a, p) => a + p[1], 0) / pts.length];
+    function inset(pts, d) { // convex polygon: offset every edge toward the centroid
+      const c = cen(pts), n = pts.length, lines = [];
+      for (let i = 0; i < n; i++) {
+        const p = pts[i], q = pts[(i + 1) % n]; let dx = q[0] - p[0], dy = q[1] - p[1]; const l = Math.hypot(dx, dy); dx /= l; dy /= l;
+        let nx = -dy, ny = dx; if ((c[0] - p[0]) * nx + (c[1] - p[1]) * ny < 0) { nx = -nx; ny = -ny; }
+        lines.push({ p: [p[0] + nx * d, p[1] + ny * d], d: [dx, dy] });
+      }
+      const cr = (v, w) => v[0] * w[1] - v[1] * w[0];
+      return lines.map((a, i) => { const b = lines[(i + n - 1) % n];
+        const tt = cr([a.p[0] - b.p[0], a.p[1] - b.p[1]], a.d) / cr(b.d, a.d);
+        return [b.p[0] + b.d[0] * tt, b.p[1] + b.d[1] * tt]; });
+    }
+
+    // puzzle card: the target, outline only (top-left of the board)
+    const card = document.getElementById("card");
+    card.style.left = "96px"; card.style.top = (objTop + 4) + "px";
+    { const cs = document.getElementById("cardsil"), cu = 23, ox = 125 - 0.5 * cu, oy = 140 - 4.5 * cu; // figure spans x -3..4 -> centre 0.5
+      for (const k in P) { const p = document.createElementNS(NS, "polygon");
+        p.setAttribute("points", P[k].map(q => (ox + q[0] * cu).toFixed(1) + "," + (oy + q[1] * cu).toFixed(1)).join(" "));
+        p.setAttribute("fill", C.ink); p.setAttribute("stroke", C.ink); p.setAttribute("stroke-width", "1"); cs.appendChild(p); } }
+    const cardBottom = objTop + 4 + 280 + 14;
+
+    // printed silhouette on the board
+    const sil = el("g", {});
+    for (const k in P) el("polygon", { points: str(toPx(P[k])), fill: C.ink, stroke: C.ink, "stroke-width": 1.5, "stroke-linejoin": "round" }, sil);
+
+    // placed lacquer pieces (inset = black seams) with a thin lacquer sheen
+    const lacquer = (pts, color, g) => {
+      el("polygon", { points: str(inset(pts, 3.2)), fill: color }, g);
+      el("polygon", { points: str(inset(pts, 11)), fill: "none", stroke: "#FFFFFF", "stroke-opacity": color === C.ochre ? 0.45 : 0.26, "stroke-width": 2.4, "stroke-linejoin": "round" }, g);
+    };
+    for (const k in P) if (k !== "L1") lacquer(toPx(P[k]), fill[k], fig);
+
+    // the seventh piece: lifted, sliding down-left along the back piece's front edge
+    const DX = 1.0, DY = -1.0;
+    const slidPx = toPx(P.L1.map(p => [p[0] + DX, p[1] + DY]));
+    el("polygon", { points: str(slidPx.map(p => [p[0] + 8, p[1] + 11])), fill: C.ink, opacity: 0.16 });
+    lacquer(slidPx, C.verm, fig);
+    [[0.3, 0.62], [0.54, 0.92], [0.78, 0.5]].forEach(([f, len]) => {   // trails on the up-right (trailing) edge
+      const a = slidPx[2], b = slidPx[1];
+      const sx = a[0] + (b[0] - a[0]) * f + 13, sy = a[1] + (b[1] - a[1]) * f - 13, L = len * u * 0.5;
+      el("line", { x1: sx.toFixed(1), y1: sy.toFixed(1), x2: (sx + L * 0.7071).toFixed(1), y2: (sy - L * 0.7071).toFixed(1), stroke: C.ink, "stroke-width": 4, "stroke-linecap": "round" });
+    });
+
+    // hl word lacquered onto the sliding piece
+    const slab = document.getElementById("slab");
+    slab.textContent = slideWord;
+    const lift = 0.16 * u;
+    for (let fs = 64; fs >= 32; fs -= 2) {
+      slab.style.fontSize = fs + "px";
+      if (slab.offsetWidth <= 4 * u - 2 * (lift + fs * 0.8) - 0.34 * u) break;
+    }
+    const sfs = parseFloat(slab.style.fontSize);
+    slab.style.left = (X(2 + DX) - slab.offsetWidth / 2).toFixed(1) + "px";
+    slab.style.top = (Y(8 + DY) - lift - sfs * 0.9).toFixed(1) + "px";
+
+    // --- items: named pieces tied to the figure with hairline leaders ---
+    const items = (D.items || []).slice(0, 5);
+    const n = items.length;
+    const map = n <= 3 ? ["S2", "Sq", "L2"] : n === 4 ? ["S2", "Sq", "L2", "T"] : ["S2", "Sq", "M", "L2", "T"];
+    const side = { S1: "L", S2: "R", Sq: "R", M: "R", L2: "L", T: "L" };
+    const anchorU = { S1: [0.36, 2.05], S2: [1.64, 2.05], Sq: [1.0, 3.0], M: [1.42, 4.62], L2: [0.46, 5.3], T: [-1.5, 7.5] };
+    const labelsEl = document.getElementById("labels");
+    const LX = { L: [96, X(0) - 34], R: [X(2) + 40, 900] };
+    const LIM = { L: [cardBottom + 14, Y(7) - 22], R: [objTop, Y(5) - 28] };
+    const bySide = { L: [], R: [] };
+    items.forEach((it, i) => {
+      const k = map[i], s = side[k];
+      const d = document.createElement("div"); d.className = "lab " + s.toLowerCase();
+      d.innerHTML = '<div class="lb">' + esc(it.label) + '</div><div class="vl">' + esc(it.value) + "</div>";
+      d.style.left = LX[s][0] + "px"; d.style.width = (LX[s][1] - LX[s][0]) + "px";
+      labelsEl.appendChild(d);
+      const lb = d.querySelector(".lb");
+      const fits = (fs, lines) => { lb.style.fontSize = fs + "px"; return lb.scrollWidth <= LX[s][1] - LX[s][0] && lb.offsetHeight <= fs * 1.06 * lines + 2; };
+      let ok = false;
+      for (let fs = 40; fs >= 34 && !ok; fs -= 2) ok = fits(fs, 1);       // one line if it can stay >= 34 px
+      for (let fs = 40; fs >= 32 && !ok; fs -= 2) ok = fits(fs, 2);       // else up to two lines
+      bySide[s].push({ d, a: [X(anchorU[k][0]), Y(anchorU[k][1])] });
+    });
+    for (const s of ["L", "R"]) {
+      const arr = bySide[s].sort((p, q) => p.a[1] - q.a[1]);
+      arr.forEach(o => { o.h = o.d.offsetHeight; o.y = o.a[1] - 24; });
+      for (let i = 0; i < arr.length; i++) { const lo = i ? arr[i - 1].y + arr[i - 1].h + 28 : LIM[s][0]; if (arr[i].y < lo) arr[i].y = lo; }
+      for (let i = arr.length - 1; i >= 0; i--) { const hi = i < arr.length - 1 ? arr[i + 1].y - 28 - arr[i].h : LIM[s][1] - arr[i].h; if (arr[i].y > hi) arr[i].y = hi; }
+      arr.forEach(o => {
+        o.y = Math.max(o.y, LIM[s][0]);
+        o.d.style.top = o.y.toFixed(1) + "px";
+        const lb = o.d.querySelector(".lb");
+        const r = document.createRange(); r.selectNodeContents(lb);
+        const first = r.getClientRects()[0];
+        const ly = first ? (first.top + first.bottom) / 2 + 1 : o.y + 24;
+        const sx = s === "L" ? Math.max(...Array.from(r.getClientRects()).map(q => q.right)) + 14 : LX.R[0] - 14;
+        el("line", { x1: sx.toFixed(1), y1: ly.toFixed(1), x2: o.a[0].toFixed(1), y2: o.a[1].toFixed(1), stroke: C.ink, "stroke-width": 2.4, "stroke-linecap": "round" });
+        el("circle", { cx: sx.toFixed(1), cy: ly.toFixed(1), r: 4.5, fill: C.ink });
+        el("circle", { cx: o.a[0].toFixed(1), cy: o.a[1].toFixed(1), r: 10, fill: C.cream, stroke: C.ink, "stroke-width": 3.4 });
+      });
+    }
+  }
+</script>
+</body>
+</html>

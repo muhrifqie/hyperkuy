@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@500;700&family=Familjen+Grotesk:wght@500;600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Tracking Steps: the whole frame is a courier tracking screen. A pale street
+    map fills the background; over it float the app bar (back button,
+    "Lacak kiriman", series chip) and one paper tracking card. Top of the card:
+    status pill + date, the TITLE printed as the shipment-status headline,
+    then a route strip where a big taped parcel with a speech-bubble sticker
+    (your chat) rides from your phone towards a "?" destination. Middle: a
+    numbered checkpoint stepper (one item = one checkpoint, newest in orange).
+    Bottom: a perforated tear-off waybill stub (ISI, barcode + resi, SUMBER)
+    whose small print is the karaoke caption ("Catatan kurir"). Deterministic.
+  */
+  :root {
+    --bg: #F6E7DA;      /* peach map ground */
+    --ink: #22201C;     /* text, past checkpoints, barcode */
+    --orange: #CC4620;  /* current position: hl, parcel, newest checkpoint, active caption word */
+    --grey: #CFC3B4;    /* hairlines, dotted legs, perforation */
+    --paper: #FFF8F1;   /* card, pills, map roads (tint of the peach) */
+    --mute: #6B6259;    /* secondary text (tint of ink) */
+  }
+  html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; background: var(--bg); }
+  body { position: relative; color: var(--ink); font-family: "Familjen Grotesk", sans-serif; -webkit-font-smoothing: antialiased; }
+
+  #map { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; pointer-events: none; }
+
+  /* ---------- app bar floating over the map ---------- */
+  .bar { position: absolute; left: 90px; top: 300px; width: 900px; height: 64px; }
+  .bar > * { position: absolute; top: 0; height: 64px; background: var(--paper); box-shadow: 0 0 0 2px rgba(34,32,28,0.06), 0 14px 26px -16px rgba(34,32,28,0.45); }
+  .back { left: 0; width: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+  .back svg { width: 30px; height: 30px; }
+  .ttl { left: 80px; border-radius: 32px; padding: 0 28px 0 20px; display: flex; align-items: center; gap: 12px; white-space: nowrap;
+         font: 600 34px/1 "Familjen Grotesk", sans-serif; letter-spacing: -0.01em; color: var(--ink); }
+  .ttl svg { width: 32px; height: 32px; flex: none; }
+  .ser { right: 0; border-radius: 32px; padding: 0 24px; display: flex; align-items: center; white-space: nowrap; overflow: hidden;
+         font: 500 26px/1 "Azeret Mono", monospace; letter-spacing: 0.04em; text-transform: uppercase; color: var(--mute); }
+  .ser b { color: var(--ink); font-weight: 700; }
+  .ser .s { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ser .e { flex: none; white-space: pre; }
+
+  /* ---------- tracking card ---------- */
+  .card { position: absolute; left: 90px; top: 384px; width: 900px; height: 1256px; background: var(--paper); border-radius: 36px;
+          box-shadow: 0 0 0 2px rgba(34,32,28,0.06), 0 44px 80px -40px rgba(34,32,28,0.5); }
+  .card > * { position: absolute; }
+  .grab { left: 414px; top: 14px; width: 72px; height: 8px; border-radius: 4px; background: var(--grey); }
+
+  .pill { left: 44px; top: 42px; height: 50px; display: inline-flex; align-items: center; gap: 14px; padding: 0 22px 0 18px; border-radius: 25px;
+          background: var(--orange); color: var(--paper); font: 700 28px/1 "Azeret Mono", monospace; letter-spacing: 0.04em; white-space: nowrap; }
+  .pill i { width: 14px; height: 14px; border-radius: 50%; background: var(--paper); box-shadow: 0 0 0 5px rgba(255,248,241,0.35); }
+  #date { right: 44px; top: 54px; font: 500 26px/1 "Azeret Mono", monospace; letter-spacing: 0.02em; color: var(--mute); white-space: nowrap; }
+
+  #title { left: 44px; top: 116px; width: 812px; margin: 0; font-weight: 700; line-height: 1.06; letter-spacing: -0.028em; color: var(--ink); }
+  #title .hl { color: var(--orange); }
+
+  #route { left: 0; width: 900px; height: 116px; overflow: visible; }
+
+  #steps { left: 0; width: 900px; }
+  .row { position: absolute; left: 44px; display: flex; align-items: baseline; white-space: nowrap; }
+  .row .ix { flex: none; font: 700 30px/1 "Azeret Mono", monospace; color: var(--mute); letter-spacing: 0.02em; }
+  .row .lab { font-weight: 600; line-height: 1; letter-spacing: -0.01em; color: var(--ink); }
+  .row .val { margin-left: 18px; font: 500 30px/1 "Azeret Mono", monospace; color: var(--mute); }
+  .row.now .ix { color: var(--orange); }
+  .row.now .lab { font-weight: 700; }
+  .row.now .val { color: var(--paper); background: var(--orange); font-weight: 700; padding: 6px 14px; border-radius: 10px; }
+  .row.tail .lab { font: 500 30px/1 "Azeret Mono", monospace; color: var(--mute); letter-spacing: 0; }
+
+  .notch { width: 44px; height: 44px; border-radius: 50%; background: var(--bg); box-shadow: inset 0 0 0 2px rgba(34,32,28,0.07); }
+  .perf { left: 44px; width: 812px; height: 0; border-top: 3px dashed var(--grey); }
+
+  .flab { font: 500 26px/1 "Azeret Mono", monospace; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mute); white-space: nowrap; }
+  #isi { left: 44px; font: 700 38px/1.3 "Familjen Grotesk", sans-serif; letter-spacing: -0.01em; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #barcode { left: 570px; width: 230px; height: 62px; }
+  #resi { right: 100px; text-align: right; font: 500 26px/1 "Azeret Mono", monospace; letter-spacing: 0.04em; color: var(--ink); white-space: nowrap; }
+  #srcRow { left: 44px; width: 756px; font: 500 28px/1.25 "Familjen Grotesk", sans-serif; color: var(--ink); }
+  #srcRow .flab { margin-right: 14px; vertical-align: 1px; }
+
+  .caption { left: 40px; width: 820px; font: 500 44px/1.14 "Familjen Grotesk", sans-serif; letter-spacing: -0.012em; color: var(--ink); }
+  .caption .w { white-space: nowrap; }
+  .caption .on { background: var(--orange); color: var(--paper); font-weight: 700; border-radius: 10px; padding: 0 0.14em; }
+</style>
+</head>
+<body>
+<svg id="map" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" data-layout-allow-overlap></svg>
+
+<div class="bar">
+  <div class="back"><svg viewBox="0 0 30 30"><path d="M18 6 L9 15 L18 24" fill="none" stroke="#22201C" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <div class="ttl"><svg viewBox="0 0 32 32"><path d="M4 10 L16 4 L28 10 L28 23 L16 29 L4 23 Z M4 10 L16 16 L28 10 M16 16 L16 29" fill="none" stroke="#CC4620" stroke-width="2.8" stroke-linejoin="round"/></svg><span>Lacak kiriman</span></div>
+  <div class="ser" id="ser"></div>
+</div>
+
+<div class="card" id="card">
+  <div class="grab"></div>
+  <div class="pill"><i></i>DALAM PERJALANAN</div>
+  <div id="date"></div>
+  <h1 id="title"></h1>
+  <svg id="route" viewBox="0 0 900 116" aria-hidden="true"></svg>
+  <div id="steps"></div>
+  <div class="notch" id="notchL"></div>
+  <div class="notch" id="notchR"></div>
+  <div class="perf" id="perf"></div>
+  <div class="flab" id="isiL">Isi kiriman</div>
+  <div id="isi"></div>
+  <svg id="barcode" viewBox="0 0 230 62" aria-hidden="true"></svg>
+  <div id="resi"></div>
+  <div id="srcRow"><span class="flab">Sumber</span><span id="src"></span></div>
+  <div class="flab" id="noteL">Catatan kurir</div>
+  <div class="caption" id="caption" data-slot="caption"></div>
+</div>
+
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Berita AI", ep: "#07", kicker: "Berita AI · #07",
+    title: "Chat kamu mampir ke 4 tempat dulu", hl: "4 tempat",
+    sub: "Makanya cek setelan privasi sebelum curhat ke AI.",
+    items: [{ label: "Server", value: "detik 0" }, { label: "Log", value: "disimpan" }, { label: "Review", value: "acak" }, { label: "Dihapus", value: "30 hari" }],
+    source: "ilustrasi — kebijakan beda tiap layanan", date: "per 14 Okt 2026" };
+
+  // Lay out only after the web fonts are in: all fitting below measures real glyph widths.
+  Promise.all(['700 100px "Familjen Grotesk"', '600 44px "Familjen Grotesk"', '500 44px "Familjen Grotesk"', '700 38px "Familjen Grotesk"',
+               '700 30px "Azeret Mono"', '500 26px "Azeret Mono"'].map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const INK = "#22201C", ORANGE = "#CC4620", GREY = "#CFC3B4", PAPER = "#FFF8F1", MUTE = "#6B6259", BG = "#F6E7DA";
+  const CARD_X = 90, CARD_Y = 384;
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(items.length, 1);
+
+  // ---------- app bar: series + episode chip on the right ----------
+  const epNo = String(D.ep || "").replace(/^#/, "");
+  const series = D.series || D.kicker || "";
+  const ser = $("ser");
+  ser.innerHTML = '<span class="s">' + esc(series) + "</span>" + (epNo ? '<span class="e"> · <b>#' + esc(epNo) + "</b></span>" : "");
+  // a long series name first drops the screen name (icon stays), then the tracking, then ellipsizes
+  const ttl = document.querySelector(".ttl");
+  const serMax = () => 900 - (80 + ttl.offsetWidth + 20);
+  if (ser.offsetWidth > serMax()) { ttl.querySelector("span").style.display = "none"; ttl.style.padding = "0 16px"; }
+  if (ser.offsetWidth > serMax()) ser.style.letterSpacing = "0";
+  if (ser.offsetWidth > serMax()) { ser.style.width = serMax() + "px"; ser.style.boxSizing = "border-box"; }
+
+  $("date").textContent = D.date || "";
+
+  // ---------- title = the shipment-status headline (largest element); hl = orange "current position" ----------
+  const t = D.title || "", hl = D.hl || "";
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  titleEl.innerHTML = at < 0 ? esc(t)
+    : esc(t.slice(0, at)) + '<span class="hl" id="hlw">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  for (let fs = 108; fs >= 64; fs -= 2) {
+    titleEl.style.fontSize = fs + "px";
+    if (titleEl.offsetHeight <= 252 && titleEl.scrollWidth <= 812) break;
+  }
+  const titleBottom = 116 + titleEl.offsetHeight;   // card-relative
+
+  // ---------- route strip: phone origin -> past stops -> parcel (newest) -> "?" destination ----------
+  const routeTop = titleBottom + 16;
+  $("route").style.top = routeTop + "px";
+  const RY = 58, X0 = 72, XQ = 740;
+  // the parcel sits under the orange hl word when there is one (clamped so the legs keep room)
+  let xNow = 540;
+  const hw = $("hlw");
+  if (hw) { const rc = hw.getClientRects(), last = rc[rc.length - 1]; xNow = Math.round((last.left + last.right) / 2 - CARD_X); }
+  xNow = Math.max(n >= 4 ? 470 : 400, Math.min(580, xNow));
+  const xs = items.map((_, i) => n === 1 ? xNow : X0 + i * ((xNow - X0) / (n - 1)));
+  let r = "";
+  r += `<line x1="${xNow + 66}" y1="${RY}" x2="${XQ - 40}" y2="${RY}" stroke="${GREY}" stroke-width="6" stroke-dasharray="2 13" stroke-linecap="round"/>`;
+  r += `<line x1="${X0}" y1="${RY}" x2="${xNow}" y2="${RY}" stroke="${ORANGE}" stroke-width="8" stroke-linecap="round"/>`;
+  // origin = your phone
+  r += `<g transform="translate(${X0},${RY})"><rect x="-19" y="-30" width="38" height="60" rx="9" fill="${PAPER}" stroke="${INK}" stroke-width="4"/>`
+     + `<rect x="-11" y="-21" width="22" height="34" rx="3" fill="${ORANGE}" opacity="0.22"/><circle cx="0" cy="22" r="3" fill="${INK}"/></g>`;
+  xs.slice(1, -1).forEach(x => { r += `<circle cx="${x}" cy="${RY}" r="12" fill="${INK}" stroke="${PAPER}" stroke-width="5"/>`; });
+  // the parcel: a taped box with a speech-bubble shipping sticker = your chat
+  r += `<g transform="translate(${xNow},${RY - 4})">
+          <circle r="62" fill="${ORANGE}" opacity="0.13"/>
+          <ellipse cx="4" cy="55" rx="54" ry="7" fill="${INK}" opacity="0.12"/>
+          <path d="M-50 -26 L-38 -44 L62 -44 L50 -26 Z" fill="#E27A55" stroke="${INK}" stroke-width="3.5" stroke-linejoin="round"/>
+          <path d="M50 -26 L62 -44 L62 32 L50 50 Z" fill="#A9391A" stroke="${INK}" stroke-width="3.5" stroke-linejoin="round"/>
+          <rect x="-50" y="-26" width="100" height="76" fill="${ORANGE}" stroke="${INK}" stroke-width="3.5" stroke-linejoin="round"/>
+          <path d="M-7 -26 L7 -26 L19 -44 L5 -44 Z" fill="${BG}" stroke="${INK}" stroke-width="2.5" stroke-linejoin="round"/>
+          <rect x="-7" y="-26" width="14" height="17" fill="${BG}" stroke="${INK}" stroke-width="2.5"/>
+          <g transform="rotate(-5 -4 16)">
+            <path d="M-38 -3 H30 Q38 -3 38 5 V27 Q38 35 30 35 H-14 L-30 47 L-26 35 H-38 Q-46 35 -46 27 V5 Q-46 -3 -38 -3 Z" fill="${PAPER}" stroke="${INK}" stroke-width="3.5" stroke-linejoin="round"/>
+            <circle cx="-22" cy="16" r="4.6" fill="${INK}"/><circle cx="-4" cy="16" r="4.6" fill="${INK}"/><circle cx="14" cy="16" r="4.6" fill="${INK}"/>
+          </g>
+        </g>`;
+  // destination unknown: dashed pin with a drawn question mark
+  r += `<circle cx="${XQ}" cy="${RY}" r="34" fill="${PAPER}" stroke="${MUTE}" stroke-width="3.5" stroke-dasharray="7 7"/>`;
+  r += `<path d="M${XQ - 10} ${RY - 9} C${XQ - 10} ${RY - 21} ${XQ + 11} ${RY - 21} ${XQ + 10} ${RY - 8} C${XQ + 9} ${RY + 1} ${XQ} ${RY} ${XQ} ${RY + 9}" fill="none" stroke="${INK}" stroke-width="4.5" stroke-linecap="round"/>`;
+  r += `<circle cx="${XQ}" cy="${RY + 18}" r="3.4" fill="${INK}"/>`;
+  $("route").innerHTML = r;
+  const stepsTop = routeTop + 116 + 18;
+
+  // ---------- waybill stub, laid out bottom-up from the caption ----------
+  const CAP_BOTTOM = 1612 - CARD_Y;   // card-relative; caption stays inside the safe zone
+  const cap = String(D.caption || D.sub || "").trim();
+  const words = cap.split(/\s+/).filter(Boolean);
+  let act = 0;   // one active word: the first caption word touching hl, else the first word
+  if (hl) {
+    const k = cap.toLowerCase().indexOf(hl.toLowerCase());
+    if (k >= 0) { let pos = 0; for (let i = 0; i < words.length; i++) { const s = cap.indexOf(words[i], pos), e = s + words[i].length; pos = e; if (e > k) { act = i; break; } } }
+  }
+  const capEl = $("caption");
+  capEl.innerHTML = words.map((w, i) => '<span class="w' + (i === act ? " on" : "") + '">' + esc(w) + "</span>").join(" ");
+  const twoLines = () => capEl.offsetHeight <= Math.round(parseFloat(capEl.style.fontSize) * 1.14 * 2) + 2;
+  for (let fs = 44; fs >= 40; fs -= 2) { capEl.style.fontSize = fs + "px"; if (twoLines()) break; }
+  if (!twoLines()) capEl.style.letterSpacing = "-0.022em";
+  if (!twoLines()) capEl.style.width = "756px";   // over-long caption: 3 lines, all of them at x <= 890
+  const capTop = CAP_BOTTOM - capEl.offsetHeight;
+  capEl.style.top = capTop + "px";
+  const noteTop = capTop - 10 - 26;
+  $("noteL").style.cssText = `left:44px;top:${noteTop}px`;
+
+  $("src").textContent = D.source || "";
+  const srcRow = $("srcRow");
+  const srcTop = noteTop - 18 - srcRow.offsetHeight;
+  srcRow.style.top = srcTop + "px";
+
+  // ISI + barcode/resi row
+  const rowATop = srcTop - 16 - 96;
+  const isi = $("isi");
+  isi.textContent = D.isi || "1 pesan chat";
+  isi.style.maxWidth = "500px";
+  for (let fs = 38; fs >= 30 && isi.scrollWidth > 500; fs -= 2) isi.style.fontSize = fs + "px";
+  $("isiL").style.cssText = `left:44px;top:${rowATop + 12}px`;
+  isi.style.top = (rowATop + 44) + "px";
+
+  const MON = { jan: "01", feb: "02", mar: "03", apr: "04", mei: "05", may: "05", jun: "06", jul: "07", agu: "08", aug: "08", sep: "09", okt: "10", oct: "10", nov: "11", des: "12", dec: "12" };
+  const dm = String(D.date || "").match(/(\d{1,2})\s+([A-Za-z]{3})/);
+  const dd = dm ? dm[1].padStart(2, "0") : "01", mm = dm ? (MON[dm[2].toLowerCase()] || "01") : "01";
+  const resi = "CHAT-" + dd + mm + "-" + ((epNo.replace(/\D/g, "") || "1").padStart(2, "0"));
+  $("resi").textContent = resi;
+  $("resi").style.top = (rowATop + 70) + "px";
+  const bc = $("barcode");
+  bc.style.top = rowATop + "px";
+  const seq = [2, 1, 1, 2, 3, 1];
+  for (const ch of resi) { const c = ch.charCodeAt(0); seq.push(1 + (c % 3), 1 + ((c >> 2) % 2), 1 + ((c >> 1) % 3), 1 + ((c >> 3) % 2)); }
+  seq.push(2, 3, 1, 1, 1, 2, 2);
+  const unit = 230 / seq.reduce((a, b) => a + b, 0);
+  let bx = 0, bars = "";
+  seq.forEach((w, i) => { if (i % 2 === 0) bars += `<rect x="${bx.toFixed(2)}" y="0" width="${(w * unit).toFixed(2)}" height="62" fill="${INK}"/>`; bx += w * unit; });
+  bc.innerHTML = bars;
+
+  // perforated tear line with two notches cut from the card edges
+  const perfY = rowATop - 24;
+  $("perf").style.top = perfY + "px";
+  $("notchL").style.cssText = `left:-22px;top:${perfY - 21}px`;
+  $("notchR").style.cssText = `left:878px;top:${perfY - 21}px`;
+
+  // ---------- stepper: numbered checkpoints on a dotted line ----------
+  const steps = $("steps");
+  steps.style.top = stepsTop + "px";
+  const avail = perfY - 26 - stepsTop, LAST = 46;
+  const withTail = (avail - LAST) / n >= 60;
+  const nRows = n + (withTail ? 1 : 0);
+  const pitch = nRows > 1 ? Math.min(112, (avail - LAST) / (nRows - 1)) : 0;
+  const lead = Math.max(0, Math.round((avail - LAST - (nRows - 1) * pitch) / 2));
+  const rows = items.map((it, i) => ({ ix: it.time ? String(it.time) : String(i + 1).padStart(2, "0"), lab: it.label, val: it.value, cls: i === items.length - 1 ? "now" : "" }));
+  let html = "";
+  rows.forEach((rw, i) => {
+    html += `<div class="row ${rw.cls}" style="top:${lead + Math.round(i * pitch)}px"><span class="ix">${esc(rw.ix)}</span><span class="lab">${esc(rw.lab)}</span><span class="val">${esc(rw.val)}</span></div>`;
+  });
+  if (withTail) html += `<div class="row tail" style="top:${lead + Math.round(n * pitch)}px"><span class="ix">--</span><span class="lab">Tujuan akhir: ?</span></div>`;
+  steps.innerHTML = html;
+  const rowEls = [...steps.querySelectorAll(".row:not(.tail)")];
+  // index column (01-05, or items[].time when the data carries real times): the dot column sits just right of the widest entry
+  const ixEls = [...steps.querySelectorAll(".ix")];
+  ixEls.forEach(e => { e.style.width = "auto"; });
+  const ixW = Math.max(...ixEls.map(e => e.offsetWidth));
+  const DOTX = 44 + ixW + 34;
+  ixEls.forEach(e => { e.style.width = (DOTX + 40 - 44) + "px"; });
+  // one shared label size for every row: the largest that lets every label + value pair fit inline (x <= 890 absolute)
+  const MAXW = 756;
+  let L = Math.max(30, Math.min(46, Math.round((pitch || 80) * 0.6)));
+  const setL = v => rowEls.forEach(rw => { rw.querySelector(".lab").style.fontSize = v + "px"; });
+  setL(L);
+  while (L > 30 && rowEls.some(rw => rw.offsetWidth > MAXW)) { L -= 2; setL(L); }
+  // beyond the contract bounds a pair may still not fit at 30 px: the value wraps onto its own line under the label
+  rowEls.forEach(rw => {
+    if (rw.offsetWidth <= MAXW) return;
+    const v = rw.querySelector(".val");
+    rw.style.flexWrap = "wrap"; rw.style.width = MAXW + "px"; rw.style.rowGap = "8px";
+    v.style.marginLeft = (DOTX + 40 - 44) + "px";
+  });
+  const dotY = rw => rw.offsetTop + Math.round(L * 0.52);
+  const centers = rowEls.map(dotY);
+  const tailEl = steps.querySelector(".row.tail");
+  const tailC = tailEl ? tailEl.offsetTop + 13 : null;
+  const lastC = centers[centers.length - 1];
+  let dots = "";
+  for (let y = centers[0] + 22; y < lastC - 26; y += 15) dots += `<circle cx="${DOTX}" cy="${y.toFixed(1)}" r="3.6" fill="${MUTE}"/>`;
+  if (tailC != null) for (let y = lastC + 36; y < tailC - 18; y += 15) dots += `<circle cx="${DOTX}" cy="${y.toFixed(1)}" r="3.6" fill="${GREY}"/>`;
+  centers.slice(0, -1).forEach(cy => { dots += `<circle cx="${DOTX}" cy="${cy}" r="11" fill="${INK}" stroke="${PAPER}" stroke-width="5"/>`; });
+  dots += `<circle cx="${DOTX}" cy="${lastC}" r="28" fill="${ORANGE}" opacity="0.16"/><circle cx="${DOTX}" cy="${lastC}" r="16" fill="${ORANGE}"/><circle cx="${DOTX}" cy="${lastC}" r="6" fill="${PAPER}"/>`;
+  if (tailC != null) dots += `<circle cx="${DOTX}" cy="${tailC}" r="13" fill="${PAPER}" stroke="${MUTE}" stroke-width="3" stroke-dasharray="5 5"/>`;
+  const conn = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  conn.setAttribute("width", "900"); conn.setAttribute("height", String(Math.round(avail + 20)));
+  conn.setAttribute("aria-hidden", "true");
+  conn.style.cssText = "position:absolute;left:0;top:0;overflow:visible";
+  conn.innerHTML = dots;
+  steps.insertBefore(conn, steps.firstChild);
+
+  // ---------- the map under the screen: pale streets, the onward leg running off the top edge ----------
+  const ROAD = "#FDF5EC", BLOCK = "#EFDCCB";
+  $("map").innerHTML =
+      `<rect x="40" y="40" width="190" height="120" rx="10" fill="${BLOCK}"/><rect x="420" y="74" width="220" height="70" rx="10" fill="${BLOCK}"/>`
+    + `<rect x="900" y="200" width="150" height="110" rx="10" fill="${BLOCK}"/><rect x="560" y="250" width="150" height="40" rx="8" fill="${BLOCK}"/>`
+    + `<rect x="40" y="1690" width="260" height="90" rx="10" fill="${BLOCK}"/><rect x="620" y="1800" width="230" height="90" rx="10" fill="${BLOCK}"/>`
+    + `<path d="M0 222 C 200 222, 330 190, 520 192 S 880 150, 1080 160" fill="none" stroke="${ROAD}" stroke-width="46"/>`
+    + `<path d="M330 0 L 360 420" fill="none" stroke="${ROAD}" stroke-width="46"/>`
+    + `<path d="M790 0 C 770 100, 800 230, 850 420" fill="none" stroke="${ROAD}" stroke-width="24"/>`
+    + `<path d="M0 40 L 1080 22" fill="none" stroke="${ROAD}" stroke-width="24"/>`
+    + `<path d="M0 760 L 1080 720" fill="none" stroke="${ROAD}" stroke-width="46"/>`
+    + `<path d="M0 1030 L 1080 1060" fill="none" stroke="${ROAD}" stroke-width="24"/>`
+    + `<path d="M0 1520 L 1080 1490" fill="none" stroke="${ROAD}" stroke-width="24"/>`
+    + `<path d="M0 1660 C 240 1680, 420 1650, 600 1660 S 900 1720, 1080 1700" fill="none" stroke="${ROAD}" stroke-width="46"/>`
+    + `<path d="M500 1620 L 453 1920" fill="none" stroke="${ROAD}" stroke-width="24"/>`
+    + `<path d="M900 1620 L 956 1920" fill="none" stroke="${ROAD}" stroke-width="46"/>`
+    + `<path d="M340 276 L 336 222 C 520 196, 700 176, 790 172 S 1000 150, 1080 160" fill="none" stroke="#B5A898" stroke-width="6" stroke-dasharray="1 14" stroke-linecap="round"/>`
+    + `<circle cx="340" cy="278" r="9" fill="${BG}" stroke="#B5A898" stroke-width="4"/>`;
+  }
+</script>
+</body>
+</html>

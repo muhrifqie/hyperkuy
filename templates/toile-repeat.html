@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Baskervville:ital,wght@0,400..700;1,400..700&family=Public+Sans:wght@500;600;700;800&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Toile Repeat (toile-repeat): a one-ink toile wallpaper. Indigo pastoral
+    vignettes (tree, cottage, fence, birds, a sheep on a hatched island) are
+    printed in a half-drop repeat across blush paper hung in 500 px drops:
+    visible butt seams, a few px of misregistration between drops, a corner
+    peeling off the wall. In ONE repeat the sheep is black: the anomaly.
+    Metaphor: anomaly detection. A model learns the repeat so well that the
+    one break in the pattern (a fraud payment, a factory defect) jumps out.
+    Items = repeats flagged with inspection tags hung under their sheep. The
+    outlier (D.anomaly, else a unique hl hit, a numeric outlier or a clear
+    unique max) gets the black sheep, the vermilion ring and the red tag. If
+    the data has no outlier, no tag is flagged: the ringed black sheep sits in
+    the untagged repeat right after the last tag. The headline sits
+    on a pasted roll label (etiquette with notched corners and double rule);
+    the caption runs on a wallpaper border strip.
+    Everything is drawn deterministically (sin-based jitter, no randomness).
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #F2DFD8; }
+  body { position: relative; font-family: "Public Sans", sans-serif; color: #2F3E73; }
+  #wall, #marks { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* pasted roll label */
+  .card { position: absolute; left: 90px; top: 300px; width: 900px; padding: 32px 46px 28px; }
+  .card .frame { position: absolute; left: 0; top: 0; overflow: visible; filter: drop-shadow(0 12px 14px rgba(47,62,115,.22)); }
+  .card .meta { position: relative; display: flex; justify-content: space-between; align-items: baseline; gap: 24px;
+    font: 700 26px "Public Sans", sans-serif; letter-spacing: 0.12em; text-transform: uppercase; line-height: 1.2; }
+  .card .meta b { font-weight: 800; color: #B4402F; }
+  .card .meta span:last-child { white-space: nowrap; }
+  .title { position: relative; margin-top: 18px; font-family: "Baskervville", serif; font-weight: 700; line-height: 1.04; letter-spacing: -0.01em; font-variant-numeric: lining-nums; }
+  .title .tt { position: relative; z-index: 1; }
+  /* inline-block + side padding + a little extra leading: the hand-inked loop gets its own room on the line */
+  .title .hl { display: inline-block; padding: 0 0.2em; margin: 0.14em 0; font-style: italic; font-weight: 600; color: #B4402F; white-space: nowrap; }
+  .title .hl.pt { padding-right: 0.26em; }
+  .title .ring { position: absolute; left: 0; top: 0; overflow: visible; z-index: 0; }
+  .card .src { position: relative; margin-top: 22px; padding-top: 12px; border-top: 2px solid #2F3E73; font: 500 26px "Public Sans", sans-serif; line-height: 1.3; }
+  .card .src b { font-weight: 700; }
+
+  /* inspection tags hung under the flagged repeats */
+  .tag { position: absolute; width: 405px; background: #FBF5F0; border: 3px solid #2F3E73; padding: 12px 18px 10px 20px;
+    box-shadow: 0 10px 14px rgba(47,62,115,.20), 0 2px 3px rgba(47,62,115,.14); }
+  .tag::before { content: ""; position: absolute; left: 5px; top: 5px; right: 5px; bottom: 5px; border: 1.2px solid #2F3E73; pointer-events: none; }
+  .tag.B { width: 385px; }
+  .tag .lb { position: relative; font: 600 30px "Public Sans", sans-serif; line-height: 1.2; letter-spacing: -0.005em; }
+  .tag .rt { flex: none; display: flex; align-items: flex-end; gap: 8px; }
+  .tag .no { font: 800 26px "Public Sans", sans-serif; letter-spacing: 0.06em; line-height: 1; margin-bottom: 8px; }
+  .tag .vr { position: relative; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-top: 2px; }
+  .tag .vl { font: 700 46px "Baskervville", serif; font-variant-numeric: lining-nums; line-height: 0.98; white-space: nowrap; }
+  .tag .gl { flex: none; width: 62px; height: 40px; margin-bottom: 4px; }
+  .tag.odd { border-color: #C64B3B; box-shadow: 0 14px 18px rgba(47,62,115,.24), 0 2px 3px rgba(47,62,115,.16); }
+  .tag.odd::before { border-color: #C64B3B; }
+  .tag.odd .no { color: #B4402F; }
+
+  /* wallpaper border strip carrying the karaoke caption */
+  .strip { position: absolute; left: 90px; width: 810px; background: #FBF5F0; padding: 28px 30px 26px;
+    box-shadow: 0 10px 14px rgba(47,62,115,.20), 0 2px 3px rgba(47,62,115,.12); }
+  .strip .orn { position: absolute; left: 0; width: 100%; height: 18px; overflow: visible; }
+  .cap { position: relative; font: 600 44px "Public Sans", sans-serif; line-height: 1.3; letter-spacing: -0.005em; color: #2F3E73; text-wrap: balance; }
+  .cap .w { display: inline; }
+  .cap .on { color: #FBF5F0; background: #2F3E73; border-radius: 6px; padding: 0 0.16em; margin: 0 -0.03em; font-weight: 800;
+    -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+</style>
+</head>
+<body>
+<svg id="wall" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+<svg id="marks" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+<div class="card" id="card">
+  <svg class="frame" id="frame" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+  <div class="meta"><span id="kick"></span><span id="date"></span></div>
+  <div class="title" id="title"><svg class="ring" id="ring" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg><span class="tt" id="tt"></span></div>
+  <div class="src" id="src"></div>
+</div>
+<div id="tags"></div>
+<div class="strip" id="strip">
+  <svg class="orn" id="ornT" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+  <div class="cap" id="cap" data-slot="caption"></div>
+  <svg class="orn" id="ornB" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+</div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series_id: "how-ai-works", series: "Cara kerja AI", ep: "#07", kicker: "Cara kerja AI · #07",
+    title: "AI hafal polanya, jadi yang beda langsung ketahuan", hl: "beda",
+    sub: "Satu transaksi aneh di antara jutaan yang normal langsung beda skornya.",
+    items: [{ label: "Transfer rutin", value: "skor 0,02" }, { label: "Bayar listrik", value: "skor 0,01" },
+      { label: "Belanja harian", value: "skor 0,03" }, { label: "Tarik tunai 3 pagi", value: "skor 0,97" }],
+    source: "ilustrasi — skor anomali contoh", date: "per 14 Okt 2026" };
+
+  const fontsIn = Promise.all(['700 100px "Baskervville"', 'italic 600 100px "Baskervville"', '600 44px "Public Sans"',
+    '800 44px "Public Sans"', '700 26px "Public Sans"', '500 26px "Public Sans"'].map(f => document.fonts.load(f)))
+    .then(() => document.fonts.ready).catch(() => {});
+  fontsIn.then(render);
+
+  function render() {
+  const INK = "#2F3E73", RED = "#C64B3B", REDT = "#B4402F", PAPER = "#F2DFD8", CREAM = "#FBF5F0", BACK = "#E3CBC1";
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+  const f1 = v => Math.round(v * 10) / 10;
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+
+  // ---------- meta row (series + ep left, date right), source
+  const series = D.series || (D.kicker ? String(D.kicker).split("·")[0].trim() : "");
+  const epRaw = D.ep ? String(D.ep).replace(/^#\s*/, "") : "";
+  const epNo = /^\d$/.test(epRaw) ? "0" + epRaw : epRaw;   // "#3" -> No. 03, like the samples' No. 01
+  $("kick").innerHTML = esc(series) + (epNo ? " · Motif <b>No. " + esc(epNo) + "</b>" : "");
+  $("date").textContent = D.date || "";
+  $("src").innerHTML = D.source ? "<b>Sumber:</b> " + esc(D.source) : "";
+
+  // ---------- title, hl = vermilion italic ringed like the outlier
+  const t = D.title || "", hl = D.hl || "";
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  // punctuation glued to the phrase ("token.") gets a little extra room so the loop passes between them
+  const glued = at >= 0 && /^[.,!?;:…)”"]/.test(t.slice(at + hl.length));
+  $("tt").innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl' + (glued ? " pt" : "") + '" id="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  const titleEl = $("title"), card = $("card");
+
+  // ---------- caption (karaoke): active = hl if it is in the caption, else the first word
+  const capText = String(D.caption || D.sub || "");
+  const words = capText.split(/\s+/).filter(Boolean);
+  const normW = w => w.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+  let a0 = 0, a1 = 0;
+  if (hl) {
+    const hw = hl.split(/\s+/).filter(Boolean).map(normW).join(" ");
+    for (let i = 0; hw && i < words.length; i++) {
+      const len = hl.split(/\s+/).filter(Boolean).length;
+      if (i + len > words.length) break;
+      if (words.slice(i, i + len).map(normW).join(" ") === hw) { a0 = i; a1 = i + len - 1; break; }
+    }
+  }
+  let capHTML = "";
+  for (let i = 0; i < words.length; i++) {
+    if (i === a0) { capHTML += '<span class="w on">' + esc(words.slice(a0, a1 + 1).join(" ")) + "</span> "; i = a1; continue; }
+    capHTML += '<span class="w">' + esc(words[i]) + "</span> ";
+  }
+  const capEl = $("cap"), strip = $("strip");
+  capEl.innerHTML = capHTML.trim();
+  for (let fs = 46; fs >= 40; fs -= 2) { capEl.style.fontSize = fs + "px"; if (capEl.offsetHeight <= fs * 1.3 * 2 + 4) break; }
+  const stripH = strip.offsetHeight;
+  const stripTop = 1606 - stripH;
+  strip.style.top = stripTop + "px";
+  // border-paper ornament: a rule and a row of small scallops with beads, top and (mirrored) bottom
+  const sw = strip.offsetWidth;
+  const orn = flip => {
+    let d = "", b = "";
+    for (let x = 6; x + 18 <= sw - 6; x += 18) { d += `M${x},6q9,10 18,0`; b += `M${x + 9},${12.5}m-1.8,0a1.8,1.8 0 1 0 3.6,0a1.8,1.8 0 1 0 -3.6,0`; }
+    return `<g transform="${flip ? "translate(0,18) scale(1,-1)" : ""}"><path d="M6,2.5H${sw - 6}" stroke="#2F3E73" stroke-width="2"/>` +
+      `<path d="${d}" fill="none" stroke="#2F3E73" stroke-width="1.4"/><path d="${b}" fill="#2F3E73"/></g>`;
+  };
+  ["ornT", "ornB"].forEach((id, k) => { const o = $(id); o.setAttribute("viewBox", `0 0 ${sw} 18`); o.style.top = k ? "auto" : "7px"; o.style.bottom = k ? "7px" : "auto"; o.innerHTML = orn(k === 1); });
+
+  // ---------- tags (built first so their real height is known)
+  const tagsEl = $("tags");
+  // which repeat is the outlier? Only flag one when the data really has one:
+  // D.anomaly (index) > a unique item containing hl > a numeric outlier > a clear unique max (its lead over the
+  // runner-up beats the spread of the rest, and it is >= 1.5x the runner-up).
+  // Numbers are compared only when every value parses and they share one unit ("2 token", "skor 0,97").
+  // Nothing applies (or D.anomaly === false / -1) -> odd = -1: no tag is flagged, and the ringed
+  // black sheep goes to the untagged repeat after the last tag (it echoes the title ring, it accuses no row).
+  let odd = -1;
+  const anIdx = Number(D.anomaly);
+  const forcedNone = D.anomaly === false || anIdx === -1;
+  if (!forcedNone && D.anomaly != null && D.anomaly !== "" && Number.isInteger(anIdx) && anIdx >= 0 && anIdx < n) odd = anIdx;
+  if (!forcedNone && odd < 0 && hl) {
+    const hits = items.map((it, i) => ((it.label || "") + " " + (it.value || "")).toLowerCase().includes(hl.toLowerCase()) ? i : -1).filter(i => i >= 0);
+    if (hits.length === 1) odd = hits[0];
+  }
+  if (!forcedNone && odd < 0 && n >= 3) {
+    const parsed = items.map(it => {
+      const s = String(it.value == null ? "" : it.value);
+      const m = s.replace(/(\d)\.(?=\d{3}(\D|$))/g, "$1").replace(/(\d),(?=\d)/, "$1.").match(/-?\d+(\.\d+)?/);
+      const unit = m ? s.replace(/[-+]?[\d.,]+/, " ").replace(/[^\p{L}%$]+/gu, " ").trim().toLowerCase() : null;
+      return { v: m ? parseFloat(m[0]) : NaN, unit };
+    });
+    const vals = parsed.map(p => p.v);
+    const comparable = vals.every(v => !isNaN(v)) && parsed.every(p => p.unit === parsed[0].unit);
+    if (comparable) {
+      const med = [...vals].sort((a, b) => a - b)[Math.floor(vals.length / 2)];
+      const dev = vals.map(v => Math.abs(v - med)), top = [...dev].sort((a, b) => b - a);
+      if (top[0] > 0 && top[0] > 2 * top[1]) odd = dev.indexOf(top[0]);
+      if (odd < 0) {
+        const desc = [...vals].sort((a, b) => b - a);
+        const gap = desc[0] - desc[1], spread = desc[1] - desc[desc.length - 1];
+        if (gap > 0 && gap > 1.25 * spread && (desc[1] <= 0 || desc[0] >= 1.5 * desc[1])) odd = vals.indexOf(desc[0]);
+      }
+    }
+  }
+  const ghost = odd < 0;
+  const glyph = solid => '<svg class="gl" viewBox="-60 -40 124 80" xmlns="http://www.w3.org/2000/svg">' + sheepSVG(solid, 1) + "</svg>";
+  const tagEls = items.map((it, k) => {
+    const el = document.createElement("div");
+    el.className = "tag " + (k % 2 ? "B" : "A") + (k === odd ? " odd" : "");
+    el.innerHTML = '<div class="lb">' + esc(it.label) + '</div>' +
+      '<div class="vr"><span class="vl">' + esc(it.value) + '</span><span class="rt"><span class="no">' + String(k + 1).padStart(2, "0") + "</span>" + glyph(k === odd) + "</span></div>";
+    tagsEl.appendChild(el);
+    return el;
+  });
+  // values that are too wide shrink (never below 40 px)
+  tagEls.forEach(el => { const v = el.querySelector(".vl"), room = el.clientWidth - 38 - 112; for (let fs = 46; fs > 40 && v.offsetWidth > room; fs -= 2) v.style.fontSize = (fs - 2) + "px"; });
+  const T = Math.max(110, ...tagEls.map(e => e.offsetHeight));
+
+  // ---------- fit title so the tag cascade (and, with no outlier, the ghost ring) gets the room it needs
+  const SY = 150, LEAD = 56, RING_TOP = 60;
+  const RING_DN = 54;                              // ghost ring below its sheep centre, counted against bandBot (= strip top - 26)
+  const sMin = Math.ceil((LEAD + T + 62) / 2);
+  const hlEl = $("hl");
+  const setTitle = size => {
+    titleEl.style.fontSize = size + "px";
+    if (!hlEl) return;
+    hlEl.style.marginLeft = "";
+    // an hl that starts a line pulls its padding into the label margin, so its ink stays flush with the other lines
+    if (hlEl.getBoundingClientRect().left - titleEl.getBoundingClientRect().left < 2) hlEl.style.marginLeft = "-0.2em";
+  };
+  const sFor = bandH => {
+    if (n <= 1) return 0;
+    const a = (bandH - RING_TOP - LEAD - T) / (n - 1);
+    return ghost ? Math.min(a, (bandH - RING_TOP - RING_DN) / n) : a;
+  };
+  let s = 0, bandTop = 0, bandBot = stripTop - 26, fs;
+  for (fs = 128; fs >= 72; fs -= 2) {
+    setTitle(fs);
+    const lines = Math.round(titleEl.offsetHeight / (fs * 1.04));
+    const hlFits = !hlEl || hlEl.offsetWidth <= titleEl.clientWidth + 0.3 * fs;
+    bandTop = 300 + card.offsetHeight + 34;
+    s = sFor(bandBot - bandTop);
+    if (lines <= 4 && hlFits && (n <= 1 || s >= sMin)) break;
+  }
+  if (fs < 72) { fs = 72; setTitle(fs); bandTop = 300 + card.offsetHeight + 34; s = sFor(bandBot - bandTop); }
+  // tight case (60-char title + 5 tall tags): everything stays clear of the caption; a tag may then brush the next sheep's back.
+  // s >= 100 keeps the repeat height H = 2s a real repeat, so every pin lands on a printed sheep (never reached within contract bounds).
+  s = n > 1 ? Math.round(Math.min(Math.max(s, 100), 165)) : 0;
+  const extent = RING_TOP + Math.max((n - 1) * s + LEAD + T, ghost ? n * s + RING_DN : 0);
+  const firstY = Math.round(bandTop + Math.max(0, (bandBot - bandTop - extent) / 2) + RING_TOP);
+  const H = 2 * Math.max(s, 100);
+  const W = 500, SX = 220;
+  const DY = [0, 7, -4];                         // misregistration per drop
+
+  // ---------- card frame: etiquette with notched corners + double rule
+  const cw = card.offsetWidth, ch = card.offsetHeight;
+  const frame = $("frame");
+  frame.setAttribute("width", cw); frame.setAttribute("height", ch); frame.setAttribute("viewBox", `0 0 ${cw} ${ch}`);
+  const notch = (w, h, r, i) => {
+    const R = r + i, q = f1(Math.sqrt(R * R - i * i));
+    return `M${q},${i} H${w - q} A${R},${R} 0 0 0 ${w - i},${q} V${h - q} A${R},${R} 0 0 0 ${w - q},${h - i} H${q} A${R},${R} 0 0 0 ${i},${h - q} V${q} A${R},${R} 0 0 0 ${q},${i} Z`;
+  };
+  frame.innerHTML = `<path d="${notch(cw, ch, 26, 0)}" fill="${CREAM}"/>` +
+    `<path d="${notch(cw, ch, 26, 10)}" fill="none" stroke="${INK}" stroke-width="3"/>` +
+    `<path d="${notch(cw, ch, 26, 17)}" fill="none" stroke="${INK}" stroke-width="1.2"/>`;
+
+  // ---------- ring around the title hl (two loose passes, like the outlier ring)
+  // Sized from the real ink box (canvas metrics) inside the padded hl box: it never runs into the neighbouring
+  // words, stays below the previous line's baseline and above the next line's caps, and clears trailing punctuation.
+  const ring = $("ring");
+  if (hlEl) {
+    const tr = titleEl.getBoundingClientRect(), hr = hlEl.getBoundingClientRect();
+    const cs = getComputedStyle(hlEl), padL = parseFloat(cs.paddingLeft) || 0, mY = parseFloat(cs.marginTop) || 0;
+    const ctx = document.createElement("canvas").getContext("2d");
+    ctx.font = `700 ${fs}px "Baskervville"`;
+    const space = ctx.measureText(" ").width;
+    ctx.font = `italic 600 ${fs}px "Baskervville"`;
+    const text = hlEl.textContent;
+    if (cs.letterSpacing && cs.letterSpacing !== "normal") ctx.letterSpacing = cs.letterSpacing;
+    const mt = ctx.measureText(text);
+    const fA = mt.fontBoundingBoxAscent, fD = mt.fontBoundingBoxDescent;
+    const lineH = fs * 1.04, top = hr.top - tr.top;
+    const base = top + (hr.height - (fA + fD)) / 2 + fA;                 // content area is centred in the line box
+    const left = hr.left - tr.left, right = hr.right - tr.left;
+    // ink silhouette: one box per glyph (canvas metrics), in title coordinates
+    const pts = [];
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (let i = 0; i < text.length; i++) {
+      if (/\s/.test(text[i])) continue;
+      const px = left + padL + ctx.measureText(text.slice(0, i)).width, m = ctx.measureText(text[i]);
+      const gl = px - m.actualBoundingBoxLeft, gr = px + m.actualBoundingBoxRight, gt = base - m.actualBoundingBoxAscent, gb = base + m.actualBoundingBoxDescent;
+      pts.push([gl, gt], [gr, gt], [gl, gb], [gr, gb]);
+      x0 = Math.min(x0, gl); x1 = Math.max(x1, gr); y0 = Math.min(y0, gt); y1 = Math.max(y1, gb);
+    }
+    let cx = (x0 + x1) / 2;
+    // is there a neighbour on the same line, and does it touch the phrase (punctuation) or sit after a space?
+    const side = (node, fwd) => {
+      if (!node || !node.textContent) return null;
+      const txt = node.textContent;
+      let i = fwd ? 0 : txt.length - 1;
+      while (i >= 0 && i < txt.length && /\s/.test(txt[i])) i += fwd ? 1 : -1;
+      if (i < 0 || i >= txt.length) return null;
+      const r = document.createRange(); r.setStart(node, i); r.setEnd(node, i + 1);
+      const rr = r.getBoundingClientRect();
+      if (Math.abs(rr.top - hr.top) > lineH * 0.5) return null;
+      return { tight: fwd ? i === 0 : i === txt.length - 1 };
+    };
+    const after = side(hlEl.nextSibling, true), before = side(hlEl.previousSibling, false);
+    const lim = 24;                                                       // label inner rule sits ~24 px outside the title box
+    const leftLim = before ? left + 3 - (before.tight ? 0 : space * 0.4) : -lim;
+    const rightLim = after ? right - 3 + (after.tight ? 0 : space * 0.4) : tr.width + lim;
+    const firstLine = top - mY < lineH * 0.5, lastLine = hr.bottom + mY - tr.top > tr.height - lineH * 0.5;
+    const upLim = firstLine ? -8 : base - lineH - mY + 0.08 * fs;        // clear of the previous line's baseline
+    const dnLim = lastLine ? tr.height + 18 : base + lineH + mY - 0.74 * fs; // next line's cap height
+    // a hand loop shaped like a stadium: round ends joined by a run along the phrase. Search the centre height,
+    // end radius and cap squareness for the roundest loop that holds every glyph inside the room it has.
+    const sw = 4.2, Gx = 1.02 * 1.064, Gy = 1.06 * (1.064 + 0.03);      // outer pass x max wobble (+ bow)
+    // lopsided room (phrase flush with the label edge, free space on the other side): nudge the loop toward the room
+    cx += Math.max(-0.08 * fs, Math.min(0.08 * fs, ((rightLim - cx) - (cx - leftLim)) / 2));
+    const hRoom = Math.min(cx - leftLim, rightLim - cx) - sw / 2;       // half-width the loop may take
+    const T0 = upLim + 4 + sw / 2, B0 = dnLim - 4 - sw / 2;             // the loop stays inside [T0, B0]
+    const mid = (y0 + y1) / 2, half = (y1 - y0) / 2;
+    let best = null;
+    for (let dc = -0.12 * fs; dc <= 0.12 * fs; dc += 1) {
+      const cyR = mid + dc, ry = Math.min(half + 0.22 * fs, (cyR - T0) / Gy, (B0 - cyR) / Gy);
+      if (ry <= half * 0.75) continue;
+      search: for (let pw = 2; pw <= 4.001; pw += 0.25) {
+        for (let f = 1.1; f >= 0.549; f -= 0.05) {                       // rounder caps first, then narrower ones
+          const rx = Math.min(ry * f, hRoom / Gx);
+          // glyphs must clear the inner edge of the stroke at the loop's tightest wobble
+          const ryIn = ry * 0.976 - sw / 2 - 1.5, rxIn = rx * 0.976 - sw / 2 - 1.5;
+          // a glyph corner that cannot fit vertically (a descender on a tight line) may cross the loop, at a cost
+          let L = 0, pokes = 0;
+          if (rxIn <= 4) continue search;
+          for (const [px, py] of pts) {
+            const v = Math.pow(Math.abs(py - cyR) / ryIn, pw);
+            if (v >= 0.98) { pokes++; continue; }
+            L = Math.max(L, Math.abs(px - cx) - rxIn * Math.pow(0.98 - v, 1 / pw));
+          }
+          if (L * 1.01 + rx * Gx > hRoom) continue;
+          const score = pw * 100 + pokes * 400 - ry - 0.3 * rx + Math.abs(dc) * 0.3;
+          if (!best || score < best.score) best = { score, cy: cyR, ry, rx, pw, L };
+          break search;
+        }
+      }
+    }
+    if (!best) {                                                          // no room for a clean loop: tight squarish fallback
+      const ry = Math.max(half + 0.03 * fs, (Math.min(mid - T0, B0 - mid)) / Gy), rx = Math.max(0.5 * ry, Math.min(ry, hRoom / Gx));
+      best = { cy: mid, ry, rx, pw: 4, L: Math.max(0, (hRoom - rx * Gx) / 1.01) };
+    }
+    const { cy, ry, rx, pw, L } = best;
+    ring.setAttribute("width", tr.width); ring.setAttribute("height", tr.height);
+    ring.innerHTML = loop(cx, cy, rx, ry, sw, 1, 0, pw, L, 0.02) + loop(cx, cy, rx * 1.02, ry * 1.06, 2.2, 0.8, 1.7, pw, L * 1.01, 0.02);
+  }
+  function loop(cx, cy, rx, ry, sw, op, ph = 0, pw = 2, L = 0, grow = 0.035) {
+    const se = (v, e) => Math.sign(v) * Math.pow(Math.abs(v), e);
+    const tK = Math.tanh(8), N = 160;
+    let d = "";
+    const a0 = -2.5 + ph * 0.3, a1 = a0 + Math.PI * 2 + 0.55;
+    for (let k = 0; k <= N; k++) {
+      const a = a0 + (a1 - a0) * k / N;
+      const g = 1.01 + 0.022 * Math.sin(2 * a + 1 + ph) + 0.012 * Math.sin(5 * a + ph) + grow * k / N;
+      const run = L * Math.tanh(8 * Math.cos(a)) / tK;                  // the run between the round ends
+      const bow = L ? 0.03 * ry * (1 - (run / L) * (run / L)) * Math.sign(Math.sin(a)) : 0;   // a hand bows a long stroke outward
+      const x = cx + run + rx * g * se(Math.cos(a), 2 / pw);
+      const y = cy + ry * g * se(Math.sin(a), 2 / pw) - 4 * Math.sin(a * 0.5) - 0.008 * run + bow;
+      d += (k ? "L" : "M") + f1(x) + "," + f1(y);
+    }
+    return `<path d="${d}" fill="none" stroke="${RED}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" opacity="${op}"/>`;
+  }
+
+  // ---------- drawing helpers (tile-local coordinates, deterministic)
+  const g = x => 196 - 16 * Math.sin(Math.PI * (x - 40) / 430) + 3 * Math.sin(x / 23);
+  function scallop(cx, cy, rx, ry, nb, ph) {
+    const pts = [];
+    for (let k = 0; k < nb; k++) {
+      const a = ph + k * 2 * Math.PI / nb, r = 1 + 0.06 * Math.sin(k * 2.3 + ph * 3);
+      pts.push([cx + rx * r * Math.cos(a), cy + ry * r * Math.sin(a), a]);
+    }
+    let d = "M" + f1(pts[0][0]) + "," + f1(pts[0][1]);
+    for (let k = 0; k < nb; k++) {
+      const p = pts[(k + 1) % nb], am = pts[k][2] + Math.PI / nb, R = 1.24 + 0.05 * Math.sin(k * 1.7 + ph);
+      d += "Q" + f1(cx + rx * R * Math.cos(am)) + "," + f1(cy + ry * R * Math.sin(am)) + " " + f1(p[0]) + "," + f1(p[1]);
+    }
+    return d + "Z";
+  }
+  function leafMarks(cx, cy, rx, ry, step) {
+    let d = "", row = 0;
+    for (let y = cy - ry * 0.62; y <= cy + ry * 0.3; y += step * 0.82, row++) {
+      for (let x = cx - rx * 0.85 + (row % 2) * step / 2; x <= cx + rx * 0.85; x += step) {
+        const nx = (x - cx) / rx, ny = (y - cy) / ry;
+        if (nx * nx + ny * ny > 0.6) continue;
+        if (nx * 0.55 + ny * 0.85 < -0.25 + 0.12 * Math.sin(x * 0.7 + y)) continue;
+        d += `M${f1(x - 3.5)},${f1(y)}q3.5,3.8 7,0`;
+      }
+    }
+    return d;
+  }
+  function shade(cx, cy, rx, ry, from, gap) {
+    let d = "";
+    for (let y = cy + ry * from; y < cy + ry * 0.92; y += gap) {
+      const v = (y - cy) / ry, hw = rx * 0.9 * Math.sqrt(Math.max(0, 1 - v * v));
+      const x0 = cx - hw * (0.15 + 0.6 * (v - from)), x1 = cx + hw * 0.96;
+      if (x1 - x0 > 6) d += `M${f1(x0)},${f1(y)}L${f1(x1)},${f1(y + 1.2)}`;
+    }
+    return d;
+  }
+  function clump(cx, cy, rx, ry, nb, ph) {
+    return `<path d="${scallop(cx, cy, rx, ry, nb, ph)}" fill="${PAPER}" stroke-width="1.8"/>` +
+      `<path d="${leafMarks(cx, cy, rx, ry * 0.72, 9)}" stroke-width="1.1" transform="translate(0,${f1(-ry * 0.2)})"/>` +
+      `<path d="${shade(cx, cy, rx, ry, 0.16, 3)}" stroke-width="0.95"/>`;
+  }
+  function tuft(x) {
+    const y = g(x); let d = "";
+    [[-6, 7], [-3, 11], [0, 14], [3, 10], [6, 6]].forEach(([dx, h]) => { d += `M${f1(x + dx)},${f1(y + 1)}L${f1(x + dx * 1.7)},${f1(y - h)}`; });
+    return d;
+  }
+
+  // one vignette (no sheep: sheep are placed separately so one of them can be the black one)
+  function motifSVG() {
+    let o = "";
+    // island: ground line + engraved under-hatching
+    let gl = "";
+    for (let x = 36; x <= 474; x += 6) gl += (x === 36 ? "M" : "L") + x + "," + f1(g(x));
+    let hatch = "";
+    for (let x = 44; x <= 466; x += 5.5) {
+      const sv = Math.sin(Math.PI * (x - 40) / 430);
+      const L = 3 + 30 * Math.pow(Math.max(sv, 0), 0.75) * (0.72 + 0.28 * Math.sin(x * 0.37));
+      hatch += `M${f1(x)},${f1(g(x) + 4)}V${f1(g(x) + 4 + L)}`;
+    }
+    o += `<path d="${hatch}" stroke-width="1.15"/>`;
+    o += `<path d="${gl}" stroke-width="1.9"/>`;
+    // a second, broken contour on the mound
+    let gl2 = "";
+    for (let x = 250; x <= 420; x += 6) gl2 += (x === 250 ? "M" : "L") + x + "," + f1(g(x) + 13 + 2 * Math.sin(x / 9));
+    o += `<path d="${gl2}" stroke-width="1.4"/>`;
+    // tree: trunk, roots, bark, branches, crown of scalloped clumps
+    o += `<path d="M99,${f1(g(99) + 2)} C103,165 96,134 104,100 L121,100 C125,134 119,165 125,${f1(g(125) + 2)} Z" fill="${PAPER}" stroke-width="2.3"/>`;
+    let bark = "";
+    for (let y = 106; y <= 184; y += 4.5) bark += `M${f1(113.5 + Math.sin(y) * 1.2)},${f1(y)}l${f1(6.5 + 1.5 * Math.sin(y * 0.3))},1.6`;
+    o += `<path d="${bark}" stroke-width="1.05"/><path d="M99,${f1(g(99) + 2)}q-9,1 -16,6M125,${f1(g(125) + 2)}q9,1 15,6M108,120 L80,86M118,112 L150,82" stroke-width="1.7"/>`;
+    o += clump(112, 36, 46, 30, 13, 0.4) + clump(64, 66, 34, 28, 10, 1.1) + clump(160, 62, 34, 28, 10, 2.3) + clump(112, 76, 50, 32, 14, 0.9);
+    // fence
+    o += `<path d="M300,${f1(g(300) - 26)}V${f1(g(300) + 2)}M322,${f1(g(322) - 27)}V${f1(g(322) + 2)}M344,${f1(g(344) - 26)}V${f1(g(344) + 2)}M296,${f1(g(300) - 18)}L348,${f1(g(344) - 20)}M296,${f1(g(300) - 8)}L348,${f1(g(344) - 10)}" stroke-width="2"/>`;
+    // cottage: wall, shading, door, window, thatched roof, chimney, smoke
+    const gb = f1(g(393) + 1);
+    o += `<path d="M358,128 V${gb} H430 V128" fill="${PAPER}" stroke-width="2"/>`;
+    o += `<path d="M362,140h8M364,170h6M392,172h7M366,124h0" stroke-width="1.1"/>`;
+    let sh = "";
+    for (let x = 418; x <= 428; x += 3.5) sh += `M${f1(x)},134V${f1(gb - 2)}`;
+    o += `<path d="${sh}" stroke-width="1.2"/>`;
+    o += `<path d="M372,${gb} V158 Q380,148 388,158 V${gb} Z" fill="${INK}" stroke-width="1.6"/>`;
+    o += `<path d="M398,142 H414 V158 H398 Z M406,142 V158 M398,150 H414" stroke-width="1.6"/>`;
+    o += `<path d="M346,131 L394,82 L442,131 Z" fill="${PAPER}" stroke-width="2"/>`;
+    let th = "";
+    for (let x = 353; x <= 436; x += 6.5) th += `M394,86L${f1(x)},129`;
+    o += `<path d="${th}" stroke-width="1.15"/>`;
+    o += `<path d="M346,131 H442 M349,136 H439" stroke-width="1.6"/>`;
+    o += `<path d="M414,103 V86 H425 V114" fill="${PAPER}" stroke-width="2"/>`;
+    o += `<path d="M419,80 c-7,-7 6,-11 0,-19 c-6,-8 7,-11 2,-18" stroke-width="1.4"/>`;
+    let cast = "";
+    for (let k = 0; k < 4; k++) cast += `M${434 + k * 2},${f1(g(436) - 6 + k * 3.2)}h${16 - k * 3}M${74 + k * 3},${f1(g(80) - 2 + k * 3)}h${24 - k * 4}`;
+    o += `<path d="${cast}" stroke-width="1"/>`;
+    // shrub at the island tip
+    o += clump(462, 172, 20, 15, 9, 0.6);
+    // birds
+    o += `<path d="M282,34 q7,-9 14,-1 q7,-8 14,1 M314,52 q5,-7 11,-1 q5,-6 11,1 M258,58 q5,-6 10,-1 q5,-6 10,1" stroke-width="2"/>`;
+    // grass tufts and tiny flowers
+    o += `<path d="${tuft(64)}${tuft(152)}${tuft(286)}${tuft(452)}" stroke-width="1.6"/>`;
+    o += `<path d="M180,${f1(g(180) - 4)}m-3,0a3,3 0 1 0 6,0a3,3 0 1 0 -6,0M44,${f1(g(44) - 6)}m-3,0a3,3 0 1 0 6,0a3,3 0 1 0 -6,0" stroke-width="1.4"/>`;
+    return o;
+  }
+
+  // small sprig with a bird, hung on the seams (where the misregistration shows)
+  function sprigSVG() {
+    return `<path d="M0,40 C-4,18 6,0 -2,-28" stroke-width="2"/>` +
+      `<path d="M-1,22 q-16,-2 -20,-14 q14,0 20,14 M2,8 q16,-4 20,-16 q-14,0 -20,16 M-2,-10 q-14,-6 -14,-18 q12,4 14,18" fill="${PAPER}" stroke-width="1.7"/>` +
+      `<path d="M-2,-34 m-8,0 a8,8 0 1 0 16,0 a8,8 0 1 0 -16,0 M-2,-34 m-3,0 a3,3 0 1 0 6,0 a3,3 0 1 0 -6,0" fill="${PAPER}" stroke-width="1.6"/>` +
+      `<path d="M-8,-42 l-4,-6 M4,-42 l4,-6 M-12,-30 l-6,2 M8,-30 l6,2" stroke-width="1.5"/>`;
+  }
+  function birdPairSVG() {
+    return `<path d="M-30,-4 q8,-10 16,-1 q8,-9 16,1 M6,10 q6,-8 13,-1 q6,-7 13,1" stroke-width="2"/>`;
+  }
+
+  // sheep centred on (0,0), facing right; solid = the black sheep
+  function sheepSVG(solid, scale) {
+    const body = scallop(0, 0, 44, 25, 13, 0.3);
+    let curls = "";
+    [[-26, -8], [-12, -13], [2, -12], [16, -8], [-32, 3], [-18, 1], [-4, -1], [10, 2], [24, -1], [-22, 11], [-6, 12], [10, 12]].forEach(([x, y]) => { curls += `M${x - 3.2},${y}q3.2,-4 6.4,0`; });
+    let belly = "";
+    [[15, 0.82], [18.5, 0.7], [22, 0.5]].forEach(([y, w]) => { belly += `M${f1(-40 * w)},${y}H${f1(40 * w)}`; });
+    return `<g fill="none" stroke="${INK}" stroke-linecap="round" stroke-linejoin="round" transform="scale(${scale})">` +
+      `<path d="M-26,20 V37 M-12,21 V38 M16,21 V38 M29,19 V35" stroke-width="3.2"/>` +
+      `<path d="M-44,-4 m-6,0 a6,6 0 1 0 12,0 a6,6 0 1 0 -12,0" fill="${solid ? INK : PAPER}" stroke-width="2"/>` +
+      `<path d="${body}" fill="${solid ? INK : PAPER}" stroke-width="2.1"/>` +
+      `<path d="${curls}" stroke="${solid ? PAPER : INK}" stroke-width="${solid ? 1.6 : 1.25}" opacity="${solid ? 0.85 : 1}"/>` +
+      (solid ? "" : `<path d="${belly}" stroke-width="1"/>`) +
+      `<ellipse cx="45" cy="-8" rx="13.5" ry="9.5" transform="rotate(22 45 -8)" fill="${INK}" stroke="${solid ? PAPER : INK}" stroke-width="${solid ? 2 : 1.6}"/>` +
+      `<path d="M38,-14 l-9,-7 l2,9 Z" fill="${INK}" stroke-width="1.4"/>` +
+      `<circle cx="49" cy="-10" r="1.9" fill="${PAPER}" stroke="none"/>` +
+      `</g>`;
+  }
+
+  // ---------- the wall: three drops in a half-drop repeat
+  const J0 = Math.ceil((firstY - SY) / H) + 1;
+  const Y0 = firstY - SY - J0 * H;                 // tile row 0 origin (above the frame)
+  const parity = i => ((i % 2) + 2) % 2;
+  const slot = k => { const col = k % 2; return { col, row: (k - col) / 2 + J0, x: col * W + SX, y: firstY + k * s + DY[col] }; };
+  const anchors = items.map((_, k) => slot(k));
+  // the black sheep: the flagged repeat, or (no outlier in the data) the untagged repeat right after the last tag
+  const blackA = ghost ? slot(n) : anchors[odd];
+  const rows = Math.ceil((1920 - Y0) / H) + 2;
+  let wall = `<defs>` +
+    `<g id="motif" fill="none" stroke="${INK}" stroke-linecap="round" stroke-linejoin="round">${motifSVG()}</g>` +
+    `<g id="sprig" fill="none" stroke="${INK}" stroke-linecap="round" stroke-linejoin="round">${sprigSVG()}</g>` +
+    `<g id="birds" fill="none" stroke="${INK}" stroke-linecap="round" stroke-linejoin="round">${birdPairSVG()}</g>` +
+    `<g id="sheepW">${sheepSVG(false, 1)}</g><g id="sheepB">${sheepSVG(true, 1)}</g>` +
+    `<filter id="grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" seed="11" stitchTiles="stitch"/>` +
+    `<feColorMatrix type="matrix" values="0 0 0 0 0.18  0 0 0 0 0.24  0 0 0 0 0.45  1.6 0 0 0 -0.78"/></filter>` +
+    `<linearGradient id="seamSh" x1="0" x2="1"><stop offset="0" stop-color="${INK}" stop-opacity="0.10"/><stop offset="1" stop-color="${INK}" stop-opacity="0"/></linearGradient>` +
+    `<filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="4"/></filter>` +
+    `<linearGradient id="flap" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E4CFC4"/><stop offset="0.6" stop-color="#F5EAE3"/><stop offset="1" stop-color="#FBF5F0"/></linearGradient>`;
+  for (let d = 0; d < 3; d++) wall += `<clipPath id="drop${d}"><rect x="${d * W}" y="0" width="${Math.min(W, 1080 - d * W)}" height="1920"/></clipPath>`;
+  wall += `</defs>`;
+  const tints = [PAPER, "#F1DCD4", PAPER];
+  for (let d = 0; d < 3; d++) {
+    wall += `<rect x="${d * W}" y="0" width="${Math.min(W, 1080 - d * W)}" height="1920" fill="${tints[d]}"/>`;
+    wall += `<g clip-path="url(#drop${d})"><g transform="translate(0,${DY[d]})">`;
+    for (let i = d - 1; i <= d + 1; i++) {
+      for (let j = -1; j <= rows; j++) {
+        const tx = i * W, ty = Y0 + j * H + parity(i) * H / 2;
+        if (ty > 1960 || ty + H < -60) continue;
+        wall += `<use href="#motif" x="${tx}" y="${f1(ty)}"/>`;
+        const solid = i === blackA.col && j === blackA.row;
+        wall += `<use href="#${solid ? "sheepB" : "sheepW"}" x="${tx + SX}" y="${f1(ty + SY)}"/>`;
+        wall += `<use href="#sprig" x="${tx + W}" y="${f1(ty + H * 0.25 + 4)}"/>`;
+        if (H - 232 > 70) wall += `<use href="#birds" x="${tx + 250}" y="${f1(ty + 232 + (H - 232) / 2)}"/>`;
+      }
+    }
+    wall += `</g></g>`;
+  }
+  // butt seams: a dark hairline, a light edge, a soft shadow
+  [W, 2 * W].forEach(x => {
+    wall += `<rect x="${x}" y="0" width="7" height="1920" fill="url(#seamSh)"/>` +
+      `<path d="M${x - 0.5},0V1920" stroke="#D2B5AB" stroke-width="1.6"/><path d="M${x + 1.4},0V1920" stroke="#FFF8F4" stroke-width="1" opacity="0.85"/>`;
+  });
+  // paper grain
+  wall += `<rect x="0" y="0" width="1080" height="1920" filter="url(#grain)" opacity="0.32"/>`;
+  // peeling corner at the top of the middle drop: plaster shows, the flap curls over
+  // fold line A-B; the corner (500,0) folds over to P
+  const pA = [500, 118], pB = [584, 0], pP = [611, 80];
+  wall += `<path d="M500,0 L${pB[0]},0 L${pA[0]},${pA[1]} Z" fill="${BACK}"/>` +
+    `<path d="M500,0 L${pB[0]},0 L${pA[0]},${pA[1]} Z" fill="url(#seamSh)"/>` +
+    `<path d="M${pA[0] + 4},${pA[1] + 8} Q${pP[0] - 4},${pP[1] + 26} ${pP[0] + 10},${pP[1] + 12} Q${pP[0] + 8},${pP[1] - 30} ${pB[0] + 10},${pB[1] + 2} Z" fill="${INK}" opacity="0.16" filter="url(#soft)"/>` +
+    `<path d="M${pA[0]},${pA[1]} Q${pP[0] - 30},${pP[1] + 10} ${pP[0]},${pP[1]} Q${pP[0] - 6},${pP[1] - 34} ${pB[0]},${pB[1]} Z" fill="url(#flap)" stroke="#D2B5AB" stroke-width="1"/>`;
+  $("wall").innerHTML = wall;
+
+  // ---------- tags, leader pins and the outlier ring
+  let marks = "";
+  anchors.forEach((a, k) => {
+    const el = tagEls[k], top = Math.round(a.y + LEAD);
+    el.style.left = (a.col ? 515 : 90) + "px";
+    el.style.top = top + "px";
+    const col = k === odd ? RED : INK;
+    marks += `<path d="M${a.x},${a.y + 22}V${top}" stroke="${col}" stroke-width="${k === odd ? 3 : 2.2}"/>` +
+      `<circle cx="${a.x}" cy="${a.y + 22}" r="6" fill="${col}" stroke="${CREAM}" stroke-width="2"/>`;
+  });
+  {
+    // the ring keeps clear of the tag hanging above it in the same column (or the label), and a ghost ring of the caption strip
+    const kb = ghost ? n : odd, cx = blackA.x + 2, cy = blackA.y + 2, G = 1.06 * 1.079;
+    const above = kb >= 2 ? tagEls[kb - 2].offsetTop + tagEls[kb - 2].offsetHeight : 300 + card.offsetHeight;
+    let ry = Math.min(60, (cy - above - 10) / G);
+    if (ghost) ry = Math.min(ry, (stripTop - 8 - cy - 4) / G);
+    ry = Math.max(40, ry);
+    const rx = 92 + (60 - ry) * 0.6;
+    marks += loop(cx, cy, rx, ry, 5, 1) + loop(cx, cy, rx * 1.03, ry * 1.05, 2.6, 0.85, 1.9);
+  }
+  $("marks").innerHTML = marks;
+  }
+</script>
+</body>
+</html>

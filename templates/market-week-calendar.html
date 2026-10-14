@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Market Week Calendar</title>
+<link href="https://fonts.googleapis.com/css2?family=Sofia+Sans+Extra+Condensed:wght@700;800&family=Sofia+Sans+Condensed:wght@500;600;700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,500;1,8..60,700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Market Week Calendar: a printed Indonesian wall-calendar month page hanging on a nail.
+    Every date cell carries two labels: the 7-day weekday (its column) and the 5-day pasaran
+    (Legi, Pahing, Pon, Wage, Kliwon). 7 and 5 share no factor, so one pasaran (washed red)
+    steps two columns left every week: a red dashed pencil path hops +5 days from wash to wash
+    and every day gets a unique weekday+pasaran pair until the cycle closes after 7 x 5 = 35 days.
+    Metaphor: positional encoding. Items = words dropped on consecutive dates; each one's pair
+    (e.g. RABU / WAGE) is its position code.
+    The page uses the calendar's own text places: series + date printed reversed on the black
+    binding strip (where the shop name goes), the title as the centred sponsor header with the
+    highlight printed as a red holiday box ("tanggal merah"), the keterangan list under the grid,
+    the caption written in the ruled CATATAN box at the foot. The blue ballpoint only marks the
+    date (ring) and the active caption word (underline).
+    Pasaran are computed from the real calendar (anchor: 17 Aug 1945 = Jumat Legi); the month
+    comes from D.date when it parses, otherwise October 2026. Fully deterministic.
+  */
+  :root { --paper: #F3EEE1; --ink: #1C1C1C; --red: #C2352B; --redk: #A3291F; --blue: #2A4C9B; --khaki: #B9AE96; --soft: #4F4A40; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #B9AE96; }
+  body { position: relative; color: var(--ink); font-family: "Source Serif 4", Georgia, serif; }
+
+  #wall, #under, #over { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  #sheet { position: absolute; left: 56px; top: 284px; width: 878px; height: 1376px; background: var(--paper);
+           box-shadow: 0 2px 0 rgba(0,0,0,0.06), 10px 22px 34px rgba(60,48,30,0.30), 2px 6px 10px rgba(60,48,30,0.20); }
+
+  /* printed reversed on the black binding strip, where real calendars carry the shop name */
+  .kick { position: absolute; left: 96px; width: 798px; top: 298px; height: 30px; display: flex; justify-content: space-between; align-items: center; gap: 24px;
+          font: 700 28px/1 "Sofia Sans Condensed", sans-serif; letter-spacing: 0.16em; text-transform: uppercase; color: #F3EEE1; white-space: nowrap; }
+  .kick .dt { letter-spacing: 0.06em; font-weight: 600; text-transform: none; color: #E4DCCB; }
+
+  /* sponsor header: centred, between printed double rules; hl = red holiday box */
+  .title { position: absolute; left: 90px; width: 810px; top: 378px; text-align: center; font-family: "Sofia Sans Extra Condensed", sans-serif; font-weight: 800;
+           text-transform: uppercase; line-height: 0.94; letter-spacing: 0.006em; color: var(--ink); text-wrap: balance; }
+  .title.has-hl { line-height: 1.04; }
+  .title .hl { display: inline-block; background: var(--red); color: var(--paper); line-height: 0.8; padding: 0.075em 0.13em 0.015em; white-space: nowrap; }
+
+  .mn { position: absolute; font: 800 56px/1 "Sofia Sans Extra Condensed", sans-serif; letter-spacing: 0.03em; text-transform: uppercase; color: var(--red); white-space: nowrap; }
+  .mn b { color: var(--ink); font-weight: 800; }
+  .lg { position: absolute; font: italic 500 30px/1.1 "Source Serif 4", serif; color: var(--soft); white-space: nowrap; }
+  .lg em { font-style: italic; font-weight: 700; color: var(--redk); }
+
+  .dh { position: absolute; text-align: center; font: 700 30px/1 "Sofia Sans Condensed", sans-serif; letter-spacing: 0.02em; text-transform: uppercase; color: var(--ink); }
+  .dh.sun { color: var(--red); }
+  .cell { position: absolute; }
+  .cell .n { position: absolute; left: 10px; font-family: "Sofia Sans Extra Condensed", sans-serif; font-weight: 700; line-height: 1; color: var(--ink); }
+  .cell.sun .n { color: var(--red); }
+  .cell.mark.sun .n { color: var(--redk); }
+  .cell .p { position: absolute; left: 10px; font: italic 500 30px/1 "Source Serif 4", serif; color: var(--soft); white-space: nowrap; }
+  .cell.mark .p { color: var(--redk); font-weight: 700; }
+  /* printed text keeps a thin paper halo so the pencil path reads as passing behind it */
+  .cell .n, .cell .p { text-shadow: 0 0 2px #F3EEE1, 0 0 3px #F3EEE1, 0 0 1px #F3EEE1; }
+  .cell.mark .n, .cell.mark .p { text-shadow: 0 0 2px #EACDC0, 0 0 3px #EACDC0, 0 0 1px #EACDC0; }
+  .cell .tag { position: absolute; right: 6px; width: 40px; height: 40px; border-radius: 50%; background: var(--blue); color: var(--paper);
+               font: 800 30px/40px "Sofia Sans Condensed", sans-serif; text-align: center; }
+  .hop { position: absolute; font: 800 30px/1 "Sofia Sans Condensed", sans-serif; letter-spacing: 0.01em; color: var(--redk); white-space: nowrap;
+          text-shadow: 0 0 2px #EACDC0, 0 0 3px #EACDC0; }
+
+  .notes { position: absolute; left: 90px; width: 810px; }
+  .row { position: relative; display: flex; align-items: center; padding: 2px 0; border-bottom: 2px solid rgba(28,28,28,0.16); }
+  .row .tg { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 50%; background: var(--blue); color: var(--paper);
+             font: 800 30px/40px "Sofia Sans Condensed", sans-serif; text-align: center; margin-right: 14px; }
+  .row .dn { flex: 0 0 auto; width: 60px; font: 800 50px/1 "Sofia Sans Extra Condensed", sans-serif; color: var(--ink); }
+  .row .dn.sun { color: var(--red); }
+  .row .pr { flex: 0 0 auto; width: 118px; display: flex; flex-direction: column; font: 700 30px/0.9 "Sofia Sans Condensed", sans-serif;
+             letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink); }
+  .row .pr i { font-style: normal; color: var(--redk); }
+  .row .lb { flex: 1 1 auto; min-width: 0; font: 600 40px/1.1 "Source Serif 4", serif; color: var(--ink); padding: 0 18px 0 6px; white-space: nowrap;
+             overflow-wrap: anywhere; hyphens: auto; }
+  .row .vl { flex: 0 0 auto; font: 800 46px/1 "Sofia Sans Extra Condensed", sans-serif; letter-spacing: 0.01em; color: var(--ink); white-space: nowrap; }
+
+  /* ruled CATATAN box at the foot of the page; the caption is written on its lines */
+  .note { position: absolute; left: 106px; width: 778px; font-family: "Source Serif 4", serif; font-weight: 500; color: var(--soft); }
+  .note .cl { font: 800 30px/1 "Sofia Sans Condensed", sans-serif; letter-spacing: 0.1em; color: var(--ink); margin-right: 14px; }
+  .note .bp { display: inline-block; width: 0; height: 0; vertical-align: baseline; }
+  #cap .w { white-space: nowrap; }
+  #cap .w.on { color: var(--blue); font-weight: 700; }
+
+  .src { position: absolute; left: 90px; width: 810px; top: 1592px; text-align: center; font: 500 26px/1 "Sofia Sans Condensed", sans-serif; letter-spacing: 0.03em;
+         color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+</style>
+</head>
+<body>
+<svg id="wall" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+<div id="sheet" data-layout-allow-overlap></div>
+<svg id="under" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+<div class="kick"><span id="kick"></span><span class="dt" id="date"></span></div>
+<div class="title" id="title"></div>
+<span class="mn" id="mname"></span>
+<span class="lg" id="legend"></span>
+<div id="grid"></div>
+<div id="hops"></div>
+<div class="notes" id="notes"></div>
+<div class="note" id="note"><span class="bp" id="bp"></span><span class="cl">CATATAN:</span><span id="cap" data-slot="caption"></span></div>
+<div class="src" id="src"></div>
+<svg id="over" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series_id: "how-ai-works", series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const FONTS = ['800 100px "Sofia Sans Extra Condensed"', '700 60px "Sofia Sans Extra Condensed"', '700 30px "Sofia Sans Condensed"',
+    '800 30px "Sofia Sans Condensed"', '600 28px "Sofia Sans Condensed"', '500 26px "Sofia Sans Condensed"', '600 40px "Source Serif 4"', '500 44px "Source Serif 4"',
+    '700 44px "Source Serif 4"', 'italic 500 30px "Source Serif 4"', 'italic 700 30px "Source Serif 4"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+  const INK = "#1C1C1C", RED = "#C2352B", BLUE = "#2A4C9B", KHAKI = "#B9AE96";
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+
+  // ---- calendar maths (real Gregorian + pasaran) ----
+  const MONTHS = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+  const DAYS = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+  const PAS = ["Legi", "Pahing", "Pon", "Wage", "Kliwon"];
+  const jdn = (y, m, d) => { const a = Math.floor((14 - m) / 12), Y = y + 4800 - a, M = m + 12 * a - 3;
+    return d + Math.floor((153 * M + 2) / 5) + 365 * Y + Math.floor(Y / 4) - Math.floor(Y / 100) + Math.floor(Y / 400) - 32045; };
+  const REF = jdn(1945, 8, 17);                    // Jumat Legi
+  const dow = (y, m, d) => (jdn(y, m, d) + 1) % 7; // 0 = Minggu
+  const pas = (y, m, d) => (((jdn(y, m, d) - REF) % 5) + 5) % 5;
+
+  // Month + "today" from D.date ("per 14 Okt 2026", "Jun 2025", "2026-10-14"), else 14 Oct 2026.
+  let Y = 2026, M = 10, today = 14;
+  const ds = String(D.date || "");
+  const iso = ds.match(/(\d{4})-(\d{2})-(\d{2})/);
+  const idm = ds.match(/(?:(\d{1,2})\s+)?(jan|feb|mar|apr|mei|may|jun|jul|agu|agt|ags|aug|sep|okt|oct|nov|des|dec)[a-z]*\.?\s+(\d{4})/i);
+  if (iso && +iso[2] >= 1 && +iso[2] <= 12) { Y = +iso[1]; M = +iso[2]; today = +iso[3]; }
+  else if (idm) {
+    const map = { jan: 1, feb: 2, mar: 3, apr: 4, mei: 5, may: 5, jun: 6, jul: 7, agu: 8, agt: 8, ags: 8, aug: 8, sep: 9, okt: 10, oct: 10, nov: 11, des: 12, dec: 12 };
+    Y = +idm[3]; M = map[idm[2].toLowerCase()]; today = idm[1] ? +idm[1] : 1;
+  }
+  const dim = [31, (Y % 4 === 0 && Y % 100 !== 0) || Y % 400 === 0 ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][M - 1];
+  today = Math.max(1, Math.min(today, dim));
+  const start = Math.max(1, Math.min(today, dim - Math.max(n, 1) + 1)); // all items stay inside the month
+  const first = dow(Y, M, 1);
+  const rows = Math.ceil((first + dim) / 7);
+  const trailing = rows * 7 - (first + dim);
+  const focusPas = pas(Y, M, start);
+  // where the month name and the 7 x 5 legend are printed: empty leading / trailing cells, or a header row
+  const blocks = first >= 3 && trailing >= 3 ? { mn: "lead", lg: "trail" } : first >= 3 ? { mn: "lead", lg: "lead" }
+               : trailing >= 3 ? { mn: "trail", lg: "trail" } : null;
+
+  // ---- static text ----
+  const epNo = String(D.ep || "").trim();
+  $("kick").textContent = D.series ? (D.series + (epNo ? " · " + epNo : "")) : (D.kicker || "");
+  $("date").textContent = D.date || "";
+  $("src").textContent = D.source ? "Sumber: " + D.source : "";
+  const t = D.title || "", hl = D.hl || "";
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl" id="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  if (at >= 0) titleEl.classList.add("has-hl");
+  const LHT = at >= 0 ? 1.04 : 0.94;
+  const mnEl = $("mname"), lgEl = $("legend");
+  mnEl.innerHTML = esc(MONTHS[M - 1]) + " <b>" + Y + "</b>";
+  lgEl.innerHTML = "7 hari × 5 pasaran = <em>35</em>";
+
+  // ---- caption words + active word (D.hl if it is in the caption, else the first word) ----
+  const noteEl = $("note"), capEl = $("cap");
+  const words = String(D.caption || D.sub || "").trim().split(/\s+/).filter(Boolean);
+  const norm = s => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+  let onA = 0, onB = 0;
+  if (hl) {
+    const hw = hl.split(/\s+/).map(norm).filter(Boolean);
+    for (let i = 0; hw.length && i + hw.length <= words.length; i++) {
+      if (hw.every((w, k) => norm(words[i + k]) === w)) { onA = i; onB = i + hw.length - 1; break; }
+    }
+  }
+  const capHtml = (a, b) => (a > 0 ? "… " : "") + words.slice(a, b).map((w, j) => {
+    const i = a + j;
+    return '<span class="w' + (i >= onA && i <= onB ? " on" : "") + '">' + esc(w) + "</span>";
+  }).join(" ") + (b < words.length ? " …" : "");
+  let LH = 58;
+  function setCaption(fsMax, maxLines) {
+    const fits = () => noteEl.offsetHeight <= LH * maxLines + 2;
+    for (let fs = fsMax; fs >= 40; fs--) {
+      LH = Math.round(fs * 1.32);
+      Object.assign(noteEl.style, { fontSize: fs + "px", lineHeight: LH + "px" });
+      capEl.innerHTML = capHtml(0, words.length);
+      if (fits()) return;
+    }
+    // too long even at 40 px: show the karaoke window that holds the active word
+    let a = Math.max(0, onA - 2), b = a + 1;
+    while (b < words.length) { capEl.innerHTML = capHtml(a, b + 1); if (!fits()) break; b++; }
+    capEl.innerHTML = capHtml(a, b);
+  }
+
+  // ---- notes (keterangan): one row per item, holiday-list style; the pair is stacked like a cell ----
+  const notes = $("notes");
+  function setNotes(rowMin) {
+    notes.innerHTML = items.map((it, i) => {
+      const d = start + i, w = dow(Y, M, d), p = pas(Y, M, d);
+      return '<div class="row" style="min-height:' + rowMin + 'px">' +
+        '<span class="tg">' + (i + 1) + "</span>" +
+        '<span class="dn' + (w === 0 ? " sun" : "") + '">' + d + "</span>" +
+        '<span class="pr"><b>' + esc(DAYS[w]) + "</b><i>" + esc(PAS[p]) + "</i></span>" +
+        '<span class="lb" lang="id"><span class="lt">' + esc(it.label) + "</span></span>" +
+        '<span class="vl">' + esc(it.value) + "</span></div>";
+    }).join("");
+    // long labels step 40 -> 30 px, then wrap anywhere; the 18 px right padding stays a hard gap before the value
+    notes.querySelectorAll(".lb").forEach(lb => {
+      const lt = lb.firstChild, avail = () => lb.clientWidth - 6 - 18;
+      let fs = 40;
+      while (lt.offsetWidth > avail() && fs > 30) { fs -= 2; lb.style.fontSize = fs + "px"; }
+      if (lt.offsetWidth > avail()) { lb.style.whiteSpace = "normal"; lb.style.lineHeight = "1.06"; }
+    });
+  }
+
+  // ---- layout solver: keep calendar rows >= RHMIN by compacting the other blocks step by step ----
+  const TT = 378, BOXB = D.source ? 1578 : 1606;
+  const RHMIN = rows >= 6 ? 84 : 88, RHMAX = 118;
+  const MODES = [
+    { titleMax: 216, tMin: 72, rowMin: 62, gapN: 20, gapG: 24, cap: 44, capLines: 2 },
+    { titleMax: 216, tMin: 72, rowMin: 58, gapN: 16, gapG: 20, cap: 44, capLines: 2 },
+    { titleMax: 190, tMin: 72, rowMin: 56, gapN: 12, gapG: 16, cap: 42, capLines: 2 },
+    { titleMax: 150, tMin: 62, rowMin: 56, gapN: 10, gapG: 14, cap: 40, capLines: 2 },
+    { titleMax: 150, tMin: 62, rowMin: 56, gapN: 10, gapG: 14, cap: 40, capLines: 1 },
+  ];
+  let L;
+  for (const m of MODES) {
+    for (let fs = 112; fs >= m.tMin; fs -= 2) {
+      titleEl.style.fontSize = fs + "px";
+      const lines = Math.round(titleEl.offsetHeight / (fs * LHT));
+      const hlW = $("hl") ? $("hl").offsetWidth : 0;
+      if (titleEl.offsetHeight <= m.titleMax && lines <= 3 && hlW <= 810) break;
+    }
+    const titleBottom = TT + titleEl.offsetHeight;
+    const headEnd = titleBottom + 26;                          // thin + thick printed rules under the header
+    const monthTop = blocks ? 0 : headEnd + 18;
+    const dayTop = blocks ? headEnd + 18 : monthTop + 56 + 14;
+    const gridTop = dayTop + 30 + 14;
+    setCaption(m.cap, m.capLines);
+    const boxTop = BOXB - (LH * m.capLines + 22);
+    let rowMin = m.rowMin;
+    setNotes(rowMin);
+    let notesTop = boxTop - m.gapN - notes.offsetHeight;
+    let RH = (notesTop - m.gapG - gridTop) / rows;
+    if (RH > RHMAX) { // short month / few items: give the keterangan rows some air before stretching the grid further
+      rowMin = Math.min(84, m.rowMin + ((RH - RHMAX) * rows) / Math.max(1, n));
+      setNotes(Math.round(rowMin));
+      notesTop = boxTop - m.gapN - notes.offsetHeight;
+      RH = Math.min(RHMAX + 6, (notesTop - m.gapG - gridTop) / rows);
+    }
+    L = { m, titleBottom, headEnd, monthTop, dayTop, gridTop, boxTop, notesTop, RH };
+    if (RH >= RHMIN) break;
+  }
+  const { m: MODE, titleBottom, headEnd, monthTop, dayTop, gridTop, boxTop, notesTop, RH } = L;
+  noteEl.style.top = (boxTop + 12) + "px";
+  notes.style.top = notesTop + "px";
+  const gridBottom = gridTop + rows * RH;
+
+  // ---- grid ----
+  const GX = 90, GW = 810, CW = GW / 7;
+  const numFs = Math.max(40, Math.min(64, Math.round(RH - 40)));
+  const numTop = Math.max(3, Math.round((RH - numFs - 32) / 2) - 1);
+  const pTop = numTop + numFs + 2;
+  let gh = "";
+  DAYS.forEach((dn, c) => {
+    gh += '<div class="dh' + (c === 0 ? " sun" : "") + '" style="left:' + (GX + c * CW) + "px;top:" + dayTop + "px;width:" + CW + 'px">' + esc(dn) + "</div>";
+  });
+  const cells = [];
+  for (let d = 1; d <= dim; d++) {
+    const idx = first + d - 1, r = Math.floor(idx / 7), c = idx % 7, p = pas(Y, M, d);
+    const x = GX + c * CW, y = gridTop + r * RH;
+    const item = d >= start && d < start + n ? d - start : -1;
+    cells.push({ d, r, c, p, x, y, item });
+    const cls = "cell" + (c === 0 ? " sun" : "") + (p === focusPas ? " mark" : "");
+    gh += '<div class="' + cls + '" style="left:' + x + "px;top:" + y + "px;width:" + CW + "px;height:" + RH + 'px">' +
+      '<span class="n" style="top:' + numTop + "px;font-size:" + numFs + 'px">' + d + "</span>" +
+      '<span class="p" style="top:' + pTop + 'px">' + esc(PAS[p]) + "</span>" +
+      (item >= 0 ? '<span class="tag" style="top:' + (numTop + 3) + 'px">' + (item + 1) + "</span>" : "") +
+      "</div>";
+  }
+  $("grid").innerHTML = gh;
+
+  // ---- month name + legend: printed in empty cells (real calendars do this), else as a header row ----
+  function fitMn(maxW, maxFs) {
+    for (let fs = Math.min(60, maxFs); fs >= 34; fs -= 2) { mnEl.style.fontSize = fs + "px"; if (mnEl.offsetWidth <= maxW) return fs; }
+    return 34;
+  }
+  if (blocks) {
+    const box = side => {
+      const span = side === "lead" ? first : trailing;
+      const left = side === "lead" ? GX : GX + (7 - trailing) * CW;
+      const top = side === "lead" ? gridTop : gridTop + (rows - 1) * RH;
+      return { x: left + 12, y: top, w: span * CW - 24, h: RH };
+    };
+    const bm = box(blocks.mn);
+    if (blocks.mn !== blocks.lg) {
+      const fs = fitMn(bm.w, RH - 22);
+      Object.assign(mnEl.style, { left: bm.x + "px", top: (bm.y + (RH - fs) / 2) + "px" });
+      const bl = box(blocks.lg);
+      if (lgEl.offsetWidth > bl.w) Object.assign(lgEl.style, { whiteSpace: "normal", width: bl.w + "px" });
+      Object.assign(lgEl.style, { left: bl.x + "px", top: (bl.y + (RH - lgEl.offsetHeight) / 2) + "px" });
+    } else {
+      const lgW = lgEl.offsetWidth;
+      let fs = fitMn(bm.w - lgW - 22, RH - 22);
+      if (mnEl.offsetWidth + 22 + lgW <= bm.w) { // one line: month left, legend right
+        Object.assign(mnEl.style, { left: bm.x + "px", top: (bm.y + (RH - fs) / 2) + "px" });
+        Object.assign(lgEl.style, { left: (bm.x + bm.w - lgW) + "px", top: (bm.y + (RH - fs) / 2 + fs - 30) + "px" });
+      } else {             // stacked: month over legend
+        fs = fitMn(bm.w, RH - 48);
+        const top = bm.y + (RH - (fs + 8 + 33)) / 2;
+        Object.assign(mnEl.style, { left: bm.x + "px", top: top + "px" });
+        Object.assign(lgEl.style, { left: bm.x + "px", top: (top + fs + 6) + "px" });
+      }
+    }
+  } else {
+    const fs = fitMn(810 - lgEl.offsetWidth - 24, 56);
+    Object.assign(mnEl.style, { left: GX + "px", top: monthTop + "px" });
+    Object.assign(lgEl.style, { left: (GX + GW - lgEl.offsetWidth) + "px", top: (monthTop + fs - 30) + "px" });
+  }
+
+  // ---- under layer: binding strip, header rules, focus-pasaran wash, rules, +5 path, notes + CATATAN box ----
+  let u = "";
+  u += '<rect x="56" y="284" width="878" height="58" fill="' + INK + '"/><rect x="56" y="288" width="878" height="3" fill="#4A4540"/>';
+  [74, 916].forEach(x => { u += '<circle cx="' + x + '" cy="314" r="6" fill="#8C8478"/><circle cx="' + (x - 1.5) + '" cy="312.5" r="2" fill="#B5AD9F"/>'; });
+  // sponsor header rules (thick over thin above, thin over thick below)
+  u += '<rect x="90" y="354" width="810" height="6" fill="' + INK + '"/><rect x="90" y="364" width="810" height="2" fill="' + INK + '"/>';
+  u += '<rect x="90" y="' + (titleBottom + 12) + '" width="810" height="2" fill="' + INK + '"/><rect x="90" y="' + (titleBottom + 18) + '" width="810" height="6" fill="' + INK + '"/>';
+  // the focus pasaran (pasaran of date #1) washed red in every cell
+  const marks = cells.filter(c => c.p === focusPas);
+  marks.forEach(c => { u += '<rect x="' + (c.x + 2) + '" y="' + (c.y + 2) + '" width="' + (CW - 4) + '" height="' + (RH - 4) + '" fill="' + RED + '" fill-opacity="0.18"/>'; });
+  u += '<line x1="' + GX + '" y1="' + (gridTop - 5) + '" x2="' + (GX + GW) + '" y2="' + (gridTop - 5) + '" stroke="' + INK + '" stroke-width="3"/>';
+  const real = (r, c) => cells.some(q => q.r === r && q.c === c);
+  for (let r = 1; r <= rows; r++) u += '<line x1="' + GX + '" y1="' + (gridTop + r * RH) + '" x2="' + (GX + GW) + '" y2="' + (gridTop + r * RH) + '" stroke="' + KHAKI + '" stroke-width="2"/>';
+  for (let r = 0; r < rows; r++) for (let c = 1; c < 7; c++) {
+    if (!real(r, c - 1) && !real(r, c)) continue; // no rules through the month-name cells
+    u += '<line x1="' + (GX + c * CW) + '" y1="' + (gridTop + r * RH) + '" x2="' + (GX + c * CW) + '" y2="' + (gridTop + (r + 1) * RH) + '" stroke="' + KHAKI + '" stroke-width="2"/>';
+  }
+  // red dashed pencil path: wash to wash in date order, each hop = +5 days (it runs in the gap between numeral and pasaran)
+  const anchor = c => [c.x + CW - 22, c.y + pTop - 3];  // right of the cell, in the numeral/pasaran gap, under the +5 tick
+  let path = "";
+  marks.forEach((c, i) => { const [ax, ay] = anchor(c); path += (i ? " L" : "M") + ax.toFixed(1) + "," + ay.toFixed(1); });
+  if (marks.length > 1) u += '<path d="' + path + '" fill="none" stroke="' + RED + '" stroke-width="3.5" stroke-dasharray="11 8" stroke-linecap="round" stroke-linejoin="round"/>';
+  marks.forEach((c, i) => {
+    const [ax, ay] = anchor(c);
+    u += '<circle cx="' + ax.toFixed(1) + '" cy="' + ay.toFixed(1) + '" r="5.5" fill="' + RED + '"/>';
+    if (i) { // small arrowhead arriving at each node
+      const [px, py] = anchor(marks[i - 1]), a = Math.atan2(ay - py, ax - px), tx = ax - 9 * Math.cos(a), ty = ay - 9 * Math.sin(a);
+      const w1 = a + 2.6, w2 = a - 2.6;
+      u += '<path d="M' + (tx + 13 * Math.cos(w1)).toFixed(1) + "," + (ty + 13 * Math.sin(w1)).toFixed(1) + " L" + tx.toFixed(1) + "," + ty.toFixed(1) +
+           " L" + (tx + 13 * Math.cos(w2)).toFixed(1) + "," + (ty + 13 * Math.sin(w2)).toFixed(1) + '" fill="none" stroke="' + RED + '" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>';
+    }
+  });
+  u += '<line x1="' + GX + '" y1="' + (notesTop - 8) + '" x2="' + (GX + GW) + '" y2="' + (notesTop - 8) + '" stroke="' + INK + '" stroke-width="3"/>';
+  // CATATAN box: printed frame + ruled lines under each text line (from the baseline probe)
+  const bpY = $("bp").getBoundingClientRect().top;
+  const boxBottom = boxTop + LH * MODE.capLines + 22;
+  u += '<rect x="91" y="' + boxTop + '" width="808" height="' + (boxBottom - boxTop) + '" fill="none" stroke="' + INK + '" stroke-width="2"/>';
+  for (let k = 0; k < MODE.capLines; k++) {
+    const ry = Math.min(boxBottom - 7, bpY + k * LH + 14);
+    u += '<line x1="104" y1="' + ry.toFixed(1) + '" x2="886" y2="' + ry.toFixed(1) + '" stroke="' + KHAKI + '" stroke-width="2"/>';
+  }
+  // curled corner of the top sheet (the page about to flip forward)
+  u += '<path d="M934,1590 L934,1660 L864,1660 Q900,1638 934,1590 Z" fill="#DCD3BE"/>';
+  $("under").innerHTML = u;
+
+  // ---- "+5" ticks: printed next to the numeral of every wash the path leaves from ("4 +5" -> 9 -> "9 +5" -> 14 ...) ----
+  const c0 = cells.find(c => c.item === 0);
+  const hopsEl = $("hops");
+  hopsEl.innerHTML = '<span class="hop" id="hopProbe">+5</span>';
+  const HW = $("hopProbe").offsetWidth;
+  const cellEls = $("grid").querySelectorAll(".cell");
+  let hh = "";
+  marks.slice(0, -1).forEach(c => {
+    if (c.item >= 0) return;                                     // the ringed cell carries the pen ring + tag instead
+    const nW = cellEls[c.d - 1].querySelector(".n").offsetWidth;
+    if (10 + nW + 8 + HW > CW - 6) return;
+    hh += '<span class="hop" style="left:' + (c.x + CW - 8 - HW).toFixed(1) + "px;top:" + (c.y + Math.max(4, numTop + 2)) + 'px">+5</span>';
+  });
+  hopsEl.innerHTML = hh;
+
+  // ---- over layer: blue ballpoint marks (hard-coded wobble sets, no randomness) ----
+  function ring(cx, cy, rx, ry, k, e) {
+    const se = v => Math.sign(v) * Math.pow(Math.abs(v), 2 / e);
+    const W = [[0.045, 1.1, 0.025, 2.3, -0.10, -2.2], [0.035, 0.4, 0.03, 1.2, 0.06, -2.5]][k % 2];
+    const pts = [], N = 72, turns = 1.14;
+    for (let i = 0; i <= N; i++) {
+      const s = i / N, th = W[5] + s * turns * Math.PI * 2;
+      const r = 1 + W[0] * Math.sin(2 * th + W[1]) + W[2] * Math.sin(3 * th + W[3]) - 0.03 * s;
+      const x = rx * r * se(Math.cos(th)), y = ry * r * se(Math.sin(th));
+      const ca = Math.cos(W[4] * 0.3), sa = Math.sin(W[4] * 0.3);
+      pts.push([cx + x * ca - y * sa, cy + x * sa + y * ca]);
+    }
+    let d = "M" + pts[0][0].toFixed(1) + "," + pts[0][1].toFixed(1);
+    for (let i = 1; i < pts.length - 1; i++) {
+      const mx = (pts[i][0] + pts[i + 1][0]) / 2, my = (pts[i][1] + pts[i + 1][1]) / 2;
+      d += "Q" + pts[i][0].toFixed(1) + "," + pts[i][1].toFixed(1) + " " + mx.toFixed(1) + "," + my.toFixed(1);
+    }
+    return d;
+  }
+  const pen = (d, w) => '<path d="' + d + '" fill="none" stroke="' + BLUE + '" stroke-width="' + w + '" stroke-linecap="round" stroke-linejoin="round"/>';
+  let o = "";
+  // ring the first item cell (the "today" mark around numeral + pasaran), clamped to its own cell
+  if (c0) o += pen(ring(c0.x + CW / 2, c0.y + RH / 2, CW / 2 + 1, RH / 2 - 3, 0, 2.8), 5);
+  // pen double underline under the active caption word (sits between the text and the printed rule)
+  const on = capEl.querySelectorAll(".w.on");
+  if (on.length) {
+    const a = on[0].getBoundingClientRect(), b = on[on.length - 1].getBoundingClientRect();
+    const line = Math.round((a.top - noteEl.getBoundingClientRect().top) / LH);
+    const y0 = bpY + line * LH + 5, x0 = a.left - 4, x1 = (Math.abs(b.top - a.top) < 4 ? b.right : a.right) + 6, w = x1 - x0;
+    o += pen("M" + x0 + "," + (y0 + 2) + " C" + (x0 + w * 0.3) + "," + (y0 - 2) + " " + (x0 + w * 0.65) + "," + (y0 + 4) + " " + x1 + "," + y0, 5);
+    o += pen("M" + (x0 + 10) + "," + (y0 + 9) + " C" + (x0 + w * 0.4) + "," + (y0 + 6) + " " + (x0 + w * 0.7) + "," + (y0 + 11) + " " + (x1 - 6) + "," + (y0 + 8), 3);
+  }
+  $("over").innerHTML = o;
+
+  // ---- wall: nail, hanger, pages behind, ballpoint on a string ----
+  let w = "";
+  w += '<defs><linearGradient id="wl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C6BCA6"/><stop offset="0.55" stop-color="#B9AE96"/><stop offset="1" stop-color="#ACA088"/></linearGradient>' +
+       '<linearGradient id="barrel" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#E9E3D2"/><stop offset="0.45" stop-color="#FBF8F0"/><stop offset="1" stop-color="#D8D0BC"/></linearGradient></defs>';
+  w += '<rect width="1080" height="1920" fill="url(#wl)"/>';
+  w += '<rect x="62" y="296" width="878" height="1376" fill="#E7E0CE" transform="rotate(0.35 500 950)"/>';
+  w += '<rect x="58" y="292" width="878" height="1374" fill="#EDE7D7" transform="rotate(-0.25 500 950)"/>';
+  w += '<path d="M372,288 L495,196 L618,288" fill="none" stroke="#3A3530" stroke-width="4" stroke-linejoin="round"/>';
+  w += '<ellipse cx="503" cy="204" rx="16" ry="6" fill="rgba(60,48,30,0.25)"/>';
+  w += '<circle cx="495" cy="196" r="12" fill="#5B544B"/><circle cx="492" cy="193" r="5" fill="#8C8478"/>';
+  w += '<path d="M922,312 C962,370 1002,440 1004,560" fill="none" stroke="' + RED + '" stroke-width="3"/>';
+  w += '<rect x="1004" y="572" width="34" height="470" rx="14" fill="rgba(60,48,30,0.22)"/>';
+  const px = 987;
+  w += '<rect x="' + px + '" y="560" width="34" height="96" rx="12" fill="' + BLUE + '" stroke="' + INK + '" stroke-width="3"/>';
+  w += '<rect x="' + (px + 22) + '" y="568" width="8" height="112" rx="4" fill="' + BLUE + '" stroke="' + INK + '" stroke-width="2.5"/>';
+  w += '<rect x="' + px + '" y="652" width="34" height="330" rx="6" fill="url(#barrel)" stroke="' + INK + '" stroke-width="3"/>';
+  w += '<rect x="' + (px + 13) + '" y="664" width="8" height="300" rx="4" fill="' + BLUE + '" fill-opacity="0.85"/>';
+  w += '<path d="M' + px + ',980 L' + (px + 34) + ',980 L' + (px + 23) + ',1034 L' + (px + 11) + ',1034 Z" fill="url(#barrel)" stroke="' + INK + '" stroke-width="3" stroke-linejoin="round"/>';
+  w += '<path d="M' + (px + 12) + ',1034 L' + (px + 22) + ',1034 L' + (px + 17) + ',1048 Z" fill="#7C766C" stroke="' + INK + '" stroke-width="2"/>';
+  $("wall").innerHTML = w;
+  }
+</script>
+</body>
+</html>

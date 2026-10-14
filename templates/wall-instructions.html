@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Wall Instructions</title>
+<link href="https://fonts.googleapis.com/css2?family=Sometype+Mono:wght@500;600;700&family=Inter+Tight:wght@500;600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Wall Instructions (wall-instructions): a white gallery wall in the manner of
+    Sol LeWitt. The exhibition title is vinyl lettering on the wall (D.title).
+    Under it, the wall text gives the work's instruction - the rule every panel
+    is judged against: "Garis lurus dari titik tengah ke setiap tepi."
+    Each item is one execution of that instruction by a different drafter: a
+    graphite panel ruled straight onto the wall with a museum label (tombstone)
+    hanging under it (letter, label, value). Only one panel reads the instruction
+    exactly (radial); the others each break one word of it (rings = not straight,
+    fans = not from the centre, wobble = not straight, quarters = not from the point).
+    Line density follows each item's value rank, so the wall is also the data.
+    A red "SESUAI INSTRUKSI" rubber stamp appears ONLY when the data names the
+    winner (D.pick, or D.hl matching an item label). Otherwise the wall is a
+    puzzle: the viewer judges the panels against the instruction.
+    Palette: gallery white, ink, graphite, one stamp red. Fixed geometry, no randomness.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #ECECE8; }
+  body { position: relative; color: #1A1A1A; font-family: "Inter Tight", sans-serif; }
+
+  #room, #wall { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* exhibition title: vinyl lettering straight on the wall */
+  .title { position: absolute; left: 90px; top: 304px; width: 810px; font-family: "Sometype Mono", monospace; font-weight: 600;
+           letter-spacing: -0.035em; color: #1A1A1A; overflow-wrap: break-word; }
+  .title .hl { color: #B8331F; white-space: nowrap; }
+
+  /* wall text: the instruction every drafter received */
+  .wt { position: absolute; left: 90px; width: 810px; border-top: 2px solid #1A1A1A; padding-top: 14px; }
+  .wt-k { font: 700 26px/1.25 "Sometype Mono", monospace; letter-spacing: .07em; text-transform: uppercase; color: #4A4A46; }
+  .wt-k .r { color: #B8331F; }
+  .wt-i { margin-top: 6px; font: 500 34px/1.24 "Sometype Mono", monospace; letter-spacing: -0.02em; color: #1A1A1A; }
+
+  /* museum labels (tombstones) under each panel */
+  .plate { position: absolute; width: max-content; background: #FBFBF9; padding: 9px 16px 9px 12px;
+           box-shadow: 0 1px 0 rgba(26,26,26,.06), 0 10px 16px -12px rgba(40,40,36,.55), 0 2px 4px -2px rgba(40,40,36,.18); }
+  .pl-h { display: flex; align-items: flex-start; gap: 12px; }
+  .pl-h .k { flex: none; width: 42px; height: 42px; border: 2px solid #1A1A1A; font: 700 30px/38px "Sometype Mono", monospace;
+             text-align: center; color: #1A1A1A; }
+  .plate.ok .k { background: #B8331F; border-color: #B8331F; color: #FFFFFF; }
+  .pl-h .lb { font: 500 30px/1.22 "Sometype Mono", monospace; color: #34342F; letter-spacing: -0.01em; overflow-wrap: anywhere; padding-top: 2px; }
+  .plate .vl { margin-top: 4px; font: 700 42px/1.08 "Inter Tight", sans-serif; color: #1A1A1A; letter-spacing: -0.01em; white-space: nowrap; }
+  .plate.one { display: flex; align-items: baseline; gap: 20px; padding: 8px 18px 8px 12px; }
+  .plate.one .pl-h { align-items: baseline; }
+  .plate.one .lb { white-space: nowrap; }
+  .plate.one .vl { margin-top: 0; }
+
+  /* certificate-style rubber stamp on the execution that followed the instruction */
+  .stamp { position: absolute; font: 700 30px/1.04 "Sometype Mono", monospace; letter-spacing: .03em; color: #B8331F; text-align: center;
+           padding: 8px 14px 7px; border: 3.5px solid #B8331F; outline: 1.5px solid #B8331F; outline-offset: 3px;
+           background: rgba(251,251,249,.96); transform: rotate(-8deg); transform-origin: 100% 100%; filter: url(#inkpad); }
+
+  /* karaoke caption: the voice-over line, active word framed by a red ruled box */
+  .cap { position: absolute; left: 90px; width: 810px; font: 600 44px/1.3 "Inter Tight", sans-serif; color: #1A1A1A; letter-spacing: -0.005em; }
+  .cap .w { color: #5C5C58; }
+  .cap .w.said { color: #1A1A1A; }
+  .cap .w.on { position: relative; color: #1A1A1A; font-weight: 700; padding: 0 .14em; margin: 0 .08em; white-space: nowrap; }
+  .cap .w.on::before { content: ""; position: absolute; left: -9px; right: -9px; top: 3px; bottom: 1px;
+                       border-top: 3px solid #B8331F; border-bottom: 3px solid #B8331F; }
+  .cap .w.on::after { content: ""; position: absolute; left: 0; right: 0; top: -4px; bottom: -6px;
+                      border-left: 3px solid #B8331F; border-right: 3px solid #B8331F; }
+
+  /* wall-text small print: source + date */
+  .src { position: absolute; left: 90px; width: 810px; font: 500 26px/1.3 "Sometype Mono", monospace; color: #4A4A46; letter-spacing: -0.01em; }
+  .src .dt { color: #1A1A1A; white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg id="room" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" data-layout-allow-overflow></svg>
+<svg id="wall" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" data-layout-allow-overflow></svg>
+<div class="title" id="title"></div>
+<div class="wt" id="wt"><div class="wt-k" id="wtk"></div><div class="wt-i" id="instr"></div></div>
+<div id="plates"></div>
+<div id="stampbox"></div>
+<div class="cap" id="cap" data-slot="caption"></div>
+<div class="src" id="src"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Tools AI", ep: "#07", kicker: "Tools AI · #07",
+    title: "Prompt sama, 3 AI. Siapa benar?", hl: "Siapa benar?",
+    sub: "Instruksinya sama persis. Yang beda cuma cara tiap AI membacanya.",
+    items: [{ label: "Model A", value: "4 dtk" }, { label: "Model B", value: "9 dtk" }, { label: "Model C", value: "6 dtk" }],
+    source: "ilustrasi — uji prompt yang sama", date: "per 14 Okt 2026" };
+
+  const fontsIn = Promise.all(['600 90px "Sometype Mono"', '700 30px "Sometype Mono"', '500 34px "Sometype Mono"', '500 26px "Sometype Mono"',
+    '600 44px "Inter Tight"', '700 42px "Inter Tight"'].map(f => document.fonts.load(f))).then(() => document.fonts.ready).catch(() => {});
+  fontsIn.then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+  const low = s => String(s == null ? "" : s).toLowerCase();
+  const GRAPH = "#55554F", RED = "#B8331F";
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(1, items.length);
+  const LET = "ABCDE";
+
+  // ---- which execution followed the instruction exactly: only when the data says so
+  const hl = D.hl || "";
+  let pick = -1;
+  if (D.pick != null && D.pick !== "") {
+    if (typeof D.pick === "number") pick = D.pick;
+    else { const p = low(D.pick).trim(); pick = /^[a-e]$/.test(p) ? LET.toLowerCase().indexOf(p) : items.findIndex(it => low(it.label) === p); }
+  }
+  if (pick < 0 && hl.trim().length >= 2) pick = items.findIndex(it => low(it.label).includes(low(hl).trim()));
+  if (!(pick >= 0 && pick < n)) pick = -1;
+  // the exact (radial) reading sits on the picked panel; with no pick it hides at B so the viewer has to find it
+  const exact = pick >= 0 ? pick : Math.min(1, n - 1);
+
+  // ---- line density follows each value's rank (more = denser); words like "miliaran" count as numbers
+  const num = v => {
+    const s = String(v == null ? "" : v);
+    const m = s.match(/\d[\d.,]*/);
+    let x = NaN;
+    if (m) { let t = m[0].replace(/[.,]$/, ""); t = /^\d{1,3}(\.\d{3})+(,\d+)?$/.test(t) ? t.replace(/\./g, "").replace(",", ".") : t.replace(",", "."); x = parseFloat(t); }
+    const mul = /triliun|trillion/i.test(s) ? 1e12 : /miliar|billion/i.test(s) ? 1e9 : /juta|million|\bjt\b/i.test(s) ? 1e6 : /ribu|thousand|\brb\b|\d\s*k\b/i.test(s) ? 1e3 : 1;
+    if (isNaN(x) && mul > 1) x = 1;
+    return isNaN(x) ? NaN : x * mul;
+  };
+  const vals = items.map(it => num(it.value));
+  const distinct = [...new Set(vals.filter(v => !isNaN(v)))].sort((a, b) => a - b);
+  const level = vals.map(v => isNaN(v) || distinct.length < 2 ? 0.6 : distinct.indexOf(v) / (distinct.length - 1));
+
+  // ---- title (vinyl lettering), hl in red vinyl
+  const t = D.title || "";
+  const at = hl ? low(t).indexOf(low(hl)) : -1;
+  const titleEl = $("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  const TMAX = n >= 5 ? 222 : n === 4 ? 276 : 330;
+  let fs = 104;
+  for (; fs >= 62; fs -= 2) { titleEl.style.fontSize = fs + "px"; titleEl.style.lineHeight = Math.round(fs * 1.1) + "px";
+    if (titleEl.offsetHeight <= TMAX && titleEl.scrollWidth <= titleEl.clientWidth + 1) break; }
+  const titleBot = 304 + titleEl.offsetHeight;
+
+  // ---- wall text: label line + the instruction
+  const epNo = String(D.ep || "").replace(/^#/, "");
+  const seriesTxt = D.series || (D.kicker && !D.ep ? D.kicker : "") || "";
+  $("wtk").innerHTML = '<span class="r">Instruksi</span>' + esc(" · Gambar dinding" + (epNo ? " #" + epNo : "")) + (seriesTxt ? esc(" · " + seriesTxt) : "");
+  const instr = $("instr");
+  instr.textContent = D.instruction || "Garis lurus dari titik tengah ke tiap tepi.";
+  // one typed line if it fits at 30-34px, else two lines at 34px
+  let ifs = 34;
+  for (; ifs >= 30; ifs--) { instr.style.fontSize = ifs + "px"; if (instr.offsetHeight < ifs * 1.24 * 1.5) break; }
+  if (ifs < 30) instr.style.fontSize = "34px";
+  const wt = $("wt");
+  const wtTop = titleBot + 26;
+  wt.style.top = wtTop + "px";
+  const wtBot = wtTop + wt.offsetHeight;
+
+  // ---- small print (source + date), anchored to the bottom of the safe zone
+  const src = $("src");
+  src.innerHTML = (D.source ? '<span id="srcx">' + esc("Sumber: " + D.source) + "</span>" : "") +
+    (D.source && D.date ? '<span id="sep"> · </span>' : "") + (D.date ? '<span class="dt" id="dtx">' + esc(D.date) + "</span>" : "");
+  const sep = $("sep"), dtx = $("dtx");
+  if (sep && dtx && Math.abs(sep.getBoundingClientRect().bottom - dtx.getBoundingClientRect().bottom) > 8) sep.textContent = " ";
+  const srcTop = 1614 - src.offsetHeight;
+  src.style.top = srcTop + "px";
+
+  // ---- caption: karaoke voice-over line above the small print
+  const capText = String(D.caption || D.sub || "");
+  const capEl = $("cap");
+  const words = capText.split(/\s+/).filter(Boolean);
+  // active = D.hl when it appears in the caption (may span words), else the first word
+  let aS = 0, aE = 0;
+  const hit = hl ? low(capText).indexOf(low(hl)) : -1;
+  if (hit >= 0) {
+    let pos = 0;
+    words.forEach((w, i) => { const s = capText.indexOf(w, pos); const e = s + w.length; pos = e;
+      if (e > hit && s < hit + hl.length) { if (aE === 0) aS = i; aE = i + 1; } });
+  } else { aS = 0; aE = Math.min(1, words.length); }
+  // the active span covers exactly D.hl; punctuation glued to it stays outside the frame
+  let act = words.slice(aS, aE).join(" "), pre = "", post = "";
+  if (hit >= 0 && aE > aS) {
+    const joined = words.slice(aS, aE).join(" "), from = low(capText).indexOf(low(joined));
+    if (from >= 0 && hit >= from && hit + hl.length <= from + joined.length) {
+      pre = joined.slice(0, hit - from); act = joined.slice(hit - from, hit - from + hl.length); post = joined.slice(hit - from + hl.length);
+    }
+  }
+  let ch = "";
+  words.forEach((w, i) => {
+    if (i === aS) ch += (pre ? '<span class="w said">' + esc(pre) + "</span>" : "") + '<span class="w on">' + esc(act) + "</span>" + (post ? '<span class="w">' + esc(post) + "</span>" : "") + " ";
+    if (i >= aS && i < aE) return;
+    ch += '<span class="w' + (i < aS ? " said" : "") + '">' + esc(w) + "</span> ";
+  });
+  capEl.innerHTML = ch.trim();
+  const fits2 = cs => capEl.offsetHeight <= cs * 1.3 * 2 + 2;
+  let cs = 44;
+  for (; cs >= 40; cs -= 2) { capEl.style.fontSize = cs + "px"; if (fits2(cs)) break; }
+  if (cs < 40) { cs = 40; capEl.style.fontSize = "40px"; capEl.style.letterSpacing = "-0.012em"; }
+  // still 3 lines: the karaoke line pages, so the still shows the first page (ending in an ellipsis)
+  let spans = [...capEl.querySelectorAll(".w")];
+  while (!fits2(cs) && spans.length > 1 && !spans[spans.length - 1].classList.contains("on")) {
+    spans.pop().remove();
+    const last = spans[spans.length - 1];
+    if (!last.classList.contains("on")) last.textContent = last.textContent.replace(/[,.;:!?…]+$/, "") + "…";
+    capEl.innerHTML = capEl.innerHTML.trim();
+    spans = [...capEl.querySelectorAll(".w")];
+  }
+  const capTop = srcTop - 24 - capEl.offsetHeight;
+  capEl.style.top = capTop + "px";
+
+  // ---- the hang: rows of panels, each with its museum label under it
+  const rowsSpec = n <= 3 ? [n] : n === 4 ? [2, 2] : [3, 2];
+  const X0 = 90, BW = 804, G = 30, RG = 30, GAP_L = 14;
+  const platesEl = $("plates");
+  let html = "", k = 0;
+  const cells = [];
+  rowsSpec.forEach((c, r) => {
+    const pw = (BW - (c - 1) * G) / c;
+    for (let j = 0; j < c; j++, k++) {
+      cells.push({ i: k, r, x: X0 + j * (pw + G), w: pw });
+      const it = items[k] || {};
+      html += '<div class="plate' + (k === pick ? " ok" : "") + '" id="pl' + k + '" style="max-width:' + pw.toFixed(1) + 'px;min-width:' + Math.min(pw, 170).toFixed(1) + 'px">' +
+        '<div class="pl-h"><span class="k">' + LET[k] + '</span><span class="lb">' + esc(it.label) + '</span></div><div class="vl">' + esc(it.value) + "</div></div>";
+    }
+  });
+  platesEl.innerHTML = html;
+  // a row whose labels all fit on one line ([A] label  value) uses one-line plates: more wall for the drawings
+  rowsSpec.forEach((_, r) => {
+    const row = cells.filter(c => c.r === r);
+    row.forEach(c => { const pl = $("pl" + c.i); pl.classList.add("one"); pl.style.maxWidth = "none"; });
+    const ok = row.every(c => $("pl" + c.i).offsetWidth <= c.w);
+    row.forEach(c => { const pl = $("pl" + c.i); pl.style.maxWidth = c.w.toFixed(1) + "px"; if (!ok) pl.classList.remove("one"); });
+  });
+  // a value too wide for its label steps down to 40px, then may wrap
+  cells.forEach(c => {
+    const pl = $("pl" + c.i), vl = pl.querySelector(".vl");
+    for (let s = 42; s >= 40 && vl.scrollWidth > c.w - 28; s--) vl.style.fontSize = s + "px";
+    if (vl.scrollWidth > c.w - 28) vl.style.whiteSpace = "normal";
+  });
+  const R = rowsSpec.length;
+  const labH = rowsSpec.map((_, r) => Math.max(...cells.filter(c => c.r === r).map(c => $("pl" + c.i).offsetHeight)));
+  const bandTop0 = wtBot + 36, bandBot = capTop - 34;
+  const fixed = labH.reduce((a, b) => a + b + GAP_L, 0) + (R - 1) * RG;
+  let h = (bandBot - bandTop0 - fixed) / R;
+  const pwMin = Math.min(...cells.map(c => c.w));
+  const hCap = R === 1 ? pwMin * 2.2 : pwMin * 0.95;
+  let bandTop = bandTop0;
+  if (h > hCap) { bandTop += (h - hCap) * R * 0.5; h = hCap; }
+  let yy = bandTop;
+  rowsSpec.forEach((_, r) => {
+    cells.filter(c => c.r === r).forEach(c => { c.y = yy; c.h = h; const pl = $("pl" + c.i); pl.style.left = c.x.toFixed(1) + "px"; pl.style.top = (yy + h + GAP_L).toFixed(1) + "px"; });
+    yy += h + GAP_L + labH[r] + RG;
+  });
+
+  // ---- room: gallery wall wash, light pools over the hang, hairline track lights, skirting + floor (decoration only)
+  const f1 = v => v.toFixed(1);
+  const row0 = cells.filter(c => c.r === 0);
+  let room = '<defs>' +
+    '<linearGradient id="wallg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E2E2DE"/><stop offset=".25" stop-color="#EBEBE7"/><stop offset=".85" stop-color="#EDEDE9"/><stop offset="1" stop-color="#E6E6E2"/></linearGradient>' +
+    '<radialGradient id="pool"><stop offset="0" stop-color="#F9F9F6" stop-opacity=".95"/><stop offset=".55" stop-color="#F9F9F6" stop-opacity=".45"/><stop offset="1" stop-color="#F9F9F6" stop-opacity="0"/></radialGradient>' +
+    '<linearGradient id="floor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D3D2CC"/><stop offset="1" stop-color="#C2C1BA"/></linearGradient>' +
+    '</defs><rect width="1080" height="1920" fill="url(#wallg)"/>';
+  const midY = (bandTop + yy) / 2;
+  row0.forEach(c => { room += '<ellipse cx="' + f1(c.x + c.w / 2) + '" cy="' + f1(midY - 60) + '" rx="' + f1(c.w * 0.95 + 60) + '" ry="' + f1((yy - bandTop) * 0.8 + 160) + '" fill="url(#pool)"/>'; });
+  room += '<path d="M0 150H1080" stroke="#8C8C87" stroke-width="2"/>';
+  row0.forEach((c, j) => {
+    // slim track spot: stem, knuckle, a can aimed down at the wall, pale lens at its open end
+    const x = c.x + c.w / 2, a = row0.length === 1 ? 24 : [26, -22, 30, -26, 22][j];
+    room += '<g transform="translate(' + f1(x) + ',150)" stroke="#7E7E79" stroke-width="2" stroke-linejoin="round" stroke-linecap="round">' +
+      '<path d="M0 0V14" fill="none"/><circle cy="18" r="4" fill="#E8E8E4"/><g transform="translate(0,18) rotate(' + a + ')">' +
+      '<path d="M-10 6H10L12 50H-12Z" fill="#E6E6E2"/><ellipse cy="50" rx="12" ry="4" fill="#FBFBF8"/></g></g>';
+  });
+  room += '<rect x="0" y="1708" width="1080" height="212" fill="url(#floor)"/>' +
+    '<rect x="0" y="1690" width="1080" height="20" fill="#F7F7F4"/><rect x="0" y="1708" width="1080" height="3" fill="#A9A8A1"/>' +
+    '<rect x="0" y="1711" width="1080" height="44" fill="#DAD9D3" opacity=".55"/>';
+  $("room").innerHTML = room;
+
+  // ---- the executions: same instruction, five readings; density from the value rank
+  const line = (x1, y1, x2, y2) => "M" + f1(x1) + " " + f1(y1) + "L" + f1(x2) + " " + f1(y2);
+  const perim = (x, y, w, h, s) => { // point at arc length s along the panel edge, clockwise from top-left
+    const P = 2 * (w + h); s = ((s % P) + P) % P;
+    if (s < w) return [x + s, y]; if ((s -= w) < h) return [x + w, y + s]; if ((s -= h) < w) return [x + w - s, y + h]; s -= w; return [x, y + h - s];
+  };
+  const STYLES = {
+    // exact: straight lines from the centre point to points all round the edge
+    radial(x, y, w, h, lv) {
+      const cx = x + w / 2, cy = y + h / 2, P = 2 * (w + h), K = Math.round(22 + 38 * lv); let d = "";
+      for (let k = 0; k < K; k++) { const [px, py] = perim(x, y, w, h, (k + 0.5) * P / K); d += line(cx, cy, px, py); }
+      return '<path d="' + d + '"/>';
+    },
+    // misreads "straight lines": rings from the centre
+    rings(x, y, w, h, lv, id) {
+      const cx = x + w / 2, cy = y + h / 2, R = Math.hypot(w, h) / 2, st = 21 - 11 * lv; let d = "";
+      for (let r = st * 0.8; r < R; r += st) d += "M" + f1(cx - r) + " " + f1(cy) + "a" + f1(r) + " " + f1(r) + " 0 1 0 " + f1(2 * r) + " 0a" + f1(r) + " " + f1(r) + " 0 1 0 " + f1(-2 * r) + " 0";
+      return '<path clip-path="url(#' + id + ')" d="' + d + '"/>';
+    },
+    // misreads "from the centre": straight lines fanned from two opposite corners
+    fans(x, y, w, h, lv) {
+      let d = ""; const K = Math.round(8 + 12 * lv), L = w + h;
+      for (let k = 1; k <= K; k++) {
+        const s = k / (K + 1) * L;
+        d += s < w ? line(x, y, x + s, y + h) : line(x, y, x + w, y + h - (s - w));
+        d += s < w ? line(x + w, y + h, x + w - s, y) : line(x + w, y + h, x, y + (s - w));
+      }
+      return '<path d="' + d + '"/>';
+    },
+    // from the centre to the edge, but not straight (fixed wave table)
+    wobble(x, y, w, h, lv, id) {
+      const cx = x + w / 2, cy = y + h / 2, P = 2 * (w + h), K = Math.round(18 + 26 * lv);
+      const A = [5.5, 7.0, 4.8, 6.4, 7.6, 5.0, 6.8, 4.4]; let d = "";
+      for (let k = 0; k < K; k++) {
+        const [px, py] = perim(x, y, w, h, (k + 0.5) * P / K), dx = px - cx, dy = py - cy, L = Math.hypot(dx, dy), nx = -dy / L, ny = dx / L;
+        const a = A[k % A.length], ph = k * 1.3; d += "M" + f1(cx) + " " + f1(cy);
+        for (let u = 6; u <= L; u += 6) { const f = u / L, o = a * Math.sin(u / 13 + ph) * Math.min(1, u / 30); d += "L" + f1(cx + dx * f + nx * o) + " " + f1(cy + dy * f + ny * o); }
+      }
+      return '<path clip-path="url(#' + id + ')" d="' + d + '"/>';
+    },
+    // from the centre LINES (axes) instead of the centre point: one hatch direction per quarter
+    quarters(x, y, w, h, lv, id) {
+      const mx = x + w / 2, my = y + h / 2, s = 17 - 8 * lv; let d = "";
+      for (let u = x + s / 2; u < mx; u += s) d += line(u, y, u, my);
+      for (let v = y + s / 2; v < my; v += s) d += line(mx, v, x + w, v);
+      for (let u = -h / 2; u < w / 2; u += s * 1.3) d += line(x + u, y + h, x + u + h / 2, my);
+      for (let u = 0; u < w / 2 + h / 2; u += s * 1.3) d += line(mx + u, y + h, mx + u - h / 2, my);
+      return '<path clip-path="url(#' + id + ')" d="' + d + '"/><path d="' + line(mx, y, mx, y + h) + line(x, my, x + w, my) + '" stroke-width="1.8"/>';
+    }
+  };
+  let id = "";
+  const order = ["rings", "fans", "wobble", "quarters"];
+  let defs = '<defs><filter id="graphite" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="7" result="n"/>' +
+    '<feDisplacementMap in="SourceGraphic" in2="n" scale="1.8" xChannelSelector="R" yChannelSelector="G"/></filter>' +
+    '<filter id="inkpad" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="11" result="n"/>' +
+    '<feDisplacementMap in="SourceGraphic" in2="n" scale="2.2" xChannelSelector="R" yChannelSelector="G"/></filter>';
+  let draw = "", oi = 0;
+  cells.forEach(c => {
+    const { x, y, w, h: hh, i } = c;
+    id = "cl" + i;
+    defs += '<clipPath id="' + id + '"><rect x="' + f1(x) + '" y="' + f1(y) + '" width="' + f1(w) + '" height="' + f1(hh) + '"/></clipPath>';
+    const style = i === exact ? "radial" : order[oi++ % order.length];
+    draw += '<g fill="none" stroke="' + GRAPH + '" stroke-width="1.7" stroke-linecap="round">' + STYLES[style](x, y, w, hh, level[i] == null ? 0.6 : level[i], id) + "</g>";
+    // pencil-ruled frame: each side overshoots its corner a little, like a ruler line on a wall
+    const o = [7, 5, 6, 8, 4, 6, 7, 5];
+    draw += '<path fill="none" stroke="#3E3E3A" stroke-width="2.2" stroke-linecap="round" d="' +
+      line(x - o[0], y, x + w + o[1], y) + line(x + w, y - o[2], x + w, y + hh + o[3]) + line(x + w + o[4], y + hh, x - o[5], y + hh) + line(x, y + hh + o[6], x, y - o[7]) + '"/>';
+  });
+  defs += "</defs>";
+  $("wall").innerHTML = defs + '<g filter="url(#graphite)">' + draw + "</g>";
+
+  // ---- the stamp, only when the data names the execution that followed the instruction
+  if (pick >= 0) {
+    const c = cells[pick];
+    $("stampbox").innerHTML = '<div class="stamp" id="stamp">SESUAI<br>INSTRUKSI</div>';
+    const st = $("stamp");
+    st.style.left = (c.x + c.w - st.offsetWidth - 18).toFixed(1) + "px";
+    st.style.top = (c.y + c.h - st.offsetHeight - 22).toFixed(1) + "px";
+  }
+  }
+</script>
+</body>
+</html>

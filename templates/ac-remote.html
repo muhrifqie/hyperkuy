@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=Saira+Semi+Condensed:wght@500;600&family=IBM+Plex+Mono:wght@500;600&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    AC Remote (ac-remote): a top-down flat-lay on a pastel bedsheet. A wide torn printout
+    carries the title; a white air-conditioner remote (real CSS 3D slab, cast shadow) lies
+    across its lower-left corner and pins it; the answer slips P1..Pn fan out from under
+    the remote's right side. The remote's LCD is only the selector: it shows which preset
+    (answer slip) is picked, "P1" of n, with the snowflake lit (cold = always the top answer).
+    Metaphor: sampling temperature. Down = cold, predictable picks; up = warm, varied picks.
+    Deterministic: every irregular shape is hard-coded.
+  */
+  :root {
+    --sheet: #DCE6F2; --white: #FBFBF8; --ink: #2A3140; --warm: #E8673C; --cool: #3D74E0;
+    --warmtext: #B9431B; --cooltag: #2F62C8; --mute: #4A5366;
+    --rr: 150px 150px 116px 116px / 84px 84px 64px 64px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--sheet); }
+  body { position: relative; color: var(--ink); font-family: "Saira Semi Condensed", sans-serif; }
+  #bed { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  .pr { position: absolute; width: 0; height: 0; } /* layout probes */
+
+  /* ---------- title printout (the largest answer slip) ---------- */
+  .tslip { position: absolute; left: 40px; top: 290px; width: 1000px; z-index: 4; transform-origin: 100% 0;
+    filter: drop-shadow(0 14px 14px rgba(42, 49, 64, 0.16)) drop-shadow(0 2px 2px rgba(42, 49, 64, 0.12)); }
+  .tpaper { position: relative; background: var(--white); padding: 30px 74px 0 60px; }
+  .thead { display: flex; justify-content: space-between; align-items: center; gap: 24px; }
+  .ttag { font: 600 28px/1 "IBM Plex Mono", monospace; text-transform: uppercase; letter-spacing: 0.02em; border: 2px solid var(--ink); border-radius: 8px;
+    padding: 5px 10px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .tdate { flex: none; font: 500 26px/1 "IBM Plex Mono", monospace; color: var(--mute); white-space: nowrap; }
+  .trule { height: 2px; margin: 18px 0 10px; background: repeating-linear-gradient(90deg, #8E9AAB 0 10px, transparent 10px 18px); }
+  .title { position: relative; z-index: 1; font-family: "Saira Condensed", sans-serif; font-weight: 700; line-height: 1.06; letter-spacing: -0.005em; color: var(--ink); }
+  .title .hl { color: var(--warmtext); }
+  .title .bl { display: inline-block; width: 0; height: 0; vertical-align: baseline; }
+  #swash { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 0; }
+  .sw { position: absolute; overflow: visible; }
+  .tfoot { display: flex; justify-content: flex-end; align-items: flex-start; min-height: 74px; padding: 12px 0 30px; }
+  .src { font: 500 26px/1.3 "IBM Plex Mono", monospace; color: var(--mute); text-align: right; }
+
+  /* ---------- the remote (CSS 3D slab) ---------- */
+  #rwrap { position: absolute; left: 0; top: 0; width: 360px; height: 760px; perspective: 2400px; perspective-origin: 50% 40%; transform-origin: 50% 50%; z-index: 6; }
+  #remote { position: absolute; inset: 0; transform-style: preserve-3d; transform: rotateX(11deg) rotateY(-7deg); }
+  #remote .ly { position: absolute; inset: 0; border-radius: var(--rr); }
+  #remote .cast { background: rgba(42, 49, 64, 0.40); filter: blur(22px); }
+  .face { overflow: hidden; background:
+      linear-gradient(180deg, rgba(255,255,255,0) 60%, rgba(214,222,232,0.45) 100%),
+      linear-gradient(90deg, #DCE2E9 0%, #F3F5F4 7%, #FDFDFB 26%, #FFFFFF 50%, #FAFAF7 74%, #EEF1F1 92%, #D6DCE4 100%);
+    box-shadow: inset 0 3px 0 rgba(255,255,255,0.95), inset 0 -10px 18px rgba(42,49,64,0.07); }
+  .ir { position: absolute; left: 0; top: 0; width: 360px; height: 62px; background: linear-gradient(180deg, #4C5566 0%, #2F3646 70%, #2A3140 100%);
+    border-radius: 0 0 50% 50% / 0 0 18px 18px; }
+  .ir::after { content: ""; position: absolute; left: 64px; top: 12px; width: 190px; height: 14px; border-radius: 10px; background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.32), rgba(255,255,255,0)); }
+
+  .bez { position: absolute; left: 26px; top: 86px; width: 308px; height: 300px; border-radius: 30px; background: linear-gradient(180deg, #E6EAEE, #DCE1E7);
+    box-shadow: inset 0 2px 3px rgba(42,49,64,0.16), 0 1px 0 #FFFFFF; }
+  .lcd { position: absolute; left: 12px; top: 12px; right: 12px; bottom: 12px; border-radius: 18px; overflow: hidden;
+    background: linear-gradient(172deg, #D5DDE0 0%, #C9D3D7 100%); box-shadow: inset 0 7px 14px rgba(42,49,64,0.20), inset 0 -2px 0 rgba(255,255,255,0.5);
+    display: flex; flex-direction: column; padding: 14px 18px 12px; }
+  .lcd .glare { position: absolute; left: -40px; top: -60px; width: 200px; height: 420px; transform: rotate(28deg); background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.22), rgba(255,255,255,0)); pointer-events: none; }
+  .lrow { flex: none; height: 40px; }
+  .read { flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 12px; min-height: 0; padding-bottom: 14px; }
+  .lbars { flex: none; height: 30px; }
+
+  .pwr { position: absolute; left: 30px; top: 414px; width: 92px; height: 92px; border-radius: 50%;
+    background: radial-gradient(circle at 40% 32%, #FFFFFF 0%, #F6F7F5 55%, #E3E8ED 100%);
+    box-shadow: 0 5px 0 #CBD3DD, 0 9px 14px rgba(42,49,64,0.20), inset 0 0 0 4px rgba(232,103,60,0.85); }
+  .pwr svg { position: absolute; left: 22px; top: 22px; }
+  .rock { position: absolute; left: 140px; top: 414px; width: 194px; height: 92px; border-radius: 46px; display: flex;
+    background: linear-gradient(180deg, #FFFFFF, #EFF2F4); box-shadow: 0 5px 0 #CBD3DD, 0 9px 14px rgba(42,49,64,0.20); }
+  .rock > div { flex: 1; display: flex; align-items: center; justify-content: center; }
+  .rock > div + div { border-left: 2px solid #D5DCE4; }
+
+  .pre-keys { position: absolute; left: 26px; top: 536px; width: 308px; height: 72px; display: flex; gap: 12px; }
+  .pk { flex: 1; position: relative; border-radius: 16px; background: linear-gradient(180deg, #FFFFFF, #F0F3F5);
+    box-shadow: 0 5px 0 #CBD3DD, 0 8px 12px rgba(42,49,64,0.16); display: flex; align-items: center; justify-content: center;
+    font: 700 38px/1 "Saira Condensed", sans-serif; color: var(--ink); }
+  .pk.on { transform: translateY(4px); box-shadow: 0 1px 0 #CBD3DD, 0 2px 4px rgba(42,49,64,0.16); }
+  .pk.on::before { content: ""; position: absolute; top: 8px; left: 50%; width: 22px; height: 6px; margin-left: -11px; border-radius: 3px; background: var(--warm); }
+  .pk.on span { margin-top: 10px; }
+
+  .fkeys { position: absolute; left: 26px; top: 640px; width: 308px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .fk { height: 56px; border-radius: 28px; background: linear-gradient(180deg, #FFFFFF, #F0F3F5); box-shadow: 0 4px 0 #CBD3DD, 0 7px 10px rgba(42,49,64,0.14);
+    display: flex; align-items: center; justify-content: center; }
+  .seam { position: absolute; left: 56px; right: 56px; top: 728px; height: 3px; border-radius: 2px; background: #D9DFE6; }
+
+  /* ---------- answer slips P1..Pn ---------- */
+  .slip { position: absolute; z-index: 2; filter: drop-shadow(0 10px 10px rgba(42, 49, 64, 0.17)) drop-shadow(0 2px 2px rgba(42, 49, 64, 0.12)); }
+  .paper { background: var(--white); }
+  .srow { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+  .slb { flex: 1; min-width: 0; font: 600 34px/1.06 "Saira Condensed", sans-serif; text-transform: uppercase; letter-spacing: 0.04em;
+    hyphens: none; -webkit-hyphens: none; overflow-wrap: normal; word-break: keep-all; }
+  .stag { flex: none; display: flex; align-items: center; gap: 6px; font: 600 28px/1 "IBM Plex Mono", monospace; border: 2px solid var(--ink); border-radius: 8px; padding: 5px 9px 4px; }
+  .nw { white-space: nowrap; }
+  .slip.sel .stag { background: var(--cooltag); border-color: var(--cooltag); color: #FFFFFF; }
+  .srule { height: 2px; margin: 10px 0 6px; background: repeating-linear-gradient(90deg, #8E9AAB 0 10px, transparent 10px 18px); }
+  .svl { font: 600 56px/1.12 "IBM Plex Mono", monospace; letter-spacing: -0.03em; white-space: nowrap; overflow-wrap: normal; word-break: keep-all; hyphens: none; }
+
+  /* ---------- caption (voice-over line), on the sheet under a fold ---------- */
+  .cap { position: absolute; left: 90px; width: 810px; top: 1490px; z-index: 8; font: 500 46px/1.26 "Saira Semi Condensed", sans-serif; color: var(--ink); }
+  .cap .w { white-space: nowrap; }
+  .cap .on { color: var(--warmtext); background: var(--white); border-radius: 10px; padding: 0 0.14em; -webkit-box-decoration-break: clone; box-decoration-break: clone;
+    box-shadow: 0 4px 0 #B7C3D3, 0 7px 10px rgba(42, 49, 64, 0.18); }
+</style>
+</head>
+<body>
+<svg id="bed" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="26" /></filter>
+    <filter id="softer" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="12" /></filter>
+    <filter id="weave" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9 0.55" numOctaves="2" seed="7" result="n" />
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.16  0 0 0 0 0.19  0 0 0 0 0.25  0 0 0 0.10 0" />
+    </filter>
+    <radialGradient id="puff" cx="52%" cy="22%" r="70%">
+      <stop offset="0%" stop-color="#F7F9FC" />
+      <stop offset="62%" stop-color="#EAF0F7" />
+      <stop offset="100%" stop-color="#CBD7E6" />
+    </radialGradient>
+    <radialGradient id="vig" cx="50%" cy="46%" r="72%">
+      <stop offset="60%" stop-color="#2A3140" stop-opacity="0" />
+      <stop offset="100%" stop-color="#2A3140" stop-opacity="0.10" />
+    </radialGradient>
+  </defs>
+  <rect width="1080" height="1920" fill="#DCE6F2" />
+  <!-- broad sheet folds: light from the top left, so each ridge = highlight above, soft shadow below -->
+  <g filter="url(#soft)" data-layout-allow-overflow>
+    <path d="M-60 760 C 220 700, 560 620, 1140 530 L 1140 580 C 560 676, 230 760, -60 822 Z" fill="#FFFFFF" opacity="0.40" />
+    <path d="M-60 830 C 240 768, 580 688, 1140 600 L 1140 660 C 590 750, 250 830, -60 896 Z" fill="#A9BAD1" opacity="0.28" />
+    <path d="M-80 1180 C 260 1110, 700 1050, 1160 910 L 1160 970 C 700 1110, 270 1170, -80 1246 Z" fill="#FFFFFF" opacity="0.42" />
+    <path d="M-80 1252 C 280 1182, 720 1122, 1160 984 L 1160 1054 C 720 1192, 290 1252, -80 1330 Z" fill="#A9BAD1" opacity="0.30" />
+    <!-- the fold the caption lies under -->
+    <path d="M-80 1430 C 300 1404, 720 1390, 1160 1352 L 1160 1404 C 720 1440, 300 1452, -80 1478 Z" fill="#FFFFFF" opacity="0.55" />
+    <path d="M-80 1474 C 300 1450, 720 1436, 1160 1400 L 1160 1460 C 720 1494, 300 1508, -80 1534 Z" fill="#A9BAD1" opacity="0.34" />
+    <path d="M-80 1760 C 300 1700, 720 1620, 1160 1560 L 1160 1620 C 720 1690, 300 1764, -80 1824 Z" fill="#FFFFFF" opacity="0.38" />
+    <path d="M760 1960 C 820 1800, 900 1720, 1140 1680 L 1140 1960 Z" fill="#A9BAD1" opacity="0.22" />
+  </g>
+  <!-- pillow seen from above (bottom corners pinched into ears), above the safe zone -->
+  <path data-layout-allow-overflow d="M70 -90 C 58 40, 36 150, 46 254 C 300 222, 760 214, 1036 240 C 1018 150, 1006 40, 1014 -90 Z" fill="#7F93B0" opacity="0.50" filter="url(#softer)" transform="translate(8 18)" />
+  <path data-layout-allow-overflow d="M70 -90 C 58 40, 36 150, 46 254 C 300 222, 760 214, 1036 240 C 1018 150, 1006 40, 1014 -90 Z" fill="url(#puff)" />
+  <path data-layout-allow-overflow d="M78 -90 C 68 40, 50 146, 60 238 C 300 208, 760 200, 1020 224 C 1004 146, 994 40, 1002 -90" fill="none" stroke="#C3CFDF" stroke-width="5" />
+  <g data-layout-allow-overflow fill="none" stroke="#BCC9DB" stroke-width="4" stroke-linecap="round" opacity="0.8">
+    <path d="M62 236 C 120 196, 170 176, 236 168" /><path d="M70 222 C 110 190, 140 160, 176 140" />
+    <path d="M1022 226 C 960 190, 900 172, 840 166" /><path d="M1012 208 C 980 176, 950 150, 916 132" />
+  </g>
+  <path data-layout-allow-overflow d="M180 70 C 400 96, 700 50, 940 90" fill="none" stroke="#FFFFFF" stroke-width="44" opacity="0.55" filter="url(#softer)" />
+  <rect width="1080" height="1920" fill="#000" filter="url(#weave)" opacity="0.55" />
+  <rect width="1080" height="1920" fill="url(#vig)" />
+</svg>
+
+<div class="tslip" id="tslip" data-layout-allow-overlap>
+  <div class="tpaper" id="tpaper">
+    <div id="swash" data-layout-allow-overlap></div>
+    <div class="thead"><span class="ttag" id="kick"></span><span class="tdate" id="date"></span></div>
+    <div class="trule"></div>
+    <div class="title" id="title"></div>
+    <div class="tfoot"><div class="src" id="src"></div></div>
+    <i class="pr" id="pbl" style="left:0;bottom:0"></i><i class="pr" id="pbr" style="right:0;bottom:0"></i>
+  </div>
+</div>
+<div id="slips"></div>
+
+<div id="rwrap" data-layout-allow-overlap>
+  <div id="remote">
+    <div class="ly cast" id="cast"></div>
+    <div id="walls"></div>
+    <div class="ly face" id="face">
+      <div class="ir"></div>
+      <div class="bez"><div class="lcd" id="lcd">
+        <div class="glare" data-layout-allow-overflow></div>
+        <svg class="lrow" width="248" height="40" viewBox="0 0 248 40" aria-hidden="true">
+          <!-- mode icons: snowflake lit (cold), droplet / fan / sun as ghost segments -->
+          <g fill="none" stroke="#2A3140" stroke-width="3.4" stroke-linecap="round">
+            <path d="M20 3v34M5.3 11.5l29.4 17M5.3 28.5l29.4-17M14 6l6 4 6-4M14 34l6-4 6 4M4 17l7 3-1 7M36 17l-7 3 1 7" />
+          </g>
+          <g fill="none" stroke="#2A3140" stroke-width="3.2" stroke-linecap="round" opacity="0.13">
+            <path d="M80 5c0 0-11 13-11 20a11 11 0 0 0 22 0c0-7-11-20-11-20z" />
+            <circle cx="140" cy="20" r="3" /><path d="M140 17c-4-9 6-14 8-7M143 21c9 2 7 13 0 10M137 21c-6 7-14 0-8-5" />
+            <circle cx="214" cy="20" r="7" /><path d="M214 3v5M214 32v5M197 20h5M226 20h5M202 8l3.5 3.5M222.5 28.5l3.5 3.5M226 8l-3.5 3.5M205.5 28.5L202 32" />
+          </g>
+        </svg>
+        <div class="read" id="read"></div>
+        <svg class="lbars" width="248" height="30" viewBox="0 0 248 30" aria-hidden="true">
+          <g fill="none" stroke="#2A3140" stroke-width="3" stroke-linecap="round">
+            <circle cx="14" cy="15" r="2.5" /><path d="M14 12c-3-8 7-11 7-4M17 16c8 2 5 12-1 9M11 16c-6 6-12-1-6-5" />
+          </g>
+          <g fill="#2A3140"><rect x="40" y="19" width="16" height="9" rx="1.5" /><rect x="62" y="13" width="16" height="15" rx="1.5" /></g>
+          <g fill="#2A3140" opacity="0.13"><rect x="84" y="7" width="16" height="21" rx="1.5" /><rect x="106" y="1" width="16" height="27" rx="1.5" /></g>
+          <g fill="none" stroke="#2A3140" stroke-width="3" stroke-linecap="round" opacity="0.13">
+            <circle cx="206" cy="15" r="11" /><path d="M206 8v7l5 4" />
+            <path d="M230 6h12M230 15h12M230 24h12" />
+          </g>
+        </svg>
+      </div></div>
+
+      <div class="pwr"><svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true"><g fill="none" stroke="#E8673C" stroke-width="5" stroke-linecap="round"><path d="M24 6v17" /><path d="M14 12.5a16 16 0 1 0 20 0" /></g></svg></div>
+      <div class="rock">
+        <div><svg width="70" height="40" viewBox="0 0 70 40" aria-hidden="true">
+          <g fill="none" stroke="#3D74E0" stroke-width="3" stroke-linecap="round"><path d="M12 6v28M2 13l20 14M2 27l20-14" /></g>
+          <path d="M38 14l12 12 12-12" fill="none" stroke="#3D74E0" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" /></svg></div>
+        <div><svg width="70" height="40" viewBox="0 0 70 40" aria-hidden="true">
+          <path d="M8 26l12-12 12 12" fill="none" stroke="#E8673C" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+          <g fill="none" stroke="#E8673C" stroke-width="3" stroke-linecap="round"><circle cx="54" cy="20" r="6" /><path d="M54 6v3M54 31v3M40 20h3M65 20h3M44 10l2 2M62 28l2 2M64 10l-2 2M46 28l-2 2" /></g></svg></div>
+      </div>
+      <div class="pre-keys" id="pkeys"></div>
+      <div class="fkeys">
+        <div class="fk"><svg width="34" height="34" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3s-6 7-6 11a6 6 0 0 0 12 0c0-4-6-11-6-11z" fill="none" stroke="#2A3140" stroke-width="2" /></svg></div>
+        <div class="fk"><svg width="34" height="34" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="#2A3140" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="13" r="8" /><path d="M12 8v5l3 2M9 2h6" /></g></svg></div>
+        <div class="fk"><svg width="34" height="34" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3a9 9 0 1 0 6 14 8 8 0 0 1-6-14z" fill="none" stroke="#2A3140" stroke-width="2" stroke-linejoin="round" /></svg></div>
+      </div>
+      <div class="seam"></div>
+      <!-- outline probes, clockwise from the top edge -->
+      <i class="pr rp" style="left:20%;top:0"></i><i class="pr rp" style="left:50%;top:0"></i><i class="pr rp" style="left:80%;top:0"></i>
+      <i class="pr rp" style="left:100%;top:8%"></i><i class="pr rp" style="left:100%;top:30%"></i><i class="pr rp" style="left:100%;top:50%"></i><i class="pr rp" style="left:100%;top:70%"></i><i class="pr rp" style="left:100%;top:92%"></i>
+      <i class="pr rp" style="left:80%;top:100%"></i><i class="pr rp" style="left:50%;top:100%"></i><i class="pr rp" style="left:20%;top:100%"></i>
+      <i class="pr rp" style="left:0;top:92%"></i><i class="pr rp" style="left:0;top:70%"></i><i class="pr rp" style="left:0;top:50%"></i><i class="pr rp" style="left:0;top:30%"></i><i class="pr rp" style="left:0;top:8%"></i>
+    </div>
+  </div>
+</div>
+
+<div class="cap" id="cap" data-slot="caption"></div>
+
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const FONTS = ['700 100px "Saira Condensed"', '600 34px "Saira Condensed"', '500 44px "Saira Semi Condensed"', '600 56px "IBM Plex Mono"', '500 26px "IBM Plex Mono"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const pt = el => { const b = el.getBoundingClientRect(); return { x: b.left, y: b.top }; };
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+
+  // ---------- title printout: header row (kicker tag + date), title, footer (source) ----------
+  $("kick").textContent = D.series && D.ep ? D.series + " · " + D.ep : (D.kicker || D.series || "");
+  $("date").textContent = D.date || "";
+  $("src").textContent = D.source ? "Sumber: " + D.source : "";
+  const t = D.title || "", hl = D.hl || "";
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title"), tslip = $("tslip"), tpaper = $("tpaper");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl"><i class="bl"></i>' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  tslip.style.transform = "none"; // measure flat, rotate afterwards
+  let tfs = 116;
+  for (; tfs > 78; tfs -= 2) { titleEl.style.fontSize = tfs + "px"; if (titleEl.offsetHeight <= 262) break; }
+  titleEl.style.fontSize = tfs + "px";
+  // hl = warm ink + an orange marker swash under each line fragment (printed on the slip, rotates with it)
+  const hlEl = titleEl.querySelector(".hl");
+  if (hlEl) {
+    const pr = tpaper.getBoundingClientRect();
+    const blTop = hlEl.querySelector(".bl").getBoundingClientRect().top;
+    const all = [...hlEl.getClientRects()];
+    const home = all.find(rc => blTop >= rc.top - 1 && blTop <= rc.bottom + 1) || all[0];
+    const asc = blTop - home.top;
+    const PATHS = ["M4 9 C 40 5, 112 4, 180 5 C 232 6, 270 3, 296 6 C 299 10, 298 15, 293 17 C 250 19, 190 17, 128 19 C 80 20, 30 21, 6 19 C 1 16, 1 12, 4 9 Z",
+                   "M3 7 C 60 4, 130 6, 200 4 C 246 3, 278 5, 297 8 C 299 12, 297 16, 292 18 C 236 17, 170 19, 110 18 C 64 18, 26 20, 5 18 C 1 14, 0 10, 3 7 Z"];
+    $("swash").innerHTML = all.filter(rc => rc.width > tfs * 0.3).map((rc, k) => {
+      const base = rc.top + asc - pr.top;
+      return `<svg class="sw" viewBox="0 0 300 24" preserveAspectRatio="none" aria-hidden="true" style="left:${(rc.left - pr.left - tfs * 0.04).toFixed(1)}px;top:${(base + tfs * 0.085).toFixed(1)}px;width:${(rc.width + tfs * 0.08).toFixed(1)}px;height:${(tfs * 0.15).toFixed(1)}px;transform:rotate(${k % 2 ? 0.8 : -0.9}deg)"><path d="${PATHS[k % 2]}" fill="#E8673C" opacity="0.92"/></svg>`;
+    }).join("");
+  }
+  tslip.style.transform = "rotate(-2deg)";
+  { // header must stay inside the safe zone (y >= 300) after the tilt
+    const hy = Math.min($("kick").getBoundingClientRect().top, $("date").getBoundingClientRect().top);
+    if (hy < 304) tslip.style.top = (290 + 304 - hy) + "px";
+  }
+  // title bottom edge as a line (probes at the title's bottom corners)
+  titleEl.insertAdjacentHTML("beforeend", '<i class="pr" id="tbl" style="left:0;bottom:0"></i><i class="pr" id="tbr" style="right:0;bottom:0"></i>');
+  const lineAt = (a, b) => x => a.y + (b.y - a.y) * (x - a.x) / (b.x - a.x);
+  const titleBottomAt = lineAt(pt($("tbl")), pt($("tbr")));
+
+  // ---------- 3D body: extrusion walls under the face ----------
+  let walls = "";
+  for (let z = 36; z >= 2; z -= 2) {
+    const k = z / 36;
+    const c = k > 0.85 ? "#AEB9C7" : k > 0.5 ? "#C3CBD6" : "#D3D9E1";
+    walls += `<div class="ly" style="transform:translateZ(${-z}px);background:${c}"></div>`;
+  }
+  $("walls").innerHTML = walls;
+  $("cast").style.transform = "translateZ(-46px) translate(20px, 30px)";
+
+  // ---------- seven-segment glyphs (SVG): digits, P, slash ----------
+  const SEG = { "0": "abcdef", "1": "bc", "2": "abged", "3": "abgcd", "4": "fgbc", "5": "afgcd", "6": "afgedc", "7": "abc", "8": "abcdefg", "9": "abcdfg", "P": "abefg", "-": "g" };
+  const CW = ch => ch === "/" ? 0.30 : ch === "," || ch === "." ? 0.16 : 0.54;
+  const segUnits = s => [...s].reduce((a, ch, i, arr) => a + CW(ch) + (i < arr.length - 1 ? 0.13 : 0), 0) + Math.tan(7 * Math.PI / 180);
+  function segSvg(str, h) {
+    const t2 = h * 0.13, g = h * 0.022, gap = h * 0.13, sk = h * Math.tan(7 * Math.PI / 180);
+    let x = 0, out = "";
+    const hz = (x1, x2, y) => `${x1 + g},${y} ${x1 + g + t2 / 2},${y - t2 / 2} ${x2 - g - t2 / 2},${y - t2 / 2} ${x2 - g},${y} ${x2 - g - t2 / 2},${y + t2 / 2} ${x1 + g + t2 / 2},${y + t2 / 2}`;
+    const vt = (xx, y1, y2) => `${xx},${y1 + g} ${xx + t2 / 2},${y1 + g + t2 / 2} ${xx + t2 / 2},${y2 - g - t2 / 2} ${xx},${y2 - g} ${xx - t2 / 2},${y2 - g - t2 / 2} ${xx - t2 / 2},${y1 + g + t2 / 2}`;
+    const chars = [...str];
+    chars.forEach((ch, i) => {
+      const w = CW(ch) * h;
+      if (ch === "/") {
+        out += `<polygon points="${x},${h - t2 * 0.2} ${x + t2},${h - t2 * 0.2} ${x + w},${t2 * 0.2} ${x + w - t2},${t2 * 0.2}" fill="#2A3140"/>`;
+      } else if (ch === "," || ch === ".") {
+        const cx = x + w / 2, s = t2 * 0.62;
+        out += `<polygon points="${cx - s},${h - t2 * 1.25} ${cx + s},${h - t2 * 1.25} ${cx + s},${h - t2 * 0.1} ${cx - s},${h - t2 * 0.1}" fill="#2A3140"/>`;
+      } else {
+        const L = x + t2 / 2, R = x + w - t2 / 2, T = t2 / 2, M = h / 2, B = h - t2 / 2;
+        const P = { a: hz(L, R, T), g: hz(L, R, M), d: hz(L, R, B), f: vt(L, T, M), b: vt(R, T, M), e: vt(L, M, B), c: vt(R, M, B) };
+        const on = SEG[ch] || "";
+        for (const s of "abcdefg") out += `<polygon points="${P[s]}" fill="#2A3140" opacity="${on.includes(s) ? 1 : 0.07}"/>`;
+      }
+      x += w + (i < chars.length - 1 ? gap : 0);
+    });
+    const w = x + sk + 4;
+    return `<svg width="${w.toFixed(1)}" height="${(h + 2).toFixed(1)}" viewBox="0 0 ${w.toFixed(1)} ${(h + 2).toFixed(1)}" aria-hidden="true" style="overflow:visible;flex:none"><g transform="translate(${sk.toFixed(2)} 0) skewX(-7)">${out}</g></svg>`;
+  }
+
+  // ---------- LCD = the selector: preset "P1" of n, snowflake lit ----------
+  const read = $("read");
+  const of = "/" + Math.max(1, n), hSm = 56;
+  const wIn = read.clientWidth, hIn = read.clientHeight - 16;
+  const hBig = Math.max(80, Math.min(140, hIn, (wIn - segUnits(of) * hSm - 12) / segUnits("P1")));
+  read.innerHTML = segSvg("P1", hBig) + segSvg(of, hSm);
+
+  // ---------- preset keys 1..n (key 1 pressed, lit) ----------
+  $("pkeys").innerHTML = items.map((_, i) => `<div class="pk${i === 0 ? " on" : ""}"><span>${i + 1}</span></div>`).join("");
+
+  // ---------- remote: rotate -14deg, IR end over the printout's lower-left corner ----------
+  const wrap = $("rwrap");
+  const probes = [...document.querySelectorAll(".rp")];
+  const outline = () => probes.map(pt);
+  const REMOTE_BOTTOM = 1436;
+  let s = 0.94, poly = [];
+  for (let k = 0; k < 4; k++) {
+    wrap.style.left = "0px"; wrap.style.top = "0px";
+    wrap.style.transform = `rotate(-14deg) scale(${s.toFixed(4)})`;
+    poly = outline();
+    const dx = 34 - Math.min(...poly.map(p => p.x));
+    const dy = Math.max(...poly.map(p => titleBottomAt(p.x + dx) + 26 - p.y));
+    wrap.style.left = dx.toFixed(1) + "px"; wrap.style.top = dy.toFixed(1) + "px";
+    poly = outline();
+    const top = Math.min(...poly.map(p => p.y)), bot = Math.max(...poly.map(p => p.y));
+    if (bot <= REMOTE_BOTTOM + 1 || s <= 0.8) break;
+    s = Math.max(0.8, s * (REMOTE_BOTTOM - top) / (bot - top) - 0.002);
+  }
+  // rightmost point of the remote at a given y (outline polygon, +12 px for walls and shadow)
+  const rightAt = y => { let best = -Infinity;
+    for (let i = 0; i < poly.length; i++) { const a = poly[i], b = poly[(i + 1) % poly.length];
+      if (a.y !== b.y && (y - a.y) * (y - b.y) <= 0) best = Math.max(best, a.x + (b.x - a.x) * (y - a.y) / (b.y - a.y)); }
+    return best + 12; };
+  const maxRight = (ya, yb) => { let m = -Infinity; for (let y = ya; y < yb; y += 6) m = Math.max(m, rightAt(y)); return Math.max(m, rightAt(yb)); };
+
+  // footer: the source sits right of the remote's IR end
+  { const srcEl = $("src");
+    const fy = titleBottomAt(500);
+    const clear = maxRight(fy, fy + 110) + 30;
+    srcEl.style.maxWidth = Math.max(300, 966 - clear) + "px"; }
+  const slipBottomAt = lineAt(pt($("pbl")), pt($("pbr")));
+
+  // ---------- karaoke caption (voice-over line) ----------
+  const cap = String(D.caption || D.sub || "").trim();
+  const words = cap.split(/\s+/).filter(Boolean);
+  const norm = w => w.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+  const hw = hl ? hl.split(/\s+/).map(norm).filter(Boolean) : [];
+  let a0 = -1, a1 = -1;
+  if (hw.length) {
+    for (let i = 0; i + hw.length <= words.length && a0 < 0; i++) if (hw.every((h2, k) => norm(words[i + k]) === h2)) { a0 = i; a1 = i + hw.length - 1; }
+    if (a0 < 0 && hw.length === 1) { const j = words.findIndex(w => norm(w).includes(hw[0])); if (j >= 0) a0 = a1 = j; }
+  }
+  if (a0 < 0) a0 = a1 = 0;
+  const parts = [];
+  for (let i = 0; i < words.length; i++) {
+    if (i === a0) { parts.push(`<span class="w on">${esc(words.slice(a0, a1 + 1).join(" "))}</span>`); i = a1; }
+    else parts.push(`<span class="w">${esc(words[i])}</span>`);
+  }
+  const capEl = $("cap");
+  capEl.innerHTML = parts.join(" ");
+  let capFs = 46;
+  for (; capFs >= 40; capFs -= 2) { capEl.style.fontSize = capFs + "px"; if (capEl.offsetHeight <= capFs * 1.26 * 2 + 4) break; }
+  if (capFs < 40) { capEl.style.fontSize = "40px"; capEl.style.lineHeight = "1.2"; } // over-long line: 3 tight lines
+  const capTop = Math.min(1490, 1618 - capEl.offsetHeight); // the caption bottom never passes y 1618
+  capEl.style.top = capTop + "px";
+
+  // ---------- answer slips P1..Pn, fanned from under the remote's right side ----------
+  // wrap units: labels break only at spaces (never at "-"); values break only before a new number group,
+  // so a number always stays with its unit ("95 token/detik", "US$0,60 /" | "1 jt token")
+  const chunks = (v, re) => String(v == null ? "" : v).trim().split(re).filter(Boolean).map(c => `<span class="nw">${esc(c)}</span>`).join(" ");
+  const SNOW = '<svg class="snow" width="20" height="20" viewBox="0 0 40 40" aria-hidden="true"><path d="M20 3v34M5.3 11.5l29.4 17M5.3 28.5l29.4-17M14 6l6 4 6-4M14 34l6-4 6 4" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/></svg>';
+  const TEAR = [0, 5, 2, 7, 3, 6, 1, 5, 2, 8, 3, 6, 0, 4, 2, 7, 1, 6, 3, 5];
+  const tear = i => { const p = []; const N = 40; for (let k = 0; k <= N; k++) p.push(`${(k / N * 100).toFixed(2)}% ${TEAR[(k + i * 7) % TEAR.length]}px`); return `polygon(${p.join(",")},100% 100%,0% 100%)`; };
+  const slipsEl = $("slips");
+  slipsEl.innerHTML = items.map((it, i) => `<div class="slip${i === 0 ? " sel" : ""}" data-layout-allow-overlap><div class="paper" style="clip-path:${tear(i)}">
+      <div class="srow"><div class="slb">${chunks(it.label, /\s+/)}</div><div class="stag">${i === 0 ? SNOW : ""}P${i + 1}</div></div>
+      <div class="srule"></div><div class="svl">${chunks(it.value, / +(?=[±~≈<>]?(?:Rp|US\$|\$|€|£)?\d)/)}</div></div></div>`).join("");
+  const slipEls = [...slipsEl.children];
+  const RIGHT_PAPER = 972, TUCK = 112, CLEAR = 30, GAPMIN = 18, GAPMAX = 70;
+  const y0 = slipBottomAt(470) - 10, y1 = Math.min(1454, capTop - 34);
+  const ROT = [-2.6, 1.8, -1.4, 2.2, -1.8];
+  const FLOOR = { lb: 32, vl: 48, pt: 18, pb: 14 }, MIN = { lb: 30, vl: 40, pt: 14, pb: 12 };
+  let S = n <= 3 ? { lb: 44, vl: 84, pt: 34, pb: 30 } : n === 4 ? { lb: 38, vl: 66, pt: 26, pb: 22 } : { lb: 36, vl: 58, pt: 22, pb: 18 };
+  S.vl = Math.min(S.vl, tfs - 12); // the title always stays the largest text
+  let mode = "fit", rotK = 1;
+
+  const fitText = (el, max, min) => { // shrink on one line first; only then wrap, at spaces only
+    el.style.whiteSpace = "nowrap"; el.style.overflowWrap = "normal";
+    let fs = max; el.style.fontSize = fs + "px";
+    while (fs > min && el.scrollWidth > el.clientWidth + 1) { fs -= 2; el.style.fontSize = fs + "px"; }
+    if (el.scrollWidth > el.clientWidth + 1) {
+      el.style.whiteSpace = "normal";
+      while (fs > 30 && el.scrollWidth > el.clientWidth + 1) { fs -= 2; el.style.fontSize = fs + "px"; } // one unbreakable word
+      if (el.scrollWidth > el.clientWidth + 1) { el.querySelectorAll(".nw").forEach(x => { x.style.whiteSpace = "normal"; }); el.style.overflowWrap = "anywhere"; } // last resort
+    }
+  };
+  const applySlip = (el, i, top, h) => {
+    const textX = Math.max(320, maxRight(top - 6, top + h + 6) + CLEAR);
+    const textR = 900; // one right edge for every slip, clear of the app's side buttons
+    el.style.left = (textX - TUCK).toFixed(1) + "px"; el.style.width = (RIGHT_PAPER - textX + TUCK).toFixed(1) + "px";
+    el.style.top = top.toFixed(1) + "px";
+    el.style.transformOrigin = TUCK + "px 40%"; el.style.transform = `rotate(${(ROT[i % ROT.length] * rotK).toFixed(2)}deg)`;
+    el.style.zIndex = 2 + i; // pile: each slip lies on the previous one
+    const pp = el.querySelector(".paper");
+    pp.style.paddingLeft = TUCK + "px"; pp.style.paddingRight = (RIGHT_PAPER - textR) + "px";
+    pp.style.paddingTop = S.pt + "px"; pp.style.paddingBottom = S.pb + "px";
+    fitText(el.querySelector(".slb"), S.lb, MIN.lb);
+    fitText(el.querySelector(".svl"), S.vl, Math.min(S.vl, 40));
+  };
+  let hs = slipEls.map(() => (y1 - y0) / Math.max(1, n)), tops = hs.map((h, i) => y0 + i * h);
+  const plan = () => {
+    const avail = y1 - y0, total = hs.reduce((a, b) => a + b, 0);
+    if (total + GAPMIN * (n - 1) <= avail) {
+      const gap = Math.min(GAPMAX, (avail - total) / Math.max(1, n - 1));
+      let y = y0 + Math.max(0, avail - total - gap * (n - 1)) * 0.4;
+      tops = hs.map(h => { const tt = y; y += h + gap; return tt; }); return "fit";
+    }
+    // pile: the next slip covers the previous one's bottom margin, so header + value rows always show
+    const ov = Math.min(S.pb - 4, (total - avail) / Math.max(1, n - 1));
+    let y = y0; tops = hs.map(h => { const tt = y; y += h - ov; return tt; });
+    return y + ov <= y1 + 1 ? "pile" : "over";
+  };
+  const settle = () => { for (let k = 0; k < 3; k++) { slipEls.forEach((el, i) => applySlip(el, i, tops[i], hs[i])); hs = slipEls.map(el => el.offsetHeight); mode = plan(); } };
+  const shrinkTo = F => { // margins first, then value and label in turn
+    if (S.pt > F.pt || S.pb > F.pb) { S.pt = Math.max(F.pt, S.pt - 2); S.pb = Math.max(F.pb, S.pb - 2); }
+    else if (S.vl > F.vl && (S.vl - F.vl >= 2 * (S.lb - F.lb) || S.lb <= F.lb)) S.vl = Math.max(F.vl, S.vl - 4);
+    else S.lb = Math.max(F.lb, S.lb - 2); };
+  const reached = (F) => S.lb <= F.lb && S.vl <= F.vl && S.pt <= F.pt && S.pb <= F.pb;
+  for (let guard = 0; guard < 40; guard++) {
+    settle();
+    if (mode === "fit") break;
+    if (!reached(FLOOR)) { shrinkTo(FLOOR); continue; }
+    rotK = 0.5; // a tight pile lies straighter
+    if (mode === "pile") { settle(); if (mode !== "over") break; }
+    if (!reached(MIN)) { shrinkTo(MIN); continue; }
+    break;
+  }
+  slipEls.forEach((el, i) => applySlip(el, i, tops[i], hs[i]));
+
+  }
+</script>
+</body>
+</html>

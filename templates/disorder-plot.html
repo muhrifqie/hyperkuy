@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500..600&family=Instrument+Sans:wdth,wght@75..100,400..700&family=Martian+Mono:wdth,wght@75..112.5,100..800&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Disorder Plot: a pen plotter drawing on heavy plotter paper, after Vera Molnar's (Des)Ordres.
+    One program draws rows of concentric squares, one row per item, each pass looser than the last:
+    the top row is a perfect grid, the bottom row tilts, wobbles and loses squares.
+    Rows are tagged T=<value> only when the data carries a temperature for every item
+    (item.t, or a label such as "Temperature 0,7" / "suhu 1"); then the disorder is dosed by that value.
+    Otherwise rows are plotter passes P1..Pn with no invented number.
+    The title is plotter lettering: glyph outlines traced by one pen, filled with a 45-degree ink hatch;
+    the highlighted words are a second pass with the vermilion pen, hatched the other way.
+    The vermilion carriage is parked at the LEFT end of the gantry beam, its pen on the first cell
+    of the last row. The source/date are the pencil sign-off under the beam, right-aligned to the plot.
+    Deterministic: a fixed integer hash replaces randomness, so every render is identical.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root { --paper: #F3F0E8; --ink: #151515; --red: #D9432B; --grey: #8A8780; --blue: #2B5BA6; --soft: #46433D; --lead: #4A4740; --bed: #D7D3C9; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--bed); }
+  body { position: relative; color: var(--ink); font-family: "Instrument Sans", sans-serif; }
+  svg { display: block; }
+  #scene, #ink, #hw { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* plotter lettering: glyph bodies filled with a 45-degree pen hatch (opaque paper gaps), then traced by one pen:
+     the 2.5 px outline is a dilation of the glyph silhouette (chained hard drop-shadows), so overlapping font contours never show */
+  #title { position: absolute; left: 90px; width: 900px; top: 312px; font-family: "Martian Mono", monospace; font-weight: 800; font-stretch: 87.5%;
+           line-height: 1.08; letter-spacing: -0.015em; word-spacing: -0.22em; color: var(--ink); }
+  #title .pa, #title .hl { -webkit-text-fill-color: transparent; -webkit-background-clip: text; background-clip: text; }
+  #title { --ow: 2.5px; --hp: 8px; --hw: 2.3px; }
+  #title.small { --ow: 2px; --hp: 6.6px; --hw: 1.9px; }
+  #title .pa { background-image: repeating-linear-gradient(45deg, var(--ink) 0 var(--hw), var(--paper) var(--hw) var(--hp));
+               filter: drop-shadow(var(--ow) 0 0 var(--ink)) drop-shadow(calc(-1 * var(--ow)) 0 0 var(--ink)) drop-shadow(0 var(--ow) 0 var(--ink)) drop-shadow(0 calc(-1 * var(--ow)) 0 var(--ink)); }
+  /* second pen: vermilion, hatched the other way */
+  #title .hl { color: var(--red); white-space: nowrap;
+               background-image: repeating-linear-gradient(-45deg, var(--red) 0 var(--hw), var(--paper) var(--hw) var(--hp));
+               filter: drop-shadow(var(--ow) 0 0 var(--red)) drop-shadow(calc(-1 * var(--ow)) 0 0 var(--red)) drop-shadow(0 var(--ow) 0 var(--red)) drop-shadow(0 calc(-1 * var(--ow)) 0 var(--red)); }
+
+  .rh { position: absolute; left: 90px; width: 810px; height: 54px; display: flex; align-items: baseline; gap: 16px; white-space: nowrap; }
+  .rh .t { font: 600 30px "Martian Mono", monospace; font-stretch: 75%; color: var(--blue); flex: none; }
+  .rh .lb { font: 600 36px "Instrument Sans", sans-serif; color: var(--ink); overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .rh .dash { flex: none; width: 30px; height: 3px; background: var(--ink); align-self: center; margin-top: 8px; }
+  .rh .vl { font: 700 42px "Martian Mono", monospace; font-stretch: 75%; letter-spacing: -0.02em; color: var(--ink); flex: none; }
+
+  #prog { position: absolute; white-space: nowrap; font: 500 26px "Martian Mono", monospace; font-stretch: 75%; color: var(--soft);
+          line-height: 34px; transform: rotate(-90deg); transform-origin: 50% 50%; }
+  #prog .k { color: var(--red); font-weight: 700; }
+
+  /* pencil sign-off under the beam, right-aligned to the plot's right edge (x 900) */
+  #sign { position: absolute; left: 90px; width: 810px; text-align: right; font: 600 34px "Caveat", cursive; line-height: 1.12; color: var(--lead); }
+  #sign div { white-space: normal; }
+
+  #cap { position: absolute; left: 90px; width: 900px; font: 500 46px "Instrument Sans", sans-serif; line-height: 1.22; color: var(--ink); }
+  /* active word: knocked out of a block the vermilion pen filled with dense hatching */
+  #cap .w.on { font-weight: 700; color: var(--paper); padding: 0 0.14em; margin: 0 -0.02em; background-color: var(--red);
+               background-image: repeating-linear-gradient(-45deg, rgba(140,30,14,.42) 0 2px, rgba(217,67,43,0) 2px 6px); }
+</style>
+</head>
+<body>
+<svg id="scene" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" data-layout-allow-overlap></svg>
+<svg id="ink" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" data-layout-allow-overlap></svg>
+<div id="title"></div>
+<div id="rows"></div>
+<div id="prog" data-layout-allow-overlap></div>
+<svg id="hw" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" data-layout-allow-overlap></svg>
+<div id="sign"></div>
+<div id="cap" data-slot="caption"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series_id: "how-ai-works", series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "Satu angka bikin jawaban AI ngaco.", hl: "Satu angka",
+    caption: "Temperature kecil bikin jawaban AI sama terus, temperature besar bikin makin liar.",
+    items: [{ label: "Fakta", value: "sama terus", t: 0 }, { label: "Ringkasan", value: "rapi", t: 0.5 }, { label: "Brainstorm", value: "kreatif", t: 1 },
+            { label: "Puisi", value: "liar", t: 1.5 }, { label: "Maksimum", value: "ngaco", t: 2 }],
+    source: "ilustrasi — rentang T 0–2 seperti di API", date: "per 14 Okt 2026" };
+
+  // Lay out only after the web fonts are in: the fitting below measures real glyph widths.
+  Promise.all(['800 100px "Martian Mono"', '600 30px "Martian Mono"', '500 26px "Martian Mono"', '600 36px "Instrument Sans"', '500 46px "Instrument Sans"', '700 46px "Instrument Sans"', '600 34px "Caveat"']
+    .map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const INK = "#151515", GREY = "#8A8780", PAPER = "#F3F0E8";
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(1, items.length);
+  const f1 = v => v.toFixed(1);
+  const DEG = Math.PI / 180;
+
+  // Deterministic hash noise in [0,1) and [-1,1).
+  function h01(a, b, c, d) {
+    let h = Math.imul(2166136261 ^ (a * 374761393), 16777619);
+    h = Math.imul(h ^ (b * 668265263 + 0x9e37), 16777619);
+    h = Math.imul(h ^ (c * 2246822519 + 0x85eb), 16777619);
+    h = Math.imul(h ^ (d * 3266489917 + 0xc2b2), 16777619);
+    h ^= h >>> 13; h = Math.imul(h, 0x5bd1e995); h ^= h >>> 15;
+    return (h >>> 0) / 4294967296;
+  }
+  const R = (a, b, c, d) => h01(a, b, c, d) * 2 - 1;
+
+  // ---------- temperature only when the data gives one for every row ----------
+  const numOf = v => { const m = String(v == null ? "" : v).replace(",", ".").match(/-?\d+(?:\.\d+)?/); return m ? parseFloat(m[0]) : NaN; };
+  const tempRe = /(?:temperatur\w*|temp|suhu|\bT\s*=)\s*=?\s*(\d+(?:[.,]\d+)?)/i;
+  const temps = items.map(it => {
+    if (it.t != null && it.t !== "" && isFinite(numOf(it.t))) return numOf(it.t);
+    const m = String(it.label || "").match(tempRe) || String(it.value || "").match(tempRe);
+    return m ? parseFloat(m[1].replace(",", ".")) : NaN;
+  });
+  const tMode = items.length > 0 && temps.every(v => isFinite(v) && v >= 0);
+  const tMax = tMode ? Math.max(2, ...temps) : 1;
+  const fT = v => (Math.round(v * 10) / 10).toString();
+  // disorder dose 0..1 per row: from the data's temperature, else from the pass number (illustration)
+  const dose = r => Math.pow(Math.min(1, Math.max(0, tMode ? temps[r] / tMax : (n > 1 ? r / (n - 1) : 0))), 1.2);
+  const tag = r => tMode ? "T=" + fT(temps[r]) : "P" + (r + 1);
+
+  // ---------- title: plotter lettering ----------
+  const t = String(D.title || ""), hl = String(D.hl || "");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  const pa = x => x ? '<span class="pa">' + esc(x) + "</span>" : "";
+  titleEl.innerHTML = at < 0 ? pa(t) : pa(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + pa(t.slice(at + hl.length));
+  // Prefer two big lines; fall back to three, then four smaller lines.
+  // Prefer the wider cut (2 lines, then 3); only long titles drop to the condensed cut, before the size drops further.
+  const linesAt = (fs, st) => { titleEl.style.fontSize = fs + "px"; titleEl.style.fontStretch = st + "%"; return Math.round(titleEl.offsetHeight / (fs * 1.08)); };
+  let tfs = 0, tst = 87.5;
+  for (const [maxL, st, hi, lo] of [[2, 87.5, 104, 84], [3, 87.5, 96, 80], [3, 75, 92, 72]])
+    for (let fs = hi; fs >= lo && !tfs; fs -= 2) if (linesAt(fs, st) <= maxL) { tfs = fs; tst = st; }
+  if (!tfs) { tfs = 68; tst = 75; }
+  linesAt(tfs, tst);
+  titleEl.classList.toggle("small", tfs < 84);
+  const titleBottom = titleEl.offsetTop + titleEl.offsetHeight;
+
+  // ---------- bottom stack, built upwards from y 1616: caption, pencil sign-off, beam ----------
+  // caption (karaoke voice-over line), max 2 lines, bottom-anchored
+  const cap = String(D.caption || D.sub || "").trim();
+  const words = cap.split(/\s+/).filter(Boolean);
+  const norm = w => w.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+  const hws = hl ? hl.split(/\s+/).map(norm).filter(Boolean) : [];
+  let a0 = -1, a1 = -1;
+  if (hws.length) {
+    for (let i = 0; i + hws.length <= words.length && a0 < 0; i++) if (hws.every((h2, k) => norm(words[i + k]) === h2)) { a0 = i; a1 = i + hws.length - 1; }
+    if (a0 < 0 && hws.length === 1) { const j = words.findIndex(w => norm(w).includes(hws[0])); if (j >= 0) a0 = a1 = j; }
+  }
+  if (a0 < 0) a0 = a1 = 0;
+  const parts = [];
+  for (let i = 0; i < words.length; i++) {
+    if (i === a0) { parts.push('<span class="w on">' + esc(words.slice(a0, a1 + 1).join(" ")) + "</span>"); i = a1; }
+    else parts.push('<span class="w">' + esc(words[i]) + "</span>");
+  }
+  const capEl = $("cap");
+  capEl.innerHTML = parts.join(" ");
+  let cfs = 46;
+  for (; cfs >= 40; cfs -= 2) { capEl.style.fontSize = cfs + "px"; if (capEl.offsetHeight <= cfs * 1.22 * 2 + 4) break; }
+  if (cfs < 40) {                                  // still too long: keep two lines, end on an ellipsis
+    capEl.style.fontSize = "40px";
+    const fits = () => capEl.offsetHeight <= 40 * 1.22 * 2 + 4;
+    let ws = Array.from(capEl.querySelectorAll(".w"));
+    while (ws.length > 1 && !ws[ws.length - 1].classList.contains("on")) {
+      const w = ws[ws.length - 1], keep = w.textContent;
+      w.textContent = keep.replace(/[.,;:!?]*$/, "") + "…";
+      if (fits()) break;
+      w.textContent = keep;
+      const prev = w.previousSibling; w.remove(); if (prev && prev.nodeType === 3) prev.remove();
+      ws.pop();
+    }
+  }
+  const capTop = 1616 - capEl.offsetHeight;
+  capEl.style.top = capTop + "px";
+
+  // pencil sign-off: what was plotted · edition · date, then the source
+  const MON = { jan: 1, feb: 2, mar: 3, apr: 4, mei: 5, may: 5, jun: 6, jul: 7, agu: 8, agt: 8, ags: 8, aug: 8, sep: 9, okt: 10, oct: 10, nov: 11, des: 12, dec: 12 };
+  const dm = String(D.date || "").match(/(\d{1,2})\s+([A-Za-z]{3})[A-Za-z]*\.?\s+(\d{4})/);
+  const dateTxt = dm && MON[dm[2].toLowerCase()] ? [dm[1].padStart(2, "0"), String(MON[dm[2].toLowerCase()]).padStart(2, "0"), dm[3].slice(2)].join(".") : String(D.date || "").trim();
+  const ep = String(D.ep || "").trim();
+  const who = (D.series ? String(D.series) + (ep ? " " + ep : "") : String(D.kicker || "")).trim();
+  const run = tMode ? "T " + fT(Math.min(...temps)) + "–" + fT(Math.max(...temps)) : "P1–P" + n;
+  const line1 = [who, run, "1/1", dateTxt].filter(Boolean).join(" · ");
+  const signEl = $("sign");
+  signEl.innerHTML = "<div>" + esc(line1) + "</div>" + (D.source ? "<div>sumber: " + esc(D.source) + "</div>" : "");
+  for (let fs = 34; fs > 30 && signEl.offsetHeight > 34 * 1.12 * 2 + 4; fs -= 2) signEl.style.fontSize = fs + "px";
+  const signTop = capTop - 12 - signEl.offsetHeight;
+  signEl.style.top = signTop + "px";
+
+  const BH = 40;                                   // gantry beam
+  const BY = signTop - 66;                          // carriage hangs 20 px below the beam; sign-off clears it
+  const PB = BY - 14;                               // plot floor
+
+  // ---------- plot geometry ----------
+  const X0 = 90, X1 = 900, GW = X1 - X0;           // nothing plotted right of x 900 (action rail)
+  const PT = Math.max(560, Math.round(titleBottom + 44));
+  const pitch = (PB - PT) / n;
+  const HH = 56;                                   // row header (tag + label + value)
+  const GY = Math.max(16, pitch * 0.09);           // breathing room under each row
+  const GX = 16;
+  const sq0 = pitch - HH - GY;
+  const cols = Math.min(11, Math.max(4, Math.round((GW + GX) / (sq0 + GX))));
+  const sq = Math.min(sq0, (GW - (cols - 1) * GX) / cols);
+  const gx = (GW - cols * sq) / (cols - 1);
+
+  // ---------- scene: bed, rails, sheet held by four magnets, registration marks ----------
+  const scene = $("scene");
+  let s = "";
+  s += '<defs>' +
+       '<linearGradient id="rail" x1="0" x2="1"><stop offset="0" stop-color="#B9B5AB"/><stop offset=".45" stop-color="#E2DFD7"/><stop offset="1" stop-color="#A9A59B"/></linearGradient>' +
+       '<linearGradient id="beam" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ECEAE3"/><stop offset=".18" stop-color="#D6D3CA"/><stop offset=".55" stop-color="#C8C4BA"/><stop offset="1" stop-color="#A8A499"/></linearGradient>' +
+       '<linearGradient id="bsh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#151515" stop-opacity=".16"/><stop offset="1" stop-color="#151515" stop-opacity="0"/></linearGradient>' +
+       '<linearGradient id="car" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E55A41"/><stop offset="1" stop-color="#C23A23"/></linearGradient>' +
+       '<radialGradient id="mag" cx=".38" cy=".34" r=".7"><stop offset="0" stop-color="#5A5852"/><stop offset=".55" stop-color="#2C2B28"/><stop offset="1" stop-color="#1B1A18"/></radialGradient>' +
+       '<filter id="soft" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#151515" flood-opacity=".22"/></filter>' +
+       '<filter id="sheetsh" x="-5%" y="-5%" width="110%" height="110%"><feDropShadow dx="0" dy="4" stdDeviation="9" flood-color="#151515" flood-opacity=".14"/></filter>' +
+       '</defs>';
+  s += '<rect x="44" y="96" width="992" height="1748" fill="' + PAPER + '" filter="url(#sheetsh)"/>';
+  s += '<rect x="0" y="0" width="30" height="1920" fill="url(#rail)"/><rect x="1050" y="0" width="30" height="1920" fill="url(#rail)"/>';
+  s += '<line x1="15" y1="0" x2="15" y2="1920" stroke="#8A8780" stroke-width="2"/><line x1="1065" y1="0" x2="1065" y2="1920" stroke="#8A8780" stroke-width="2"/>';
+  // round bed magnets on the four sheet corners
+  [[66, 118], [1014, 118], [66, 1822], [1014, 1822]].forEach(p => {
+    s += '<g filter="url(#soft)"><circle cx="' + p[0] + '" cy="' + p[1] + '" r="30" fill="url(#mag)"/>' +
+         '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="21" fill="none" stroke="#45433E" stroke-width="2"/></g>';
+  });
+  // registration marks (plot origin and its mirror)
+  [[150, 214], [930, 214], [150, 1716], [930, 1716]].forEach(p => {
+    s += '<g stroke="' + GREY + '" stroke-width="2" fill="none"><circle cx="' + p[0] + '" cy="' + p[1] + '" r="13"/>' +
+         '<line x1="' + (p[0] - 24) + '" y1="' + p[1] + '" x2="' + (p[0] + 24) + '" y2="' + p[1] + '"/><line x1="' + p[0] + '" y1="' + (p[1] - 24) + '" x2="' + p[0] + '" y2="' + (p[1] + 24) + '"/></g>';
+  });
+  scene.innerHTML = s;
+
+  // ---------- the plot itself (ink layer) ----------
+  const inkSvg = $("ink");
+  let g = "";
+  const rowsEl = $("rows");
+  let rowsHtml = "";
+  const N = Math.max(4, Math.round(sq / 16));      // nested squares per cell
+  const step = sq / (2 * N);
+  const SW = sq > 140 ? 2.6 : 2.3;
+  let firstLast = null;                            // first cell of the last row: where the pen rests
+  for (let r = 0; r < n; r++) {
+    const d = dose(r);
+    const top = PT + r * pitch;
+    const cyRow = top + HH + sq / 2;
+    const last = r === n - 1;
+    const hdrBottom = top + HH - 2, floorY = last ? BY + 2 : top + pitch + 2;
+    for (let c = 0; c < cols; c++) {
+      const cx = X0 + c * (sq + gx) + sq / 2;
+      // Molnar-style dose: the cell stays on its grid spot; it tilts, its squares wobble at the corners and drop out.
+      const rc = R(r, c, 0, 1) * d * 17 * DEG;
+      const dx = R(r, c, 0, 2) * d * sq * 0.09;
+      const dy = R(r, c, 0, 3) * d * sq * 0.06;
+      const keep = [];
+      for (let k = 0; k < N; k++) keep.push(k === N - 1 || h01(r, c, k, 4) >= (k === 0 ? d * 0.3 : d * 0.5));
+      if (!keep[0] && !keep[1]) keep[h01(r, c, 9, 4) < 0.5 ? 0 : 1] = true;   // never a tiny orphan: one of the two outer squares stays
+      const polys = [];
+      for (let k = 0; k < N; k++) {
+        if (!keep[k]) continue;
+        const half = sq / 2 - k * step;
+        const ox = R(r, c, k, 5) * d * step * 1.6, oy = R(r, c, k, 6) * d * step * 1.6;
+        const rk = rc + R(r, c, k, 7) * d * 8 * DEG;
+        const cs = Math.cos(rk), sn = Math.sin(rk);
+        const jit = Math.min(step * 1.3, half * 0.45) * d;   // hand-line wobble; small squares never collapse into slivers
+        const pts = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map((q, j) => {
+          const px = q[0] * half + R(r, c, k, 8 + j) * jit;
+          const py = q[1] * half + R(r, c, k, 12 + j) * jit;
+          return [cx + dx + ox + px * cs - py * sn, cyRow + dy + oy + px * sn + py * cs];
+        });
+        polys.push(pts);
+      }
+      // Keep the loose cell on its own strip: never into the row header above, the next header below,
+      // the program margin on the left or past x 900 on the right.
+      const all = polys.flat();
+      const mnX = Math.min(...all.map(p => p[0])), mxX = Math.max(...all.map(p => p[0]));
+      const mnY = Math.min(...all.map(p => p[1])), mxY = Math.max(...all.map(p => p[1]));
+      const shift = (lo, hi) => lo > 0 ? lo : (hi < 0 ? Math.max(hi, lo) : 0);
+      const sx = shift(92 - mnX, 900 - mxX), sy = shift(hdrBottom - mnY, floorY - mxY);
+      polys.forEach(pts => { g += '<path d="M' + pts.map(p => f1(p[0] + sx) + "," + f1(p[1] + sy)).join("L") + 'Z"/>'; });
+      if (last && c === 0) firstLast = { x: cx + dx + sx, y: cyRow + dy + sy };
+    }
+    const it = items[r] || { label: "", value: "" };
+    rowsHtml += '<div class="rh" style="top:' + f1(top) + 'px"><span class="t">' + tag(r) + '</span><span class="lb">' + esc(it.label) +
+                '</span>' + (it.value ? '<span class="dash"></span><span class="vl">' + esc(it.value) + "</span>" : "") + "</div>";
+  }
+  inkSvg.innerHTML = '<g fill="none" stroke="' + INK + '" stroke-width="' + SW + '" stroke-linejoin="round" stroke-linecap="round">' + g + "</g>";
+  rowsEl.innerHTML = rowsHtml;
+  // keep every header inside x 90-900: shrink the label first, then let it ellipsize
+  rowsEl.querySelectorAll(".rh").forEach(rh => {
+    const lb = rh.querySelector(".lb");
+    for (let fs = 36; fs > 30 && rh.scrollWidth > rh.clientWidth + 1; fs -= 2) lb.style.fontSize = fs + "px";
+  });
+
+  // ---------- gantry beam + carriage parked at the LEFT end ----------
+  let b = "";
+  b += '<rect x="0" y="' + (BY + BH) + '" width="1080" height="18" fill="url(#bsh)"/>';
+  b += '<rect x="0" y="' + BY + '" width="1080" height="' + BH + '" fill="url(#beam)"/>';
+  b += '<line x1="0" y1="' + (BY + BH * 0.5) + '" x2="1080" y2="' + (BY + BH * 0.5) + '" stroke="#9A968D" stroke-width="2"/>';
+  for (let x = 60, i = 0; x < 1030; x += 12, i++) {
+    const L = i % 5 === 0 ? 11 : 6;
+    b += '<line x1="' + x + '" y1="' + (BY + BH - 2) + '" x2="' + x + '" y2="' + (BY + BH - 2 - L) + '" stroke="#8A8780" stroke-width="1.6"/>';
+  }
+  b += '<rect x="0" y="' + (BY - 8) + '" width="44" height="' + (BH + 16) + '" rx="6" fill="#8F8B82"/><rect x="1036" y="' + (BY - 8) + '" width="44" height="' + (BH + 16) + '" rx="6" fill="#8F8B82"/>';
+  b += '<circle cx="22" cy="' + (BY + BH / 2) + '" r="7" fill="#C9C5BC"/><circle cx="1058" cy="' + (BY + BH / 2) + '" r="7" fill="#C9C5BC"/>';
+  // carriage: vermilion block on the beam, a pen clamp, and the black pen reaching up to the first cell of the last row
+  const PX = Math.max(112, Math.round(firstLast ? firstLast.x : X0 + sq / 2));
+  const CW = 132, CH = 80, CX = PX + 28, CY = BY + BH / 2 - CH / 2;
+  const tipY = Math.min(CY - 40, firstLast ? firstLast.y + 6 : CY - 80);
+  b += '<g filter="url(#soft)">' +
+       '<path d="M' + (PX - 11) + ',' + (tipY + 30) + 'L' + (PX + 11) + ',' + (tipY + 30) + 'L' + (PX + 11) + ',' + (CY + 30) + 'L' + (PX - 11) + ',' + (CY + 30) + 'Z" fill="#202020"/>' +
+       '<path d="M' + (PX - 7) + ',' + (tipY + 32) + 'L' + (PX - 7) + ',' + (CY + 20) + '" stroke="#4A4A4A" stroke-width="3"/>' +
+       '<path d="M' + (PX - 9) + ',' + (tipY + 30) + 'L' + (PX + 9) + ',' + (tipY + 30) + 'L' + (PX + 7) + ',' + (tipY + 16) + 'L' + (PX - 7) + ',' + (tipY + 16) + 'Z" fill="#B9B5AC"/>' +
+       '<path d="M' + (PX - 7) + ',' + (tipY + 16) + 'L' + (PX + 7) + ',' + (tipY + 16) + 'L' + (PX + 1.5) + ',' + tipY + 'L' + (PX - 1.5) + ',' + tipY + 'Z" fill="' + INK + '"/>' +
+       '<rect x="' + (CX - CW / 2) + '" y="' + CY + '" width="' + CW + '" height="' + CH + '" rx="10" fill="url(#car)"/>' +
+       '<rect x="' + (CX - CW / 2 + 8) + '" y="' + (CY + 7) + '" width="' + (CW - 16) + '" height="11" rx="5.5" fill="#EE7A62" opacity=".55"/>' +
+       '<rect x="' + (PX - 22) + '" y="' + (CY + 20) + '" width="44" height="44" rx="6" fill="#B5321D"/>' +
+       '<circle cx="' + PX + '" cy="' + (CY + 42) + '" r="12" fill="' + INK + '"/><circle cx="' + PX + '" cy="' + (CY + 42) + '" r="5" fill="#5A5A5A"/>' +
+       [0, 1, 2].map(i => '<rect x="' + (CX + 10) + '" y="' + (CY + 28 + i * 12) + '" width="40" height="5" rx="2.5" fill="#A92F1B"/>').join("") +
+       '</g>';
+  $("hw").innerHTML = b;
+
+  // ---------- program printed up the left margin ----------
+  const prog = $("prog");
+  const K = v => '<span class="k">' + v + "</span>";
+  const progs = tMode
+    ? ['for ' + K("T") + ' in (' + esc(temps.map(fT).join(", ")) + '): plot(squares, jitter=' + K("T") + ')',
+       'for ' + K("T") + ' in temps: plot(squares, jitter=' + K("T") + ')',
+       'for ' + K("T") + ' in temps: plot(sq, ' + K("T") + ')']
+    : ['for ' + K("p") + ' in passes: plot(squares, seed=' + K("p") + ')',
+       'for ' + K("p") + ' in passes: plot(sq, seed=' + K("p") + ')',
+       'for ' + K("p") + ' in passes: plot(' + K("p") + ')'];
+  for (const p of progs) { prog.innerHTML = p; if (prog.offsetWidth <= PB - PT - 30) break; }
+  const pw = prog.offsetWidth, ph = prog.offsetHeight;
+  prog.style.left = (67 - pw / 2).toFixed(1) + "px";
+  prog.style.top = ((PT + PB) / 2 - ph / 2).toFixed(1) + "px";
+  }
+</script>
+</body>
+</html>

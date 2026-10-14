@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Shophouse Section (shophouse-section): an architect's section perspective of a
+    narrow Indonesian shophouse (ruko), ink on warm drafting paper.
+    Cut slabs and walls are poche (45-degree hatch) with one merged outline; the
+    rooms behind the cut recede to a single vanishing point (dollhouse cutaway).
+    Every item is one floor: its room tag (name / rule / value) sits on the back
+    wall, its level mark (LT n, elevation) in the left margin.
+    The sentence is a blue parcel waiting at the half-open shop shutter; its blue
+    walking line climbs the dog-leg stair floor by floor and leaves through the
+    roof hatch as a brick-red answer parcel, which drops down the drainpipe on
+    the facade back to the shutter: the loop of the video, drawn in one still.
+    Deterministic: all geometry is computed from the item count, no randomness.
+  */
+  :root { --paper: #F3EFE6; --ink: #1E2430; --brick: #AD4420; --blue: #2F5DA8; --tone: #D9D2C3; --soft: #474C57; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--paper); }
+  body { position: relative; color: var(--ink); font-family: "Newsreader", Georgia, serif; }
+  .layer { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  .kick { position: absolute; left: 90px; right: 90px; top: 290px; height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+  .kick .l { display: flex; align-items: center; gap: 16px; font: 600 28px "IBM Plex Mono", monospace; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
+  .bub { width: 56px; height: 56px; border: 3px solid var(--ink); border-radius: 50%; display: flex; align-items: center; justify-content: center; font: 600 26px "IBM Plex Mono", monospace; letter-spacing: 0; flex: none; }
+  .kick .r { font: 500 26px "IBM Plex Mono", monospace; letter-spacing: 0.04em; color: var(--soft); white-space: nowrap; }
+
+  .title { position: absolute; left: 90px; width: 900px; top: 372px; font-weight: 600; font-variation-settings: "opsz" 72; line-height: 1.08; letter-spacing: -0.014em; }
+  .title .hl { font-style: italic; font-weight: 500; color: var(--brick); }
+  .title .hl.pad { padding-right: 0.06em; }
+  .title .bl { display: inline-block; width: 0; height: 0; vertical-align: baseline; }
+
+  .tag { position: absolute; text-align: center; background: var(--paper); padding: 3px 16px 5px; }
+  .tag .lb { font-weight: 600; font-variation-settings: "opsz" 36; line-height: 1.02; white-space: nowrap; }
+  .tag .rule { height: 3px; background: var(--ink); margin: 5px -6px 4px; }
+  .tag .vl { font-family: "IBM Plex Mono", monospace; font-weight: 500; line-height: 1.08; white-space: nowrap; }
+
+  .lvl { position: absolute; left: 90px; width: 104px; font-family: "IBM Plex Mono", monospace; white-space: nowrap; }
+  .lvl b { display: block; font-weight: 600; font-size: 28px; line-height: 1.04; }
+  .lvl span { display: block; font-weight: 500; font-size: 26px; line-height: 1.1; color: var(--soft); }
+
+  .cap { position: absolute; left: 90px; width: 810px; font-weight: 500; font-variation-settings: "opsz" 24; line-height: 1.24; color: var(--ink); }
+  .cap .w.on { background: var(--blue); color: var(--paper); padding: 0 0.14em 0.02em; border-radius: 2px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+
+  .foot { position: absolute; left: 90px; right: 90px; top: 1588px; display: flex; justify-content: space-between; gap: 32px; font: 500 26px "IBM Plex Mono", monospace; line-height: 1.12; color: var(--soft); }
+  .foot span:last-child { white-space: nowrap; }
+  .foot #cutname { color: var(--soft); }
+</style>
+</head>
+<body>
+<svg class="layer" id="dwg" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+<div class="kick"><div class="l"><span class="bub" id="ep"></span><span id="ser"></span></div><span class="r" id="date"></span></div>
+<div class="title" id="title"></div>
+<div id="labels"></div>
+<div class="cap" id="cap" data-slot="caption"></div>
+<div class="foot"><span id="src"></span><span id="cutname">Potongan A–A · 1:100</span></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const FONTS = ['600 100px Newsreader', 'italic 500 100px Newsreader', '500 44px Newsreader', '600 44px Newsreader', '500 30px "IBM Plex Mono"', '600 28px "IBM Plex Mono"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const INK = "#1E2430", PAPER = "#F3EFE6", BRICK = "#AD4420", BLUE = "#2F5DA8", TONE = "#D9D2C3";
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(1, items.length);
+  const f1 = v => (Math.round(v * 10) / 10).toString();
+
+  // ---------- kicker + meta ----------
+  document.getElementById("ep").textContent = (String(D.ep || "01").replace(/^#/, "") || "01").slice(0, 3);
+  document.getElementById("ser").textContent = D.series || D.kicker || "";
+  document.getElementById("src").textContent = D.source ? "Sumber: " + D.source : "";
+  document.getElementById("date").textContent = D.date || "";
+  { const ft = document.querySelector(".foot"); if (ft.offsetHeight > 34) document.getElementById("cutname").remove(); }
+
+  // ---------- title (largest element); hl = brick italic + a dimension line under it ----------
+  const t = String(D.title || "").replace(/ = /g, " =" + String.fromCharCode(160)), hl = String(D.hl || "");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = document.getElementById("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl' + (/^[?!:;)]/.test(t.slice(at + hl.length)) ? " pad" : "") + '" id="hl">' + esc(t.slice(at, at + hl.length)) + '<i class="bl" id="bl"></i></span>' + esc(t.slice(at + hl.length));
+  const TMAX = n >= 5 ? 236 : 250;
+  let tfs = 118;
+  for (; tfs >= 72; tfs -= 2) { titleEl.style.fontSize = tfs + "px"; if (titleEl.offsetHeight <= TMAX && titleEl.scrollWidth <= 900) break; }
+  const TB = 372 + titleEl.offsetHeight;
+
+  // ---------- caption (karaoke voice-over line) ----------
+  const cap = document.getElementById("cap");
+  const words = String(D.caption || D.sub || "").split(/\s+/).filter(Boolean);
+  const norm = w => w.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+  const hw = hl.split(/\s+/).map(norm).filter(Boolean);
+  let on0 = 0, on1 = 0;
+  if (hw.length) for (let i = 0; i + hw.length <= words.length; i++) {
+    if (hw.every((h, k) => norm(words[i + k]) === h)) { on0 = i; on1 = i + hw.length - 1; break; }
+  }
+  const ws = w => '<span class="w">' + esc(w) + "</span>";
+  cap.innerHTML = words.slice(0, on0).map(ws).join(" ") + (on0 ? " " : "") +
+    '<span class="w on">' + esc(words.slice(on0, on1 + 1).join(" ")) + "</span>" +
+    (on1 + 1 < words.length ? " " + words.slice(on1 + 1).map(ws).join(" ") : "");
+
+  // ---------- section geometry ----------
+  const GY = 1412;                         // ground floor level (+/-0,00)
+  const ROOFZ = 118;                       // tallest roof object (water tank) above the roof slab
+  const RY = Math.max(726, TB + 34 + ROOFZ); // roof slab top
+  const FX = 234, FW = 20;                 // front wall (street side) outer x, thickness
+  const BX = 866, BW = 20;                 // back wall inner x, thickness
+  const SH = 318;                          // shop shutter line (ground floor, set back under the arcade)
+  const SA = 664, SL = BX - 50;            // stair: slab edge / start of the mid landing
+  const ST = 18;                           // slab thickness
+  const W = [1.16].concat(Array(n - 1).fill(1));
+  const unit = (GY - RY) / W.reduce((a, b) => a + b, 0);
+  const F = [GY]; for (let i = 0; i < n; i++) F.push(F[i] - W[i] * unit); F[n] = RY;
+  const VP = { x: 548, y: GY - 0.32 * (GY - RY) }, K = 0.86;   // eye level low in the building: we look up the stair
+  const toVP = (x, y, k = K) => [VP.x + k * (x - VP.x), VP.y + k * (y - VP.y)];
+  const P = pts => pts.map(p => f1(p[0]) + "," + f1(p[1])).join(" ");
+
+  const g = { room: [], beyond: [], cutS: [], cutF: [], over: [], route: [], top: [] };
+  const cut = []; // poche shapes as path strings (merged outline)
+  const rect = (x, y, w, h) => `M${f1(x)},${f1(y)}h${f1(w)}v${f1(h)}h${f1(-w)}Z`;
+
+  // rooms in section perspective (one vanishing point for the whole building)
+  for (let i = 0; i < n; i++) {
+    const x0 = i === 0 ? SH + 4 : FX + FW, x1 = BX, y0 = F[i + 1] + ST, y1 = F[i];
+    const A = [x0, y0], B = [x1, y0], C = [x1, y1], Dd = [x0, y1];
+    const a = toVP(...A), b = toVP(...B), c = toVP(...C), d = toVP(...Dd);
+    g.room.push(`<polygon points="${P([A, B, b, a])}" fill="#EAE4D8"/>`,
+      `<polygon points="${P([Dd, C, c, d])}" fill="#DED6C6"/>`,
+      `<polygon points="${P([A, a, d, Dd])}" fill="#E5DED1"/>`,
+      `<polygon points="${P([B, b, c, C])}" fill="#E2DBCD"/>`,
+      `<polygon points="${P([a, b, c, d])}" fill="#F0EBE1"/>`,
+      `<g stroke="${INK}" stroke-width="1.4" stroke-opacity="0.55" fill="none"><polyline points="${P([A, a, b, B])}"/><polyline points="${P([Dd, d, c, C])}"/><line x1="${f1(a[0])}" y1="${f1(a[1])}" x2="${f1(d[0])}" y2="${f1(d[1])}"/><line x1="${f1(b[0])}" y1="${f1(b[1])}" x2="${f1(c[0])}" y2="${f1(c[1])}"/></g>`);
+    // skirting line on the back wall
+    g.room.push(`<line x1="${f1(d[0])}" y1="${f1(d[1] - 7)}" x2="${f1(c[0])}" y2="${f1(c[1] - 7)}" stroke="${INK}" stroke-opacity="0.3" stroke-width="1.2"/>`);
+    if (i === 0) {
+      // shop floor tiles converging to the vanishing point
+      let tl = "";
+      for (let x = x0 + 40; x < x1; x += 44) { const q = toVP(x, y1); tl += `<line x1="${f1(x)}" y1="${f1(y1)}" x2="${f1(q[0])}" y2="${f1(q[1])}"/>`; }
+      for (const k of [0.95, 0.895]) { const l = toVP(x0, y1, k), r = toVP(x1, y1, k); tl += `<line x1="${f1(l[0])}" y1="${f1(l[1])}" x2="${f1(r[0])}" y2="${f1(r[1])}"/>`; }
+      g.room.push(`<g stroke="${INK}" stroke-opacity="0.22" stroke-width="1.2">${tl}</g>`);
+      // half-open rolling shutter on the shop front (left wall of the ground floor box)
+      const sb = y0 + 0.5 * (y1 - y0);
+      let sl = "";
+      for (let y = y0 + 8; y <= sb; y += 7.5) { const q = toVP(x0, y); sl += `<line x1="${f1(x0)}" y1="${f1(y)}" x2="${f1(q[0])}" y2="${f1(q[1])}"/>`; }
+      const qb = toVP(x0, sb + 4);
+      g.room.push(`<g stroke="${INK}" stroke-opacity="0.62" stroke-width="1.5">${sl}</g>`,
+        `<line x1="${x0}" y1="${f1(sb + 4)}" x2="${f1(qb[0])}" y2="${f1(qb[1])}" stroke="${INK}" stroke-width="4"/>`);
+      g.over.push(`<line x1="${x0 - 2}" y1="${f1(y0)}" x2="${x0 - 2}" y2="${f1(sb + 4)}" stroke="${INK}" stroke-width="3"/>`);
+      g.over.push(`<rect x="${x0 - 14}" y="${f1(y0)}" width="26" height="26" fill="${PAPER}" stroke="${INK}" stroke-width="2.2"/><circle cx="${x0 - 1}" cy="${f1(y0 + 13)}" r="8" fill="none" stroke="${INK}" stroke-width="2"/>`); // shutter coil box
+    } else {
+      // tall front window seen on the facade wall (inside face)
+      const h = y1 - y0, wy0 = y0 + 0.16 * h, wy1 = y1 - 0.14 * h;
+      const fa = 0.18, fb = 0.78;
+      const at2 = (fr, y) => { const q = toVP(x0, y); return [x0 + fr * (q[0] - x0), y + fr * (q[1] - y)]; };
+      const w1 = at2(fa, wy0), w2 = at2(fb, wy0), w3 = at2(fb, wy1), w4 = at2(fa, wy1);
+      const m1 = at2((fa + fb) / 2, wy0), m2 = at2((fa + fb) / 2, wy1);
+      g.room.push(`<polygon points="${P([w1, w2, w3, w4])}" fill="${PAPER}" stroke="${INK}" stroke-width="1.6" stroke-opacity="0.7"/>`,
+        `<line x1="${f1(m1[0])}" y1="${f1(m1[1])}" x2="${f1(m2[0])}" y2="${f1(m2[1])}" stroke="${INK}" stroke-width="1.3" stroke-opacity="0.6"/>`);
+    }
+  }
+
+  // stair: dog-leg per floor; flight 1 (rising toward the back) is cut, flight 2 is beyond
+  const route = [];
+  const STEP_R = 17;
+  for (let i = 0; i < n; i++) {
+    const h = F[i] - F[i + 1], mid = F[i] - h / 2;
+    const N = Math.max(3, Math.round(h / 2 / STEP_R)), r = h / 2 / N, tr = (SL - SA) / (N - 1);
+    // flight 1 (cut, poche)
+    let p1 = `M${SA},${f1(F[i])}`;
+    for (let k = 0; k < N; k++) { p1 += `V${f1(F[i] - (k + 1) * r)}`; if (k < N - 1) p1 += `H${f1(SA + (k + 1) * tr)}`; }
+    p1 += `L${SL},${f1(mid + 14)}L${SA},${f1(F[i] + (i === 0 ? 0 : ST))}Z`;
+    cut.push(p1);
+    cut.push(rect(SL, mid, BX - SL, 14));          // mid landing
+    // flight 2 (beyond, thin line work + handrail)
+    let p2 = `M${SL},${f1(mid)}`;
+    for (let k = 0; k < N; k++) { p2 += `V${f1(mid - (k + 1) * r)}`; if (k < N - 1) p2 += `H${f1(SL - (k + 1) * tr)}`; }
+    g.beyond.push(`<path d="${p2}L${SA},${f1(F[i + 1] + ST)}L${SL},${f1(mid + 14)}Z" fill="#E7E1D4" stroke="${INK}" stroke-width="1.6" stroke-opacity="0.8" stroke-linejoin="miter"/>`);
+    const hrO = 46;
+    g.beyond.push(`<polyline points="${P([[SL - 6, mid - r - hrO], [SA + 8, F[i + 1] - hrO + 8]])}" stroke="${INK}" stroke-width="2" stroke-opacity="0.7" fill="none"/>`,
+      `<line x1="${SA + 8}" y1="${f1(F[i + 1] - hrO + 8)}" x2="${SA + 8}" y2="${f1(F[i + 1])}" stroke="${INK}" stroke-width="1.6" stroke-opacity="0.7"/>`);
+    // walking line: above the nosings of both flights
+    const o = r + 13;
+    route.push([SA, F[i] - o + (i === 0 ? 0 : 0)], [SL + 10, mid - o], [SL + 10, mid - o - 2 * r], [SA, F[i + 1] - o]);
+  }
+
+  // cut slabs, walls, roof, ground slab
+  for (let i = 1; i < n; i++) cut.push(rect(FX, F[i], SA - FX, ST));
+  const HO0 = SA - 10, HO1 = SA + 78;              // roof hatch opening
+  cut.push(rect(FX, RY, HO0 - FX, ST), rect(HO1, RY, BX + BW - HO1, ST));
+  cut.push(rect(HO0 - 12, RY - 14, 12, 14), rect(HO1, RY - 14, 12, 14)); // hatch curbs
+  cut.push(rect(FX, RY - 40, FW, F[1] + ST - RY + 40));                                  // front wall + parapet
+  cut.push(rect(BX, RY - 30, BW, GY - RY + 30));                                          // back wall + parapet
+  cut.push(rect(FX, GY, BX + BW - FX, ST));                                               // floor slab on grade
+  cut.push(rect(FX, F[1] + ST, FW, 16));                                                  // arcade edge beam
+
+  // arcade column (beyond, at the facade line)
+  g.beyond.push(`<rect x="${FX + 2}" y="${f1(F[1] + ST + 14)}" width="${FW - 4}" height="${f1(GY - F[1] - ST - 14)}" fill="#E7E1D4" stroke="${INK}" stroke-width="1.4" stroke-opacity="0.7"/>`);
+
+  // roof: open hatch lid + water tank on a steel stand (beyond)
+  g.beyond.push(`<polygon points="${P([[HO1 + 2, RY - 14], [HO1 + 11, RY - 16], [HO1 + 36, RY - 78], [HO1 + 27, RY - 80]])}" fill="${PAPER}" stroke="${INK}" stroke-width="2.2"/><circle cx="${HO1 + 6}" cy="${RY - 15}" r="4" fill="${INK}"/>`);
+  const TX0 = 790, TX1 = 866, TY1 = RY - 26, TY0 = RY - ROOFZ;
+  g.beyond.push(`<g stroke="${INK}" stroke-width="2.2" fill="none">
+    <line x1="${TX0 + 4}" y1="${RY}" x2="${TX0 + 4}" y2="${TY1}"/><line x1="${TX1 - 4}" y1="${RY}" x2="${TX1 - 4}" y2="${TY1}"/>
+    <line x1="${TX0 + 4}" y1="${RY}" x2="${TX1 - 4}" y2="${TY1}" stroke-width="1.4"/><line x1="${TX1 - 4}" y1="${RY}" x2="${TX0 + 4}" y2="${TY1}" stroke-width="1.4"/></g>`,
+    `<rect x="${TX0 - 4}" y="${TY1 - 6}" width="${TX1 - TX0 + 8}" height="6" fill="${INK}"/>`,
+    `<path d="M${TX0},${TY1 - 6}V${TY0 + 20}Q${TX0},${TY0 + 4} ${(TX0 + TX1) / 2},${TY0 + 2}Q${TX1},${TY0 + 4} ${TX1},${TY0 + 20}V${TY1 - 6}Z" fill="#E7E1D4" stroke="${INK}" stroke-width="2.4"/>`,
+    `<g stroke="${INK}" stroke-width="1.3" stroke-opacity="0.7">${[0.38, 0.6, 0.82].map(fr => { const y = TY0 + 20 + fr * (TY1 - 26 - TY0 - 20); return `<line x1="${TX0}" y1="${f1(y)}" x2="${TX1}" y2="${f1(y)}"/><line x1="${TX0}" y1="${f1(y + 4)}" x2="${TX1}" y2="${f1(y + 4)}"/>`; }).join("")}</g>`,
+    `<rect x="${(TX0 + TX1) / 2 - 9}" y="${TY0 - 4}" width="18" height="7" fill="${INK}"/>`);
+
+  // drainpipe down the facade (the answer's way back down)
+  const PX = FX - 15;   // pipe centre
+  g.over.push(`<path d="M${PX - 16},${f1(RY - 58)}H${PX + 16}L${PX + 8},${f1(RY - 36)}H${PX - 8}Z" fill="${PAPER}" stroke="${INK}" stroke-width="2.2"/>`,
+    `<path d="M${PX - 8},${f1(RY - 36)}V${f1(GY - 52)}Q${PX - 8},${GY - 18} ${PX + 22},${GY - 18}V${GY - 34}Q${PX + 8},${GY - 34} ${PX + 8},${f1(GY - 52)}V${f1(RY - 36)}" fill="${PAPER}" stroke="${INK}" stroke-width="2.2"/>`);
+  for (let y = RY + 70; y < GY - 80; y += 150) g.over.push(`<rect x="${PX - 11}" y="${f1(y)}" width="22" height="6" fill="${INK}"/>`);
+
+  // routes: blue = the sentence going up, brick = the answer coming back down
+  const parcel = (x, y, col, light) => `<g><polygon points="${P([[x, y - 30], [x + 14, y - 40], [x + 54, y - 40], [x + 40, y - 30]])}" fill="${light}" stroke="${INK}" stroke-width="2"/>
+    <polygon points="${P([[x + 40, y - 30], [x + 54, y - 40], [x + 54, y - 8], [x + 40, y]])}" fill="${col}" stroke="${INK}" stroke-width="2"/>
+    <rect x="${x}" y="${f1(y - 30)}" width="40" height="30" fill="${col}" stroke="${INK}" stroke-width="2"/>
+    <line x1="${x + 20}" y1="${f1(y - 30)}" x2="${x + 20}" y2="${y}" stroke="${PAPER}" stroke-width="3"/>
+    <line x1="${x + 7}" y1="${f1(y - 35)}" x2="${x + 47}" y2="${f1(y - 35)}" stroke="${INK}" stroke-width="1.6"/></g>`;
+  const IPX = FX + 32;   // input parcel x (under the arcade, at the shutter)
+  const APX = SA - 134;  // answer parcel x (on the roof deck)
+  const blue = [[IPX + 56, GY - 15], [SA - 30, GY - 15]].concat(route);
+  const last = route[route.length - 1];
+  blue.push([SA - 26, RY - 24], [APX + 78, RY - 24]);
+  g.route.push(`<polyline points="${P(blue)}" fill="none" stroke="${PAPER}" stroke-width="13" stroke-linejoin="round" stroke-linecap="round"/>`,
+    `<polyline points="${P(blue)}" fill="none" stroke="${BLUE}" stroke-width="6.5" stroke-linejoin="round" stroke-linecap="round"/>`,
+    `<path d="M${APX + 60},${f1(RY - 24)}l20,-12v24z" fill="${BLUE}"/>`);
+  // chevrons on the blue line every other flight (direction of travel)
+  const brk = `M${APX - 6},${f1(RY - 22)}H${FX + 58}C${FX + 34},${f1(RY - 22)} ${FX + 34},${f1(RY - 62)} ${FX + 8},${f1(RY - 62)}H${PX + 8}Q${PX},${f1(RY - 62)} ${PX},${f1(RY - 50)}V${f1(GY - 50)}Q${PX},${GY - 26} ${PX + 26},${GY - 26}H${IPX - 14}`;
+  g.route.push(`<path d="${brk}" fill="none" stroke="${BRICK}" stroke-width="5" stroke-dasharray="14 9" stroke-linecap="round"/>`,
+    `<path d="M${IPX - 4},${GY - 26}l-17,-10v20z" fill="${BRICK}"/>`);
+  for (let y = RY + 140; y < GY - 120; y += 150) g.route.push(`<path d="M${PX - 9},${f1(y)}l9,11l9,-11" fill="none" stroke="${BRICK}" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>`);
+  g.top.push(parcel(IPX, GY, BLUE, "#7F9ACB"), parcel(APX, RY, BRICK, "#CF8A6E"));
+
+  // ---------- ground, level marks, dimension string ----------
+  const gnd = `<rect x="90" y="${GY + ST}" width="900" height="16" fill="url(#earth)"/>
+    <line x1="90" y1="${GY}" x2="990" y2="${GY}" stroke="${INK}" stroke-width="3"/>`;
+  const E = [0]; for (let i = 1; i <= n; i++) E.push(E[i - 1] + (i === 1 ? 4.2 : 3.6));
+  const fmtE = v => (v === 0 ? "±0,00" : "+" + v.toFixed(2).replace(".", ","));
+  let lv = "", lvl = "";
+  for (let i = 0; i <= n; i++) {
+    const y = F[i];
+    lv += `<line x1="90" y1="${f1(y)}" x2="${FX - 27}" y2="${f1(y)}" stroke="${INK}" stroke-width="1.6" stroke-dasharray="${i === 0 ? "0" : "6 5"}"/>
+      <polygon points="${P([[FX - 46, y - 15], [FX - 28, y - 15], [FX - 37, y]])}" fill="none" stroke="${INK}" stroke-width="2"/>`;
+    lvl += `<div class="lvl" style="top:${f1(y - 66)}px"><b>${i === n ? "ATAP" : "LT " + (i + 1)}</b><span>${fmtE(E[i])}</span></div>`;
+  }
+  let dim = `<line x1="936" y1="${f1(RY - 40)}" x2="936" y2="${GY}" stroke="${INK}" stroke-width="1.5"/>`;
+  for (const y of F.concat([RY - 40])) dim += `<line x1="928" y1="${f1(y + 8)}" x2="944" y2="${f1(y - 8)}" stroke="${INK}" stroke-width="2.4"/><line x1="924" y1="${f1(y)}" x2="948" y2="${f1(y)}" stroke="${INK}" stroke-width="1.2"/>`;
+
+  // ---------- hl dimension line (architect's dimension under the highlighted words) ----------
+  let hlDim = "";
+  const hlEl = document.getElementById("hl"), bl = document.getElementById("bl");
+  if (hlEl) {
+    const rs = [...hlEl.getClientRects()], last2 = rs[rs.length - 1];
+    const baseOff = bl.getBoundingClientRect().top - last2.top;   // rect top -> baseline
+    for (const rc of rs) {
+      if (rc.width < 4) continue;
+      const y = rc.top + baseOff + tfs * 0.2, x0 = rc.left + tfs * 0.04, x1 = Math.min(rc.right - tfs * 0.02, 970), e = tfs * 0.11;
+      hlDim += `<g stroke="${BRICK}" stroke-linecap="square"><line x1="${f1(Math.max(90, x0 - 10))}" y1="${f1(y)}" x2="${f1(x1 + 10)}" y2="${f1(y)}" stroke-width="3"/>
+        <line x1="${f1(x0)}" y1="${f1(y - e)}" x2="${f1(x0)}" y2="${f1(y + e)}" stroke-width="2"/><line x1="${f1(x1)}" y1="${f1(y - e)}" x2="${f1(x1)}" y2="${f1(y + e)}" stroke-width="2"/>
+        <line x1="${f1(x0 - 7)}" y1="${f1(y + 7)}" x2="${f1(x0 + 7)}" y2="${f1(y - 7)}" stroke-width="4"/><line x1="${f1(x1 - 7)}" y1="${f1(y + 7)}" x2="${f1(x1 + 7)}" y2="${f1(y - 7)}" stroke-width="4"/></g>`;
+    }
+  }
+
+  // ---------- assemble the drawing ----------
+  const cutD = cut.join("");
+  document.getElementById("dwg").innerHTML = `<defs>
+      <pattern id="poche" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="9" height="9" fill="${PAPER}"/><line x1="0" y1="0" x2="0" y2="9" stroke="${INK}" stroke-width="1.7"/></pattern>
+      <pattern id="earth" width="26" height="16" patternUnits="userSpaceOnUse"><path d="M2,16L10,2M8,16L16,2M14,16L22,2" stroke="${INK}" stroke-width="1.3" stroke-opacity="0.75"/></pattern>
+    </defs>
+    ${g.room.join("")}
+    ${g.beyond.join("")}
+    <path d="${cutD}" fill="none" stroke="${INK}" stroke-width="5.6" stroke-linejoin="miter"/>
+    <path d="${cutD}" fill="${PAPER}"/>
+    <path d="${cutD}" fill="url(#poche)"/>
+    ${gnd}${g.over.join("")}${g.route.join("")}${g.top.join("")}${lv}${dim}${hlDim}`;
+
+  // ---------- room tags (one per floor = one item) ----------
+  const labels = document.getElementById("labels");
+  let html = lvl;
+  const LS = n >= 5 ? 42 : n === 4 ? 48 : 52, VS = n >= 5 ? 33 : n === 4 ? 36 : 40;
+  items.forEach((it, i) => html += `<div class="tag" id="tg${i}"><div class="lb" style="font-size:${LS}px">${esc(it.label)}</div><div class="rule"></div><div class="vl" style="font-size:${VS}px">${esc(it.value)}</div></div>`);
+  labels.innerHTML = html;
+  // one shared scale so every floor's tag keeps the same type hierarchy; only an extreme label shrinks on its own
+  const box = i => ({ x0: i === 0 ? SH + 14 : FX + FW + 16, x1: SA - 12, y0: F[i + 1] + ST, y1: i === 0 ? GY - 34 : F[i] });
+  const tg = i => document.getElementById("tg" + i);
+  const setF = (el, l, v) => { el.querySelector(".lb").style.fontSize = l + "px"; el.querySelector(".vl").style.fontSize = v + "px"; };
+  const sc = Math.max(0.82, Math.min(1, ...items.map((it, i) => (box(i).x1 - box(i).x0) / tg(i).offsetWidth)));
+  items.forEach((it, i) => setF(tg(i), Math.round(LS * sc), Math.max(30, Math.round(VS * sc))));
+  items.forEach((it, i) => {
+    const el = tg(i), b = box(i);
+    let l = Math.round(LS * sc), v = Math.max(30, Math.round(VS * sc));
+    while ((el.offsetWidth > b.x1 - b.x0 || el.offsetHeight > b.y1 - b.y0 - 6) && l > 30) { l -= 2; v = Math.max(30, v - 1); setF(el, l, v); }
+  });
+  items.forEach((it, i) => {
+    const el = document.getElementById("tg" + i), b = box(i);
+    el.style.left = Math.round((b.x0 + b.x1) / 2 - el.offsetWidth / 2) + "px";
+    // centre on the back wall (the room's far face), but keep inside the cut opening
+    const cy = Math.min(VP.y + K * ((b.y0 + b.y1) / 2 - VP.y), b.y1 - el.offsetHeight / 2 - 6);
+    el.style.top = Math.round(Math.max(b.y0 + 4 + el.offsetHeight / 2, cy) - el.offsetHeight / 2) + "px";
+  });
+
+  // caption sits under the ground line
+  cap.style.top = (GY + ST + 16 + 22) + "px";
+  for (let fs = 46; fs >= 40; fs -= 2) { cap.style.fontSize = fs + "px"; if (cap.offsetHeight <= Math.round(fs * 1.24 * 2) + 4) break; }
+  }
+</script>
+</body>
+</html>

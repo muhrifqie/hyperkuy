@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Resistor Code</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@500;600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Resistor Code: a laminated colour-code reference card (warm cream, umber print).
+    Title in the card's inverted title bar, with the printed 0-9 colour key under it.
+    One horizontal axial resistor runs across the card as the chart's header
+    illustration, leads to both card edges. Every item is one band, coloured by
+    the real code for the first digit of its value (no digit: metallic band).
+    Bands read from the right end; the last item is the band set apart at the
+    left end. Each band drops a stepped orthogonal leader (nested, never crossing)
+    into its numbered row of the decoder table below: Pita | Warna | Arti | Nilai.
+    The hl item: heavy leader, tan row; the title's hl word sits on a tiny
+    resistor-body capsule. Caption = the card's printed footnote ("CATATAN:").
+    Metaphor: a model or plan name is a code like resistor bands; decode it.
+  */
+  :root {
+    --card: #EFE6D2;   /* laminated card */
+    --ink: #22180F;    /* umber print */
+    --tan: #D9C6A0;    /* resistor body, hl capsule */
+    --gold: #B8913A;   /* tolerance band, caption underline */
+    --muted: #6B5B48;  /* secondary print (5.3:1 on card) */
+    --cream: #F3EBDD;  /* print on the title bar */
+    --rule: #C7B795;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--card); }
+  body { position: relative; color: var(--ink); font-family: "IBM Plex Sans", sans-serif; }
+
+  #deco, #obj { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* inverted title bar */
+  .strip { position: absolute; left: 46px; width: 988px; top: 232px; padding: 68px 44px 34px; background: var(--ink); color: var(--cream); }
+  .meta { display: flex; justify-content: space-between; align-items: baseline; gap: 24px;
+          font: 600 27px/1.2 "IBM Plex Mono", monospace; letter-spacing: 0.08em; text-transform: uppercase; color: #CDBFA3; }
+  .meta b { color: var(--cream); font-weight: 600; }
+  .title { margin-top: 20px; width: 900px; font-family: "IBM Plex Sans Condensed", sans-serif; font-weight: 700; line-height: 1.04;
+           letter-spacing: -0.01em; color: var(--cream); text-wrap: balance; }
+  .title .hl { display: inline-block; position: relative; color: var(--ink); line-height: 0.98; padding: 0.02em 0.5em 0.04em; margin: 0 0.26em; border-radius: 0.3em;
+    background-color: var(--tan);
+    background-image:
+      linear-gradient(180deg, rgba(28,18,10,.42) 0%, rgba(28,18,10,.06) 13%, rgba(255,251,242,.5) 23%, rgba(255,251,242,.06) 36%, rgba(28,18,10,0) 58%, rgba(28,18,10,.16) 82%, rgba(28,18,10,.44) 100%),
+      linear-gradient(90deg, transparent 0.13em, #6E4426 0.13em 0.22em, transparent 0.22em 0.29em, #B33A2C 0.29em 0.38em, transparent 0.38em calc(100% - 0.3em), #B8913A calc(100% - 0.3em) calc(100% - 0.19em), transparent calc(100% - 0.19em)); }
+  .title .hl::before, .title .hl::after { content: ""; position: absolute; top: 50%; width: 0.26em; height: 0.075em; margin-top: -0.04em; border-radius: 0.04em;
+    background: linear-gradient(180deg, #F1F4F6, #B3BBC3 45%, #6E767E); }
+  .title .hl::before { right: 100%; }
+  .title .hl::after { left: 100%; }
+
+  .key { display: flex; gap: 8px; margin-top: 28px; }
+  .key span { flex: 1; height: 46px; display: flex; align-items: center; justify-content: center; border-radius: 4px;
+              font: 600 30px/1 "IBM Plex Mono", monospace; box-shadow: inset 0 0 0 2px rgba(243,235,221,.28); }
+
+  /* decoder table */
+  .chart { position: absolute; left: 176px; width: 724px; }
+  .ch-head, .row { display: grid; grid-template-columns: 76px 146px minmax(0, 1fr) auto; column-gap: 16px; align-items: center; }
+  .ch-head { font: 600 30px/1.1 "IBM Plex Mono", monospace; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted);
+             padding: 0 0 10px; border-bottom: 3px solid var(--ink); }
+  .ch-head span:last-child { text-align: right; }
+  .row { position: relative; grid-template-areas: "pn chip lb vl"; border-bottom: 2px solid var(--rule); }
+  .row.stack { grid-template-areas: "pn chip lb lb" "pn chip vl vl"; row-gap: 0; }
+  .row.stack .lb { line-height: 1.08; }
+  .row.stack .vl { line-height: 1.04; }
+  .row.hl { background: #DCC9A3; border: 3.5px solid var(--ink); border-radius: 10px; margin: -2px -20px 0 -10px; padding-left: 6.5px !important; padding-right: 16.5px !important; }
+  .ch-head + .row.hl { margin-top: 8px; }
+  .pn { grid-area: pn; width: 46px; height: 46px; border-radius: 50%; border: 3px solid var(--ink); background: var(--card); display: flex; align-items: center; justify-content: center;
+        font: 600 30px/1 "IBM Plex Mono", monospace; color: var(--ink); }
+  .row.hl .pn { background: var(--ink); color: var(--cream); }
+  .chip { grid-area: chip; height: 50px; border-radius: 5px; border: 2.5px solid var(--ink); display: flex; align-items: center; justify-content: center;
+          font: 600 30px/1 "IBM Plex Mono", monospace; letter-spacing: -0.01em;
+          background-image: linear-gradient(180deg, rgba(0,0,0,.22), rgba(255,255,255,.22) 26%, rgba(255,255,255,0) 48%, rgba(0,0,0,.18)); }
+  .lb { grid-area: lb; min-width: 0; font: 600 36px/1.15 "IBM Plex Sans Condensed", sans-serif; color: #4A3D30; white-space: nowrap; }
+  .vl { grid-area: vl; justify-self: end; font: 600 44px/1.1 "IBM Plex Mono", monospace; letter-spacing: -0.02em; color: var(--ink); white-space: nowrap; }
+  .chart.roomy .lb { font-size: 40px; }
+  .chart.roomy .vl { font-size: 56px; }
+
+  /* caption = printed footnote row */
+  .cap { position: absolute; left: 90px; width: 810px; padding-top: 16px; border-top: 2px solid rgba(34,24,15,.4);
+         font: 500 44px/1.28 "IBM Plex Sans", sans-serif; color: var(--muted); }
+  .cap .lead { font: 600 30px/1 "IBM Plex Mono", monospace; letter-spacing: 0.06em; color: var(--ink); margin-right: 0.12em; }
+  .cap .w.done { color: var(--ink); }
+  .cap .w.on { color: var(--ink); font-weight: 700; padding-bottom: 0.03em; -webkit-box-decoration-break: clone; box-decoration-break: clone;
+               background: linear-gradient(180deg, #E8CF86 0%, #B8913A 45%, #8A6A22 100%) 0 100% / 100% 0.15em no-repeat; }
+
+  .foot { position: absolute; left: 90px; width: 900px; display: flex; justify-content: space-between; align-items: flex-end; gap: 36px;
+          font: 500 26px/1.3 "IBM Plex Mono", monospace; color: var(--muted); }
+  .foot span:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg id="deco" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap aria-hidden="true"></svg>
+<div class="strip" id="strip">
+  <div class="meta" id="meta"><span id="kick"></span><span id="cardno"></span></div>
+  <h1 class="title" id="title"></h1>
+  <div class="key" id="key"></div>
+</div>
+<div class="chart" id="chart"></div>
+<svg id="obj" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap aria-hidden="true"></svg>
+<div class="cap" id="cap" data-slot="caption"></div>
+<div class="foot" id="foot"><span id="src"></span><span id="date"></span></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Tools AI", ep: "#07", kicker: "Tools AI · #07",
+    title: "Nama model AI itu sebenarnya kode", hl: "kode",
+    sub: "Sekali bisa baca kodenya, kamu tahu apa yang kamu unduh.",
+    items: [{ label: "Ukuran model", value: "7B" }, { label: "Varian", value: "Instruct" }, { label: "Konteks", value: "32K" }, { label: "Presisi", value: "Q4" }],
+    source: "ilustrasi — format nama beda tiap pembuat", date: "per 14 Okt 2026" };
+
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const f1 = v => (+v).toFixed(1);
+
+  // load every face used before measuring (fonts.ready alone does not fetch faces no element uses yet)
+  const FACES = ['700 100px "IBM Plex Sans Condensed"', '600 40px "IBM Plex Sans Condensed"', '500 40px "IBM Plex Sans"', '700 40px "IBM Plex Sans"',
+                 '600 40px "IBM Plex Mono"', '500 40px "IBM Plex Mono"'];
+  (document.fonts ? Promise.all(FACES.map(f => document.fonts.load(f, "Aa0"))).then(() => document.fonts.ready) : Promise.resolve())
+    .then(build, build);
+
+  // the standard colour code: [fill, Indonesian name, print colour on it]
+  const CODE = [["#1F1813", "Hitam", "#F3EBDD"], ["#6E4426", "Cokelat", "#F3EBDD"], ["#B33A2C", "Merah", "#F3EBDD"], ["#D97A2B", "Jingga", "#22180F"],
+                ["#E3BC3F", "Kuning", "#22180F"], ["#3D6B45", "Hijau", "#F3EBDD"], ["#2E5C9C", "Biru", "#F3EBDD"], ["#6A4D91", "Ungu", "#F3EBDD"],
+                ["#94979B", "Abu-abu", "#22180F"], ["#F1EDE4", "Putih", "#22180F"]];
+  const GOLD = ["#B8913A", "Emas", "#22180F", "gold"], SILVER = ["#A9ADB2", "Perak", "#22180F", "silver"];
+
+  function build() {
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+
+  // ---------- title bar: meta, title, colour key ----------
+  const epNo = String(D.ep || "").replace(/^#/, "");
+  $("kick").innerHTML = D.series ? esc(D.series) + (epNo ? " · <b>#" + esc(epNo) + "</b>" : "") : esc(D.kicker || "");
+  $("cardno").textContent = "Kode warna";
+  $("key").innerHTML = CODE.map((c, d) => '<span style="background-color:' + c[0] + ";color:" + c[2] + '">' + d + "</span>").join("");
+
+  const t = D.title || "", hl = D.hl || "";
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  const fitTitle = maxFs => {
+    let fs = maxFs;
+    for (; fs >= 72; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (titleEl.offsetHeight <= fs * 1.04 * 3 + 6) break; }
+    return fs;
+  };
+  let titleFs = fitTitle(106);
+
+  // ---------- which item is the hl row: whole phrase, else words >= 3 letters, else equal numbers ----------
+  const norm = s => String(s || "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim().split(/\s+/).filter(Boolean);
+  let hi = -1;
+  if (hl) {
+    hi = items.findIndex(it => (it.label + " " + it.value).toLowerCase().includes(hl.toLowerCase()));
+    if (hi < 0) {
+      const hw = norm(hl); let best = 0;
+      items.forEach((it, k) => {
+        const ws = norm(it.label + " " + it.value); let sc = 0;
+        hw.forEach(w => {
+          if (/^\p{N}+$/u.test(w)) { if (ws.includes(w)) sc += 1; }
+          else if (w.length >= 3 && ws.some(x => x.length >= 3 && (x.startsWith(w) || w.startsWith(x)))) sc += 2;
+        });
+        if (sc > best) { best = sc; hi = k; }
+      });
+    }
+  }
+  if (hi < 0) hi = 0;
+
+  // ---------- band colours: real code for the value's first digit; no digit = metallic ----------
+  const bands = items.map((it, k) => {
+    const m = String(it.value || "").match(/\d/);
+    const c = m ? CODE[+m[0]] : (k === n - 1 ? GOLD : SILVER);
+    return { c: c[0], name: c[1], ink: c[2], metal: c[3] || "", hl: k === hi };
+  });
+
+  // ---------- foot + caption (bottom-anchored) ----------
+  $("src").textContent = D.source ? "Sumber: " + D.source : "";
+  $("date").textContent = D.date || "";
+  const foot = $("foot");
+  const footTop = 1616 - foot.offsetHeight;
+  foot.style.top = footTop + "px";
+
+  // karaoke caption: active word = hl if in the line, else the first word; punctuation stays outside the active mark
+  const capText = String(D.caption || D.sub || "");
+  const words = capText.split(/\s+/).filter(Boolean).map(w => { const m = w.match(/^([^\p{L}\p{N}]*)(.*?)([^\p{L}\p{N}]*)$/u); return { pre: m[1], core: m[2], post: m[3] }; });
+  const lc = s => s.toLowerCase();
+  let a0 = 0, a1 = 0;
+  const hw = norm(hl);
+  if (hw.length) {
+    for (let i = 0; i + hw.length <= words.length; i++) {
+      const ok = hw.every((h, k) => { const w = lc(words[i + k].core); return w === h || (k === hw.length - 1 && w.startsWith(h) && h.length >= 3); });
+      if (ok) { a0 = i; a1 = i + hw.length - 1; break; }
+    }
+  }
+  const wtxt = w => w.pre + w.core + w.post;
+  const capHTML = (s, e) => {
+    let h = '<span class="lead">CATATAN:</span> ' + (s > 0 ? '<span class="w">…</span> ' : "");
+    for (let i = s; i <= e; i++) {
+      const tail = i === e && e < words.length - 1 ? "…" : "";
+      if (i === a0) {
+        let inner = words[a0].core;
+        if (a1 > a0) inner += words[a0].post + " " + words.slice(a0 + 1, a1).map(wtxt).concat([words[a1].pre + words[a1].core]).join(" ");
+        h += (words[a0].pre ? '<span class="w done">' + esc(words[a0].pre) + "</span>" : "") + '<span class="w on">' + esc(inner) + "</span>" +
+             (words[a1].post || (a1 >= e && tail) ? '<span class="w done">' + esc(words[a1].post) + (a1 >= e ? tail : "") + "</span>" : "") + " ";
+        i = a1; continue;
+      }
+      h += '<span class="w' + (i < a0 ? " done" : "") + '">' + esc(wtxt(words[i])) + tail + "</span> ";
+    }
+    return h.trim();
+  };
+  const capEl = $("cap");
+  const capFits = f => capEl.offsetHeight <= 16 + 2 + f * 1.28 * 2 + 4;
+  capEl.innerHTML = capHTML(0, words.length - 1);
+  let capFs = 46;
+  for (; capFs >= 40; capFs -= 2) { capEl.style.fontSize = capFs + "px"; if (capFits(capFs)) break; }
+  if (capFs < 40) {
+    capFs = 42; capEl.style.fontSize = capFs + "px";
+    let s = 0, e = words.length - 1;
+    while (e > a1 && (capEl.innerHTML = capHTML(s, e), !capFits(capFs))) e--;
+    while (s < a0 && (capEl.innerHTML = capHTML(s, e), !capFits(capFs))) s++;
+  }
+  const capTop = footTop - 26 - capEl.offsetHeight;
+  capEl.style.top = capTop + "px";
+
+  // ---------- decoder table ----------
+  const chart = $("chart");
+  let rowsHTML = '<div class="ch-head"><span>Pita</span><span>Warna</span><span>Arti</span><span>Nilai</span></div>';
+  items.forEach((it, k) => {
+    const b = bands[k];
+    rowsHTML += '<div class="row' + (b.hl ? " hl" : "") + '" data-k="' + k + '"><span class="pn">' + (k + 1) + "</span>" +
+      '<span class="chip" style="background-color:' + b.c + ";color:" + b.ink + '">' + esc(b.name) + "</span>" +
+      '<span class="lb"><span>' + esc(it.label) + '</span></span><span class="vl">' + esc(it.value) + "</span></div>";
+  });
+  chart.innerHTML = rowsHTML;
+  if (n <= 3) chart.classList.add("roomy");
+  const rows = [...chart.querySelectorAll(".row")];
+  // one line per row when label + value fit (value may shrink to 40 px, label to 32 px); otherwise the value gets its own line
+  rows.forEach(r => {
+    const lb = r.querySelector(".lb"), vl = r.querySelector(".vl"), lt = lb.firstChild;
+    const room = () => r.clientWidth - parseFloat(getComputedStyle(r).paddingLeft) - parseFloat(getComputedStyle(r).paddingRight) - 76 - 146 - 48;
+    let vf = parseFloat(getComputedStyle(vl).fontSize), lf = parseFloat(getComputedStyle(lb).fontSize);
+    const fits = () => lt.offsetWidth + vl.offsetWidth + 16 <= room();
+    while (!fits() && vf > 40) { vf -= 2; vl.style.fontSize = vf + "px"; }
+    while (!fits() && lf > 32) { lf -= 2; lb.style.fontSize = lf + "px"; }
+    if (!fits()) {
+      r.classList.add("stack");
+      vl.style.fontSize = ""; lb.style.fontSize = "";
+      vf = parseFloat(getComputedStyle(vl).fontSize);
+      while (vl.offsetWidth > room() && vf > 40) { vf -= 2; vl.style.fontSize = vf + "px"; }
+      if (lt.offsetWidth > room()) lb.style.whiteSpace = "normal";
+    }
+  });
+
+  // ---------- vertical layout: title bar -> resistor -> leader buses -> table -> footnote ----------
+  const strip = $("strip");
+  // gaps: title bar -> body (gA), body -> first bus (gB), bus spacing (BS), last bus -> table (gC); "tight" is the last resort
+  let G = { gA: 42, gB: 26, BS: 18, gC: 30 };
+  const setPad = p => rows.forEach(r => { r.style.paddingTop = p + "px"; r.style.paddingBottom = p + "px"; });
+  let S, P, need, avail;
+  const solve = () => {
+    const stripBottom = 232 + strip.offsetHeight;
+    avail = capTop - 40 - stripBottom;
+    setPad(0); const tab0 = chart.offsetHeight;
+    const needOf = (s, p) => G.gA + 208 * s + G.gB + (n - 1) * G.BS + G.gC + tab0 + 2 * p * n;
+    S = 0.9; P = 14;
+    while (needOf(S, P) > avail && S > 0.78) S -= 0.01;
+    while (needOf(S, P) > avail && P > 8) P -= 1;
+    while (needOf(S, P) > avail && S > 0.62) S -= 0.01;
+    need = needOf(S, P);
+    return stripBottom;
+  };
+  let stripBottom = solve();
+  // compression ladder: drop the printed 0-9 key, then shrink the title (>= 72 px), then tighten the gaps
+  if (need > avail) { $("key").style.display = "none"; stripBottom = solve(); }
+  while (need > avail && titleFs > 72) { titleFs = fitTitle(titleFs - 4); stripBottom = solve(); }
+  if (need > avail) { G = { gA: 30, gB: 20, BS: 15, gC: 22 }; stripBottom = solve(); }
+  // spend spare room: roomier rows first, then air around the resistor
+  let spare = Math.max(0, avail - need);
+  const addP = Math.min(spare / (2 * Math.max(1, n)), (n <= 3 ? 30 : 22) - P);
+  P += addP; spare -= addP * 2 * n;
+  setPad(P);
+  const BS = G.BS, gapA = G.gA + spare * 0.45, gapC = G.gC + spare * 0.25;
+  const CY = stripBottom + gapA + 104 * S;
+  const bodyBot = CY + 104 * S;
+  const busTop = bodyBot + G.gB;
+  const chTop = busTop + (n - 1) * BS + gapC;
+  chart.style.top = chTop + "px";
+  const rowY = rows.map(r => chTop + r.offsetTop + r.offsetHeight / 2);
+
+  // ---------- resistor (horizontal; local x along the axis, y across) ----------
+  const L = 600, RC = 104, RW = 87, A = L / 2, CX = 540;
+  const X = lx => CX + S * lx, Y = ly => CY + S * ly;
+  const body = "M " + -A + " 0 C " + -A + " " + -RC * 0.78 + " " + (-A + 28) + " " + -RC + " " + (-A + 72) + " " + -RC +
+    " C " + (-A + 112) + " " + -RC + " " + (-A + 128) + " " + -RW + " " + (-A + 158) + " " + -RW +
+    " L " + (A - 158) + " " + -RW + " C " + (A - 128) + " " + -RW + " " + (A - 112) + " " + -RC + " " + (A - 72) + " " + -RC +
+    " C " + (A - 28) + " " + -RC + " " + A + " " + -RC * 0.78 + " " + A + " 0" +
+    " C " + A + " " + RC * 0.78 + " " + (A - 28) + " " + RC + " " + (A - 72) + " " + RC +
+    " C " + (A - 112) + " " + RC + " " + (A - 128) + " " + RW + " " + (A - 158) + " " + RW +
+    " L " + (-A + 158) + " " + RW + " C " + (-A + 128) + " " + RW + " " + (-A + 112) + " " + RC + " " + (-A + 72) + " " + RC +
+    " C " + (-A + 28) + " " + RC + " " + -A + " " + RC * 0.78 + " " + -A + " 0 Z";
+
+  // lower outline of the body, sampled, to anchor each leader where its band meets the edge facing the table
+  const obj = $("obj");
+  obj.innerHTML = '<path id="probe" d="' + body + '" fill="none"/>';
+  const probe = $("probe"), plen = probe.getTotalLength(), low = [];
+  for (let i = 0; i <= 600; i++) { const p = probe.getPointAtLength(plen * i / 600); if (p.y > 0) low.push([p.x, p.y]); }
+  low.sort((a, b) => a[0] - b[0]);
+  const lowY = x => { let best = low[0]; for (const p of low) if (Math.abs(p[0] - x) < Math.abs(best[0] - x)) best = p; return best[1]; };
+
+  // bands: read from the right end; the last item is set apart at the left end
+  const nd = n - 1, half = A - 96;
+  const step = 2 * half / (Math.max(1, nd) + 0.85);
+  const bx = bands.map((b, k) => k < n - 1 ? half - k * step : -half);
+  const bw = Math.min(46, step * 0.5);
+  const K = 10; // band edge curvature on the cylinder
+
+  let svg = '<defs>' +
+    '<filter id="soft" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="10"/></filter>' +
+    '<clipPath id="bodyClip"><path d="' + body + '"/></clipPath>' +
+    '<linearGradient id="shadeY" gradientUnits="userSpaceOnUse" x1="0" y1="' + -RC + '" x2="0" y2="' + RC + '">' +
+      '<stop offset="0" stop-color="#1C120A" stop-opacity=".46"/><stop offset=".1" stop-color="#1C120A" stop-opacity=".08"/>' +
+      '<stop offset=".2" stop-color="#FFFBF2" stop-opacity=".6"/><stop offset=".31" stop-color="#FFFBF2" stop-opacity=".12"/>' +
+      '<stop offset=".56" stop-color="#1C120A" stop-opacity="0"/><stop offset=".8" stop-color="#1C120A" stop-opacity=".2"/>' +
+      '<stop offset="1" stop-color="#1C120A" stop-opacity=".54"/></linearGradient>' +
+    '<linearGradient id="shadeX" gradientUnits="userSpaceOnUse" x1="' + -A + '" y1="0" x2="' + A + '" y2="0">' +
+      '<stop offset="0" stop-color="#1C120A" stop-opacity=".34"/><stop offset=".07" stop-color="#1C120A" stop-opacity="0"/>' +
+      '<stop offset=".93" stop-color="#1C120A" stop-opacity="0"/><stop offset="1" stop-color="#1C120A" stop-opacity=".34"/></linearGradient>' +
+    '<linearGradient id="goldY" gradientUnits="userSpaceOnUse" x1="0" y1="' + -RC + '" x2="0" y2="' + RC + '">' +
+      '<stop offset="0" stop-color="#7A5A1C"/><stop offset=".22" stop-color="#E8CF86"/><stop offset=".4" stop-color="#B8913A"/>' +
+      '<stop offset=".75" stop-color="#9A7428"/><stop offset="1" stop-color="#6E5017"/></linearGradient>' +
+    '<linearGradient id="silverY" gradientUnits="userSpaceOnUse" x1="0" y1="' + -RC + '" x2="0" y2="' + RC + '">' +
+      '<stop offset="0" stop-color="#5E6369"/><stop offset=".22" stop-color="#F1F3F5"/><stop offset=".42" stop-color="#A9ADB2"/>' +
+      '<stop offset=".75" stop-color="#8A8F95"/><stop offset="1" stop-color="#5A5F65"/></linearGradient>' +
+    '</defs>';
+
+  // tinned leads to both card edges (edge, metal, specular)
+  const xl = X(-A), xr = X(A), lw = 15 * S;
+  const leads = "M46," + f1(CY) + "H" + f1(xl + 4) + "M" + f1(xr - 4) + "," + f1(CY) + "H1034";
+  svg += '<path d="' + leads + '" stroke="#24180F" stroke-opacity=".22" stroke-width="' + f1(lw) + '" filter="url(#soft)" transform="translate(0,' + f1(22 * S) + ')"/>';
+  // cast shadow of the body (light from above-left)
+  svg += '<path d="' + body + '" transform="translate(' + f1(CX + 10 * S) + "," + f1(CY + 30 * S) + ") scale(" + S.toFixed(4) + ',' + (S * 0.86).toFixed(4) + ')" fill="#3A2614" opacity=".3" filter="url(#soft)"/>';
+  svg += '<path d="' + leads + '" stroke="#5B636B" stroke-width="' + f1(lw + 4) + '"/>' +
+         '<path d="' + leads + '" stroke="#B3BBC3" stroke-width="' + f1(lw) + '"/>' +
+         '<path d="' + leads + '" stroke="#F1F4F6" stroke-width="' + f1(4 * S) + '" opacity=".9" transform="translate(0,' + f1(-3 * S) + ')"/>';
+
+  let bandsSVG = "";
+  bands.forEach((b, k) => {
+    const x0 = bx[k] - bw / 2, x1 = bx[k] + bw / 2;
+    const fill = b.metal === "gold" ? "url(#goldY)" : b.metal === "silver" ? "url(#silverY)" : b.c;
+    bandsSVG += '<path d="M' + f1(x0) + "," + (-RC - 10) + " Q" + f1(x0 + K) + ",0 " + f1(x0) + "," + (RC + 10) + " L" + f1(x1) + "," + (RC + 10) + " Q" + f1(x1 + K) + ",0 " + f1(x1) + "," + (-RC - 10) + 'Z" fill="' + fill + '"/>';
+  });
+  svg += '<g transform="translate(' + f1(CX) + "," + f1(CY) + ") scale(" + S.toFixed(4) + ')">' +
+    '<path d="' + body + '" fill="#D9C6A0"/>' +
+    '<g clip-path="url(#bodyClip)">' + bandsSVG +
+      '<rect x="' + -A + '" y="' + -RC + '" width="' + L + '" height="' + 2 * RC + '" fill="url(#shadeY)"/>' +
+      '<rect x="' + -A + '" y="' + -RC + '" width="' + L + '" height="' + 2 * RC + '" fill="url(#shadeX)"/></g>' +
+    '<path d="' + body + '" fill="none" stroke="#5A3A22" stroke-opacity=".55" stroke-width="2.5"/></g>';
+
+  // stepped orthogonal leaders, nested so none crosses: band k drops to bus k, runs left to lane k, down to row k, right into its number
+  const rounded = (pts, r) => {
+    let d = "M" + f1(pts[0][0]) + "," + f1(pts[0][1]);
+    for (let i = 1; i < pts.length - 1; i++) {
+      const [px, py] = pts[i - 1], [cx, cy] = pts[i], [nx, ny] = pts[i + 1];
+      const l1 = Math.hypot(cx - px, cy - py), l2 = Math.hypot(nx - cx, ny - cy), rr = Math.min(r, l1 / 2, l2 / 2);
+      d += " L" + f1(cx - (cx - px) / l1 * rr) + "," + f1(cy - (cy - py) / l1 * rr) + " Q" + f1(cx) + "," + f1(cy) + " " + f1(cx + (nx - cx) / l2 * rr) + "," + f1(cy + (ny - cy) / l2 * rr);
+    }
+    const e = pts[pts.length - 1];
+    return d + " L" + f1(e[0]) + "," + f1(e[1]);
+  };
+  let lead = "", dots = "", hlLead = "";
+  bands.forEach((b, k) => {
+    const ax = X(bx[k]), ay = Y(lowY(bx[k])) + 1;
+    const bus = busTop + (n - 1 - k) * BS, lane = 160 - k * 16, ry = rowY[k];
+    const d = rounded([[ax, ay], [ax, bus], [lane, bus], [lane, ry], [174, ry]], 10);
+    if (b.hl) {
+      hlLead = '<path d="' + d + '" fill="none" stroke="#EFE6D2" stroke-width="12" stroke-linejoin="round" stroke-linecap="round"/>' +
+               '<path d="' + d + '" fill="none" stroke="#22180F" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>' +
+               '<circle cx="' + f1(ax) + '" cy="' + f1(ay) + '" r="9.5" fill="#22180F" stroke="#F6EFE2" stroke-width="3.5"/>';
+    } else {
+      lead += '<path d="' + d + '" fill="none" stroke="#22180F" stroke-opacity=".6" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>';
+      dots += '<circle cx="' + f1(ax) + '" cy="' + f1(ay) + '" r="6.5" fill="#22180F" stroke="#F6EFE2" stroke-width="2.5"/>';
+    }
+  });
+  svg += lead + dots + hlLead;
+  obj.innerHTML = svg;
+
+  // ---------- printed card furniture: surface margin, card edge, punched hole, footprint + symbol ----------
+  let deco = '<path fill-rule="evenodd" fill="#D3C6AB" d="M0,0H1080V1920H0Z M66,36H1014A30,30 0 0 1 1044,66V1854A30,30 0 0 1 1014,1884H66A30,30 0 0 1 36,1854V66A30,30 0 0 1 66,36Z"/>' +
+    '<rect x="36" y="36" width="1008" height="1848" rx="30" fill="none" stroke="#FFFBF2" stroke-opacity=".7" stroke-width="3"/>' +
+    '<rect x="46" y="46" width="988" height="1828" rx="22" fill="none" stroke="#22180F" stroke-opacity=".45" stroke-width="2"/>' +
+    '<circle cx="540" cy="138" r="40" fill="#F6F0E2" stroke="#22180F" stroke-opacity=".16" stroke-width="2"/>' +
+    '<circle cx="540" cy="138" r="25" fill="#D3C6AB"/>' +
+    '<path d="M515,138A25,25 0 0 1 565,138A25,19 0 0 0 515,138Z" fill="#8F8166" opacity=".55"/>' +
+    '<circle cx="540" cy="138" r="25" fill="none" stroke="#22180F" stroke-opacity=".3" stroke-width="2"/>';
+  // PCB footprint and schematic symbol of the same part, printed in the card's foot (UI zone: decoration only)
+  deco += '<g fill="none" stroke="#22180F" stroke-opacity=".42" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">' +
+    '<rect x="208" y="1716" width="236" height="60" rx="8"/><path d="M226,1746H170M426,1746H482"/>' +
+    '<circle cx="150" cy="1746" r="20"/><circle cx="502" cy="1746" r="20"/>' +
+    '<path d="M600,1746H680l14,-26l28,52l28,-52l28,52l28,-52l28,52l14,-26H900"/>' +
+    '<circle cx="592" cy="1746" r="8"/><circle cx="908" cy="1746" r="8"/></g>' +
+    '<g fill="#22180F" fill-opacity=".42"><circle cx="150" cy="1746" r="7"/><circle cx="502" cy="1746" r="7"/></g>';
+  $("deco").innerHTML = deco;
+  }
+</script>
+</body>
+</html>

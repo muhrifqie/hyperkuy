@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@500;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Toolpath: standing in front of a CNC milling machine.
+    The frame IS the machine front: a light-grey enclosure with a stack light, a riveted
+    nameplate on the door (title), a full-width window (gasket + screws) and the control's
+    display strip under it (caption), with CYCLE START / FEED HOLD / E-stop below.
+    Through the glass: an aluminium block in a vise on a pallet, a G-code listing taped to the
+    glass. Every item is one G-code line, linked by a marker leader to the groove it cut.
+    The marked line (orange loop) is being executed; the NEXT line is wrong: its dashed
+    back-plot runs off the block straight into the steel vise jaw (red collision + red "?").
+    Metaphor: an AI coding agent writes the program, the machine follows it literally.
+    Geometry: a small perspective camera projects real 3D boxes/cylinders into SVG.
+    Fully deterministic (no randomness, no time).
+  */
+  :root { --panel: #15171A; --alu: #C9CDD2; --paper: #EEE7D6; --blue: #3B7DD8; --orange: #F08A24; --red: #D2382B; --ink: #15171A; --inkdim: #50555C; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #CDD1D5; }
+  body { position: relative; color: var(--ink); font-family: "Barlow Condensed", sans-serif; }
+  .layer { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* nameplate: brushed-aluminium plate, black-anodised field, letters engraved through to bright metal */
+  #plate { position: absolute; left: 60px; top: 266px; width: 960px; padding: 20px; border-radius: 12px; background-color: #C9CDD2;
+           background-image: repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.28) 0 1px, rgba(0, 0, 0, 0.04) 1px 2px, rgba(255, 255, 255, 0) 2px 4px),
+                             linear-gradient(180deg, #F1F3F4 0%, #CDD1D5 44%, #B3B9BF 56%, #DADDE0 100%);
+           box-shadow: 0 0 0 1px #868C93, inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 16px 24px rgba(20, 24, 28, 0.32), 0 3px 5px rgba(20, 24, 28, 0.28); }
+  #plate .rv { position: absolute; width: 14px; height: 14px; border-radius: 50%;
+               background: radial-gradient(circle at 38% 34%, #FFFFFF 0 2px, #D7DADD 3px, #8D939A 6px, #5D636A 7px); box-shadow: 0 1px 1px rgba(0, 0, 0, 0.45); }
+  #field { position: relative; border-radius: 5px; padding: 16px 10px 20px; background-color: #17191C;
+           background-image: repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.022) 0 1px, rgba(255, 255, 255, 0) 1px 3px);
+           box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.9), inset 0 -1px 0 rgba(255, 255, 255, 0.10), 0 1px 0 rgba(255, 255, 255, 0.75); }
+  #kick { display: flex; justify-content: space-between; align-items: baseline; gap: 30px; padding-bottom: 10px; margin-bottom: 12px;
+          font: 600 30px/1.2 "Barlow Condensed", sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: #A9B0B7;
+          border-bottom: 1px solid #000; box-shadow: 0 1px 0 rgba(255, 255, 255, 0.10); }
+  #kick b { color: #E4E7EA; font-weight: 700; }
+  #kick .d { white-space: nowrap; letter-spacing: 0.06em; }
+  #title { font-family: "Barlow Condensed", sans-serif; font-weight: 700; text-transform: uppercase; text-align: center; line-height: 0.98; letter-spacing: 0.01em;
+           color: #E4E7EA; text-wrap: balance; text-shadow: 0 -2px 0 rgba(0, 0, 0, 0.9), 0 1px 0 rgba(255, 255, 255, 0.16); }
+  #title .hl { color: var(--orange); }
+
+  /* the printed listing taped to the window glass */
+  #paper { position: absolute; left: 54px; width: 506px; transform-origin: 0 0; transform: rotate(-1.3deg); background: var(--paper); color: var(--ink);
+           padding: 18px 22px 20px 62px; box-shadow: 0 22px 36px rgba(0, 0, 0, 0.55), 0 2px 0 rgba(0, 0, 0, 0.25); }
+  #paper .holes { position: absolute; left: 0; top: 0; bottom: 0; width: 46px; border-right: 2px dashed #CFC6B0;
+                  background: radial-gradient(circle at 22px 22px, #0E1012 0 8px, #C9C0A9 8.5px 9.5px, transparent 10px) 0 4px / 46px 44px repeat-y; }
+  #paper .hd { display: flex; justify-content: space-between; gap: 12px; font: 500 28px/1.3 "JetBrains Mono", monospace; color: var(--inkdim);
+               padding-bottom: 10px; border-bottom: 2px solid #D3CAB4; margin-bottom: 6px; white-space: nowrap; }
+  #paper .row { position: relative; padding: 10px 0 12px; border-bottom: 2px dashed #DCD4C0; }
+  #paper .code { font: 500 30px/1.25 "JetBrains Mono", monospace; color: var(--inkdim); white-space: nowrap; }
+  #paper .code b { color: #1F4F96; font-weight: 700; }
+  #paper .line { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; column-gap: 18px; }
+  #paper .lb { font: 600 46px/1.08 "Barlow Condensed", sans-serif; color: var(--ink); }
+  #paper .vl { margin-left: auto; font: 700 34px/1.2 "JetBrains Mono", monospace; color: var(--ink); white-space: nowrap; }
+  #paper .ft { font: 500 26px/1.3 "JetBrains Mono", monospace; color: var(--inkdim); padding-top: 12px; }
+  #paper .ft b { color: var(--ink); font-weight: 700; }
+  #paper .pen { position: absolute; overflow: visible; pointer-events: none; }
+  .tape { position: absolute; width: 132px; height: 40px; background: rgba(226, 216, 186, 0.62); border: 1px solid rgba(255, 255, 255, 0.18); }
+
+  /* the control's display strip under the window: caption = the current block */
+  #disp { position: absolute; left: 60px; width: 960px; padding: 12px 20px 14px; border: 10px solid #1C1F23; border-radius: 16px; background: #0E1215;
+          box-shadow: 0 0 0 2px #6E747B, inset 0 0 0 1px #000, inset 0 10px 18px rgba(0, 0, 0, 0.55), 0 12px 20px rgba(20, 24, 28, 0.30); }
+  #disp .lab { width: 810px; display: flex; justify-content: space-between; font: 500 26px/1.2 "JetBrains Mono", monospace; letter-spacing: 0.04em; color: #94A1AD; margin-bottom: 6px; }
+  #disp .lab b { color: #E9E4D6; font-weight: 700; }
+  #cap { width: 810px; font: 500 42px/1.3 "JetBrains Mono", monospace; color: #E9E4D6; }
+  #cap span.on { color: #0E1215; background: #E9E4D6; padding: 0 0.12em; margin: 0 -0.12em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+
+  /* legends under the operator buttons */
+  .bl { position: absolute; transform: translateX(-50%); white-space: nowrap; font: 700 26px/1.2 "Barlow Condensed", sans-serif; letter-spacing: 0.08em;
+        color: #EDEFF1; background: #1A1D21; padding: 3px 12px 2px; border-radius: 3px; box-shadow: 0 1px 0 rgba(255, 255, 255, 0.55); }
+</style>
+</head>
+<body>
+<svg class="layer" id="scene" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+<div id="plate"><i class="rv" style="left:3px;top:3px"></i><i class="rv" style="right:3px;top:3px"></i><i class="rv" style="left:3px;bottom:3px"></i><i class="rv" style="right:3px;bottom:3px"></i>
+  <div id="field"><div id="kick"><span id="ser"></span><span class="d" id="date"></span></div><div id="title"></div></div></div>
+<div id="paper"></div>
+<div id="tapes" data-layout-allow-overlap></div>
+<div id="disp"><div class="lab"><span id="blk"></span><span>AUTO</span></div><div id="cap" data-slot="caption"></div></div>
+<div id="legends"></div>
+<script>
+  // Built-in sample so the file also opens on its own.
+  const D = window.D || { series_id: "ai-tools", series: "Alat AI", ep: "#01", kicker: "Alat AI · #01",
+    title: "AI nulis kodenya. Mesinnya nurut.", hl: "nurut",
+    sub: "Satu baris salah, mesin tetap jalan. Cek dulu sebelum dijalankan.",
+    items: [{ label: "Tulis program", value: "AI" }, { label: "Simulasi dulu", value: "wajib" }, { label: "Jalankan", value: "pelan" }, { label: "Cek hasil", value: "manusia" }],
+    source: "ilustrasi — alur kerja agen koding", date: "per 14 Okt 2026" };
+
+  Promise.all(['700 100px "Barlow Condensed"', '600 46px "Barlow Condensed"', '600 30px "Barlow Condensed"',
+               '500 30px "JetBrains Mono"', '700 34px "JetBrains Mono"', '500 42px "JetBrains Mono"'].map(f => document.fonts.load(f)))
+    .catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const f1 = v => (Math.round(v * 10) / 10).toString();
+  const BLUE = "#3B7DD8", ORANGE = "#F08A24", RED = "#D2382B", PANEL = "#15171A";
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(1, items.length);
+
+  // ---------- nameplate: kicker + engraved title ----------
+  const ep = String(D.ep || "#01");
+  document.getElementById("ser").innerHTML = esc(D.series || D.kicker || "") + (D.series ? " &middot; <b>" + esc(ep) + "</b>" : "");
+  document.getElementById("date").textContent = D.date || "";
+  const t = D.title || "", hl = D.hl || "";
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = document.getElementById("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  let tfs = 124;
+  for (; tfs >= 76; tfs -= 2) { titleEl.style.fontSize = tfs + "px"; if (titleEl.offsetHeight <= 246) break; }
+  const plate = document.getElementById("plate");
+  const plateBottom = 266 + plate.offsetHeight;
+
+  // ---------- which line is executing, which one is wrong ----------
+  // the second-to-last line is executing (pen loop); the last line is wrong: its move runs off the block into the vise jaw
+  const active = Math.max(0, n - 2);
+  const bad = n >= 2 ? n - 1 : -1;
+
+  // ---------- frame geometry ----------
+  const WT = Math.round(plateBottom + 22), WB = 1402, FB = 24, GK = 10; // window top/bottom, frame band, gasket
+  const GL = FB + GK, GR = 1080 - FB - GK, GT = WT + FB + GK, GBm = WB - FB - GK; // glass rectangle
+
+  // ---------- toolpath on the block face (u: left->right, v: front->back), back -> front like the listing ----------
+  // the executing line is always the front run (right -> left), so the spindle rises at the front-left and the finished grooves
+  // (back + right side) stay visible; the next line then rapids left, off the block, through the fixed jaw
+  const SHAPES = {
+    1: { p: [[0.74, 0.44], [0.18, 0.40]], k: ["L"] },
+    2: { p: [[0.74, 0.44], [0.16, 0.40], [0, 0]], k: ["L", "L"] },
+    3: { p: [[0.38, 0.88], [0.74, 0.44], [0.16, 0.40], [0, 0]], k: ["A", "L", "L"] },
+    4: { p: [[0.36, 0.88], [0.66, 0.88], [0.74, 0.44], [0.16, 0.40], [0, 0]], k: ["L", "A", "L", "L"] },
+    5: { p: [[0.38, 0.90], [0.62, 0.90], [0.74, 0.72], [0.74, 0.44], [0.16, 0.40], [0, 0]], k: ["L", "A", "L", "L", "L"] }
+  };
+  const SH0 = SHAPES[Math.min(5, n)];
+  const SH = { p: SH0.p.map(q => q.slice()), k: SH0.k.slice() };
+  // vise jaws clamp along Y: fixed jaw at the back, movable jaw at the front (towards the operator)
+  const BW = 170, BD = 150, BH = 50, JAW = BH - 12, JT = 26, JX = 80;
+  const VY0 = -BD / 2 - JT, VY1 = BD / 2 + JT;
+  // the wrong move: G00 straight left and down, through the fixed jaw
+  // the wrong move: G00 straight towards the operator and down, through the front jaw
+  const ZBAD = -24, YBAD = VY0 - 22;
+  if (bad >= 0) { SH.p[bad + 1] = [SH.p[bad][0], (YBAD + BD / 2) / BD]; SH.k[bad] = "L"; }
+  const segPt = (i, tt) => {
+    const a = SH.p[i], b = SH.p[i + 1];
+    if (SH.k[i] === "L") return [a[0] + (b[0] - a[0]) * tt, a[1] + (b[1] - a[1]) * tt];
+    // arc: quadratic bulge to the outside (right / front) of the chord
+    const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, dx = b[0] - a[0], dy = b[1] - a[1];
+    let px = dy, py = -dx; if (px < 0) { px = -px; py = -py; }
+    const c = [mx + px * 0.42, my + py * 0.42];
+    const u = 1 - tt;
+    return [u * u * a[0] + 2 * u * tt * c[0] + tt * tt * b[0], u * u * a[1] + 2 * u * tt * c[1] + tt * tt * b[1]];
+  };
+  const faceW = (q, z) => [-BW / 2 + q[0] * BW, -BD / 2 + q[1] * BD, z == null ? BH : z];
+  const segW = (i, tt) => faceW(segPt(i, tt), i === bad ? BH - 3 + (ZBAD + 3) * tt : BH);
+
+  // ---------- camera ----------
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const nrm = a => { const l = Math.hypot(a[0], a[1], a[2]); return [a[0] / l, a[1] / l, a[2] / l]; };
+  const TG = [0, 0, BH * 0.3], az = 11 * Math.PI / 180, el = 60 * Math.PI / 180, dist = 1300;
+  const CAM = [TG[0] + dist * Math.cos(el) * Math.sin(az), TG[1] - dist * Math.cos(el) * Math.cos(az), TG[2] + dist * Math.sin(el)];
+  const FW = nrm(sub(TG, CAM)), RT = nrm(cross(FW, [0, 0, 1])), UP = cross(RT, FW);
+  const raw = p => { const d = sub(p, CAM), zc = dot(d, FW); return [dot(d, RT) / zc, -dot(d, UP) / zc]; };
+
+  // fit the vise (jaws included) into the right part of the window
+  const fitPts = [];
+  for (const x of [-BW / 2, BW / 2]) for (const y of [VY0 - 40, VY1]) for (const z of [-14, BH]) fitPts.push(raw([x, y, z]));
+  const rx0 = Math.min(...fitPts.map(p => p[0])), rx1 = Math.max(...fitPts.map(p => p[0]));
+  const ry1 = Math.max(...fitPts.map(p => p[1]));
+  const TX0 = 576, TX1 = 984, TYB = GBm - 26;
+  const S = (TX1 - TX0) / (rx1 - rx0), OX = TX0 - rx0 * S, OY = TYB - ry1 * S;
+  const P = p => { const r = raw(p); return [OX + r[0] * S, OY + r[1] * S]; };
+  const pt = q => f1(q[0]) + "," + f1(q[1]);
+  const poly = (pts, attrs) => '<path d="M' + pts.map(pt).join("L") + 'Z" ' + attrs + "/>";
+  const line = (pts, attrs) => '<path d="M' + pts.map(pt).join("L") + '" ' + attrs + "/>";
+
+  function box(x0, x1, y0, y1, z0, z1, m) {
+    const faces = [
+      { n: [0, 0, 1], c: [[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]], f: m.top },
+      { n: [0, -1, 0], c: [[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1]], f: m.front },
+      { n: [1, 0, 0], c: [[x1, y0, z0], [x1, y1, z0], [x1, y1, z1], [x1, y0, z1]], f: m.side },
+      { n: [-1, 0, 0], c: [[x0, y0, z0], [x0, y1, z0], [x0, y1, z1], [x0, y0, z1]], f: m.side }
+    ];
+    let s = "";
+    for (const fc of faces) {
+      const cen = fc.c.reduce((a, q) => [a[0] + q[0] / 4, a[1] + q[1] / 4, a[2] + q[2] / 4], [0, 0, 0]);
+      if (dot(fc.n, sub(CAM, cen)) <= 0) continue;
+      s += poly(fc.c.map(P), 'fill="' + fc.f + '"' + (m.edge ? ' stroke="' + m.edge + '" stroke-width="1.4" stroke-linejoin="round"' : ""));
+    }
+    if (m.hi) s += line([P([x0, y0, z1]), P([x1, y0, z1]), P([x1, y1, z1])], 'fill="none" stroke="' + m.hi + '" stroke-width="2" stroke-linejoin="round"');
+    return s;
+  }
+  // convex hull (monotone chain) for cylinder silhouettes
+  function hull(pts) {
+    const p = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+    const lo = [], up = [];
+    for (const q of p) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+    for (let i = p.length - 1; i >= 0; i--) { const q = p[i]; while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
+    return lo.slice(0, -1).concat(up.slice(0, -1));
+  }
+  const ring = (c, r, z) => { const a = []; for (let i = 0; i < 36; i++) { const th = i / 36 * Math.PI * 2; a.push([c[0] + r * Math.cos(th), c[1] + r * Math.sin(th), z]); } return a; };
+  const frontArc = (c, r, z) => {
+    const fr = ring(c, r, z).filter(q => dot([q[0] - c[0], q[1] - c[1], 0], sub(CAM, q)) > 0);
+    fr.sort((a, b) => Math.atan2(a[1] - c[1], a[0] - c[0]) - Math.atan2(b[1] - c[1], b[0] - c[0]));
+    return fr.map(P);
+  };
+  const occ = []; // screen silhouettes of the tool, so leader targets never sit on a hidden groove
+  const inPoly = (q, pg) => { let ins = false; for (let i = 0, j = pg.length - 1; i < pg.length; j = i++) { const a = pg[i], b = pg[j]; if ((a[1] > q[1]) !== (b[1] > q[1]) && q[0] < (b[0] - a[0]) * (q[1] - a[1]) / (b[1] - a[1]) + a[0]) ins = !ins; } return ins; };
+  const hidden = q => occ.some(pg => [[0, 0], [14, 0], [-14, 0], [0, 14], [0, -14]].some(o => inPoly([q[0] + o[0], q[1] + o[1]], pg)));
+  function cyl(c, z0, z1, r0, r1, fill, rim) {
+    const pts = ring(c, r0, z0).concat(ring(c, r1, z1)).map(P);
+    const hl0 = hull(pts); occ.push(hl0);
+    let s = poly(hl0, 'fill="' + fill + '"');
+    if (rim) s += line(frontArc(c, r0, z0), 'fill="none" stroke="' + rim + '" stroke-width="2" stroke-linecap="round"');
+    return s;
+  }
+
+  // ---------- the machine front (enclosure) ----------
+  let s = "<defs>" +
+    '<linearGradient id="gEnc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E1E4E7"/><stop offset="0.5" stop-color="#D2D6DA"/><stop offset="1" stop-color="#BCC1C6"/></linearGradient>' +
+    '<linearGradient id="gFrame" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3A3F45"/><stop offset="1" stop-color="#25292D"/></linearGradient>' +
+    '<radialGradient id="gScrew" cx="0.38" cy="0.34" r="0.7"><stop offset="0" stop-color="#FFFFFF"/><stop offset="0.35" stop-color="#C9CDD2"/><stop offset="1" stop-color="#5E646B"/></radialGradient>' +
+    '<linearGradient id="gWin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#101214"/><stop offset="0.55" stop-color="#1D2126"/><stop offset="1" stop-color="#121417"/></linearGradient>' +
+    '<radialGradient id="gPool" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#3A4049" stop-opacity="0.9"/><stop offset="1" stop-color="#3A4049" stop-opacity="0"/></radialGradient>' +
+    '<linearGradient id="gTop" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F1F2F3"/><stop offset="0.55" stop-color="#D6DADE"/><stop offset="1" stop-color="#B9BEC4"/></linearGradient>' +
+    '<linearGradient id="gFront" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#A9AFB6"/><stop offset="1" stop-color="#7C828A"/></linearGradient>' +
+    '<linearGradient id="gSide" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#9BA1A8"/><stop offset="1" stop-color="#C3C8CD"/></linearGradient>' +
+    '<linearGradient id="gCyl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3B4046"/><stop offset="0.28" stop-color="#C3C8CD"/><stop offset="0.42" stop-color="#F2F3F4"/><stop offset="0.7" stop-color="#8A9097"/><stop offset="1" stop-color="#2E3237"/></linearGradient>' +
+    '<linearGradient id="gMill" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#4A4F55"/><stop offset="0.35" stop-color="#D9DCDF"/><stop offset="0.5" stop-color="#FFFFFF"/><stop offset="0.75" stop-color="#9AA0A6"/><stop offset="1" stop-color="#3A3E43"/></linearGradient>' +
+    '<linearGradient id="gNose" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#202328"/><stop offset="0.3" stop-color="#525961"/><stop offset="0.45" stop-color="#6E767F"/><stop offset="0.75" stop-color="#363B42"/><stop offset="1" stop-color="#1A1C20"/></linearGradient>' +
+    '<linearGradient id="gHead" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2A2E34"/><stop offset="0.5" stop-color="#3A4047"/><stop offset="1" stop-color="#24282D"/></linearGradient>' +
+    '<radialGradient id="gHot" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#FFB15E" stop-opacity="0.9"/><stop offset="0.45" stop-color="#F08A24" stop-opacity="0.45"/><stop offset="1" stop-color="#F08A24" stop-opacity="0"/></radialGradient>' +
+    '<linearGradient id="gFade" gradientUnits="userSpaceOnUse" x1="0" y1="' + GT + '" x2="0" y2="' + (GT + 170) + '"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="1"/></linearGradient>' +
+    '<mask id="mFade"><rect x="0" y="0" width="1080" height="1920" fill="url(#gFade)"/></mask>' +
+    '<clipPath id="cWin"><rect x="' + GL + '" y="' + GT + '" width="' + (GR - GL) + '" height="' + (GBm - GT) + '" rx="20"/></clipPath>' +
+    '<filter id="fBlur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="7"/></filter>' +
+    '<filter id="fGlow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="9"/></filter>' +
+    '<linearGradient id="gLensG" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2F7A4B"/><stop offset="0.4" stop-color="#7FE0A2"/><stop offset="1" stop-color="#2A6E44"/></linearGradient>' +
+    '<linearGradient id="gLensA" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#4A3412"/><stop offset="0.4" stop-color="#7A5A26"/><stop offset="1" stop-color="#3E2C10"/></linearGradient>' +
+    '<linearGradient id="gLensR" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#4A1C18"/><stop offset="0.4" stop-color="#7A332C"/><stop offset="1" stop-color="#3C1714"/></linearGradient>' +
+    '<linearGradient id="gChrome" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7C838B"/><stop offset="0.4" stop-color="#F4F5F6"/><stop offset="1" stop-color="#6A7078"/></linearGradient>' +
+    '<radialGradient id="gEstop" cx="0.4" cy="0.35" r="0.7"><stop offset="0" stop-color="#F0705F"/><stop offset="0.55" stop-color="#C4302A"/><stop offset="1" stop-color="#7E1A16"/></radialGradient>' +
+    '<radialGradient id="gStart" cx="0.4" cy="0.35" r="0.7"><stop offset="0" stop-color="#8FD7A6"/><stop offset="0.6" stop-color="#3C8C5A"/><stop offset="1" stop-color="#22573A"/></radialGradient>' +
+    '<radialGradient id="gHold" cx="0.4" cy="0.35" r="0.7"><stop offset="0" stop-color="#FFFFFF"/><stop offset="0.6" stop-color="#DADDE0"/><stop offset="1" stop-color="#8D939A"/></radialGradient>' +
+    "</defs>";
+
+  // enclosure sheet metal
+  s += '<rect x="0" y="0" width="1080" height="1920" fill="url(#gEnc)"/>';
+  s += '<rect x="0" y="0" width="1080" height="236" fill="#C4C9CE"/>';
+  s += '<path d="M0,236 H1080" stroke="#7E848B" stroke-width="3"/><path d="M0,239.5 H1080" stroke="#EEF0F2" stroke-width="2"/>';
+  s += '<rect x="0" y="1626" width="1080" height="294" fill="#B6BBC1"/>';
+  s += '<path d="M0,1626 H1080" stroke="#7E848B" stroke-width="3"/><path d="M0,1629.5 H1080" stroke="#E2E5E8" stroke-width="2"/>';
+  // header louvres (left)
+  for (let i = 0; i < 6; i++) {
+    const y = 74 + i * 24;
+    s += '<rect x="96" y="' + y + '" width="380" height="11" rx="5.5" fill="#2A2E33"/>';
+    s += '<path d="M101,' + (y + 12.5) + ' H471" stroke="#F3F5F6" stroke-width="2" stroke-linecap="round"/>';
+  }
+  for (const sx of [40, 1040]) for (const sy of [40, 196]) s += '<circle cx="' + sx + '" cy="' + sy + '" r="7" fill="url(#gScrew)"/><path d="M' + (sx - 3.5) + "," + sy + " H" + (sx + 3.5) + '" stroke="#40454B" stroke-width="1.6"/>';
+  // stack light on a side bracket (green = cycle running)
+  const SX = 880;
+  s += '<rect x="' + (SX - 70) + '" y="190" width="70" height="18" rx="3" fill="#7E848B"/><rect x="' + (SX - 76) + '" y="174" width="12" height="50" rx="3" fill="#5E646B"/>';
+  s += '<rect x="' + (SX - 40) + '" y="176" width="80" height="44" rx="6" fill="#26292D"/>';
+  const lens = [["gLensR", 30], ["gLensA", 82], ["gLensG", 134]];
+  for (const [g, y] of lens) {
+    s += '<rect x="' + (SX - 34) + '" y="' + y + '" width="68" height="46" rx="4" fill="url(#' + g + ')"/>';
+    s += '<rect x="' + (SX - 36) + '" y="' + (y + 46) + '" width="72" height="6" fill="#B9BEC4"/>';
+  }
+  s += '<ellipse cx="' + SX + '" cy="157" rx="58" ry="40" fill="#7FE0A2" fill-opacity="0.32" filter="url(#fGlow)"/>';
+  s += '<rect x="' + (SX - 34) + '" y="134" width="68" height="46" rx="4" fill="url(#gLensG)"/>';
+  s += '<rect x="' + (SX - 18) + '" y="138" width="9" height="38" rx="4" fill="#D9FBE5" fill-opacity="0.55"/>';
+  s += '<path d="M' + (SX - 36) + ',30 Q' + SX + ',4 ' + (SX + 36) + ',30 Z" fill="url(#gChrome)"/>';
+  s += '<rect x="' + (SX - 36) + '" y="26" width="72" height="6" fill="#B9BEC4"/>';
+  s += '<rect x="' + (SX - 40) + '" y="180" width="80" height="40" rx="6" fill="#26292D"/>';
+
+  // ---------- the scene behind the glass ----------
+  s += '<rect x="0" y="' + WT + '" width="1080" height="' + (WB - WT) + '" fill="#0C0D0F"/>';
+  s += '<g clip-path="url(#cWin)">';
+  s += '<rect x="' + GL + '" y="' + GT + '" width="' + (GR - GL) + '" height="' + (GBm - GT) + '" fill="url(#gWin)"/>';
+
+  // back wall: telescopic way cover (bellows) behind the pallet
+  for (let i = 0; i < 18; i++) {
+    const y = VY1 + 50 + i * 13, a0 = P([-300, y, -100]), b0 = P([300, y, -100]);
+    const cl = q => { const tt = Math.max(0, Math.min(1, (q - a0[0]) / (b0[0] - a0[0]))); return [a0[0] + (b0[0] - a0[0]) * tt, a0[1] + (b0[1] - a0[1]) * tt]; };
+    const a = cl(GL), b = cl(GR);
+    s += line([a, b], 'stroke="' + (i % 2 ? "#23272C" : "#2D3238") + '" stroke-width="' + f1(Math.max(2, 7 - i * 0.3)) + '"');
+  }
+  const cBlk = P([0, 0, BH]);
+  s += '<ellipse cx="' + f1(cBlk[0]) + '" cy="' + f1(cBlk[1] + 40) + '" rx="' + f1(Math.min(420, GR - cBlk[0], cBlk[0] - GL)) + '" ry="300" fill="url(#gPool)"/>';
+
+  // pallet (swapped by the automatic pallet changer) on its receiver
+  // the pallet ends inside the window on the right (keeps every drawn part inside the glass)
+  let PX = 235;
+  while (PX > 120 && Math.max(...[-170, VY1 + 40].flatMap(y => [-150, -58].map(z => P([PX + 15, y, z])[0]))) > GR - 24) PX -= 5;
+  s += box(-PX - 15, PX + 15, -170, VY1 + 40, -150, -104, { top: "#24282D", front: "#17191C", side: "#1D2024", hi: null });
+  s += box(-PX, PX, -160, VY1 + 32, -104, -58, { top: "#353A41", front: "#272B30", side: "#2D3237", edge: "#1A1C1F", hi: "#59606A" });
+  for (const ty of [-118, -52, 14, 80]) s += line([P([-PX, ty, -58]), P([PX, ty, -58])], 'stroke="#15171A" stroke-width="7"');
+  for (const lx of [-PX + 30, PX - 30]) { const c = P([lx, -138, -58]); s += '<ellipse cx="' + f1(c[0]) + '" cy="' + f1(c[1]) + '" rx="9" ry="6" fill="#121417" stroke="#59606A" stroke-width="1.5"/>'; }
+
+  // vise body, front parallel, fixed jaw (left), block, movable jaw (right)
+  const STEEL = { top: "#8F959C", front: "#62686F", side: "#757B82", edge: "#33373C", hi: "#C3C8CD" };
+  s += box(-JX + 8, JX - 8, VY0 - 40, VY1 + 6, -58, -14, { top: "#2F3338", front: "#202327", side: "#272A2F", edge: "#17191C", hi: "#4A5058" });
+  s += box(-JX, JX, BD / 2, VY1, -58, JAW, STEEL); // fixed jaw (back)
+  for (const py of [-BD / 2 + 4, BD / 2 - 16]) s += box(-BW / 2 + 12, BW / 2 - 12, py, py + 12, -14, 0, { top: "#8E949B", front: "#7A8088", side: "#6E747B", edge: "#4C5157" }); // parallels
+  s += box(-BW / 2, BW / 2, -BD / 2, BD / 2, 0, BH, { top: "url(#gTop)", front: "url(#gFront)", side: "url(#gSide)", edge: "#7C828A" });
+  s += box(-JX, JX, VY0, -BD / 2, -58, JAW, STEEL); // movable jaw (front)
+  // jaw-plate cap screws on the front jaw top
+  for (const jx of [-48, 48]) { const c = P([jx, VY0 + JT / 2, JAW]); s += '<ellipse cx="' + f1(c[0]) + '" cy="' + f1(c[1]) + '" rx="6" ry="4" fill="#2E3237" stroke="#A9AFB6" stroke-width="1.2"/>'; }
+
+  // face-milled swirl on the top face
+  const topPoly = [[-BW / 2, -BD / 2, BH], [BW / 2, -BD / 2, BH], [BW / 2, BD / 2, BH], [-BW / 2, BD / 2, BH]].map(P);
+  s += '<clipPath id="cTop">' + poly(topPoly, "") + "</clipPath><g clip-path=\"url(#cTop)\">";
+  for (let k = 0; k < 22; k++) {
+    const xc = -BW / 2 - 40 + k * 11, R = 120, arc = [];
+    for (let j = 0; j <= 18; j++) { const ph = -0.8 + j / 18 * 1.6; arc.push(P([xc + R * Math.cos(ph) - R, R * Math.sin(ph), BH])); }
+    s += line(arc, 'fill="none" stroke="' + (k % 2 ? "#FFFFFF" : "#8E949B") + '" stroke-opacity="' + (k % 2 ? 0.35 : 0.16) + '" stroke-width="1.4"');
+  }
+  s += "</g>";
+  s += line([P([-BW / 2, -BD / 2, BH]), P([BW / 2, -BD / 2, BH]), P([BW / 2, BD / 2, BH])], 'fill="none" stroke="#FBFCFC" stroke-width="2.4" stroke-linejoin="round"');
+
+  // grooves / preview
+  const SAMP = 28;
+  let TCUT = 0.6; // tool stands at u ~ 0.32 on the front run, just before the wrong line starts
+  for (let j = 0, bd = 9; j <= 60; j++) { const tt = 0.4 + 0.5 * j / 60, d = Math.abs(segPt(active, tt)[0] - 0.32); if (d < bd) { bd = d; TCUT = tt; } }
+  const segScreen = (i, t0, t1) => { const a = []; for (let j = 0; j <= SAMP; j++) a.push(P(segW(i, t0 + (t1 - t0) * j / SAMP))); return a; };
+  const GW = 22;
+  const groove = pts => line(pts, 'fill="none" stroke="#474C52" stroke-width="' + GW + '" stroke-linecap="round" stroke-linejoin="round"') +
+    line(pts.map(q => [q[0], q[1] + 3]), 'fill="none" stroke="#979DA4" stroke-width="' + (GW - 10) + '" stroke-linecap="round" stroke-linejoin="round"') +
+    line(pts.map(q => [q[0], q[1] + GW / 2 - 0.5]), 'fill="none" stroke="#F7F8F9" stroke-opacity="0.8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"');
+  const dash = (pts, col) => line(pts, 'fill="none" stroke="' + col + '" stroke-width="4" stroke-dasharray="13 10" stroke-linecap="round" stroke-linejoin="round"');
+  // program start point (work zero mark)
+  const p0s = P(faceW(SH.p[0]));
+  s += '<rect x="' + f1(p0s[0] - 6) + '" y="' + f1(p0s[1] - 6) + '" width="12" height="12" fill="none" stroke="' + BLUE + '" stroke-width="3"/>';
+  let hitAt = null;
+  for (let i = 0; i < n; i++) {
+    if (i < active) s += groove(segScreen(i, 0, 1));
+    else if (i === active) { s += groove(segScreen(i, 0, TCUT)); s += dash(segScreen(i, TCUT, 1), BLUE); }
+    else if (i === bad) {
+      // blue while over the block, red from where it enters the jaw
+      let tHit = 1;
+      for (let j = 0; j <= 80; j++) { const w = segW(i, j / 80); if (w[1] <= -BD / 2 && w[2] <= JAW + 0.5) { tHit = j / 80; break; } }
+      s += dash(segScreen(i, 0, tHit), BLUE);
+      s += line(segScreen(i, tHit, 1), 'fill="none" stroke="' + PANEL + '" stroke-opacity="0.5" stroke-width="9" stroke-linecap="round"') + line(segScreen(i, tHit, 1), 'fill="none" stroke="' + RED + '" stroke-width="5" stroke-dasharray="13 9" stroke-linecap="round"');
+      hitAt = P(segW(i, tHit));
+    }
+    else s += dash(segScreen(i, 0, 1), BLUE);
+  }
+  // the fresh cut: orange, with a soft heat under it
+  const hot = segScreen(active, 0, TCUT);
+  s += line(hot, 'fill="none" stroke="' + ORANGE + '" stroke-opacity="0.55" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" filter="url(#fBlur)"');
+  s += line(hot, 'fill="none" stroke="' + ORANGE + '" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"');
+  s += line(hot.map(q => [q[0], q[1] + 1]), 'fill="none" stroke="#FFD2A1" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"');
+  // collision marker on the jaw (drawn after the tool, see below)
+  let crash = "";
+  if (hitAt) {
+    const ray = (k, w, col) => { const th = k * Math.PI / 4 + 0.2, r0 = 17, r1 = k % 2 ? 27 : 36; return line([[hitAt[0] + r0 * Math.cos(th), hitAt[1] + r0 * Math.sin(th)], [hitAt[0] + r1 * Math.cos(th), hitAt[1] + r1 * Math.sin(th)]], 'stroke="' + col + '" stroke-width="' + w + '" stroke-linecap="round"'); };
+    for (let k = 0; k < 8; k++) crash += ray(k, 9, PANEL);
+    crash += '<circle cx="' + f1(hitAt[0]) + '" cy="' + f1(hitAt[1]) + '" r="12.5" fill="' + RED + '" fill-opacity="0.25" stroke="' + PANEL + '" stroke-width="9"/>';
+    crash += '<circle cx="' + f1(hitAt[0]) + '" cy="' + f1(hitAt[1]) + '" r="12.5" fill="none" stroke="' + RED + '" stroke-width="4.5"/>';
+    for (let k = 0; k < 8; k++) crash += ray(k, 4.5, RED);
+  }
+
+  // chips lying along finished cuts (hard-coded scatter, screen offsets)
+  const CHIP = "q7,-11 17,-4 q-8,-3 -13,6 z";
+  const lying = [[-26, 14, 0.9], [22, 18, 1.1], [-8, -20, 0.8], [34, -6, 0.7], [-40, -4, 1.0], [12, 26, 0.8]];
+  for (let i = 0; i <= active; i++) {
+    const c = P(segW(i, i === active ? 0.3 : 0.55));
+    for (let j = 0; j < 2; j++) {
+      const o = lying[(i * 2 + j) % lying.length];
+      s += '<path d="M' + f1(c[0] + o[0]) + "," + f1(c[1] + o[1]) + CHIP + '" transform="rotate(' + (i * 47 + j * 83) % 360 + " " + f1(c[0] + o[0]) + " " + f1(c[1] + o[1]) + ')" fill="#E9ECEE" stroke="#6E747B" stroke-width="1.2" stroke-linejoin="round"/>';
+    }
+  }
+
+  // ---------- the tool, bottom to top ----------
+  const Q = segW(active, TCUT);
+  const QS = P(Q);
+  s += '<ellipse cx="' + f1(QS[0]) + '" cy="' + f1(QS[1]) + '" rx="60" ry="38" fill="url(#gHot)"/>';
+  const c2 = [Q[0], Q[1]];
+  s += '<g mask="url(#mFade)">';
+  const RM = 5, ZF = 40, ZS = 66, ZN = 86, ZH = 128, ZL = 144, ZT = 300;
+  s += cyl(c2, BH - 3, BH + ZF, RM, RM, "url(#gMill)", "#5B6067");
+  for (let k = 0; k < 4; k++) { // helical flutes on the cutter
+    let seg = [];
+    for (let j = 0; j <= 30; j++) {
+      const z = BH - 2 + j / 30 * (ZF + 1), th = k * Math.PI / 2 + z * 0.13, p3 = [Q[0] + (RM + 0.05) * Math.cos(th), Q[1] + (RM + 0.05) * Math.sin(th), z];
+      if (dot([Math.cos(th), Math.sin(th), 0], sub(CAM, p3)) > 0) seg.push(P(p3));
+      else if (seg.length) { if (seg.length > 1) s += line(seg, 'fill="none" stroke="#3A3F45" stroke-width="2.4" stroke-linecap="round"'); seg = []; }
+    }
+    if (seg.length > 1) s += line(seg, 'fill="none" stroke="#3A3F45" stroke-width="2.4" stroke-linecap="round"');
+  }
+  s += cyl(c2, BH + ZF, BH + ZS, RM, RM, "url(#gCyl)", null);
+  s += cyl(c2, BH + ZS, BH + ZN, 17, 17, "url(#gCyl)", "#4C5157");
+  for (let k = -3; k <= 3; k++) { // collet nut flats
+    const th = -Math.PI / 2 + az + k * 0.36;
+    s += line([P([Q[0] + 17 * Math.cos(th), Q[1] + 17 * Math.sin(th), BH + ZS + 2]), P([Q[0] + 17 * Math.cos(th), Q[1] + 17 * Math.sin(th), BH + ZN - 2])], 'stroke="#5A6067" stroke-width="1.6" stroke-opacity="0.7"');
+  }
+  s += cyl(c2, BH + ZN, BH + ZH, 18, 32, "url(#gCyl)", "#565C63");
+  s += cyl(c2, BH + ZH, BH + ZL, 36, 36, "url(#gCyl)", "#3F454C"); // flange
+  s += cyl(c2, BH + ZL, BH + ZT, 46, 46, "url(#gNose)", "#8A9199");
+  // spindle nose rings: bright chamfer, drive keys, a cap-screw ring
+  s += line(frontArc(c2, 46, BH + ZL + 14), 'fill="none" stroke="#14161A" stroke-width="3"');
+  s += line(frontArc(c2, 46, BH + ZL + 18), 'fill="none" stroke="#9AA2AB" stroke-width="1.6"');
+  s += line(frontArc(c2, 46, BH + ZL + 70), 'fill="none" stroke="#14161A" stroke-width="2.4"');
+  for (let k = -2; k <= 2; k++) { const th = -Math.PI / 2 + az + k * 0.5, b0 = P([Q[0] + 46 * Math.cos(th), Q[1] + 46 * Math.sin(th), BH + ZL + 40]);
+    s += '<circle cx="' + f1(b0[0]) + '" cy="' + f1(b0[1]) + '" r="3.6" fill="#15171A" stroke="#8A9199" stroke-width="1"/>'; }
+  for (const kx of [-1, 1]) { const th = -Math.PI / 2 + az + kx * 0.95; const k0 = P([Q[0] + 36 * Math.cos(th), Q[1] + 36 * Math.sin(th), BH + ZL]), k1 = P([Q[0] + 36 * Math.cos(th), Q[1] + 36 * Math.sin(th), BH + ZL - 10]);
+    s += line([k0, k1], 'stroke="#1C1F23" stroke-width="7" stroke-linecap="square"'); }
+  // spindle head casting
+  const HX = 74, HY0 = -58, HY1 = 110;
+  let ZTOP = BH + ZT + 40; // the head reaches just past the glass top (it fades out there), never far beyond the frame
+  while (ZTOP < BH + 560 && Math.min(...[[-HX, HY0], [HX, HY0], [HX, HY1], [-HX, HY1]].map(o => P([Q[0] + o[0], Q[1] + o[1], ZTOP])[1])) > GT - 8) ZTOP += 8;
+  s += box(Q[0] - HX, Q[0] + HX, Q[1] + HY0, Q[1] + HY1, BH + ZT, ZTOP, { top: "#2E3238", front: "url(#gHead)", side: "#1E2125", edge: "#3F454C", hi: null });
+  occ.push(hull([[-HX, HY0], [HX, HY0], [HX, HY1], [-HX, HY1]].flatMap(o => [P([Q[0] + o[0], Q[1] + o[1], BH + ZT]), P([Q[0] + o[0], Q[1] + o[1], ZTOP])])));
+  s += line([P([Q[0] - HX, Q[1] + HY0, BH + ZT]), P([Q[0] + HX, Q[1] + HY0, BH + ZT]), P([Q[0] + HX, Q[1] + HY1, BH + ZT])], 'fill="none" stroke="#6A727B" stroke-width="2.4" stroke-linejoin="round"');
+  for (const bx of [-56, 56]) for (const bz of [BH + ZT + 22, BH + ZT + 92]) { const b0 = P([Q[0] + bx, Q[1] + HY0, bz]); s += '<circle cx="' + f1(b0[0]) + '" cy="' + f1(b0[1]) + '" r="5" fill="#1A1D21" stroke="#6A727B" stroke-width="1.4"/>'; }
+  s += "</g>";
+
+  // flying chips (in front of everything in the machine)
+  const fly = [[-58, -34, 30], [48, -50, 200], [72, -12, 120], [-30, -70, 280]];
+  for (const o of fly) s += '<path d="M' + f1(QS[0] + o[0]) + "," + f1(QS[1] + o[1]) + CHIP + '" transform="rotate(' + o[2] + " " + f1(QS[0] + o[0]) + " " + f1(QS[1] + o[1]) + ')" fill="#F3F4F5" stroke="#6E747B" stroke-width="1.2" stroke-linejoin="round"/>';
+  s += crash;
+  s += "<!--LEADERS-->";
+
+  // glass reflections
+  s += '<path d="M' + (GL + 150) + "," + GT + " L" + (GL + 360) + "," + GT + " L" + GL + "," + (GT + 600) + " L" + GL + "," + (GT + 260) + 'Z" fill="#FFFFFF" fill-opacity="0.035"/>';
+  s += '<path d="M' + (GR - 40) + "," + (GT + 180) + " L" + GR + "," + (GT + 180) + " L" + GR + "," + (GT + 300) + " L" + (GR - 290) + "," + GBm + " L" + (GR - 370) + "," + GBm + 'Z" fill="#FFFFFF" fill-opacity="0.03"/>';
+  s += "</g>";
+
+  // window frame (full width), gasket and screws
+  s += '<path fill-rule="evenodd" fill="url(#gFrame)" d="M0,' + WT + " H1080 V" + WB + " H0 Z M" + GL + "," + (GT + 20) + " a20,20 0 0 1 20,-20 H" + (GR - 20) + " a20,20 0 0 1 20,20 V" + (GBm - 20) + " a20,20 0 0 1 -20,20 H" + (GL + 20) + " a20,20 0 0 1 -20,-20 Z" + '"/>';
+  s += '<path d="M0,' + (WT + 1) + ' H1080" stroke="#5C636B" stroke-width="2"/><path d="M0,' + (WB - 1) + ' H1080" stroke="#101215" stroke-width="2"/>';
+  s += '<rect x="' + (GL - GK / 2) + '" y="' + (GT - GK / 2) + '" width="' + (GR - GL + GK) + '" height="' + (GBm - GT + GK) + '" rx="' + (20 + GK / 2) + '" fill="none" stroke="#060708" stroke-width="' + GK + '"/>';
+  s += '<rect x="' + (GL - 1) + '" y="' + (GT - 1) + '" width="' + (GR - GL + 2) + '" height="' + (GBm - GT + 2) + '" rx="21" fill="none" stroke="#3A3F45" stroke-width="1.2"/>';
+  const screw = (x, y) => '<circle cx="' + f1(x) + '" cy="' + f1(y) + '" r="6" fill="url(#gScrew)"/><circle cx="' + f1(x) + '" cy="' + f1(y) + '" r="2.4" fill="#2A2E33"/>';
+  for (let x = 120; x <= 960; x += 140) { s += screw(x, WT + FB / 2); s += screw(x, WB - FB / 2); }
+  for (let y = WT + 90; y <= WB - 60; y += 150) { s += screw(FB / 2, y); s += screw(1080 - FB / 2, y); }
+
+  // ---------- operator panel below the display ----------
+  const BY = 1730;
+  const button = (cx, r, g, icon) => '<circle cx="' + cx + '" cy="' + (BY + 4) + '" r="' + (r + 12) + '" fill="#2A2E33"/><circle cx="' + cx + '" cy="' + BY + '" r="' + (r + 9) + '" fill="#C9CDD2" stroke="#7E848B" stroke-width="2"/>' +
+    '<circle cx="' + cx + '" cy="' + BY + '" r="' + r + '" fill="url(#' + g + ')" stroke="#1C1F23" stroke-width="2"/>' + icon;
+  s += button(300, 40, "gStart", '<path d="M288,' + (BY - 18) + " L316," + BY + " L288," + (BY + 18) + ' Z" fill="#0F2A1A" fill-opacity="0.8"/>');
+  s += button(560, 40, "gHold", '<rect x="546" y="' + (BY - 17) + '" width="9" height="34" rx="2" fill="#2A2E33"/><rect x="565" y="' + (BY - 17) + '" width="9" height="34" rx="2" fill="#2A2E33"/>');
+  // emergency stop: red mushroom on a yellow collar
+  s += '<circle cx="880" cy="' + (BY + 6) + '" r="84" fill="#2A2E33" fill-opacity="0.25"/><circle cx="880" cy="' + BY + '" r="80" fill="#E5B32E" stroke="#9C7A1C" stroke-width="2"/>';
+  s += '<circle cx="880" cy="' + (BY + 8) + '" r="56" fill="#5A1310"/><circle cx="880" cy="' + BY + '" r="56" fill="url(#gEstop)"/>';
+  s += '<path d="M846,' + (BY - 26) + ' a48,48 0 0 1 40,-24" fill="none" stroke="#FFC9C0" stroke-opacity="0.6" stroke-width="6" stroke-linecap="round"/>';
+  for (const [x, y] of [[70, 1660], [1010, 1660], [70, 1880], [1010, 1880]]) s += '<circle cx="' + x + '" cy="' + y + '" r="7" fill="url(#gScrew)"/><path d="M' + (x - 3.5) + "," + y + " H" + (x + 3.5) + '" stroke="#40454B" stroke-width="1.6"/>';
+
+  // ---------- the listing ----------
+  const paper = document.getElementById("paper");
+  const prog = String(D.series_id || D.series || "program").toUpperCase().replace(/\s+/g, "-");
+  const epNo = (ep.match(/\d+/) || ["1"])[0];
+  let h = '<div class="holes"></div><div class="hd"><span>PROG #' + esc(epNo) + "</span><span>(" + esc(prog) + ")</span></div>";
+  items.forEach((it, i) => {
+    let code;
+    const b = SH.p[i + 1] || SH.p[i];
+    if (i === bad) code = "G00 Y" + Math.round(YBAD + BD / 2) + " Z" + ZBAD;
+    else if (SH.k[i] === "A") { const a = SH.p[i]; code = "G02 X" + Math.round(b[0] * BW) + " Y" + Math.round(b[1] * BD) + " R" + Math.round(Math.hypot((b[0] - a[0]) * BW, (b[1] - a[1]) * BD) * 0.62); }
+    else code = "G01 X" + Math.round(b[0] * BW) + " Y" + Math.round(b[1] * BD);
+    h += '<div class="row" data-i="' + i + '"><div class="code"><span class="ct"><b>N' + (i + 1) * 10 + "</b> " + code + "</span></div>" +
+         '<div class="line"><span class="lb">' + esc(it.label) + '</span><span class="vl">' + esc(it.value) + "</span></div></div>";
+  });
+  h += '<div class="ft"><b>M30</b> (' + esc(D.source || "") + ")</div>";
+  paper.innerHTML = h;
+  const PT = GT + 18;
+  paper.style.top = PT + "px";
+  // keep the listing inside the glass (as a last resort it may hang over the bottom frame band, never onto the display)
+  const maxH = GBm - 14 - PT;
+  const rowsEls = [...paper.querySelectorAll(".row")];
+  const steps = [[46, 34, 10], [42, 32, 8], [40, 30, 6], [38, 30, 4], [36, 30, 3], [34, 30, 2], [32, 30, 2], [30, 30, 1]];
+  const fitTo = lim => {
+    for (const [lb, vl, pad] of steps) {
+      paper.querySelectorAll(".lb").forEach(e => (e.style.fontSize = lb + "px"));
+      paper.querySelectorAll(".vl").forEach(e => (e.style.fontSize = vl + "px"));
+      rowsEls.forEach((e, i) => { const pp = i === active ? Math.max(pad, 13) : pad; e.style.paddingTop = pp + "px"; e.style.paddingBottom = pp + 2 + "px"; });
+      if (paper.offsetHeight <= lim) return true;
+    }
+    return false;
+  };
+  if (!fitTo(maxH)) fitTo(WB - 6 - PT);
+  // spread rows when there is room (fewer items) so leaders stay calm
+  const spare = maxH - paper.offsetHeight;
+  if (spare > 0 && n <= 4) { const add = Math.min(30, spare / (n + 1)); rowsEls.forEach(e => { e.style.paddingTop = parseFloat(e.style.paddingTop) + add / 2 + "px"; e.style.paddingBottom = parseFloat(e.style.paddingBottom) + add / 2 + "px"; }); }
+
+  const TH = -1.3 * Math.PI / 180, PL = 54, PW = paper.offsetWidth;
+  const toPage = (lx, ly) => [PL + lx * Math.cos(TH) - ly * Math.sin(TH), PT + lx * Math.sin(TH) + ly * Math.cos(TH)];
+
+  // pen marks (live inside the paper so they rotate with it): orange loop on the executing line, red "?" on the wrong one
+  let pen = "";
+  const ar = rowsEls[active];
+  if (ar) {
+    const x0 = 36, y0 = ar.offsetTop + 1, w = PW - 36 - 5, hh = ar.offsetHeight - 2;
+    const L = (u, v) => f1(x0 + u * w) + "," + f1(y0 + v * hh);
+    const d = "M" + L(0.03, 0.10) + " C" + L(0.25, -0.04) + " " + L(0.75, -0.06) + " " + L(0.97, 0.06) + " C" + L(1.02, 0.25) + " " + L(1.02, 0.82) + " " + L(0.95, 0.96) +
+              " C" + L(0.7, 1.06) + " " + L(0.22, 1.05) + " " + L(0.03, 0.94) + " C" + L(-0.035, 0.8) + " " + L(-0.035, 0.24) + " " + L(0.08, 0.06) + " C" + L(0.16, 0.0) + " " + L(0.26, -0.01) + " " + L(0.34, 0.0);
+    pen += '<path d="' + d + '" fill="none" stroke="' + ORANGE + '" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>';
+  }
+  const br = rowsEls[bad];
+  if (br) {
+    const cd = br.querySelector(".code"), ct = cd.querySelector(".ct"), k = Math.min(1, (cd.offsetHeight - 2) / 40);
+    const qx = br.offsetLeft + ct.offsetLeft + ct.offsetWidth + 26, qy = br.offsetTop + cd.offsetTop + (cd.offsetHeight - 40 * k) / 2;
+    const qq = (dx, dy) => f1(qx + dx * k) + "," + f1(qy + dy * k);
+    pen += '<path d="M' + qq(0, 9) + " C" + qq(1, -2) + " " + qq(22, -3) + " " + qq(24, 8) + " C" + qq(25, 17) + " " + qq(12, 19) + " " + qq(12, 29) +
+           '" fill="none" stroke="' + RED + '" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>' +
+           '<path d="M' + qq(12, 38) + " l1,1.5" + '" fill="none" stroke="' + RED + '" stroke-width="6.5" stroke-linecap="round"/>';
+  }
+  paper.insertAdjacentHTML("beforeend", '<svg class="pen" data-layout-allow-overlap style="left:0;top:0;width:' + PW + "px;height:" + paper.offsetHeight + 'px" viewBox="0 0 ' + PW + " " + paper.offsetHeight + '">' + pen + "</svg>");
+
+  // tape
+  const tp = toPage(-8, -34), tp2 = toPage(PW - 118, -34);
+  document.getElementById("tapes").innerHTML =
+    '<div class="tape" style="left:' + f1(tp[0]) + "px;top:" + f1(tp[1]) + 'px;transform:rotate(-9deg)"></div>' +
+    '<div class="tape" style="left:' + f1(tp2[0]) + "px;top:" + f1(tp2[1]) + 'px;transform:rotate(7deg)"></div>';
+
+  // leaders: marker lines on the glass, from each listing line to the move it made (drawn in front of the machine)
+  const cutStart = P(segW(active, 0));
+  const taken = [cutStart, QS];
+  const hotPts = hot;
+  const clash = q => taken.some(o => Math.hypot(q[0] - o[0], q[1] - o[1]) < 42) || hotPts.some(o => Math.hypot(q[0] - o[0], q[1] - o[1]) < 22);
+  // a leader line must not graze the tool pointer or the crash mark
+  const segDist = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy || 1, u = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2)); return Math.hypot(p[0] - a[0] - u * dx, p[1] - a[1] - u * dy); };
+  const keepOff = [QS].concat(hitAt ? [hitAt] : []);
+  const grazes = (a, q) => keepOff.some(o => segDist(o, [a[0] + 22, a[1]], q) < 34);
+  let ld = "";
+  const drawLeader = (a, b, col, w, ringFill) => {
+    const k = [a[0] + 22, a[1]];
+    ld += line([a, k, b], 'fill="none" stroke="' + PANEL + '" stroke-opacity="0.9" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"');
+    ld += '<circle cx="' + f1(b[0]) + '" cy="' + f1(b[1]) + '" r="10.5" fill="' + PANEL + '" fill-opacity="0.9"/>';
+    ld += line([a, k, b], 'fill="none" stroke="' + col + '" stroke-width="' + w + '" stroke-linejoin="round" stroke-linecap="round"');
+    ld += '<circle cx="' + f1(b[0]) + '" cy="' + f1(b[1]) + '" r="7" fill="' + ringFill + '" stroke="' + col + '" stroke-width="3"/>';
+    ld += '<circle cx="' + f1(a[0] + 3) + '" cy="' + f1(a[1]) + '" r="5" fill="' + col + '"/>';
+  };
+  rowsEls.forEach((r, i) => {
+    const a = toPage(PW, r.offsetTop + r.offsetHeight / 2);
+    if (i === active) { const dx = a[0] - QS[0], dy = a[1] - QS[1], dl = Math.hypot(dx, dy) || 1; drawLeader(a, [QS[0] + dx / dl * 30, QS[1] + dy / dl * 30], ORANGE, 4, PANEL); return; }
+    if (i === bad && hitAt) { taken.push(hitAt); return; } // the collision marker is its target, drawn below
+    let best = null, bd = 1e9;
+    for (let j = 0; j <= 16; j++) {
+      const q = P(segW(i, 0.1 + 0.8 * j / 16)), dd = Math.hypot(q[0] - a[0], q[1] - a[1]) + (hidden(q) ? 5000 : 0) + (clash(q) ? 3000 : 0) + (q[0] > 884 && q[1] > 880 ? 2000 : 0) + (grazes(a, q) ? 1200 : 0);
+      if (dd < bd) { bd = dd; best = q; }
+    }
+    taken.push(best);
+    drawLeader(a, best, BLUE, 3, PANEL);
+  });
+  if (br && hitAt) {
+    const a = toPage(PW, br.offsetTop + br.offsetHeight / 2), dx = a[0] - hitAt[0], dy = a[1] - hitAt[1], dl = Math.hypot(dx, dy) || 1;
+    const k = [a[0] + 22, a[1]], b = [hitAt[0] + dx / dl * 32, hitAt[1] + dy / dl * 32];
+    ld += line([a, k, b], 'fill="none" stroke="' + PANEL + '" stroke-opacity="0.9" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"');
+    ld += line([a, k, b], 'fill="none" stroke="' + RED + '" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"');
+    ld += '<circle cx="' + f1(a[0] + 3) + '" cy="' + f1(a[1]) + '" r="5" fill="' + RED + '"/>';
+  }
+  document.getElementById("scene").innerHTML = s.replace("<!--LEADERS-->", ld);
+
+  // ---------- control display: caption = the current block (karaoke voice-over line) ----------
+  const disp = document.getElementById("disp");
+  disp.style.top = (WB + 16) + "px";
+  document.getElementById("blk").innerHTML = "BLOCK <b>N" + (active + 1) * 10 + "</b>";
+  const capText = String(D.caption || D.sub || "");
+  const words = capText.split(/\s+/).filter(Boolean);
+  const lc = capText.toLowerCase(), hAt = hl ? lc.indexOf(hl.toLowerCase()) : -1;
+  let pos = 0, onIdx = [];
+  words.forEach((w, i) => {
+    const st = lc.indexOf(w.toLowerCase(), pos); pos = st + w.length;
+    if (hAt >= 0 && st < hAt + hl.length && st + w.length > hAt) onIdx.push(i);
+  });
+  if (!onIdx.length) onIdx = [0];
+  const on0 = Math.min(...onIdx), on1 = Math.max(...onIdx);
+  const cap = document.getElementById("cap");
+  // karaoke window: the spoken phrase around the active words, never more than 2 lines; the active phrase is ONE cursor block
+  let lo = 0, hi = words.length;
+  const paint = () => {
+    const vis = [];
+    for (let i = lo; i < hi; i++) {
+      if (i === on0) { vis.push('<span class="on">' + esc(words.slice(on0, on1 + 1).join(" ")) + "</span>"); i = on1; }
+      else vis.push(esc(words[i]));
+    }
+    cap.innerHTML = (lo > 0 ? "&hellip; " : "") + vis.join(" ") + (hi < words.length ? "&hellip;" : "");
+  };
+  const fits = fs => cap.offsetHeight <= fs * 1.3 * 2 + 4;
+  let cfs = 42; paint();
+  for (; cfs > 40; cfs -= 2) { cap.style.fontSize = cfs + "px"; if (fits(cfs)) break; }
+  cap.style.fontSize = cfs + "px";
+  while (!fits(cfs) && hi - lo > on1 - on0 + 1) { if (hi - 1 > on1) hi--; else lo++; paint(); }
+
+  // button legends
+  document.getElementById("legends").innerHTML =
+    '<div class="bl" style="left:300px;top:' + (BY + 66) + 'px">CYCLE START</div>' +
+    '<div class="bl" style="left:560px;top:' + (BY + 66) + 'px">FEED HOLD</div>';
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600;1,700&family=DM+Mono:wght@400;500&family=Spectral:wght@500;600&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Marbling Tray (marbling-tray): a bookbinder's marbling trough seen from the bench.
+    Cream size in a walnut trough, floating drops of oxblood, indigo, ochre and umber.
+    The surface is computed with real marbling maths (ink-drop displacement + tine-line
+    displacement, Jaffer & Lu) from a hard-coded drop list, so it is fully deterministic.
+    The back half is still raw drops (noise); a brass-pinned comb stands mid-tray and the
+    front half behind its pass is already combed into order (denoised).
+    Items = swatch tabs pinned to the trough's front rim, each showing the pattern sampled
+    from the back (step 1, noise) to the front (last step, ordered).
+    Signature move (video): the comb drags toward the back, pulling the raw drops into the
+    combed pattern; swatch tabs drop onto the rim one per step.
+  */
+  :root { --ochre: #D8A23A; --ox: #7A2430; --indigo: #233A6B; --cream: #EFE6D2; --umber: #2B2321; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--ochre); }
+  body { position: relative; color: var(--umber); font-family: "Spectral", serif; }
+
+  .wash { position: absolute; inset: 0; background:
+      radial-gradient(ellipse 760px 560px at 520px 1000px, rgba(255, 236, 190, 0.34), rgba(255, 236, 190, 0) 70%),
+      linear-gradient(180deg, rgba(43, 35, 33, 0.10) 0%, rgba(43, 35, 33, 0) 14%, rgba(43, 35, 33, 0) 80%, rgba(43, 35, 33, 0.30) 100%); }
+
+  .grain { position: absolute; left: 0; top: 0; opacity: 0.16; mix-blend-mode: multiply; pointer-events: none; }
+  .top { position: absolute; left: 90px; right: 90px; top: 298px; display: flex; justify-content: space-between; gap: 30px;
+    font: 500 28px "DM Mono", monospace; letter-spacing: 0.04em; text-transform: uppercase; color: var(--umber); }
+  .top b { font-weight: 500; color: var(--ox); }
+
+  .title { position: absolute; left: 90px; width: 900px; top: 350px; z-index: 2;
+    font-family: "Cormorant Garamond", serif; font-weight: 700; line-height: 0.95; letter-spacing: -0.012em; color: var(--umber); font-variant-numeric: lining-nums; font-feature-settings: "lnum" 1; }
+  .title .hl { position: relative; isolation: isolate; font-style: italic; color: var(--ox); white-space: nowrap; padding: 0 0.04em; }
+  .title .hl svg { position: absolute; left: 0; width: 100%; bottom: 0.07em; height: 0.12em; }
+  .title .hl .ht { position: relative; }   /* later positioned sibling: paints over the strip */
+
+  /* 3D trough */
+  .stage { position: absolute; left: 0; top: 0; width: 1080px; height: 1200px; transform-origin: 0 0; }
+  .scene { position: absolute; left: 0; top: 0; width: 1080px; height: 1200px; perspective: 1750px; perspective-origin: 540px 120px; }
+  .tray { position: absolute; left: 20px; top: 120px; width: 1040px; height: 860px; transform-style: preserve-3d;
+    transform-origin: 50% 50%; transform: rotateX(49deg);
+    background:
+      repeating-linear-gradient(92deg, rgba(0,0,0,0) 0 22px, rgba(0,0,0,0.10) 22px 24px, rgba(0,0,0,0) 24px 51px, rgba(255,220,170,0.06) 51px 53px),
+      linear-gradient(180deg, #4A372E, #3A2B24);
+    border-radius: 8px; }
+  .well { position: absolute; left: 30px; top: 30px; width: 980px; height: 800px; border-radius: 3px; overflow: hidden; background: var(--cream); }
+  .well svg { position: absolute; left: 0; top: 0; width: 980px; height: 800px; display: block; }
+  .well::after { content: ""; position: absolute; inset: 0; box-shadow: inset 0 0 0 2px rgba(43,35,33,0.55), inset 0 18px 26px rgba(43,35,33,0.38), inset 14px 0 22px rgba(43,35,33,0.22), inset -14px 0 22px rgba(43,35,33,0.22); }
+  .face { position: absolute; left: 0; top: 860px; width: 1040px; height: 64px; transform-origin: 50% 0; transform: rotateX(-90deg);
+    background: linear-gradient(180deg, #2E211C, #24190F);
+    border-radius: 0 0 6px 6px; }
+  .comb { position: absolute; left: -40px; width: 1120px; height: 230px; transform-origin: 50% 100%; transform: rotateX(-90deg); }
+  .comb svg { width: 100%; height: 100%; display: block; overflow: visible; }
+
+  .shadow { position: absolute; left: 0; width: 1080px; height: 150px; border-radius: 50%;
+    background: radial-gradient(ellipse at 50% 45%, rgba(43,35,33,0.55), rgba(43,35,33,0) 70%); }
+
+  /* swatch tabs hanging off the front rim */
+  .tab { position: absolute; display: flex; flex-direction: column; background: #F3EBDA; border-radius: 3px 3px 6px 6px; padding: 26px 14px 16px;
+    box-shadow: 0 2px 0 rgba(43,35,33,0.18), 0 16px 22px -8px rgba(43,35,33,0.55); transform-origin: 50% 12px; }
+  .tab .pin { position: absolute; left: 50%; top: 4px; width: 22px; height: 22px; margin-left: -11px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 32%, #F6D88E, #C08A2C 55%, #7D5718); box-shadow: 0 2px 3px rgba(43,35,33,0.5); }
+  .tab .sw { display: block; flex: none; width: 100%; height: 92px; border: 2px solid var(--umber); border-radius: 2px; overflow: hidden; background: var(--cream); }
+  .tab .sw svg { display: block; width: 100%; height: 100%; }
+  .tab .idx { margin-top: 10px; font: 500 26px "DM Mono", monospace; letter-spacing: 0.02em; color: var(--ox); line-height: 1.1; }
+  .tab .lb { margin-top: 2px; font: 500 30px "Spectral", serif; line-height: 1.14; color: var(--umber); overflow-wrap: break-word; hyphens: manual; }
+  .tab .vl { margin-top: auto; padding-top: 8px; font: 700 52px "Cormorant Garamond", serif; line-height: 0.95; color: var(--umber); white-space: nowrap; font-variant-numeric: lining-nums; font-feature-settings: "lnum" 1; }
+
+  .cap { position: absolute; left: 90px; width: 810px; font: 500 44px "Spectral", serif; line-height: 1.34; color: var(--umber); font-variant-numeric: lining-nums; }
+  .cap .w { padding: 0 0.02em; }
+  .cap .on { white-space: nowrap; background: var(--indigo); color: var(--cream); border-radius: 0.55em; padding: 0 0.24em 0.04em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+
+  .src { position: absolute; left: 90px; width: 900px; top: 1584px; font: 400 26px "DM Mono", monospace; line-height: 1.25; color: var(--umber); }
+</style>
+</head>
+<body>
+<div class="wash"></div>
+<svg class="grain" width="1080" height="1920" aria-hidden="true"><filter id="gr" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="7" stitchTiles="stitch"/><feColorMatrix values="0 0 0 0 0.17  0 0 0 0 0.14  0 0 0 0 0.13  0 0 0 0.55 0"/></filter><rect width="1080" height="1920" filter="url(#gr)"/></svg>
+<div class="top"><span id="kick"></span><span id="date"></span></div>
+<div class="title" id="title"></div>
+
+<div class="stage" id="stage">
+  <div class="shadow" id="shadow"></div>
+  <div class="scene">
+    <div class="tray" id="tray">
+      <div class="well"><svg id="size" viewBox="0 0 980 800" xmlns="http://www.w3.org/2000/svg"></svg></div>
+      <div class="comb" id="comb"><svg id="combsvg" viewBox="0 0 1120 230" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"></svg></div>
+      <div class="face" id="face"></div>
+    </div>
+  </div>
+</div>
+
+<div id="tabs"></div>
+<div class="cap" id="cap" data-slot="caption"></div>
+<div class="src" id="src"></div>
+
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const FONTS = ['700 100px "Cormorant Garamond"', 'italic 700 100px "Cormorant Garamond"', '400 30px "DM Mono"', '500 28px "DM Mono"', '500 44px Spectral', '500 30px Spectral'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).then(() => document.fonts.ready).catch(() => {}).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const UMBER = "#2B2321", OX = "#7A2430", INDIGO = "#233A6B", OCHRE = "#D8A23A", CREAM = "#EFE6D2";
+  const COLS = [UMBER, OX, INDIGO, OCHRE, CREAM];
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+
+  // ---------- header ----------
+  const epNo = String(D.ep || "").replace(/^#/, "");
+  document.getElementById("kick").innerHTML = esc(D.series || D.kicker || "") + (epNo ? " · <b>No. " + esc(epNo) + "</b>" : "");
+  document.getElementById("date").textContent = D.date || "";
+
+  // ---------- marbling surface (hard-coded drops, real marbling maths) ----------
+  const SW = 980, SH = 800, YC = 470;               // comb line, measured from the back edge
+  // [x, y, r, colour] — 0 umber, 1 oxblood, 2 indigo, 3 ochre, 4 cream (cream drops make the rings)
+  const DROPS = [[220,455,18,0],[868,430,19,0],[459,698,17,0],[803,52,19,0],[543,704,18,0],[763,341,17,0],[754,774,16,0],[538,283,16,0],[263,741,21,0],[115,55,20,0],[924,461,21,0],[871,705,21,0],[647,337,21,0],[673,685,15,0],[631,583,16,0],[447,582,14,0],[80,309,14,0],[406,497,15,0],[801,385,21,0],[56,217,20,0],[527,188,15,0],[335,712,16,0],[214,625,21,0],[71,91,22,0],[773,571,16,0],[534,70,21,0],[38,605,21,0],[965,769,17,0],[318,18,15,0],[27,505,20,0],[173,457,20,0],[931,100,16,0],[332,284,19,0],[218,365,16,0],[253,224,17,0],[166,251,22,0],[800,621,15,0],[706,240,21,0],[444,156,15,0],[238,33,19,0],[633,424,17,0],[502,592,16,0],[320,576,19,0],[864,214,18,0],[627,107,22,0],[360,184,16,0],[12,718,14,0],[133,283,16,0],[970,154,20,0],[907,567,16,0],[953,303,19,0],[712,515,21,0],[319,441,22,0],[537,516,15,0],[769,112,15,0],[138,758,19,0],[611,195,19,0],[130,615,17,0],[436,362,20,0],[446,26,19,0],[23,455,38,1],[759,549,38,1],[755,383,43,1],[210,427,45,1],[110,215,41,1],[477,230,47,1],[23,713,52,1],[292,95,39,1],[537,109,53,1],[349,384,51,1],[600,758,43,1],[956,93,45,1],[522,493,36,1],[650,78,41,1],[298,178,45,1],[421,490,47,1],[427,751,52,1],[311,755,47,1],[85,316,37,1],[146,52,40,1],[687,438,41,1],[231,776,46,1],[750,512,47,1],[760,225,45,1],[559,332,37,1],[335,561,36,1],[224,212,40,1],[677,777,46,1],[382,57,45,1],[794,64,40,1],[109,583,50,1],[923,635,38,1],[228,370,46,1],[398,308,46,1],[721,562,48,1],[24,104,50,1],[573,204,40,1],[671,384,40,1],[960,691,38,1],[699,209,38,1],[962,501,39,1],[535,629,52,1],[263,498,49,1],[959,235,46,1],[740,44,32,2],[662,703,47,2],[451,585,37,2],[622,516,43,2],[256,374,36,2],[809,743,33,2],[919,178,47,2],[216,89,34,2],[860,90,37,2],[265,422,33,2],[262,207,35,2],[608,36,48,2],[479,710,36,2],[210,757,39,2],[342,302,45,2],[336,71,42,2],[938,450,45,2],[778,421,45,2],[401,476,43,2],[953,354,42,2],[50,330,42,2],[33,73,48,2],[46,738,36,2],[335,553,40,2],[121,578,45,2],[867,690,38,2],[632,211,40,2],[326,785,41,2],[475,330,36,2],[641,548,40,2],[40,429,36,2],[882,653,43,2],[579,310,38,2],[502,490,44,2],[760,652,34,2],[92,232,38,2],[495,59,42,2],[727,331,46,2],[40,186,30,3],[190,26,26,3],[362,217,34,3],[95,722,31,3],[639,105,32,3],[262,736,30,3],[90,123,37,3],[367,741,27,3],[534,95,27,3],[938,403,33,3],[262,293,26,3],[627,445,28,3],[504,593,37,3],[506,716,37,3],[356,346,32,3],[170,426,34,3],[229,576,25,3],[403,123,31,3],[732,213,36,3],[39,347,29,3],[771,694,31,3],[584,275,26,3],[778,521,29,3],[405,547,26,3],[783,98,27,3],[58,554,35,3],[927,120,30,3],[955,179,28,3],[467,230,31,3],[787,366,37,3],[650,705,33,3],[647,565,35,3],[860,90,14,4],[336,71,16,4],[46,738,14,4],[641,548,15,4],[495,59,16,4],[210,757,15,4],[50,330,16,4],[326,785,16,4],[760,652,13,4],[608,36,18,4],[401,476,16,4],[867,690,14,4],[579,310,14,4],[265,422,13,4],[938,450,17,4],[335,553,15,4]];
+
+  let polys = [];
+  // apply a map T to every polygon, subdividing in source space wherever the image stretches
+  function applyMap(T, thr) {
+    for (const P of polys) {
+      const a = P.p, m = a.length / 2, out = [];
+      const post = new Array(m);
+      for (let i = 0; i < m; i++) post[i] = T(a[2 * i], a[2 * i + 1]);
+      for (let i = 0; i < m; i++) {
+        const j = (i + 1) % m, A = post[i], B = post[j];
+        out.push(A[0], A[1]);
+        const sub = (ax, ay, bx, by, pa, pb, depth) => {
+          if (depth > 6 || Math.hypot(pb[0] - pa[0], pb[1] - pa[1]) <= thr) return;
+          const mx = (ax + bx) / 2, my = (ay + by) / 2, pm = T(mx, my);
+          sub(ax, ay, mx, my, pa, pm, depth + 1); out.push(pm[0], pm[1]); sub(mx, my, bx, by, pm, pb, depth + 1);
+        };
+        sub(a[2 * i], a[2 * i + 1], a[2 * j], a[2 * j + 1], A, B, 0);
+      }
+      // drop points closer than 0.9 px to the previous kept one
+      const keep = [out[0], out[1]];
+      for (let i = 2; i < out.length; i += 2) { const k = keep.length; if (Math.hypot(out[i] - keep[k - 2], out[i + 1] - keep[k - 1]) > 0.9) keep.push(out[i], out[i + 1]); }
+      P.p = keep;
+    }
+  }
+  for (const [cx, cy, r0, c] of DROPS) {
+    const r = r0 * 1.16, r2 = r * r;
+    if (polys.length) applyMap((x, y) => { const dx = x - cx, dy = y - cy, d2 = dx * dx + dy * dy || 1e-6, k = Math.sqrt(1 + r2 / d2); return [cx + dx * k, cy + dy * k]; }, 5);
+    const N = Math.max(48, Math.round(r * 2.2)), p = [];
+    for (let i = 0; i < N; i++) { const t = i / N * Math.PI * 2; p.push(cx + r * Math.cos(t), cy + r * Math.sin(t)); }
+    polys.push({ c, p });
+  }
+  // the comb has only passed over the front half: displacement fades out at the comb line
+  const smooth = (e0, e1, v) => { const t = Math.min(1, Math.max(0, (v - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
+  const W8 = y => smooth(YC - 4, YC + 46, y);
+  // 1) gel-git: back-and-forth rake strokes across the tray smear the drops into ribbons
+  for (let k = 0, y0 = YC + 18; y0 < SH + 30; k++, y0 += 34) {
+    const dir = k % 2 ? -1 : 1, yy = y0;
+    applyMap((x, y) => { const d = Math.abs(y - yy), z = 96 * 10 / (d + 10) * W8(y); return [x + dir * z, y]; }, 4);
+  }
+  // 2) the comb: one pin every 23 px, all pulled toward the back
+  const PINS = []; for (let x = 11.5; x < SW; x += 23) PINS.push(x);
+  for (const px of PINS) applyMap((x, y) => { const d = Math.abs(x - px), z = 26 * 5 / (d + 5) * W8(y); return [x, y - z]; }, 4);
+
+  let marb = '<rect x="-400" y="-400" width="' + (SW + 800) + '" height="' + (SH + 800) + '" fill="' + CREAM + '"/>';
+  for (const P of polys) {
+    const a = P.p; let d = "M" + a[0].toFixed(1) + "," + a[1].toFixed(1) + "L";
+    for (let i = 2; i < a.length; i += 2) d += a[i].toFixed(1) + "," + a[i + 1].toFixed(1) + " ";
+    marb += '<path d="' + d + 'Z" fill="' + COLS[P.c] + '"/>';
+  }
+  const sizeSvg = document.getElementById("size");
+  sizeSvg.innerHTML = '<defs><linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.22"/><stop offset="0.35" stop-color="#fff" stop-opacity="0"/></linearGradient>' +
+    '<linearGradient id="cshadow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + UMBER + '" stop-opacity="0.38"/><stop offset="1" stop-color="' + UMBER + '" stop-opacity="0"/></linearGradient></defs>' +
+    '<g id="marb" data-layout-allow-overflow>' + marb + '</g>' +
+    '<rect x="0" y="0" width="' + SW + '" height="' + SH + '" fill="url(#sheen)"/>' +
+    '<rect x="0" y="' + YC + '" width="' + SW + '" height="44" fill="url(#cshadow)"/>';
+
+  // ---------- comb (stands on the comb line) ----------
+  const CH = 230, comb = document.getElementById("comb");
+  comb.style.top = (30 + YC - CH) + "px";
+  let cg = '<defs><linearGradient id="brass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F6DA8A"/><stop offset="0.45" stop-color="#C9952F"/><stop offset="1" stop-color="#7E5818"/></linearGradient>' +
+           '<linearGradient id="wood" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6A4B3B"/><stop offset="0.5" stop-color="#4A342A"/><stop offset="1" stop-color="#2A1D17"/></linearGradient>' +
+           '<linearGradient id="steel" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2B2321"/><stop offset="0.5" stop-color="#8C8580"/><stop offset="1" stop-color="#2B2321"/></linearGradient></defs>';
+  // pins: tray x = 30 + pin, comb x offset 40
+  for (const px of PINS) { const x = 40 + 30 + px; cg += '<path d="M' + (x - 3.2) + ',96 L' + (x + 3.2) + ',96 L' + (x + 0.8) + ',' + CH + ' L' + (x - 0.8) + ',' + CH + ' Z" fill="url(#steel)"/>'; }
+  cg += '<rect x="8" y="22" width="1104" height="80" rx="8" fill="url(#wood)"/>' +
+        '<rect x="8" y="22" width="1104" height="14" rx="6" fill="url(#brass)"/>' +
+        '<rect x="8" y="94" width="1104" height="8" rx="3" fill="#1A120E" opacity="0.6"/>';
+  for (const ex of [0, 1064]) cg += '<rect x="' + ex + '" y="12" width="56" height="100" rx="9" fill="url(#brass)"/><rect x="' + (ex + 10) + '" y="20" width="10" height="84" rx="5" fill="#FFF3C8" opacity="0.45"/>';
+  document.getElementById("combsvg").innerHTML = cg;
+
+  // ---------- title with a strip of combed paper under the highlight ----------
+  const t = D.title || "", hl = D.hl || "";
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const strip = '<svg viewBox="230 ' + (SH - 96) + ' 360 44" preserveAspectRatio="none" data-layout-allow-overlap aria-hidden="true"><use href="#marb" data-layout-allow-overflow/></svg>';
+  const titleEl = document.getElementById("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + strip + '<span class="ht">' + esc(t.slice(at, at + hl.length)) + "</span></span>" + esc(t.slice(at + hl.length));
+  for (let fs = 124; fs >= 72; fs -= 2) {
+    titleEl.style.fontSize = fs + "px"; titleEl.style.lineHeight = "0.98";
+    if (titleEl.offsetHeight > fs * 2.5) titleEl.style.lineHeight = "1.05";   // 3+ lines: room for descenders and the strip
+    if (titleEl.offsetHeight <= 280 && titleEl.scrollWidth <= 902) break;
+  }
+  const titleBottom = 350 + titleEl.offsetHeight;
+
+  // ---------- bottom-up: source, caption, tabs ----------
+  const srcEl = document.getElementById("src");
+  srcEl.textContent = D.source ? "Sumber: " + D.source : "";
+  const capText = String(D.caption || D.sub || "");
+  const words = []; capText.replace(/\S+/g, (w, i) => { words.push({ w, s: i, e: i + w.length }); return w; });
+  const hs = hl ? capText.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const act = hs >= 0 ? words.map(o => o.s < hs + hl.length && o.e > hs) : words.map((_, i) => i === 0);
+  const capEl = document.getElementById("cap");
+  let ch = "";
+  for (let i = 0; i < words.length; i++) {
+    if (act[i] && (i === 0 || !act[i - 1])) ch += '<span class="on">';
+    ch += '<span class="w">' + esc(words[i].w) + '</span>';
+    if (act[i] && (i === words.length - 1 || !act[i + 1])) ch += '</span>';
+    if (i < words.length - 1) ch += " ";
+  }
+  capEl.innerHTML = ch;
+  for (let fs = 46; fs >= 40; fs -= 1) { capEl.style.fontSize = fs + "px"; if (capEl.offsetHeight <= fs * 1.34 * 2 + 4) break; }
+  // no lonely last word: narrow the caption until the last line holds two words (same line count)
+  { const ws = capEl.querySelectorAll(".w"), h0 = capEl.offsetHeight;
+    if (ws.length > 2) {
+      const alone = () => ws[ws.length - 1].offsetTop !== ws[ws.length - 2].offsetTop;
+      let w = 810;
+      while (alone() && w > 460) { w -= 10; capEl.style.width = w + "px"; if (capEl.offsetHeight > h0) { w += 10; capEl.style.width = w + "px"; break; } }
+    } }
+  const capH = capEl.offsetHeight, capTop = 1560 - capH;
+  capEl.style.top = capTop + "px";
+
+  // swatch tabs
+  const tabsEl = document.getElementById("tabs");
+  const TX0 = 90, TX1 = 900, GAP = n >= 5 ? 14 : 20;
+  const tw = Math.floor((TX1 - TX0 - GAP * (n - 1)) / Math.max(1, n));
+  const ROT = [-1.4, 0.9, -0.6, 1.2, -1.0];
+  const tabs = items.map((it, i) => {
+    const el = document.createElement("div");
+    el.className = "tab";
+    el.style.width = tw + "px";
+    // sample the tray from the back (raw drops) to the front (combed)
+    const f = n > 1 ? i / (n - 1) : 1;
+    const vh = 200, vw = Math.round(vh * (tw - 28) / 92);
+    const sy = Math.round(14 + f * (SH - 30 - vh)), sx = Math.round(40 + ((i * 197) % Math.max(1, SW - vw - 80)));
+    el.innerHTML = '<span class="pin"></span><span class="sw"><svg viewBox="' + sx + ' ' + sy + ' ' + vw + ' ' + vh + '" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><use href="#marb" data-layout-allow-overflow/></svg></span>' +
+      '<div class="idx">No. ' + (i + 1) + '</div><div class="lb">' + esc(it.label) + '</div><div class="vl">' + esc(it.value) + '</div>';
+    tabsEl.appendChild(el);
+    const vl = el.querySelector(".vl");
+    for (let fs = 52; fs >= 38; fs -= 2) { vl.style.fontSize = fs + "px"; if (vl.scrollWidth <= tw - 28) break; }
+    if (vl.scrollWidth > tw - 28) {   // too long for one line: wrap between words, shrink until the longest word fits
+      vl.style.whiteSpace = "normal";
+      for (let fs = 44; fs >= 34; fs -= 2) { vl.style.fontSize = fs + "px"; if (vl.scrollWidth <= tw - 28) break; }
+      if (vl.scrollWidth > tw - 28) vl.style.overflowWrap = "anywhere";
+    }
+    return el;
+  });
+  const tabH = Math.max(0, ...tabs.map(el => el.offsetHeight));
+  tabs.forEach(el => el.style.height = tabH + "px");
+  const tabsBottom = capTop - 34, tabsTop = tabsBottom - tabH;
+
+  // ---------- fit the 3D trough between the title and the tab row ----------
+  const stage = document.getElementById("stage");
+  const face = document.getElementById("face"), tray = document.getElementById("tray");
+  stage.style.transform = "none";
+  const tr = tray.getBoundingClientRect(), fr = face.getBoundingClientRect();
+  const top0 = tr.top, bot0 = fr.bottom;
+  const wantTop = titleBottom + 44, wantBot = tabsTop + 18;
+  const s = Math.min(1.12, Math.max(0.6, (wantBot - wantTop) / (bot0 - top0)));
+  const cx = 540;
+  const tx = cx - cx * s, ty = wantBot - bot0 * s;
+  stage.style.transform = "translate(" + tx + "px," + ty + "px) scale(" + s + ")";
+  const sh = document.getElementById("shadow");
+  sh.style.top = (fr.bottom - 70) + "px";
+
+  // tabs hang from the rim face
+  const fr2 = face.getBoundingClientRect();
+  const pinY = Math.round(fr2.bottom - 16);
+  tabs.forEach((el, i) => {
+    el.style.left = (TX0 + i * (tw + GAP)) + "px";
+    el.style.top = pinY + "px";
+    el.style.transform = "rotate(" + ROT[i] + "deg)";
+  });
+  // caption must stay clear of the tabs
+  const lowest = Math.max(...tabs.map(el => el.getBoundingClientRect().bottom));
+  if (lowest + 24 > capTop) capEl.style.top = (lowest + 24) + "px";
+  }
+</script>
+</body>
+</html>

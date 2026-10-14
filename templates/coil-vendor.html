@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Coil Vendor</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=JetBrains+Mono:wght@500;700;800&family=Martian+Mono:wdth,wght@75..112.5,500..800&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Coil Vendor: a glass-front snack vending machine, seen close up and a little from above.
+    Each tray is drawn in one-point perspective (its own vanishing point just above the tray),
+    so every tray reads the same: coil, queue of packets, lit back wall.
+    Metaphor: function / tool calling. Each item is a coil slot; its price rail carries the slot
+    code, the tool name (label) and what the tool returns (value). The model does not fetch anything
+    itself: it keys a code on the side keypad and the machine releases exactly one packet.
+    Trays adapt to the item count so no slot is ever empty: 3 = one tall tray of 3 big bags,
+    4 = 2 + 2, 5 = 3 narrow slots over 2 wide ones (real machines mix slot widths per tray).
+    The hl slot's packet is frozen mid-tip over the tray edge; the yellow LCD echoes code, label, value.
+    Deterministic: helix, packets and crimps are computed from fixed numbers; no randomness.
+  */
+  :root { --ink: #1B1D22; --paper: #E9ECEF; --red: #C8381F; --blue: #2F6FE4; --yel: #F4D35E; --dim: #AEB3BA; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #1B1D22; }
+  body { position: relative; font-family: "Archivo", sans-serif; color: var(--ink); }
+  svg.layer { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; overflow: hidden; }
+
+  /* backlit header sign (the sign itself is the paper background; text carries no box of its own) */
+  #hdr { position: absolute; left: 56px; top: 222px; width: 968px; background: var(--paper); border-radius: 16px 16px 6px 6px; }
+  #kick { position: absolute; left: 40px; right: 40px; top: 80px; display: flex; justify-content: space-between; align-items: center; font: 700 28px/1 "JetBrains Mono", monospace; letter-spacing: 0.04em; color: var(--ink); }
+  #kick .ser::before { content: ""; display: inline-block; width: 16px; height: 16px; background: var(--red); margin-right: 14px; vertical-align: 1px; }
+  #kick .ep { border: 3px solid var(--ink); padding: 5px 12px 4px; }
+  #title { position: absolute; left: 40px; width: 888px; top: 132px; font-family: "Martian Mono", monospace; font-weight: 800; font-stretch: 75%; line-height: 1.16; letter-spacing: -0.015em; color: var(--ink); }
+  #title .hl { color: var(--red); }
+
+  /* price rails on the tray lips: code, tool name, what it returns */
+  .rail { position: absolute; background: var(--ink); border-top: 4px solid #3A3E46; }
+  .slot { position: absolute; top: 0; bottom: 0; padding: 12px 12px 0 14px; background: var(--ink); }
+  .slot + .slot { border-left: 2px solid #2C2F36; }
+  .chip { position: absolute; left: 14px; top: 12px; font: 800 30px/1 "JetBrains Mono", monospace; padding: 6px 9px 5px; background: var(--paper); color: var(--ink); border-radius: 4px; }
+  .chip.on { background: var(--yel); }
+  .lab { position: absolute; top: 12px; font-family: "Martian Mono", monospace; font-weight: 600; font-stretch: 80%; font-size: 30px; line-height: 1.15; color: var(--paper); background: var(--ink); white-space: nowrap; }
+  .val { position: absolute; font-family: "Martian Mono", monospace; font-weight: 800; font-stretch: 75%; font-size: 40px; line-height: 1.05; color: var(--paper); background: var(--ink); white-space: nowrap; letter-spacing: -0.01em; }
+  .val.on { color: var(--yel); }
+
+  /* side keypad */
+  .key { position: absolute; width: 46px; height: 44px; border-radius: 6px; background: var(--paper); color: var(--ink); font: 800 30px/44px "JetBrains Mono", monospace; text-align: center; box-shadow: 0 4px 0 #0E0F12; }
+  .key.on { background: var(--yel); }
+
+  /* two-line LCD: line 1 = code + label as typed, line 2 = what came out */
+  #lcd { position: absolute; left: 66px; width: 532px; height: 116px; background-color: var(--yel); border-radius: 6px; padding: 10px 22px; color: var(--ink); font-family: "JetBrains Mono", monospace; font-weight: 700; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+  #lcd div { white-space: nowrap; line-height: 1.3; background: var(--yel); }
+  #lcd .car { display: inline-block; width: 0.6em; height: 1em; background: var(--ink); vertical-align: -0.14em; margin-left: 0.12em; }
+
+  /* caption = voice-over line, karaoke; printed on the cabinet's riveted instruction plate (drawn in the SVG) */
+  #cap { position: absolute; left: 90px; width: 800px; text-wrap: balance; font-family: "Archivo", sans-serif; font-weight: 600; line-height: 1.28; color: var(--paper); }
+  #cap .w { white-space: nowrap; color: var(--dim); }
+  #cap .w.said { color: var(--paper); }
+  #cap .on { color: var(--ink); background: var(--yel); border-radius: 6px; padding: 0 0.14em; margin: 0 -0.04em; box-shadow: 0 4px 0 #0E0F12; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+  #cap .on .w { color: var(--ink); }
+
+  #meta { position: absolute; left: 90px; width: 800px; display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; font: 500 26px/1.3 "Archivo", sans-serif; letter-spacing: 0.01em; color: var(--dim); }
+  #meta .d { white-space: nowrap; flex: none; }
+</style>
+</head>
+<body>
+<svg class="layer" id="scene" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+<div id="hdr"><div id="kick"><span class="ser" id="ser"></span><span class="ep" id="ep"></span></div><div id="title"></div></div>
+<svg class="layer" id="ul" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+<div id="rails"></div>
+<div id="keys"></div>
+<div id="lcd"><div id="l1"></div><div id="l2"></div></div>
+<div id="cap" data-slot="caption"></div>
+<div id="meta"><span id="src"></span><span class="d" id="date"></span></div>
+<script>
+  // Built-in sample so the file also opens on its own.
+  const D = window.D || { series_id: "how-ai-works", series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  Promise.all(['800 100px "Martian Mono"', '600 30px "Martian Mono"', '700 30px "JetBrains Mono"', '800 30px "JetBrains Mono"', '500 26px Archivo', '600 44px Archivo']
+    .map(f => document.fonts.load(f))).then(() => document.fonts.ready).catch(() => {}).then(render);
+
+  function render() {
+  const INK = "#1B1D22", RED = "#C8381F", BLUE = "#2F6FE4", STEEL = "#2A2D33", RIM = "#33363D";
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+  const f1 = v => (Math.round(v * 10) / 10).toString();
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(1, items.length);
+
+  // ---------- header sign ----------
+  $("ser").textContent = D.series || (D.kicker || "").split("·")[0].trim();
+  $("ep").textContent = D.ep || "#01";
+  const t = String(D.title || ""), hl = String(D.hl || "").trim();
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  titleEl.innerHTML = at < 0 ? esc(t)
+    : esc(t.slice(0, at)) + '<span class="hl" id="hlw">' + esc(t.slice(at, at + hl.length)) + '<i id="bl" style="display:inline-block;width:0;height:0;vertical-align:baseline"></i></span>' + esc(t.slice(at + hl.length));
+  // prefer two big lines; fall back to three
+  const lines = fz => Math.round(titleEl.offsetHeight / (fz * 1.16));
+  let fs = 0;
+  for (let z = 100; z >= 78; z -= 2) { titleEl.style.fontSize = z + "px"; if (lines(z) <= 2) { fs = z; break; } }
+  if (!fs) for (let z = 92; z >= 66; z -= 2) { titleEl.style.fontSize = z + "px"; fs = z; if (lines(z) <= 3) break; }
+  titleEl.style.fontSize = fs + "px";
+  const hdrH = 132 + titleEl.offsetHeight + 40;
+  $("hdr").style.height = hdrH + "px";
+  const HB = 222 + hdrH; // header bottom
+
+  // highlight = a coil of wire drawn under the words (prolate trochoid)
+  const hlw = $("hlw");
+  if (hlw) {
+    const blY = $("bl").getBoundingClientRect().top;
+    const rects = [...hlw.getClientRects()].filter(r => r.width > 4);
+    const off = blY - rects[rects.length - 1].top;
+    const b = fs * 0.115, a = b * 0.50;
+    let ul = "";
+    rects.forEach(r => {
+      const x0 = r.left + 3, x1 = r.right - 3, yc = r.top + off + b * 0.62 + fs * 0.09;
+      const k = Math.max(1, Math.round((x1 - x0) / (2 * Math.PI * a))), aa = (x1 - x0) / (k * 2 * Math.PI);
+      let d = "";
+      for (let i = 0; i <= k * 48; i++) { const tt = Math.PI + i * (2 * Math.PI / 48); d += (i ? "L" : "M") + f1(x0 + aa * (tt - Math.PI) - b * Math.sin(tt)) + "," + f1(yc - b * 0.62 * Math.cos(tt)); }
+      ul += '<path d="' + d + '" fill="none" stroke="' + RED + '" stroke-width="' + f1(fs * 0.055) + '" stroke-linecap="round" stroke-linejoin="round"/>';
+    });
+    $("ul").innerHTML = ul;
+  }
+
+  // ---------- caption plate first: its height decides where the control row sits ----------
+  $("src").textContent = D.source ? "Sumber: " + D.source : "";
+  $("date").textContent = D.date || "";
+  const meta = $("meta"), cap = $("cap");
+  const capTxt = String(D.caption || D.sub || "");
+  const hlL = hl.toLowerCase();
+  const ws = [...capTxt.matchAll(/\S+/g)].map(m => ({ w: m[0], s: m.index, e: m.index + m[0].length }));
+  let on = [];
+  const ci = hlL ? capTxt.toLowerCase().indexOf(hlL) : -1;
+  if (ci >= 0) on = ws.map((w, k) => (w.e > ci && w.s < ci + hlL.length) ? k : -1).filter(k => k >= 0);
+  if (!on.length && ws.length) on = [0];
+  // adjacent active words share ONE lit box (a single pressed key), every word stays unbreakable
+  let capHTML = "";
+  ws.forEach((w, k) => {
+    if (k) capHTML += " ";
+    if (k === on[0]) capHTML += '<span class="on">';
+    capHTML += '<span class="w' + (k < on[0] ? " said" : "") + '">' + esc(w.w) + "</span>";
+    if (k === on[on.length - 1]) capHTML += "</span>";
+  });
+  cap.innerHTML = capHTML;
+  let cfs = 46;
+  for (; cfs >= 40; cfs -= 2) { cap.style.fontSize = cfs + "px"; if (cap.offsetHeight <= cfs * 1.28 * 2 + 4) break; }
+  cfs = Math.max(40, cfs); cap.style.fontSize = cfs + "px";
+  const metaH = meta.offsetHeight, capH = cap.offsetHeight;
+  const META_B = 1612;                                     // meta baseline block ends inside the safe zone
+  const plateTop = Math.min(1428, META_B - metaH - 18 - capH - 22);
+  const CR = plateTop - 146;                               // control row top (LCD + delivery flap)
+  meta.style.top = (META_B - metaH) + "px";
+  cap.style.top = Math.round(plateTop + 22 + Math.max(0, (META_B - metaH - 18 - (plateTop + 22) - capH) / 2)) + "px";
+
+  // ---------- geometry ----------
+  const FT = HB + 16, FB = CR - 10;                         // window frame top / bottom
+  const GX0 = 66, GX1 = 898, GY0 = FT + 14, GY1 = CR - 24;  // glass opening (text stays left of x 900)
+  const GW = GX1 - GX0;
+  // trays adapt to the item count, never an empty slot: 3 -> [3] one tall tray, 4 -> [2,2], 5 -> [3,2]
+  const layout = n <= 3 ? [n] : n === 4 ? [2, 2] : [3, 2];
+  const rows = layout.length, rowH = (GY1 - GY0) / rows;
+  const pos = [];
+  layout.forEach((cols, r) => { for (let c = 0; c < cols; c++) pos.push({ r, c, cols }); });
+  const code = i => String.fromCharCode(65 + pos[i].r) + (pos[i].c + 1);
+  const pt = q => f1(q[0]) + "," + f1(q[1]);
+  const poly = a => "M" + a.map(pt).join("L") + "Z";
+  const F = 1350;
+
+  // which slot is being vended: the item containing hl (or sharing a word with it), else the first
+  const words = s => String(s).toLowerCase().split(/[^0-9a-zà-ÿ]+/i).filter(Boolean);
+  let hi = hlL ? items.findIndex(it => (it.label + " " + it.value).toLowerCase().includes(hlL)) : -1;
+  if (hi < 0 && hlL) { const hw = words(hlL); hi = items.findIndex(it => words(it.label + " " + it.value).some(w => hw.includes(w))); }
+  if (hi < 0) hi = 0;
+
+  // rail heights depend on whether a tool name needs two lines
+  const probe = (cls, html, css) => { const e = document.createElement("span"); e.className = cls; e.style.cssText = "visibility:hidden;left:0;top:0;" + (css || ""); e.innerHTML = html; document.body.appendChild(e); const w = e.offsetWidth, h = e.offsetHeight, sw = e.scrollWidth; e.remove(); return { w, h, sw }; };
+  const chipW = probe("chip", "A1").w, labX = 14 + chipW + 12;
+  const geo = i => { const sw = GW / pos[i].cols, narrow = pos[i].cols >= 3; return { sw, narrow, labAvail: Math.floor(sw - labX - 10), valAvail: Math.floor(narrow ? sw - 28 : sw - labX - 10) }; };
+  const labFit = items.map((it, i) => {
+    const raw = String(it.label || ""), html = esc(raw).replace(/([_·\/-])/g, "$1<wbr>"), avail = geo(i).labAvail;
+    if (probe("lab", html).w <= avail) return { html, css: "", two: false };
+    const tight = "font-stretch:75%;letter-spacing:-0.02em;";
+    if (probe("lab", html, tight).w <= avail) return { html, css: tight, two: false };
+    const wrap = tight + "white-space:normal;width:" + avail + "px;";
+    const m = probe("lab", html, wrap);
+    if (m.sw <= avail && m.h <= 30 * 1.15 * 2 + 2) return { html, css: wrap, two: true };
+    return { html, css: wrap + "word-break:break-all;", two: true };
+  });
+  const railHs = layout.map((cols, r) => {
+    const need = items.some((it, i) => pos[i].r === r && labFit[i].two);
+    return cols >= 3 ? (need ? 152 : 116) : (need ? 156 : 112);
+  });
+
+  // ---------- scene ----------
+  let s = "<defs>" +
+    '<linearGradient id="wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D3D7DC"/><stop offset="1" stop-color="#E2E5E9"/></linearGradient>' +
+    '<linearGradient id="cab" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#26292F"/><stop offset="0.5" stop-color="' + INK + '"/><stop offset="1" stop-color="#15171B"/></linearGradient>' +
+    '<linearGradient id="back" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F7F8F9"/><stop offset="1" stop-color="#DADEE2"/></linearGradient>' +
+    '<radialGradient id="shadow" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#000" stop-opacity="0.35"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>' +
+    '<clipPath id="glass"><rect x="' + GX0 + '" y="' + f1(GY0) + '" width="' + GW + '" height="' + f1(GY1 - GY0) + '"/></clipPath>' +
+    "</defs>";
+  // room + cabinet
+  s += '<rect width="1080" height="1920" fill="url(#wall)"/><rect y="1872" width="1080" height="48" fill="#C3C8CE"/><ellipse cx="540" cy="1884" rx="530" ry="30" fill="url(#shadow)"/>';
+  s += '<path d="M24,196 L64,172 L1016,172 L1056,196 Z" fill="#3A3E46"/>';
+  s += '<rect x="24" y="192" width="1032" height="1690" rx="26" fill="url(#cab)"/><rect x="30" y="198" width="1020" height="1678" rx="22" fill="none" stroke="' + RIM + '" stroke-width="2"/>';
+  s += '<rect x="48" y="214" width="984" height="' + f1(hdrH + 16) + '" rx="20" fill="#0F1013"/>';
+  s += '<rect x="52" y="' + f1(FT) + '" width="860" height="' + f1(FB - FT) + '" rx="14" fill="' + STEEL + '"/><rect x="53" y="' + f1(FT + 1) + '" width="858" height="' + f1(FB - FT - 2) + '" rx="13" fill="none" stroke="#3E424A" stroke-width="2"/>';
+
+  // helpers for the interior
+  function packetColor(i) { if (i === hi) return RED; let k = 0; for (let j = 0; j < i; j++) if (j !== hi) k++; return [BLUE, INK][k % 2]; }
+  function wire(sl, z0, z1) {
+    if (z1 - z0 < 0.5) return "";
+    const N = Math.max(2, Math.ceil((z1 - z0) / sl.pit * 72)), pts = [];
+    for (let k = 0; k <= N; k++) { const z = z0 + (z1 - z0) * k / N, th = sl.th0 + 2 * Math.PI * z / sl.pit; pts.push(sl.P(sl.cx + sl.R * Math.cos(th), sl.cy + sl.R * Math.sin(th), z)); }
+    const zm = (z0 + z1) / 2, sc = F / (F + zm), op = Math.max(0.5, 1 - zm / sl.Z * 0.5);
+    return '<path d="M' + pts.map(pt).join("L") + '" fill="none" stroke="' + INK + '" stroke-opacity="' + f1(op) + '" stroke-width="' + f1(Math.max(3, sl.R * 0.07 * sc)) + '" stroke-linecap="round" stroke-linejoin="round"/>' +
+           '<path d="M' + pts.map(q => f1(q[0] - 1.5) + "," + f1(q[1] - 1.5)).join("L") + '" fill="none" stroke="#FFFFFF" stroke-opacity="' + f1(op * 0.8) + '" stroke-width="' + f1(Math.max(1.2, sl.R * 0.02 * sc)) + '" stroke-linecap="round"/>';
+  }
+  // a packet: flat bag with crimped top/bottom, a clear window and a seal band.
+  // local coords: u across (-pw/2..pw/2), v up from the tray floor (0..ph); place(u,v) -> screen point
+  function packet(sl, place, shade) {
+    const pw = sl.pw, ph = sl.ph, tooth = Math.max(9, pw * 0.07), dp = tooth * 0.5, k = Math.max(5, Math.round(pw / tooth));
+    const outline = [];
+    for (let j = 0; j <= k * 2; j++) outline.push(place(-pw / 2 + j * pw / (2 * k), ph - (j % 2 ? 0 : dp)));
+    for (let j = k * 2; j >= 0; j--) outline.push(place(-pw / 2 + j * pw / (2 * k), j % 2 ? 0 : dp * 0.7));
+    const col = packetColor(sl.i);
+    const band = v0 => [place(-pw / 2, v0), place(pw / 2, v0)];
+    const win = []; for (let j = 0; j <= 28; j++) { const a = j / 28 * 2 * Math.PI; win.push(place(Math.cos(a) * pw * 0.27, ph * 0.62 + Math.sin(a) * Math.min(ph * 0.14, pw * 0.2))); }
+    const seal = [place(-pw / 2, ph * 0.87), place(pw / 2, ph * 0.87), place(pw / 2, ph * 0.82), place(-pw / 2, ph * 0.82)];
+    let o = '<path d="' + poly(outline) + '" fill="' + col + '"/>';
+    o += '<path d="' + poly(seal) + '" fill="#FFFFFF" opacity="0.22"/>';
+    o += '<path d="' + poly(win) + '" fill="#FFFFFF" opacity="' + (col === INK ? 0.16 : 0.24) + '"/>';
+    o += '<path d="M' + pt(band(ph * 0.13)[0]) + "L" + pt(band(ph * 0.13)[1]) + '" stroke="#000" stroke-opacity="0.18" stroke-width="3"/>';
+    o += '<path d="M' + pt(place(-pw * 0.36, ph * 0.12)) + "L" + pt(place(-pw * 0.36, ph * 0.78)) + '" stroke="#FFFFFF" stroke-opacity="0.16" stroke-width="' + f1(pw * 0.07) + '"/>';
+    if (shade > 0) o += '<path d="' + poly(outline) + '" fill="' + INK + '" opacity="' + f1(shade) + '"/>';
+    return o;
+  }
+
+  const slots = [];
+  let rowTop = GY0, idx = 0;
+  for (let r = 0; r < rows; r++) {
+    const cols = layout[r], slotW = GW / cols;
+    const railH = railHs[r], floorY = rowTop + rowH - railH, openH = floorY - rowTop;
+    // every tray has its own vanishing point a fixed distance above it, so all trays read alike
+    const VP = { x: (GX0 + GX1) / 2, y: rowTop - 150 };
+    const P = (x, y, z) => { const sc = F / (F + z); return [VP.x + (x - VP.x) * sc, VP.y + (y - VP.y) * sc]; };
+    const tall = rows === 1;
+    const R = Math.min(slotW * 0.30, openH * 0.44);
+    // packets leave headroom under the tray above; one tall tray holds big standing bags wider than the coil
+    const pw = tall ? slotW * 0.64 : R * 1.75;
+    const ph = tall ? Math.min(openH * 0.60, pw * 1.7) : Math.min(R * 2.0, openH * 0.80);
+    const pit = R * 0.95, Z = 4.4 * pit;
+    s += '<clipPath id="rc' + r + '"><rect x="' + GX0 + '" y="' + f1(rowTop) + '" width="' + GW + '" height="' + f1(openH) + '"/></clipPath><g clip-path="url(#rc' + r + ')">';
+    // shell of the compartment: back wall, side walls, tray floor
+    const bTL = P(GX0, rowTop, Z), bBR = P(GX1, floorY, Z);
+    s += '<rect x="' + GX0 + '" y="' + f1(rowTop - 300) + '" width="' + GW + '" height="' + f1(openH + 300) + '" fill="#C9CDD3"/>';
+    s += '<rect x="' + f1(bTL[0]) + '" y="' + f1(bTL[1] - 200) + '" width="' + f1(bBR[0] - bTL[0]) + '" height="' + f1(bBR[1] - bTL[1] + 200) + '" fill="url(#back)"/>';
+    s += '<path d="' + poly([[GX0, floorY], P(GX0, floorY, Z), P(GX0, rowTop - 400, Z), [GX0, rowTop - 400]]) + '" fill="#D5D9DE"/>';
+    s += '<path d="' + poly([[GX1, floorY], P(GX1, floorY, Z), P(GX1, rowTop - 400, Z), [GX1, rowTop - 400]]) + '" fill="#CBCFD5"/>';
+    s += '<path d="' + poly([[GX0, floorY], [GX1, floorY], P(GX1, floorY, Z), P(GX0, floorY, Z)]) + '" fill="#B7BCC3"/>';
+    // slot dividers on the tray floor
+    for (let c = 1; c < cols; c++) { const dx = GX0 + slotW * c; s += '<path d="' + poly([P(dx - 3, floorY, 0), P(dx + 3, floorY, 0), P(dx + 3, floorY, Z), P(dx - 3, floorY, Z)]) + '" fill="#A3A9B1"/>'; }
+    s += '<rect x="' + GX0 + '" y="' + f1(rowTop) + '" width="' + GW + '" height="9" fill="#FFFFFF" opacity="0.75"/>';
+    // every slot in this row: build depth-tagged pieces, then paint back to front across the row
+    const pieces = [];
+    for (let c = 0; c < cols; c++, idx++) {
+      const i = idx;
+      const cx = GX0 + slotW * (c + 0.5), cy = floorY - R;
+      const sl = { i, cx, cy, R, pit, Z, floorY, P, item: items[i], hl: i === hi, pw, ph };
+      sl.th0 = (sl.hl ? -40 : 50) * Math.PI / 180;
+      slots.push(sl);
+      // floor guides
+      [-1, 1].forEach(sg => { const gx = cx + sg * (R + 10); s += '<path d="M' + pt(P(gx, floorY, 0)) + "L" + pt(P(gx, floorY, Z)) + '" stroke="#9AA0A8" stroke-width="3"/>'; });
+      const Zc = 4.0 * pit;
+      // packets sit between wire turns; the vended coil has turned a little further, its first packet is out
+      const zs = sl.hl ? [3.75, 2.75, 1.75].map(q => q * pit) : [3.85, 2.85, 1.85, 0.85].map(q => q * pit);
+      const bounds = [Zc, ...zs, 0];
+      for (let k = 0; k < bounds.length - 1; k++) pieces.push({ z: (bounds[k] + bounds[k + 1]) / 2, svg: wire(sl, bounds[k + 1], bounds[k]) });
+      zs.forEach(z => pieces.push({ z, svg: packet(sl, (u, v) => P(cx + u, floorY - v, z), z < pit ? 0 : Math.min(0.42, 0.10 + 0.10 * (z / pit - 1))) }));
+      if (sl.hl) {
+        // floor shadow where the vended packet stood
+        pieces.push({ z: 1e6, svg: '<path d="' + poly([P(cx - pw * 0.55, floorY, 0.1 * pit), P(cx + pw * 0.5, floorY, 0.1 * pit), P(cx + pw * 0.5, floorY, 0.9 * pit), P(cx - pw * 0.55, floorY, 0.9 * pit)]) + '" fill="' + INK + '" opacity="0.18"/>' });
+      }
+    }
+    pieces.sort((a, b) => b.z - a.z).forEach(p => { s += p.svg; });
+    s += "</g>";
+    rowTop += rowH;
+  }
+  // the tipping packet leans out past its tray lip, so draw it unclipped by the row (still inside the glass)
+  slots.filter(sl => sl.hl && sl.item).forEach(sl => {
+    // the bag leans out to the left (m = +1) unless that would push it into the glass frame, then to the right (m = -1)
+    const phi = 28 * Math.PI / 180, psi = 14 * Math.PI / 180, zb = 0.02 * sl.pit;
+    const placeM = m => (u, v) => {
+      const u0 = m * sl.pw / 2, du = u - u0, uu = u0 + du * Math.cos(psi) - m * v * Math.sin(psi), vv = -m * du * Math.sin(psi) + v * Math.cos(psi);
+      return sl.P(sl.cx + uu, sl.floorY - vv * Math.cos(phi), zb - vv * Math.sin(phi));
+    };
+    const xs = m => [-1, 1].flatMap(su => [0, sl.ph].map(v => placeM(m)(su * sl.pw / 2, v)[0]));
+    const m = Math.min(...xs(1)) >= GX0 + 6 ? 1 : -1, place = placeM(m);
+    // phantom line (technical-drawing convention): where the packet stood a moment ago
+    const z0 = 0.85 * sl.pit, ph = [sl.P(sl.cx - sl.pw / 2, sl.floorY, z0), sl.P(sl.cx - sl.pw / 2, sl.floorY - sl.ph, z0), sl.P(sl.cx + sl.pw / 2, sl.floorY - sl.ph, z0), sl.P(sl.cx + sl.pw / 2, sl.floorY, z0)];
+    s += '<g clip-path="url(#glass)"><path d="M' + ph.map(pt).join("L") + '" fill="none" stroke="' + RED + '" stroke-width="3.5" stroke-dasharray="14 9" stroke-linecap="round"/>' + packet(sl, place, 0) + "</g>";
+  });
+  // glass: one soft reflection band + inner shadow at the top edge
+  s += '<g clip-path="url(#glass)"><path d="' + poly([[GX0 + 40, GY0], [GX0 + 160, GY0], [GX0 - 140, GY0 + 560], [GX0 - 260, GY0 + 560]]) + '" fill="#FFFFFF" opacity="0.16"/>' +
+       '<rect x="' + GX0 + '" y="' + f1(GY0) + '" width="' + GW + '" height="6" fill="#000" opacity="0.25"/></g>';
+
+  // side keypad column, coin plate, bill slot (all placed from the control row up)
+  s += '<rect x="922" y="' + f1(FT) + '" width="126" height="' + f1(FB - FT) + '" rx="10" fill="#202328"/>';
+  s += '<rect x="938" y="' + (CR - 356) + '" width="94" height="128" rx="10" fill="' + STEEL + '" stroke="#3E424A" stroke-width="2"/><rect x="980" y="' + (CR - 334) + '" width="10" height="84" rx="5" fill="#0B0C0E"/>';
+  s += '<circle cx="985" cy="' + (CR - 184) + '" r="24" fill="' + STEEL + '" stroke="#3E424A" stroke-width="2"/><circle cx="985" cy="' + (CR - 184) + '" r="12" fill="#0B0C0E"/>';
+  s += '<rect x="938" y="' + (CR - 132) + '" width="94" height="72" rx="8" fill="' + STEEL + '" stroke="#3E424A" stroke-width="2"/><rect x="950" y="' + (CR - 102) + '" width="70" height="8" rx="4" fill="#0B0C0E"/><circle cx="1018" cy="' + (CR - 120) + '" r="4" fill="' + BLUE + '"/>';
+  // control row: LCD bezel + delivery flap (the drop well behind it spans the full width of the glass)
+  s += '<rect x="56" y="' + CR + '" width="552" height="132" rx="10" fill="#0F1013"/>';
+  s += '<rect x="620" y="' + CR + '" width="292" height="132" rx="10" fill="#0B0C0E"/>';
+  s += '<path d="M632,' + (CR + 14) + ' L900,' + (CR + 14) + ' L892,' + (CR + 120) + ' L640,' + (CR + 120) + ' Z" fill="' + STEEL + '"/><path d="M632,' + (CR + 14) + ' L900,' + (CR + 14) + ' L898,' + (CR + 34) + ' L634,' + (CR + 34) + ' Z" fill="#3A3E46"/>';
+  s += '<rect x="700" y="' + (CR + 56) + '" width="132" height="14" rx="7" fill="#15171B"/><path d="M752,' + (CR + 86) + ' L766,' + (CR + 102) + ' L780,' + (CR + 86) + '" fill="none" stroke="#4A4F58" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>';
+  s += '<rect x="922" y="' + CR + '" width="126" height="132" rx="10" fill="#202328"/>';
+  // riveted instruction plate that carries the caption + source line (outline only: no seam on the cabinet)
+  const PB = META_B + 22;
+  s += '<rect x="57" y="' + plateTop + '" width="854" height="' + (PB - plateTop) + '" rx="8" fill="none" stroke="' + RIM + '" stroke-width="2"/>';
+  s += '<path d="M90,' + (META_B - metaH - 9) + ' L890,' + (META_B - metaH - 9) + '" stroke="' + RIM + '" stroke-width="2"/>';
+  [[72, plateTop + 15], [896, plateTop + 15], [72, PB - 15], [896, PB - 15]].forEach(q => { s += '<circle cx="' + q[0] + '" cy="' + q[1] + '" r="5" fill="' + RIM + '"/><circle cx="' + (q[0] - 1.5) + '" cy="' + (q[1] - 1.5) + '" r="1.6" fill="#4A4F58"/>'; });
+  for (let v = 0; v < 6; v++) s += '<rect x="120" y="' + (1688 + v * 28) + '" width="840" height="12" rx="6" fill="#111215"/>';
+  s += '<rect x="60" y="1862" width="120" height="18" rx="4" fill="#0B0C0E"/><rect x="900" y="1862" width="120" height="18" rx="4" fill="#0B0C0E"/>';
+  $("scene").innerHTML = s;
+
+  // ---------- rails: code chip, tool name, returned value ----------
+  let railHTML = "";
+  rowTop = GY0; idx = 0;
+  for (let r = 0; r < rows; r++) {
+    const cols = layout[r], slotW = GW / cols, narrow = cols >= 3;
+    const railH = railHs[r], y = rowTop + rowH - railH;
+    railHTML += '<div class="rail" style="left:' + GX0 + "px;top:" + f1(y) + "px;width:" + GW + "px;height:" + f1(railH) + 'px">';
+    for (let c = 0; c < cols; c++, idx++) {
+      const i = idx, it = items[i];
+      // wide: chip | name over value; narrow: chip | name, value below at the full slot width
+      const labPos = "left:" + labX + "px;";
+      const valPos = (narrow ? "left:14px;" : "left:" + labX + "px;") + "bottom:12px;";
+      railHTML += '<div class="slot" style="left:' + f1(c * slotW) + "px;width:" + f1(slotW) + 'px">' +
+        '<span class="chip' + (i === hi ? " on" : "") + '">' + code(i) + "</span>" +
+        (it ? '<span class="lab" style="' + labPos + labFit[i].css + '">' + labFit[i].html + "</span>" +
+              '<span class="val' + (i === hi ? " on" : "") + '" style="' + valPos + '" data-i="' + i + '">' + esc(it.value) + "</span>" : "") + "</div>";
+    }
+    railHTML += "</div>";
+    rowTop += rowH;
+  }
+  $("rails").innerHTML = railHTML;
+  // values: shrink only if a long value would run past its slot
+  document.querySelectorAll(".val").forEach(v => { const avail = geo(+v.dataset.i).valAvail; for (let z = 40; z > 30 && v.offsetWidth > avail; z -= 2) v.style.fontSize = (z - 2) + "px"; if (v.offsetWidth > avail) { v.style.fontStretch = "75%"; v.style.letterSpacing = "-0.04em"; } });
+
+  // side keypad: letters + digits; the vended code lights up
+  const hc = code(hi);
+  const kTop = GY0 + 6, kRows = Math.max(3, Math.min(6, Math.floor((Math.min(896, CR - 376) - kTop) / 54)));
+  let keys = "";
+  for (let k = 0; k < kRows; k++) {
+    const Lt = String.fromCharCode(65 + k), Dg = String(k + 1);
+    keys += '<div class="key' + (Lt === hc[0] ? " on" : "") + '" style="left:930px;top:' + f1(kTop + k * 54) + 'px">' + Lt + "</div>";
+    keys += '<div class="key' + (Dg === hc.slice(1) ? " on" : "") + '" style="left:982px;top:' + f1(kTop + k * 54) + 'px">' + Dg + "</div>";
+  }
+  $("keys").innerHTML = keys;
+
+  // ---------- LCD: what a vending display shows: the code + the item as named, then what came out ----------
+  const lcd = $("lcd"), l1 = $("l1"), l2 = $("l2");
+  lcd.style.top = (CR + 8) + "px";
+  const it = items[hi] || { label: "", value: "" };
+  const lab = String(it.label || "").trim();
+  let line1 = lab ? hc + " -> " + lab : "PILIH: " + hc, val = String(it.value || "").trim();
+  const fill = () => { l1.innerHTML = esc(line1); l2.innerHTML = "=&gt; " + esc(val) + '<span class="car"></span>'; };
+  const fits = () => l1.scrollWidth <= l1.clientWidth && l2.scrollWidth <= l2.clientWidth;
+  const size = (hiZ, loZ) => { for (let z = hiZ; z >= loZ; z -= 2) { lcd.style.fontSize = z + "px"; if (fits()) return true; } return false; };
+  fill();
+  if (!size(40, 34)) {
+    // a label too long for the display: show the selection only, never a mangled name
+    line1 = "PILIH: " + hc; fill();
+    if (!size(40, 30)) { lcd.style.fontSize = "30px"; while (!fits() && val.length > 4) { val = val.replace(/…$/, "").slice(0, -1) + "…"; fill(); } }
+  }
+  }
+</script>
+</body>
+</html>

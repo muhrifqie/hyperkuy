@@ -1,0 +1,534 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Stencil+Display:wght@800;900&family=Barlow+Condensed:wght@500;600;700&family=DM+Mono:wght@400;500&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Smoke Tunnel: the test section of a smoke wind tunnel, seen from the
+    control-room side. Two tall painted-steel rails (top and bottom) hold a
+    glass window that runs edge to edge. The title is stencil-painted on the
+    top rail, the run log is a DAQ readout bolted to the bottom rail, the
+    source is engraved on the frame's serial plate.
+    Inside: a rake of evenly spaced smoke filaments flows around a big
+    matte-white model wing on an angle-of-attack turntable. The flow is real
+    potential flow (Joukowski airfoil, Kutta condition) traced streamline by
+    streamline. A dashed ghost shows the same wing stalled at 22 deg with a
+    torn wake: before (22 deg) and after (7 deg) in one frame.
+    Items = wool tufts taped along the wing; each has a stencilled station
+    number on the skin and a manila tag tied on a thread that trails
+    downstream. The hl item's tuft, thread and station number are orange.
+    Fully deterministic.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root { --ink: #08090B; --rail: #2A2C30; --paint: #F2F0EA; --orange: #E8692F; --manila: #D9BE8C; --steel: #9AA0A8; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--ink); }
+  body { position: relative; color: var(--paint); font-family: "Barlow Condensed", sans-serif; }
+
+  #stage, #threads { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  #threads { pointer-events: none; }
+
+  /* stencil marking + riveted data plate on the top rail */
+  .mark { position: absolute; left: 90px; top: 296px; font: 800 30px/1 "Big Shoulders Stencil Display", sans-serif; letter-spacing: 0.1em;
+          text-transform: uppercase; color: #D5D8DB; white-space: nowrap; text-shadow: 0 0 2px rgba(213, 216, 219, 0.35); }
+  .plate { position: absolute; color: #1B1E22; font: 500 27px/1.25 "DM Mono", monospace; letter-spacing: 0.01em; padding: 9px 40px 8px; border-radius: 4px;
+           background: repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0 1px, rgba(0, 0, 0, 0.04) 1px 3px), linear-gradient(180deg, #D6D9DC, #AEB3B8);
+           box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), inset 0 -2px 0 rgba(0, 0, 0, 0.22), 0 3px 0 rgba(0, 0, 0, 0.55), 0 8px 14px rgba(0, 0, 0, 0.35);
+           text-shadow: 0 1px 0 rgba(255, 255, 255, 0.55); }
+  .plate::before, .plate::after { content: ""; position: absolute; top: 50%; width: 13px; height: 13px; margin-top: -6.5px; border-radius: 50%;
+           background: radial-gradient(circle at 35% 35%, #F4F5F6 0 2px, #9DA2A8 4px, #5E636A 7px); box-shadow: 0 1px 0 rgba(255, 255, 255, 0.5); }
+  .plate::before { left: 14px; } .plate::after { right: 14px; }
+  #date { top: 284px; right: 90px; white-space: nowrap; }
+
+  /* stencil-painted title */
+  .title { position: absolute; left: 90px; width: 900px; top: 350px; font-weight: 900; font-family: "Big Shoulders Stencil Display", sans-serif;
+           line-height: 0.9; letter-spacing: 0.012em; text-transform: uppercase; color: var(--paint);
+           text-shadow: 0 0 2px rgba(242, 240, 234, 0.45), 0 0 10px rgba(242, 240, 234, 0.08); }
+  .title .hl { color: var(--orange); white-space: nowrap; text-shadow: 0 0 1px rgba(232, 105, 47, 0.6); }
+  .sub { position: absolute; left: 90px; width: 900px; font: 500 40px/1.2 "Barlow Condensed", sans-serif; color: #C9CDD1; }
+
+  /* manila tags tied to the tufts */
+  #tags { position: absolute; left: 0; top: 0; }
+  .tag { position: absolute; filter: drop-shadow(0 9px 10px rgba(0, 0, 0, 0.6)); }
+  .tag .face { position: relative; background: linear-gradient(180deg, #E0C696, var(--manila) 60%, #CFB27E); padding: 10px 22px 11px 50px; width: max-content;
+               clip-path: polygon(15px 0, 100% 0, 100% 100%, 15px 100%, 0 calc(100% - 15px), 0 15px); }
+  .tag .face::before { content: ""; position: absolute; left: 13px; top: 50%; width: 20px; height: 20px; margin-top: -10px; border-radius: 50%; background: #0B0C0E;
+               box-shadow: 0 0 0 5px #EBDAB4, 0 0 0 6px #B99C68; }
+  .tag .lb { font: 600 30px/1.1 "Barlow Condensed", sans-serif; color: #4A3B22; white-space: nowrap; }
+  .tag .vl { font: 700 46px/1.02 "Barlow Condensed", sans-serif; color: #17130C; white-space: nowrap; margin-top: 1px; letter-spacing: -0.005em; }
+  .tight .tag .vl { font-size: 42px; }
+  .tight .tag .face { padding-right: 18px; padding-left: 46px; }
+
+  /* station numbers stencilled on the wing skin */
+  .stn { position: absolute; font: 800 34px/1 "Big Shoulders Stencil Display", sans-serif; color: #2A2C30; letter-spacing: 0.04em; white-space: nowrap; }
+  .stn.on { color: #A83C14; }
+
+  /* DAQ readout bolted to the bottom rail = the run log / caption */
+  .daq { position: absolute; left: 90px; width: 810px; background: linear-gradient(180deg, #0D1012, #090B0C); border-radius: 6px; padding: 14px 30px 18px;
+         box-shadow: inset 0 0 0 2px #1B1F23, inset 0 10px 18px rgba(0, 0, 0, 0.6), 0 0 0 7px #3A3E44, 0 0 0 9px #1A1C1F, 0 12px 22px rgba(0, 0, 0, 0.55); }
+  .daq .hd { display: flex; justify-content: space-between; gap: 20px; font: 400 26px/1.2 "DM Mono", monospace; color: #8D949C; letter-spacing: 0.02em; margin-bottom: 8px; white-space: nowrap; }
+  .daq .hd .was { color: #8DB6DC; } .daq .hd .now { color: var(--paint); }
+  .caption { font: 500 44px/1.2 "Barlow Condensed", sans-serif; color: #8D949C; }
+  .caption .w { white-space: nowrap; }
+  .caption .done { color: var(--paint); }
+  .caption .on { color: var(--orange); font-weight: 700; text-decoration: underline; text-decoration-thickness: 4px; text-underline-offset: 9px; }
+
+  #src { left: 90px; max-width: 900px; padding-left: 42px; padding-right: 42px; font-size: 26px; }
+</style>
+</head>
+<body>
+<svg id="stage" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+<div class="mark" id="mark"></div>
+<div class="plate" id="date"></div>
+<div class="title" id="title"></div>
+<div class="sub" id="sub"></div>
+<div id="stns"></div>
+<div id="tags"></div>
+<svg id="threads" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" data-layout-allow-overlap></svg>
+<div class="daq" id="daq"><div class="hd"><span id="logl"></span><span>CH-1</span></div><div class="caption" id="caption" data-slot="caption"></div></div>
+<div class="plate" id="src"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Tools AI", ep: "#01", kicker: "Tools AI · #01",
+    title: "Isi sama, bentuk prompt beda.", hl: "bentuk prompt",
+    sub: "Pengetahuan AI-nya tetap. Bentuk prompt-mu yang membelokkan jawabannya.",
+    items: [{ label: "Peran", value: "guru SD" }, { label: "Konteks", value: "kelas 5" }, { label: "Contoh", value: "2 soal" }, { label: "Format", value: "tabel" }],
+    source: "ilustrasi — hasil beda tiap model", date: "per 14 Okt 2026" };
+
+  // Lay out only after the web fonts are in: everything below measures real glyph boxes.
+  Promise.all(['900 100px "Big Shoulders Stencil Display"', '800 30px "Big Shoulders Stencil Display"', '500 44px "Barlow Condensed"',
+               '600 30px "Barlow Condensed"', '700 46px "Barlow Condensed"', '500 27px "DM Mono"', '400 26px "DM Mono"'].map(f => document.fonts.load(f)))
+    .then(() => document.fonts.ready).catch(() => {}).then(render);
+
+  function render() {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const PAPER = "#F2F0EA", ORANGE = "#E8692F", RAIL = "#2A2C30", INK = "#08090B", GHOST = "#8DB6DC";
+  const items = (Array.isArray(D.items) ? D.items : []).slice(0, 5);
+  const n = items.length;
+  const f1 = v => v.toFixed(1);
+  const norm = s => String(s == null ? "" : s).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+  const wordsOf = s => String(s == null ? "" : s).split(/\s+/).map(norm).filter(Boolean);
+
+  // ---------- top rail: stencil marking + date plate ----------
+  const base = D.series && D.ep ? D.series + " · Run " + D.ep : (D.kicker || [D.series, D.ep].filter(Boolean).join(" · "));
+  const dateEl = $("date");
+  if (D.date) dateEl.textContent = D.date; else dateEl.remove();
+  const markMax = (D.date ? 990 - dateEl.offsetWidth : 990) - 90 - 28;
+  const markEl = $("mark");
+  markEl.textContent = "Test section · " + base;
+  if (markEl.scrollWidth > markMax) markEl.style.letterSpacing = "0.04em";
+  if (markEl.scrollWidth > markMax) markEl.textContent = base;
+  if (markEl.scrollWidth > markMax) markEl.style.fontSize = "26px";
+
+  // ---------- stencil title, hl in safety-orange paint ----------
+  const t = String(D.title || ""), hl = String(D.hl || "");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  for (let fs = 120; fs >= 88; fs -= 2) {
+    titleEl.style.fontSize = fs + "px";
+    const lines = Math.round(titleEl.offsetHeight / (fs * 0.9));
+    if (titleEl.scrollWidth <= 902 && (lines <= 2 || (lines === 3 && fs * 0.9 * 3 <= 262))) break;
+  }
+  let yTop = titleEl.offsetTop + titleEl.offsetHeight;
+
+  // ---------- karaoke caption (voice-over line) in the DAQ readout ----------
+  const cap = String(D.caption || D.sub || "").trim();
+  const subEl = $("sub");
+  if (D.caption && D.sub && String(D.sub).trim() !== cap) {
+    subEl.textContent = D.sub; subEl.style.top = (yTop + 18) + "px"; yTop += 18 + subEl.offsetHeight;
+  } else subEl.remove();
+
+  const words = cap.split(/\s+/).filter(Boolean);
+  const hw = hl.split(/\s+/).map(norm).filter(Boolean);
+  let a0 = -1, a1 = -1;
+  if (hw.length) {
+    for (let i = 0; i + hw.length <= words.length && a0 < 0; i++) {
+      let ok = true;
+      for (let j = 0; j < hw.length; j++) { const w = norm(words[i + j]); if (hw.length === 1 ? !w.includes(hw[0]) : w !== hw[j]) { ok = false; break; } }
+      if (ok) { a0 = i; a1 = i + hw.length - 1; }
+    }
+  }
+  if (a0 < 0) { a0 = 0; a1 = 0; }
+  const parts = [];
+  for (let i = 0; i < words.length; i++) {
+    if (i === a0) { parts.push('<span class="w on">' + esc(words.slice(a0, a1 + 1).join(" ")) + "</span>"); i = a1; continue; }
+    parts.push('<span class="w ' + (i < a0 ? "done" : "next") + '">' + esc(words[i]) + "</span>");
+  }
+  const capEl = $("caption");
+  capEl.innerHTML = parts.join(" ");
+  for (let fs = 44; fs >= 40; fs -= 2) { capEl.style.fontSize = fs + "px"; if (capEl.offsetHeight <= fs * 1.2 * 2 + 4) break; }
+  $("logl").innerHTML = 'RUN LOG · α <span class="was">22°</span> → <span class="now">7°</span>';
+
+  // serial plate (source) bottom-anchored at 1620, DAQ above it
+  const srcEl = $("src");
+  let daqBottom = 1620;
+  if (D.source) { srcEl.textContent = "Sumber: " + D.source; const top = 1620 - srcEl.offsetHeight; srcEl.style.top = top + "px"; daqBottom = top - 22; }
+  else srcEl.remove();
+  const daqEl = $("daq");
+  const RB = Math.max(606, Math.round(yTop + 56));          // top rail bottom edge
+  // a very tall title + sub leaves a short window: the readout drops its header line to give the flow room
+  if (daqBottom - daqEl.offsetHeight - 40 - RB < 640) daqEl.querySelector(".hd").remove();
+  const daqTop = daqBottom - daqEl.offsetHeight;
+  daqEl.style.top = daqTop + "px";
+
+  // ---------- the window between the rails ----------
+  const BT = Math.round(daqTop - 40);                        // bottom rail top edge
+  const LIP = 26, RULER = 38;
+  const WY0 = RB, WY1 = BT, FLOOR = WY1 - RULER;
+
+  // ---------- hl -> item: label first, then exact value, else none ----------
+  const hlN = norm(hl);
+  let hot = -1;
+  if (hlN) {
+    hot = items.findIndex(it => norm(it.label) === hlN);
+    if (hot < 0 && hw.length) hot = items.findIndex(it => { const lw = wordsOf(it.label); for (let i = 0; i + hw.length <= lw.length; i++) if (hw.every((w, j) => lw[i + j] === w)) return true; return false; });
+    if (hot < 0) hot = items.findIndex(it => norm(it.value) === hlN);
+  }
+
+  // ---------- tags (measure first) ----------
+  const tagsEl = $("tags");
+  const tags = items.map((it, i) => {
+    const el = document.createElement("div");
+    el.className = "tag";
+    el.innerHTML = '<div class="face"><div class="lb">' + esc(it.label) + '</div><div class="vl">' + esc(it.value) + "</div></div>";
+    tagsEl.appendChild(el);
+    return { i, el, up: i % 2 === 0 };
+  });
+  const measure = () => tags.forEach(c => { c.w = c.el.offsetWidth; c.h = c.el.offsetHeight; });
+  measure();
+
+  // ---------- potential flow around a Joukowski wing ----------
+  const C = (re, im) => ({ re, im });
+  const add = (a, b) => C(a.re + b.re, a.im + b.im), sub = (a, b) => C(a.re - b.re, a.im - b.im);
+  const mul = (a, b) => C(a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re);
+  const div = (a, b) => { const d = b.re * b.re + b.im * b.im; return C((a.re * b.re + a.im * b.im) / d, (a.im * b.re - a.re * b.im) / d); };
+  const cabs = a => Math.hypot(a.re, a.im), expi = th => C(Math.cos(th), Math.sin(th));
+  const csqrt = a => { const r = cabs(a); const re = Math.sqrt(Math.max(0, (r + a.re) / 2)); let im = Math.sqrt(Math.max(0, (r - a.re) / 2)); if (a.im < 0) im = -im; return C(re, im); };
+  const MU = C(-0.15, 0.085), R = Math.hypot(1 - MU.re, MU.im);
+  const AL = 7 * Math.PI / 180, BE = Math.atan2(MU.im, 1 - MU.re), GAM = 4 * Math.PI * R * Math.sin(AL + BE);
+  const eNeg = expi(-AL), ePos = expi(AL), RR = mul(C(R * R, 0), ePos);
+  const zeta2zp = q => mul(add(q, div(C(1, 0), q)), eNeg);
+  function vel(q) {
+    const d = sub(q, MU);
+    const w = add(sub(eNeg, div(RR, mul(d, d))), div(C(0, GAM / (2 * Math.PI)), d));
+    const vx = w.re, vy = -w.im, m = Math.hypot(vx, vy) || 1e-9;
+    return [vx / m, vy / m];
+  }
+  const outline = [];
+  for (let k = 0; k <= 360; k++) { const th = -BE + k / 360 * 2 * Math.PI; outline.push(zeta2zp(add(MU, mul(C(R, 0), expi(th))))); }
+  let leK = 0; outline.forEach((p, k) => { if (p.re < outline[leK].re) leK = k; });
+  const teU = outline[0], leU = outline[leK];
+
+  // chord spans x 140..880 (big model)
+  const LEX = 140, TEX = 880, CH = TEX - LEX;
+  const S = CH / (teU.re - leU.re);
+  const X0 = LEX - leU.re * S;
+  const rel = outline.map(p => [X0 + p.re * S, -p.im * S]);            // y relative to Y0
+  const upperR = rel.slice(0, leK + 1).reverse(), lowerR = rel.slice(leK);
+  const surf = (chain, x) => {
+    if (x <= chain[0][0]) return chain[0][1];
+    for (let k = 1; k < chain.length; k++) {
+      const a = chain[k - 1], b = chain[k];
+      if ((a[0] - x) * (b[0] - x) <= 0 && a[0] !== b[0]) { const u = (x - a[0]) / (b[0] - a[0]); return a[1] + (b[1] - a[1]) * u; }
+    }
+    return chain[chain.length - 1][1];
+  };
+  const thick = x => surf(lowerR, x) - surf(upperR, x);
+  const tuftMin = LEX + 0.1 * CH;
+  let tuftMax = LEX + 0.25 * CH;
+  for (let x = LEX + 0.25 * CH; x < TEX; x += 2) { if (thick(x) >= 70) tuftMax = x; else break; }
+
+  // ---------- tag rows: one row above, one below; each tag downstream of its tuft ----------
+  let rowUp = [], rowDn = [];
+  const GAP = 18;
+  const want = c => (n === 1 ? tuftMin : tuftMin + (c.i / (n - 1)) * (tuftMax - tuftMin)) + 30;
+  function pack(list, XA, XB) {
+    if (!list.length) return true;
+    list.forEach(c => c.x = Math.max(want(c), XA));
+    for (let k = 1; k < list.length; k++) list[k].x = Math.max(list[k].x, list[k - 1].x + list[k - 1].w + GAP);
+    for (let k = list.length - 1; k >= 0; k--) {
+      const lim = k === list.length - 1 ? XB : list[k + 1].x - GAP;
+      if (list[k].x + list[k].w > lim) list[k].x = lim - list[k].w;
+    }
+    return list[0].x >= XA - 0.5;
+  }
+  // tufts sit just upstream of their tag's eyelet (the thread trails downstream)
+  const placeTufts = list => {
+    list = list.slice().sort((a, b) => a.x - b.x);
+    list.forEach(c => c.tx = Math.min(Math.max(c.x - 34, tuftMin), tuftMax));
+    for (let k = list.length - 2; k >= 0; k--) list[k].tx = Math.min(list[k].tx, list[k + 1].tx - 118);
+    list.forEach(c => c.tx = Math.max(c.tx, tuftMin));
+  };
+  const spanMin = (chain, x0, x1) => { let m = Infinity; for (let x = Math.max(x0, LEX); x <= Math.min(x1, TEX); x += 6) m = Math.min(m, surf(chain, x)); return m === Infinity ? surf(chain, TEX) : m; };
+  const spanMax = (chain, x0, x1) => { let m = -Infinity; for (let x = Math.max(x0, LEX); x <= Math.min(x1, TEX); x += 6) m = Math.max(m, surf(chain, x)); return m === -Infinity ? surf(chain, TEX) : m; };
+  // pivot (27% chord), ghost wing at 22 deg (+15 deg nose-up about the pivot)
+  const pvx = LEX + 0.27 * CH, pvyR = (surf(upperR, pvx) + surf(lowerR, pvx)) / 2;
+  const GH = 15 * Math.PI / 180;
+  const rot = (x, y) => [pvx + (x - pvx) * Math.cos(GH) - (y - pvyR) * Math.sin(GH), pvyR + (x - pvx) * Math.sin(GH) + (y - pvyR) * Math.cos(GH)];
+  const ghostR = rel.map(p => rot(p[0], p[1]));
+  const ghostLow = Math.max(...ghostR.map(p => p[1]));
+  const wingTop = Math.min(...rel.map(p => p[1])), wingBot = Math.max(...rel.map(p => p[1]));
+
+  // choose which tags go above / below: alternate (01 up, 02 down, ...) unless a row would overflow
+  function assign(XA, XBup) {
+    let best = null;
+    const need = l => l.reduce((a, c) => a + c.w, 0) + GAP * Math.max(0, l.length - 1);
+    for (let m = 0; m < (1 << n); m++) {
+      const up = [], dn = [];
+      for (let i = 0; i < n; i++) ((m >> i) & 1 ? up : dn).push(tags[i]);
+      if (n >= 2 && (!up.length || !dn.length)) continue;
+      const over = Math.max(0, need(up) - (XBup - XA)) + Math.max(0, need(dn) - (900 - XA));
+      let dev = 0; for (let i = 0; i < n; i++) if (((m >> i) & 1) !== (i % 2 === 0 ? 1 : 0)) dev++;
+      const score = over * 1000 + dev * 10 + Math.abs(up.length - dn.length);
+      if (!best || score < best.score) best = { score, over, up, dn };
+    }
+    return best || { over: 0, up: [], dn: [] };
+  }
+  function solve(XA, XBup, CLEAR) {
+    const A = assign(XA, XBup);
+    rowUp = A.up; rowDn = A.dn; tags.forEach(c => c.up = rowUp.includes(c));
+    const fits = A.over === 0;
+    pack(rowUp, XA, XBup); pack(rowDn, XA, 900);
+    placeTufts(rowUp); placeTufts(rowDn);
+    // station numbers of an upper and a lower tuft must not collide inside a thin wing
+    rowDn.forEach(d => rowUp.forEach(u => { if (Math.abs(d.tx - u.tx) < 52 && thick(d.tx) < 104) d.tx = d.tx - 56 >= tuftMin ? d.tx - 56 : u.tx + 56; }));
+    tags.forEach(c => {
+      if (c.up) c.ry = Math.min(spanMin(upperR, c.tx, c.x + c.w), surf(upperR, c.tx)) - CLEAR - c.h;
+      else c.ry = Math.max(spanMax(lowerR, c.tx, c.x + c.w), surf(lowerR, c.tx)) + CLEAR;
+    });
+    let lo = WY0 + 24, hi = FLOOR - 24 - ghostLow;
+    tags.forEach(c => { if (c.up) lo = Math.max(lo, WY0 + 22 - c.ry); else hi = Math.min(hi, FLOOR - 18 - c.h - c.ry); });
+    return { fits, lo, hi };
+  }
+  let XA = tuftMin + 22, XBup = 990, CLEAR = 52, res, Y0;
+  const run = () => {
+    res = solve(XA, XBup, CLEAR);
+    if (!res.fits && !tagsEl.classList.contains("tight")) { tagsEl.classList.add("tight"); measure(); res = solve(XA, XBup, CLEAR); }
+    if (!res.fits && XA > 96) { XA = 96; res = solve(XA, XBup, CLEAR); }
+    if (res.lo > res.hi && CLEAR > 34) { CLEAR = 34; res = solve(XA, XBup, CLEAR); }
+    Y0 = res.lo <= res.hi ? (res.lo + res.hi) / 2 : (res.lo + res.hi) / 2;
+  };
+  run();
+  // an upper tag low enough to reach the action-button band (y > 900) must stay left of x 900
+  if (rowUp.some(c => Y0 + c.ry + c.h > 892 && c.x + c.w > 900)) { XBup = 900; run(); }
+  tags.forEach(c => { c.y = Y0 + c.ry; });
+  tags.forEach(c => { c.el.style.left = Math.round(c.x) + "px"; c.el.style.top = Math.round(c.y) + "px"; c.el.style.transform = "rotate(" + [-0.8, 0.6, 0.5, -0.6, 0.7][c.i] + "deg)"; });
+
+  const P = (x, yr) => [x, Y0 + yr];
+  const wingPx = rel.map(p => P(p[0], p[1]));
+  const upper = upperR.map(p => P(p[0], p[1])), lower = lowerR.map(p => P(p[0], p[1]));
+  const ghost = ghostR.map(p => P(p[0], p[1]));
+  const piv = [pvx, Y0 + pvyR];
+
+  // ---------- smoke: streamlines traced from evenly spaced rake nozzles ----------
+  const RAKE_X = 66, XEND = 1090;
+  const fy0 = WY0 + 20, fy1 = FLOOR - 16;
+  const NF = Math.max(10, Math.round((fy1 - fy0) / 44) + 1), FS = (fy1 - fy0) / (NF - 1);
+  const fromPx = (x, y) => {
+    const z = mul(C((x - X0) / S, (Y0 - y) / S), ePos);
+    const r = csqrt(sub(mul(z, z), C(4, 0)));
+    const a = mul(C(0.5, 0), add(z, r)), b = mul(C(0.5, 0), sub(z, r));
+    return cabs(sub(a, MU)) >= cabs(sub(b, MU)) ? a : b;
+  };
+  const toPx = q => { const z = zeta2zp(q); return [X0 + z.re * S, Y0 - z.im * S]; };
+  const filaments = [];
+  for (let k = 0; k < NF; k++) {
+    const y0 = fy0 + k * FS;
+    let q = fromPx(RAKE_X, y0);
+    const pts = [[RAKE_X, y0]];
+    const h = 0.014;
+    for (let s = 0; s < 6000; s++) {
+      const k1 = vel(q), k2 = vel(C(q.re + k1[0] * h / 2, q.im + k1[1] * h / 2)), k3 = vel(C(q.re + k2[0] * h / 2, q.im + k2[1] * h / 2)), k4 = vel(C(q.re + k3[0] * h, q.im + k3[1] * h));
+      q = C(q.re + h * (k1[0] + 2 * k2[0] + 2 * k3[0] + k4[0]) / 6, q.im + h * (k1[1] + 2 * k2[1] + 2 * k3[1] + k4[1]) / 6);
+      const d = sub(q, MU), r = cabs(d);
+      if (r < R * 1.006) q = add(MU, C(d.re / r * R * 1.006, d.im / r * R * 1.006));
+      const p = toPx(q), last = pts[pts.length - 1];
+      if (Math.hypot(p[0] - last[0], p[1] - last[1]) > 3.5) pts.push(p);
+      if (p[0] > XEND) { pts.push(p); break; }
+    }
+    filaments.push(pts);
+  }
+  const pathD = pts => "M" + pts.map(p => f1(p[0]) + "," + f1(p[1])).join("L");
+
+  // ---------- SVG ----------
+  const g = [];
+  g.push('<defs>' +
+    '<clipPath id="win"><rect x="0" y="' + WY0 + '" width="1080" height="' + (WY1 - WY0) + '"/></clipPath>' +
+    '<radialGradient id="back" cx="0.55" cy="0.5" r="0.8"><stop offset="0" stop-color="#15181C"/><stop offset="1" stop-color="#090A0C"/></radialGradient>' +
+    '<linearGradient id="fade" gradientUnits="userSpaceOnUse" x1="' + RAKE_X + '" y1="0" x2="1080" y2="0">' +
+      '<stop offset="0" stop-color="' + PAPER + '" stop-opacity="0.98"/><stop offset="0.6" stop-color="' + PAPER + '" stop-opacity="0.78"/><stop offset="1" stop-color="' + PAPER + '" stop-opacity="0.46"/></linearGradient>' +
+    '<linearGradient id="wingG" gradientUnits="userSpaceOnUse" x1="0" y1="' + f1(Y0 + wingTop) + '" x2="0" y2="' + f1(Y0 + wingBot) + '">' +
+      '<stop offset="0" stop-color="#FBFAF6"/><stop offset="0.55" stop-color="#F0EEE8"/><stop offset="1" stop-color="#DDDBD4"/></linearGradient>' +
+    '<linearGradient id="railT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#232528"/><stop offset="0.5" stop-color="#2D2F33"/><stop offset="1" stop-color="#2A2C30"/></linearGradient>' +
+    '<linearGradient id="railB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#303236"/><stop offset="0.45" stop-color="#2A2C30"/><stop offset="1" stop-color="#202225"/></linearGradient>' +
+    '<linearGradient id="shT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0.7"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient>' +
+    '<linearGradient id="shB" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#000" stop-opacity="0.6"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient>' +
+    '<filter id="mottle" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="3" seed="7"/>' +
+      '<feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0.14 0 0 0 -0.055"/></filter>' +
+    '<filter id="grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3"/>' +
+      '<feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0.5 0 0 0 -0.16"/></filter>' +
+    '<filter id="haze" x="-5%" y="-30%" width="110%" height="160%"><feGaussianBlur stdDeviation="6"/></filter>' +
+    '<filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="1.1"/></filter>' +
+    '<marker id="ah" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0L10,5L0,10Z" fill="' + PAPER + '"/></marker>' +
+    '</defs>');
+
+  // window interior (back wall)
+  g.push('<rect x="0" y="' + WY0 + '" width="1080" height="' + (WY1 - WY0) + '" fill="url(#back)"/>');
+  g.push('<g clip-path="url(#win)">');
+  // angle-of-attack turntable on the back wall, centred on the pivot
+  const TR = 236;
+  let ticks = "";
+  for (let a = 0; a < 360; a += 5) {
+    const r0 = TR - (a % 45 === 0 ? 26 : a % 15 === 0 ? 16 : 9), ra = a * Math.PI / 180;
+    ticks += "M" + f1(piv[0] + Math.cos(ra) * r0) + "," + f1(piv[1] + Math.sin(ra) * r0) + "L" + f1(piv[0] + Math.cos(ra) * TR) + "," + f1(piv[1] + Math.sin(ra) * TR);
+  }
+  g.push('<circle cx="' + f1(piv[0]) + '" cy="' + f1(piv[1]) + '" r="' + (TR + 12) + '" fill="none" stroke="#1C1F24" stroke-width="12"/>');
+  g.push('<circle cx="' + f1(piv[0]) + '" cy="' + f1(piv[1]) + '" r="' + TR + '" fill="none" stroke="#30353D" stroke-width="2"/>');
+  g.push('<path d="' + ticks + '" stroke="#353A43" stroke-width="2"/>');
+  // smoke: haze, body, core
+  const all = filaments.map(pathD);
+  g.push('<g filter="url(#haze)" opacity="0.15" fill="none" stroke="' + PAPER + '" stroke-width="16" stroke-linecap="round" stroke-linejoin="round">' + all.map(d => '<path d="' + d + '"/>').join("") + "</g>");
+  const DEN = [1, 0.8, 0.93, 0.74, 0.98, 0.86, 0.7, 0.95, 0.82, 1, 0.77, 0.9, 0.84, 0.72, 0.97, 0.88, 0.8, 1, 0.85, 0.76];
+  const WID = [3.4, 2.8, 3.1, 2.6, 3.6, 3, 2.7, 3.3, 2.9, 3.5, 2.7, 3.2, 3, 2.6, 3.4, 3.1, 2.8, 3.5, 3, 2.7];
+  g.push('<g opacity="0.2" fill="none" stroke="url(#fade)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">' + all.map((d, k) => '<path d="' + d + '" stroke-opacity="' + DEN[k % 20] + '"/>').join("") + "</g>");
+  g.push('<g filter="url(#soft)" fill="none" stroke="url(#fade)" stroke-linecap="round" stroke-linejoin="round">' + all.map((d, k) => '<path d="' + d + '" stroke-width="' + WID[k % 20] + '" stroke-opacity="' + DEN[k % 20] + '"/>').join("") + "</g>");
+
+  // ghost: the same wing stalled at 22 deg, dashed, with its torn wake (hard-coded curls behind the trailing edge)
+  const gte = ghost[0];
+  g.push('<path d="' + pathD(ghost) + 'Z" fill="' + GHOST + '" fill-opacity="0.12"/>');
+  // torn wake of the stalled ghost: rolled-up vortices behind its trailing edge (fixed list, drawn in the ghost's dashed style)
+  const VX = [[34, -34, 46, 0.3, 1, 1.3], [150, -76, 58, 1.5, 1, 1.2], [196, 40, 40, 2.7, 1, 1.35], [6, 50, 28, 3.6, -1, 1.2], [98, 76, 24, 0.8, -1, 1.3]];
+  const curl = ([cx, cy, r, a0, dir, tw]) => {
+    const pts = [];
+    const sx = cx - r * 2.4, sy = cy + r * 0.7 * dir;
+    const ox = cx + Math.cos(a0) * r, oy = cy + Math.sin(a0) * r;
+    for (let k = 0; k <= 12; k++) { const u = k / 12; pts.push([sx + (ox - sx) * u, sy + (oy - sy) * u + Math.sin(u * Math.PI) * r * 0.55 * -dir + Math.sin(u * Math.PI * 3 + a0) * r * 0.12]); }
+    for (let k = 1; k <= 56; k++) {
+      const u = k / 56, an = a0 + dir * u * Math.PI * 2 * tw;
+      const rr = r * (1 - 0.72 * u) * (1 + 0.09 * Math.sin(u * 17 + a0 * 3));     // wobbly, not a perfect spiral
+      pts.push([cx + Math.cos(an) * rr, cy + Math.sin(an) * rr * 0.86]);
+    }
+    return pathD(pts.map(([x, y]) => [x + gte[0], y + gte[1]]));
+  };
+  const cd = VX.map(curl);
+  g.push('<g fill="none" stroke-linecap="round" stroke-linejoin="round">' +
+    '<g filter="url(#haze)" opacity="0.22" stroke="' + GHOST + '" stroke-width="18">' + cd.map(d => '<path d="' + d + '"/>').join("") + "</g>" +
+    '<g opacity="0.92" stroke="' + GHOST + '" stroke-width="3.8" stroke-dasharray="12 7">' + cd.map(d => '<path d="' + d + '"/>').join("") + "</g></g>");
+
+  // rake: supply pipe, manifold, nozzles
+  let noz = "";
+  for (let k = 0; k < NF; k++) { const yy = fy0 + k * FS; noz += '<rect x="' + (RAKE_X - 26) + '" y="' + f1(yy - 3) + '" width="26" height="6" rx="1.5"/>'; }
+  g.push('<rect x="' + (RAKE_X - 42) + '" y="' + (WY0 - 4) + '" width="17" height="' + f1(fy1 - WY0 + 22) + '" rx="4" fill="#33363B"/>');
+  g.push('<rect x="' + (RAKE_X - 38) + '" y="' + (WY0 - 4) + '" width="3" height="' + f1(fy1 - WY0 + 18) + '" fill="#555B64"/>');
+  g.push('<g fill="#41464F">' + noz + "</g>");
+  // floor with millimetre ruler
+  let rt = "";
+  for (let x = 10, m = 0; x <= 1074; x += 9, m++) { const L = m % 10 === 0 ? 20 : m % 5 === 0 ? 13 : 7; rt += "M" + x + "," + FLOOR + "v" + L; }
+  g.push('<rect x="0" y="' + FLOOR + '" width="1080" height="' + RULER + '" fill="#111316"/>');
+  g.push('<path d="M0,' + FLOOR + 'H1080" stroke="#3A3F48" stroke-width="2"/>');
+  g.push('<path d="' + rt + '" stroke="#9AA0A8" stroke-opacity="0.7" stroke-width="2"/>');
+  g.push("</g>");
+
+  // wing (matte white), highlight edge, pivot
+  g.push('<path d="' + pathD(wingPx) + 'Z" fill="url(#wingG)"/>');
+  g.push('<path d="' + pathD(upper) + '" fill="none" stroke="#FFFFFF" stroke-opacity="0.8" stroke-width="2"/>');
+  g.push('<path d="' + pathD(lower) + '" fill="none" stroke="#B9B8B2" stroke-width="2"/>');
+  g.push('<path d="' + pathD(ghost) + 'Z" fill="none" stroke="' + GHOST + '" stroke-width="4" stroke-dasharray="14 9" stroke-linejoin="round"/>');
+  g.push('<circle cx="' + f1(piv[0]) + '" cy="' + f1(piv[1]) + '" r="15" fill="#D9D8D2" stroke="#A3A29C" stroke-width="2"/>');
+  g.push('<circle cx="' + f1(piv[0]) + '" cy="' + f1(piv[1]) + '" r="5.5" fill="' + RAIL + '"/>');
+
+  // turntable swing: the trailing edge came up from 22 deg to 7 deg
+  const teP = wingPx[0], rTE = Math.hypot(teP[0] - piv[0], teP[1] - piv[1]) + 30;
+  const aR = Math.atan2(teP[1] - piv[1], teP[0] - piv[0]), aG = aR + GH;
+  const arcPt = a => [piv[0] + Math.cos(a) * rTE, piv[1] + Math.sin(a) * rTE];
+  const s0 = arcPt(aG - 0.03), s1 = arcPt(aR + 0.035);
+  g.push('<path d="M' + f1(s0[0]) + "," + f1(s0[1]) + "A" + f1(rTE) + "," + f1(rTE) + " 0 0 0 " + f1(s1[0]) + "," + f1(s1[1]) + '" fill="none" stroke="' + PAPER + '" stroke-width="3.5" stroke-linecap="round" marker-end="url(#ah)"/>');
+
+  // tufts taped on the wing; station numbers stencilled on the skin
+  const tuftSvg = [], thr = [], stnHtml = [];
+  const surfPx = (up, x) => [x, Y0 + surf(up ? upperR : lowerR, x)];
+  tags.forEach(c => {
+    const on = c.i === hot, up = c.up;
+    const x = c.tx, Pp = surfPx(up, x), P2 = surfPx(up, x + 5), P1 = surfPx(up, x - 5);
+    let tx = P2[0] - P1[0], ty = P2[1] - P1[1]; const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+    let nx = ty, ny = -tx; if ((up && ny > 0) || (!up && ny < 0)) { nx = -nx; ny = -ny; }
+    const L = 100, Wd = 14;
+    const cl = [], nl = [];
+    for (let k = 0; k <= 20; k++) {
+      const u = k / 20 * L, xx = x + tx * u;
+      const a = surfPx(up, xx - 4), b = surfPx(up, xx + 4);
+      let ux = b[0] - a[0], uy = b[1] - a[1]; const ul = Math.hypot(ux, uy) || 1; ux /= ul; uy /= ul;
+      let mx = uy, my = -ux; if ((up && my > 0) || (!up && my < 0)) { mx = -mx; my = -my; }
+      const s0 = surfPx(up, xx), lift = 4 + 8 * (u / L) * (u / L) + 1.8 * Math.sin(u / L * Math.PI * 2 + c.i) * (u / L);
+      cl.push([s0[0] + mx * (Wd / 2 + lift), s0[1] + my * (Wd / 2 + lift)]); nl.push([mx, my]);
+    }
+    const edgeA = cl.map(([px, py], k) => [px + nl[k][0] * Wd / 2 * (1 - 0.25 * k / 20), py + nl[k][1] * Wd / 2 * (1 - 0.25 * k / 20)]);
+    const edgeB = cl.map(([px, py], k) => [px - nl[k][0] * Wd / 2 * (1 - 0.25 * k / 20), py - nl[k][1] * Wd / 2 * (1 - 0.25 * k / 20)]);
+    const tip = cl[20], fr = [[tip[0] + tx * 6 + nx * 4, tip[1] + ty * 6 + ny * 4], [tip[0] + tx * 1, tip[1] + ty * 1], [tip[0] + tx * 7 - nx * 3, tip[1] + ty * 7 - ny * 3]];
+    const strip = edgeA.concat([fr[0], fr[1], fr[2]], edgeB.reverse());
+    tuftSvg.push('<path d="' + pathD(strip) + 'Z" fill="' + (on ? ORANGE : PAPER) + '" stroke="' + (on ? "#7A2C0C" : "#0C0D0F") + '" stroke-width="2.2" stroke-linejoin="round"/>');
+    // tape square across the root
+    const tc = [Pp[0] + nx * 6 + tx * 4, Pp[1] + ny * 6 + ty * 4], ang = Math.atan2(ty, tx) * 180 / Math.PI;
+    tuftSvg.push('<rect x="' + f1(tc[0] - 13) + '" y="' + f1(tc[1] - 13) + '" width="26" height="26" rx="1.5" fill="#B4BAC1" fill-opacity="0.92" stroke="#6E747C" stroke-width="1.2" transform="rotate(' + f1(ang) + " " + f1(tc[0]) + " " + f1(tc[1]) + ')"/>');
+    // thread from the tape to the tag's eyelet, trailing downstream
+    const ex = c.x + 23, ey = c.y + c.h / 2, rootX = tc[0] + tx * 8, rootY = tc[1] + ty * 8;
+    thr.push('<path d="M' + f1(rootX) + "," + f1(rootY) + "L" + f1(ex) + "," + f1(ey) + '" stroke="' + (on ? ORANGE : "#C3C8CE") + '" stroke-width="' + (on ? 3 : 2.2) + '" stroke-linecap="round"/>' +
+             '<circle cx="' + f1(ex) + '" cy="' + f1(ey) + '" r="4" fill="' + (on ? ORANGE : "#C3C8CE") + '"/>');
+    // station number on the skin, just downstream of the tape
+    const sx = x + 14, sy = up ? Y0 + surf(upperR, x + 30) + 14 : Y0 + surf(lowerR, x + 30) - 14 - 34;
+    stnHtml.push('<div class="stn' + (on ? " on" : "") + '" style="left:' + Math.round(sx) + "px;top:" + Math.round(sy) + 'px">' + String(c.i + 1).padStart(2, "0") + "</div>");
+  });
+  g.push(tuftSvg.join(""));
+  $("stns").innerHTML = stnHtml.join("");
+
+  // glass reflections
+  g.push('<g clip-path="url(#win)" fill="#FFFFFF">' +
+    '<path d="M760,' + WY0 + "L860," + WY0 + "L460," + WY1 + "L360," + WY1 + 'Z" fill-opacity="0.025"/>' +
+    '<path d="M900,' + WY0 + "L930," + WY0 + "L530," + WY1 + "L500," + WY1 + 'Z" fill-opacity="0.035"/></g>');
+  g.push('<rect x="0" y="' + WY0 + '" width="1080" height="34" fill="url(#shT)"/>');
+  g.push('<rect x="0" y="' + (WY1 - 30) + '" width="1080" height="30" fill="url(#shB)"/>');
+
+  // ---------- painted-steel rails ----------
+  const hex = (x, y, r) => { let d = ""; for (let k = 0; k < 6; k++) { const a = Math.PI / 6 + k * Math.PI / 3; d += (k ? "L" : "M") + f1(x + Math.cos(a) * r) + "," + f1(y + Math.sin(a) * r); } return d + "Z"; };
+  const boltRow = (y, step, off, r) => { let d = ""; for (let x = off; x <= 1080; x += step) d += hex(x, y, r); return d; };
+  // top rail
+  g.push('<rect x="0" y="0" width="1080" height="' + WY0 + '" fill="url(#railT)"/>');
+  g.push('<rect x="0" y="0" width="1080" height="' + WY0 + '" filter="url(#mottle)"/>');
+  g.push('<rect x="0" y="0" width="1080" height="' + WY0 + '" filter="url(#grain)"/>');
+  g.push('<rect x="0" y="0" width="1080" height="172" fill="#000" fill-opacity="0.28"/>');
+  g.push('<path d="M0,172H1080" stroke="#151719" stroke-width="4"/><path d="M0,176H1080" stroke="#45484E" stroke-width="2"/>');
+  g.push('<path d="' + boltRow(204, 72, 36, 8) + '" fill="#3C3F45" stroke="#17191C" stroke-width="1.5"/>');
+  g.push('<rect x="0" y="' + (WY0 - LIP) + '" width="1080" height="' + LIP + '" fill="#1F2124"/>');
+  g.push('<path d="M0,' + (WY0 - LIP) + 'H1080" stroke="#45484E" stroke-width="2"/><path d="M0,' + (WY0 - 1) + 'H1080" stroke="#0E0F11" stroke-width="2"/>');
+  g.push('<path d="' + boltRow(WY0 - LIP / 2, 72, 36, 7) + '" fill="#3C3F45" stroke="#121315" stroke-width="1.5"/>');
+  // painted flow arrow on the rail (duct marking), decoration above the safe zone
+  g.push('<g fill="' + PAPER + '" fill-opacity="0.2"><path d="M90,228h80v16h-80zM180,228h80v16h-80zM270,228h56v-14l34,22l-34,22v-14h-56z"/></g>');
+  // bottom rail
+  g.push('<rect x="0" y="' + WY1 + '" width="1080" height="' + (1920 - WY1) + '" fill="url(#railB)"/>');
+  g.push('<rect x="0" y="' + WY1 + '" width="1080" height="' + (1920 - WY1) + '" filter="url(#mottle)"/>');
+  g.push('<rect x="0" y="' + WY1 + '" width="1080" height="' + (1920 - WY1) + '" filter="url(#grain)"/>');
+  g.push('<rect x="0" y="' + WY1 + '" width="1080" height="' + LIP + '" fill="#1F2124"/>');
+  g.push('<path d="M0,' + (WY1 + 1) + 'H1080" stroke="#0E0F11" stroke-width="2"/><path d="M0,' + (WY1 + LIP) + 'H1080" stroke="#45484E" stroke-width="2"/>');
+  g.push('<path d="' + boltRow(WY1 + LIP / 2, 72, 36, 7) + '" fill="#3C3F45" stroke="#121315" stroke-width="1.5"/>');
+  g.push('<rect x="0" y="1744" width="1080" height="176" fill="#000" fill-opacity="0.28"/>');
+  g.push('<path d="M0,1744H1080" stroke="#45484E" stroke-width="2"/><path d="M0,1748H1080" stroke="#151719" stroke-width="4"/>');
+  g.push('<path d="' + boltRow(1720, 72, 36, 8) + '" fill="#3C3F45" stroke="#17191C" stroke-width="1.5"/>');
+  // DAQ mounting screws + cable gland
+  const dR = daqEl.getBoundingClientRect();
+  let scr = "";
+  for (const [sx, sy] of [[dR.left - 22, dR.top + 18], [dR.right + 22, dR.top + 18], [dR.left - 22, dR.bottom - 18], [dR.right + 22, dR.bottom - 18]])
+    scr += '<circle cx="' + f1(sx) + '" cy="' + f1(sy) + '" r="8" fill="#4A4E55" stroke="#16181B" stroke-width="1.5"/><path d="M' + f1(sx - 5) + "," + f1(sy) + "h10" + '" stroke="#1A1C1F" stroke-width="2"/>';
+  g.push('<path d="M' + f1(dR.right + 22) + "," + f1(dR.top + 40) + "H1010V" + f1(1744) + '" fill="none" stroke="#17191C" stroke-width="12" stroke-linecap="round"/>');
+  g.push('<path d="M' + f1(dR.right + 22) + "," + f1(dR.top + 40) + "H1010V" + f1(1744) + '" fill="none" stroke="#3A3D43" stroke-width="7" stroke-linecap="round"/>');
+  g.push(scr);
+
+  $("stage").innerHTML = g.join("");
+  $("threads").innerHTML = thr.join("");
+  }
+</script>
+</body>
+</html>

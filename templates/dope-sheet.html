@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Dope Sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;600;700&family=Space+Mono:wght@400;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Dope Sheet: an animator's exposure sheet (X-sheet) hung on a peg bar over a plum board.
+    The ruled grid below the header is always 120 rows = 5 seconds at 24 fps: a hairline per frame,
+    a heavier rule every 8th frame, an ink rule every 24th (one second, numbered in the DTK column).
+    Items are key blocks down the sheet: label in the AKSI column, value circled in the NILAI column,
+    blue timing wiggles below each key, a camera wedge in the KAM column, row 120 marked amber.
+  */
+  :root {
+    --plum: #4A2B4F; --paper: #F4EEDC; --ink: #1E1B1A; --amber: #E8A33D; --blue: #7FA3C8;
+    --mute: #66595C;
+  }
+  html, body { margin: 0; width: 1080px; height: 1920px; overflow: hidden; background: var(--plum); }
+  body { position: relative; font-family: "Archivo Narrow", sans-serif; color: var(--ink); }
+  #art { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; display: block; }
+  .t { position: absolute; margin: 0; box-sizing: border-box; }
+
+  #title { left: 90px; top: 318px; width: 900px; font-weight: 700; color: var(--paper);
+           line-height: 1.04; letter-spacing: -0.008em; }
+  #title .hl { color: var(--amber); }
+  #title .hl.nw { white-space: nowrap; }
+
+  .hdr { font: 700 26px/30px "Space Mono", monospace; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+  .col { font: 700 28px/30px "Space Mono", monospace; letter-spacing: 0.04em; white-space: nowrap; }
+  .lab { font-weight: 600; line-height: 1.04; color: var(--ink); }
+  .val { font-family: "Space Mono", monospace; font-weight: 700; line-height: 1.08; text-align: center; color: var(--ink); }
+  .fr  { font: 700 30px/32px "Space Mono", monospace; text-align: right; color: var(--ink); white-space: nowrap; }
+  .sec { font: 400 26px/28px "Space Mono", monospace; text-align: right; color: var(--mute); white-space: nowrap; }
+
+  #cap { left: 96px; width: 888px; font-weight: 600; line-height: 1.24; color: var(--mute); }
+  #cap .w { display: inline; }
+  #cap .said { color: var(--ink); }
+  #cap .on { color: var(--ink); font-weight: 700; background: var(--amber); border-radius: 6px;
+             padding: 0 0.16em; margin: 0 0.02em; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+
+  #foot { left: 96px; width: 888px; display: flex; justify-content: space-between; align-items: baseline; gap: 28px; }
+  #src { font: 500 28px/31px "Archivo Narrow", sans-serif; color: var(--mute); }
+  #date { font: 400 26px/31px "Space Mono", monospace; color: var(--mute); white-space: nowrap; flex: none; }
+</style>
+</head>
+<body>
+<svg id="art" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+<h1 class="t" id="title"></h1>
+<div class="t" id="cap" data-slot="caption"></div>
+<div class="t" id="foot"><span id="src"></span><span id="date"></span></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const FACES = ['700 100px "Archivo Narrow"', '600 40px "Archivo Narrow"', '500 28px "Archivo Narrow"',
+                 '700 40px "Space Mono"', '400 26px "Space Mono"'];
+  document.fonts.ready.then(() => Promise.all(FACES.map(f => document.fonts.load(f)))).catch(() => {}).then(render);
+
+  function render() {
+    const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const $ = id => document.getElementById(id);
+    const f1 = v => (+v).toFixed(1);
+    const PLUM = "#4A2B4F", PAPER = "#F4EEDC", INK = "#1E1B1A", AMBER = "#E8A33D", BLUE = "#7FA3C8";
+    const items = (D.items || []).slice(0, 5);
+    const n = Math.max(1, items.length);
+    const text = (cls, x, y, w, html, extra) => {
+      const d = document.createElement("div");
+      d.className = "t " + cls; d.style.left = x + "px"; d.style.top = y + "px";
+      if (w) d.style.width = w + "px";
+      d.innerHTML = html; if (extra) Object.assign(d.style, extra);
+      document.body.appendChild(d); return d;
+    };
+
+    // ---------- title (largest element), hl = amber word circled like a key drawing ----------
+    const t = String(D.title || ""), hl = String(D.hl || "");
+    const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    const titleEl = $("title");
+    const nw = hl.length <= 16 ? " nw" : "";
+    titleEl.innerHTML = at < 0 ? esc(t)
+      : esc(t.slice(0, at)) + '<span class="hl' + nw + '" id="hlw">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+    let tfs = 128;
+    for (; tfs >= 72; tfs -= 2) {
+      titleEl.style.fontSize = tfs + "px";
+      const lines = Math.round(titleEl.offsetHeight / (tfs * 1.04));
+      if (lines <= 3 && titleEl.offsetHeight <= 276 && titleEl.scrollWidth <= 902) break;
+    }
+    const titleTop = 318, titleBot = titleTop + titleEl.offsetHeight;
+
+    // ---------- bottom-up: source/date foot, caption, then the grid takes what is left ----------
+    $("src").textContent = D.source ? "Sumber: " + D.source : "";
+    $("date").textContent = D.date || "";
+    const foot = $("foot");
+    const footH = foot.offsetHeight;
+    const footTop = 1618 - footH;
+    foot.style.top = footTop + "px";
+
+    const capTxt = String(D.caption || D.sub || "");
+    const words = capTxt.split(/\s+/).filter(Boolean);
+    // active word(s): the words that overlap D.hl inside the caption, else the first word
+    let a0 = 0, a1 = 0;
+    const ci = hl ? capTxt.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    if (ci >= 0) {
+      let pos = 0, first = -1, last = -1;
+      words.forEach((w, i) => {
+        const s = capTxt.indexOf(w, pos), e = s + w.length; pos = e;
+        if (e > ci && s < ci + hl.length) { if (first < 0) first = i; last = i; }
+      });
+      if (first >= 0) { a0 = first; a1 = last; }
+    }
+    let capHtml = "";
+    for (let i = 0; i < words.length; i++) {
+      if (i === a0) {
+        capHtml += '<span class="w on">' + words.slice(a0, a1 + 1).map(esc).join(" ") + "</span> ";
+        i = a1; continue;
+      }
+      capHtml += '<span class="w' + (i < a0 ? " said" : "") + '">' + esc(words[i]) + "</span> ";
+    }
+    const cap = $("cap");
+    cap.innerHTML = capHtml.trim();
+    let cfs = 46;
+    for (; cfs >= 40; cfs -= 1) { cap.style.fontSize = cfs + "px"; if (cap.offsetHeight <= cfs * 1.24 * 2 + 4) break; }
+    const capH = cap.offsetHeight;
+    const capTop = footTop - 20 - capH;
+    cap.style.top = capTop + "px";
+
+    // ---------- sheet geometry ----------
+    const SX0 = 70, SX1 = 1010, SY0 = titleBot + 74, SY1 = 1668;
+    const FX0 = 96, FX1 = 984;                       // printed form frame
+    const CX = { dtk: 96, aksi: 196, dlg: 560, val: 620, kam: 900, end: 984 };
+    const hdrY = SY0 + 50, colY = SY0 + 106, gT = SY0 + 150;
+    const gB = capTop - 30;
+    const p = (gB - gT) / 120;                       // one row = one frame = 1/24 s
+    const rowY = r => gT + r * p;
+
+    const svg = [];
+    svg.push('<defs>' +
+      '<radialGradient id="bd" cx="0.28" cy="0.12" r="1.05"><stop offset="0" stop-color="#5A3760"/><stop offset="0.55" stop-color="' + PLUM + '"/><stop offset="1" stop-color="#3A2140"/></radialGradient>' +
+      '<filter id="sh" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="16" stdDeviation="16" flood-color="#1A0D1C" flood-opacity="0.45"/></filter>' +
+      '<filter id="sh2" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="8" stdDeviation="7" flood-color="#1A0D1C" flood-opacity="0.45"/></filter>' +
+      '<linearGradient id="steel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3A3335"/><stop offset="1" stop-color="#1E1B1A"/></linearGradient>' +
+      '<linearGradient id="peg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E4DCCB"/><stop offset="1" stop-color="#A8A092"/></linearGradient>' +
+      '</defs>');
+    svg.push('<rect width="1080" height="1920" fill="url(#bd)"/>');
+    // faint board scuffs (hard-coded, deterministic)
+    svg.push('<g stroke="#F4EEDC" stroke-opacity="0.05" stroke-width="2" fill="none">' +
+      '<path d="M40 120 C 220 96, 410 140, 610 104"/><path d="M700 210 C 820 190, 930 220, 1050 196"/><path d="M30 1760 C 160 1740, 300 1772, 420 1750"/></g>');
+
+    // the animator's bouncing-ball study in pencil across the board top: one circle = one drawing = one frame
+    {
+      const gy = 262, r = 15, balls = [];
+      const hops = [[96, 410, 150], [410, 700, 96], [700, 900, 52], [900, 1010, 26]];
+      hops.forEach(([x0, x1, h], hi) => {
+        const steps = hi === 0 ? 9 : hi === 1 ? 8 : hi === 2 ? 6 : 4;
+        for (let i = hi === 0 ? 0 : 1; i <= steps; i++) {
+          const u = i / steps, x = x0 + (x1 - x0) * u, y = gy - r - 4 * h * u * (1 - u);
+          balls.push([x, y]);
+        }
+      });
+      let arc = "M" + balls.map(b => f1(b[0]) + "," + f1(b[1])).join("L");
+      svg.push('<g fill="none" stroke="#F4EEDC" stroke-linecap="round">' +
+        '<path d="M70 ' + gy + 'H1010" stroke-opacity="0.28" stroke-width="2"/>' +
+        '<path d="' + arc + '" stroke-opacity="0.2" stroke-width="2" stroke-dasharray="2 9"/>' +
+        balls.map((b, i) => i === 0 ? "" : '<circle cx="' + f1(b[0]) + '" cy="' + f1(b[1]) + '" r="' + r + '" stroke-opacity="0.32" stroke-width="2.4"/>').join("") +
+        '</g>' +
+        '<circle cx="' + f1(balls[0][0]) + '" cy="' + f1(balls[0][1]) + '" r="' + r + '" fill="' + AMBER + '"/>');
+    }
+
+    // under-sheets: the stack of drawings this sheet times (edges peek out)
+    svg.push('<g filter="url(#sh2)">' +
+      '<rect x="' + (SX0 + 16) + '" y="' + (SY0 + 40) + '" width="' + (SX1 - SX0) + '" height="' + (SY1 - SY0 + 14) + '" fill="#DCD2BA" transform="rotate(1.3 540 ' + ((SY0 + SY1) / 2) + ')"/>' +
+      '<rect x="' + (SX0 - 8) + '" y="' + (SY0 + 26) + '" width="' + (SX1 - SX0) + '" height="' + (SY1 - SY0 + 6) + '" fill="#E7DFCA" transform="rotate(-0.9 540 ' + ((SY0 + SY1) / 2) + ')"/>' +
+      '</g>');
+
+    // peg bar (sits under the paper; pegs show through the punched holes)
+    const pegY = SY0 + 24;
+    svg.push('<g filter="url(#sh2)"><rect x="196" y="' + (SY0 - 36) + '" width="688" height="78" rx="8" fill="url(#steel)"/></g>' +
+      '<line x1="204" y1="' + (SY0 - 33) + '" x2="876" y2="' + (SY0 - 33) + '" stroke="#F4EEDC" stroke-opacity="0.22" stroke-width="2"/>' +
+      '<circle cx="232" cy="' + (SY0 - 15) + '" r="7" fill="#151213" stroke="#F4EEDC" stroke-opacity="0.18"/>' +
+      '<circle cx="848" cy="' + (SY0 - 15) + '" r="7" fill="#151213" stroke="#F4EEDC" stroke-opacity="0.18"/>' +
+      '<rect x="' + (540 - 230 - 34) + '" y="' + (pegY - 8) + '" width="68" height="16" rx="8" fill="url(#peg)"/>' +
+      '<rect x="' + (540 + 230 - 34) + '" y="' + (pegY - 8) + '" width="68" height="16" rx="8" fill="url(#peg)"/>' +
+      '<circle cx="540" cy="' + pegY + '" r="13" fill="url(#peg)"/>');
+
+    // the exposure sheet itself, with three punched holes (evenodd)
+    const slot = cx => { const x0 = cx - 40, x1 = cx + 40, y0 = pegY - 12, y1 = pegY + 12;
+      return "M" + (x0 + 12) + " " + y0 + "H" + (x1 - 12) + "A12 12 0 0 1 " + (x1 - 12) + " " + y1 + "H" + (x0 + 12) + "A12 12 0 0 1 " + (x0 + 12) + " " + y0 + "Z"; };
+    const hole = "M" + (540 - 17) + " " + pegY + "A17 17 0 1 0 " + (540 + 17) + " " + pegY + "A17 17 0 1 0 " + (540 - 17) + " " + pegY + "Z";
+    svg.push('<path filter="url(#sh)" fill-rule="evenodd" fill="' + PAPER + '" d="M' + SX0 + ' ' + SY0 + 'H' + SX1 + 'V' + SY1 + 'H' + SX0 + 'Z' +
+      slot(540 - 230) + slot(540 + 230) + hole + '"/>');
+
+    // ---------- printed form: frame, header, column heads ----------
+    const g = [];
+    g.push('<rect x="' + FX0 + '" y="' + (SY0 + 44) + '" width="' + (FX1 - FX0) + '" height="' + (gB - SY0 - 44) + '" fill="none" stroke="' + INK + '" stroke-width="2.5"/>');
+    g.push('<line x1="' + FX0 + '" y1="' + (SY0 + 92) + '" x2="' + FX1 + '" y2="' + (SY0 + 92) + '" stroke="' + INK + '" stroke-width="2"/>');
+    g.push('<line x1="' + FX0 + '" y1="' + (SY0 + 97) + '" x2="' + FX1 + '" y2="' + (SY0 + 97) + '" stroke="' + INK + '" stroke-width="1.2"/>');
+    // row hairlines: one per frame, heavier every 8th, ink every 24th (= 1 second)
+    for (let r = 1; r < 120; r++) {
+      const y = f1(rowY(r));
+      if (r % 24 === 0) g.push('<line x1="' + FX0 + '" y1="' + y + '" x2="' + FX1 + '" y2="' + y + '" stroke="' + INK + '" stroke-width="2.6"/>');
+      else if (r % 8 === 0) g.push('<line x1="' + FX0 + '" y1="' + y + '" x2="' + FX1 + '" y2="' + y + '" stroke="#5B6F86" stroke-width="1.8"/>');
+      else g.push('<line x1="' + FX0 + '" y1="' + y + '" x2="' + FX1 + '" y2="' + y + '" stroke="' + BLUE + '" stroke-opacity="0.5" stroke-width="1"/>');
+    }
+    g.push('<line x1="' + FX0 + '" y1="' + gT + '" x2="' + FX1 + '" y2="' + gT + '" stroke="' + INK + '" stroke-width="2.6"/>');
+    // column rules
+    [CX.aksi, CX.dlg, CX.val, CX.kam].forEach((x, i) =>
+      g.push('<line x1="' + x + '" y1="' + (SY0 + 97) + '" x2="' + x + '" y2="' + gB + '" stroke="' + INK + '" stroke-width="' + (i === 0 ? 2.2 : 1.6) + '"/>'));
+    // row 1 = the frame being exposed now (amber playhead), row 120 = the hero
+    g.push('<rect x="' + FX0 + '" y="' + f1(gT + 1.3) + '" width="' + (FX1 - FX0) + '" height="' + f1(Math.max(p, 6)) + '" fill="' + AMBER + '" fill-opacity="0.85"/>');
+    g.push('<path d="M' + (SX0 - 2) + ' ' + f1(gT - 10) + 'L' + (FX0 - 6) + ' ' + f1(gT + 3) + 'L' + (SX0 - 2) + ' ' + f1(gT + 16) + 'Z" fill="' + AMBER + '"/>');
+    g.push('<rect x="' + FX0 + '" y="' + f1(gB - Math.max(p, 6)) + '" width="' + (FX1 - FX0) + '" height="' + f1(Math.max(p, 6)) + '" fill="' + AMBER + '"/>');
+    g.push('<line x1="' + FX0 + '" y1="' + gB + '" x2="' + FX1 + '" y2="' + gB + '" stroke="' + INK + '" stroke-width="3"/>');
+    g.push('<line x1="' + FX0 + '" y1="' + (gB + 6) + '" x2="' + FX1 + '" y2="' + (gB + 6) + '" stroke="' + INK + '" stroke-width="1.2"/>');
+
+    // camera wedge (truck-in notation) in the KAM column: decoration only, never text
+    const wy0 = rowY(14), wy1 = rowY(106);
+    g.push('<g stroke="' + INK + '" stroke-opacity="0.78" stroke-width="2.4" fill="none" stroke-linecap="round">' +
+      '<path d="M912 ' + f1(wy0) + 'L972 ' + f1(wy0) + 'M914 ' + f1(wy0) + 'L939 ' + f1(wy1) + 'M970 ' + f1(wy0) + 'L945 ' + f1(wy1) + 'M932 ' + f1(wy1) + 'L952 ' + f1(wy1) + '"/>' +
+      '<circle cx="942" cy="' + f1(wy0 - 18) + '" r="8"/></g>');
+
+    // hand-drawn pencil loop (deterministic): used for keys
+    const loop = (cx, cy, rx, ry, rot) => {
+      const pts = [], N = 48, c = Math.cos(rot * Math.PI / 180), s = Math.sin(rot * Math.PI / 180);
+      for (let i = 0; i <= N * 1.1; i++) {
+        const th = -2.5 + (i / N) * 2 * Math.PI;
+        const wob = 1 + 0.03 * Math.sin(3 * th + 0.7) + 0.018 * Math.sin(5 * th + 1.9);
+        const k = 1 + 0.07 * (i / N);
+        const x = rx * wob * k * Math.cos(th), y = ry * wob * k * Math.sin(th);
+        pts.push(f1(cx + x * c - y * s) + "," + f1(cy + x * s + y * c));
+      }
+      return "M" + pts.join("L");
+    };
+    // timing wiggle down the action column
+    const wiggle = (x, y1, y2) => {
+      let d = "M" + x + " " + f1(y1);
+      for (let y = y1 + 2; y <= y2; y += 2) d += "L" + f1(x + 8 * Math.sin((y - y1) / 26 * 2 * Math.PI) * Math.min(1, (y2 - y) / 20)) + " " + f1(y);
+      return d + "M" + (x - 13) + " " + f1(y2) + "L" + (x + 13) + " " + f1(y2);
+    };
+
+    // ---------- header + column heads (text) ----------
+    const series = D.series || "", ep = D.ep || "";
+    const kick = series && ep ? series + " · " + ep : (D.kicker || series || ep);
+    text("hdr", FX0 + 14, hdrY, 640, esc(kick));
+    text("hdr", FX1 - 14 - 200, hdrY, 200, "24 FPS", { textAlign: "right" });
+    const heads = [["DTK", CX.dtk, CX.aksi], ["AKSI", CX.aksi, CX.dlg], ["DLG", CX.dlg, CX.val], ["NILAI", CX.val, CX.kam], ["KAM", CX.kam, CX.end]];
+    heads.forEach(([h, x0, x1]) => text("col", x0, colY, x1 - x0, h, { textAlign: "center" }));
+
+    // ---------- seconds in the DTK column ----------
+    // paper patch behind a printed number so the frame hairlines never strike through it
+    const patch = el => { const sp = el.firstChild, rg = document.createRange(); rg.selectNodeContents(el); const b = rg.getBoundingClientRect();
+      g.push('<rect x="' + f1(b.left - 5) + '" y="' + f1(b.top + 1) + '" width="' + f1(b.width + 10) + '" height="' + f1(b.height - 2) + '" fill="' + PAPER + '"/>'); };
+    for (let sN = 1; sN <= 5; sN++) {
+      const y = rowY(24 * sN), lift = sN === 5 ? Math.max(p, 6) + 4 : 4;
+      patch(text("fr", CX.dtk, y - lift - 66, 88, String(24 * sN)));
+      patch(text("sec", CX.dtk, y - lift - 31, 88, sN + " dtk"));
+      if (sN === 5) g.push('<path d="' + loop(CX.dtk + 58, y - lift - 50, 43, 19, -5) + '" fill="none" stroke="' + AMBER + '" stroke-width="4.5" stroke-linecap="round"/>');
+    }
+
+    // ---------- items = key blocks down the sheet ----------
+    const LX = CX.aksi + 18, LW = CX.dlg - CX.aksi - 30;
+    const VX = CX.val + 10, VW = CX.kam - CX.val - 20;
+    items.forEach((it, k) => {
+      const a = Math.round(k * 120 / n), b = Math.round((k + 1) * 120 / n);
+      const ya = rowY(a), yb = rowY(b);
+      if (k > 0) g.push('<line x1="' + CX.aksi + '" y1="' + f1(ya) + '" x2="' + CX.kam + '" y2="' + f1(ya) + '" stroke="' + INK + '" stroke-width="3.4"/>');
+      g.push('<circle cx="' + CX.aksi + '" cy="' + f1(ya) + '" r="7" fill="' + INK + '"/>');
+      // label
+      const lab = text("lab", LX, ya + 12, LW, esc(it.label));
+      let lfs = 44;
+      for (; lfs >= 32; lfs -= 2) { lab.style.fontSize = lfs + "px"; if (lab.offsetHeight <= lfs * 1.04 * 2 + 2) break; }
+      const labBot = ya + 12 + lab.offsetHeight;
+      // value, circled in pencil like a key drawing number
+      const val = text("val", VX, ya + 24, VW, esc(it.value), { whiteSpace: "nowrap" });
+      let vfs = 48;
+      for (; vfs >= 30; vfs -= 2) { val.style.fontSize = vfs + "px"; if (val.scrollWidth <= VW) break; }
+      if (val.scrollWidth > VW) { val.style.whiteSpace = "normal"; }
+      const r = document.createRange(); r.selectNodeContents(val); const vb = r.getBoundingClientRect();
+      const vcx = vb.left + vb.width / 2, vcy = vb.top + vb.height / 2;
+      g.push('<path d="' + loop(vcx, vcy, Math.min(vb.width / 2 + 26, 150), vb.height / 2 + 13, k % 2 ? 4 : -5) + '" fill="none" stroke="' + INK + '" stroke-width="3" stroke-linecap="round"/>');
+      // timing wiggle below the label (only where there is room)
+      if (yb - 14 - (labBot + 14) > 34) g.push('<path d="' + wiggle(CX.aksi + 40, labBot + 14, yb - 14) + '" fill="none" stroke="' + BLUE + '" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>');
+      // dialogue column: phonetic sustain bracket
+      const dy0 = ya + 18, dy1 = Math.max(ya + 50, yb - 18);
+      g.push('<path d="M576 ' + f1(dy0) + 'H604M590 ' + f1(dy0) + 'V' + f1(dy1) + 'M580 ' + f1(dy1) + 'H600" stroke="' + INK + '" stroke-opacity="0.62" stroke-width="2.2" fill="none" stroke-linecap="round"/>');
+    });
+    svg.push(g.join(""));
+
+    // title key-loop behind the highlighted word
+    const hw = $("hlw");
+    if (hw) {
+      const rs = hw.getClientRects();
+      const rr = rs[0];
+      if (rr) {
+        const rx = rr.width / 2 + 10, cx = Math.min(rr.left + rr.width / 2, 1040 - rx);
+        svg.push('<path d="' + loop(cx, rr.top + rr.height * 0.55, rx, tfs * 0.5, -3) + '" fill="none" stroke="' + AMBER + '" stroke-width="5" stroke-linecap="round"/>');
+      }
+    }
+
+    // animator's two-colour pencil resting on the board below the sheet (bottom UI zone: decoration only)
+    svg.push('<g transform="translate(560 1772) rotate(-7)" filter="url(#sh2)">' +
+      '<path d="M-330 -13H-10V13H-330Z" fill="' + AMBER + '"/><path d="M-10 -13H300V13H-10Z" fill="' + BLUE + '"/>' +
+      '<path d="M-330 -13L-372 0L-330 13Z" fill="#E9D7AE"/><path d="M-372 0L-386 0" stroke="' + AMBER + '" stroke-width="6" stroke-linecap="round"/>' +
+      '<path d="M300 -13L342 0L300 13Z" fill="#E9D7AE"/><path d="M342 0L356 0" stroke="#4E6F94" stroke-width="6" stroke-linecap="round"/>' +
+      '<path d="M-330 -4H300" stroke="#FFFFFF" stroke-opacity="0.22" stroke-width="3"/></g>');
+
+    $("art").innerHTML = svg.join("");
+  }
+</script>
+</body>
+</html>

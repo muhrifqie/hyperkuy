@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Ultra&family=Oswald:wght@400;500;600;700&family=Yellowtail&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Ghost Sign: the whole gable wall of a shop was repainted cream (the new
+    persona) over an old ochre sign (the base model). The title is painted
+    straight onto the brick, so mortar joints run through the letters. The old
+    sign's one-stroke lettering (D.ghost || D.series) bleeds back through the
+    coat; each item is a jagged flake where the coat fell off and the old sign,
+    with a fragment of its navy lettering, shows again (a habit that survived).
+    One chip is still half lifted at row 1. Rain has washed vertical streaks out
+    of the coat at the edges. Below the string course: the shop fascia with the
+    caption lettered on it, and a roll shutter.
+    Fully deterministic: sin-hash brick tones, fixed noise seeds, fixed shapes.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #8E3B2A; }
+  body { position: relative; font-family: "Oswald", sans-serif; color: #23303B; }
+  #wall, #relief { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  #relief { pointer-events: none; }
+
+  .kick { position: absolute; left: 90px; right: 90px; top: 300px; display: flex; justify-content: space-between; align-items: baseline;
+    font: 600 30px/1.2 "Oswald", sans-serif; letter-spacing: 0.16em; text-transform: uppercase; color: #F0E3C6; text-shadow: 0 2px 0 rgba(35, 48, 59, 0.65); }
+  .kick b { font-weight: 700; }
+
+  .title { position: absolute; left: 110px; width: 860px; top: 404px; font-family: "Ultra", serif; font-weight: 400; color: #23303B;
+    text-align: center; line-height: 1.06; letter-spacing: 0.005em; text-wrap: balance; }
+  .title .hl { color: #8E3B2A; text-shadow: 0.05em 0.05em 0 #D9A23A; }
+
+  .win { position: absolute; display: flex; align-items: center; gap: 16px; padding: 0 30px; }
+  .win .lb { font: 500 40px/1 "Oswald", sans-serif; letter-spacing: 0.035em; text-transform: uppercase; color: #23303B; white-space: nowrap; }
+  .win .ld { flex: 1; min-width: 28px; height: 0; border-bottom: 5px dotted #23303B; opacity: 0.5; transform: translateY(12px); }
+  .win .vl { font: 700 46px/1 "Oswald", sans-serif; letter-spacing: 0.01em; color: #5B2A22; white-space: nowrap; }
+
+  .sig { position: absolute; left: 120px; width: 780px; display: flex; justify-content: space-between; align-items: baseline; gap: 30px; color: #5B2A22; }
+  .sig .src { font: 400 34px/1.15 "Yellowtail", cursive; }
+  .sig .dt { font: 500 26px/1.15 "Oswald", sans-serif; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
+
+  .cap { position: absolute; left: 96px; width: 888px; top: 1504px; font: 500 46px/1.24 "Oswald", sans-serif; color: #EDE3CB; letter-spacing: 0.01em; }
+  .cap .on { color: #D9A23A; text-shadow: 0.05em 0.05em 0 #8E3B2A;
+    background: linear-gradient(#D9A23A, #D9A23A) no-repeat 0 96% / 100% 0.08em; padding-bottom: 0.04em; }
+</style>
+</head>
+<body>
+<svg id="wall" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+<div class="kick" id="kick"></div>
+<div class="title" id="title"></div>
+<div id="rows"></div>
+<svg id="relief" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+<div class="sig" id="sig"><span class="src" id="src"></span><span class="dt" id="date"></span></div>
+<div class="cap" id="cap" data-slot="caption"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  Promise.all(['400 100px Ultra', '400 34px Yellowtail', '500 40px Oswald', '600 30px Oswald', '700 46px Oswald']
+    .map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const NAVY = "#23303B", BRICK = "#8E3B2A", CREAM = "#EDE3CB", OCHRE = "#D9A23A", OX = "#5B2A22";
+  const hsh = (a, b) => { const s = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return s - Math.floor(s); };
+  const P = pts => "M" + pts.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join("L") + "Z";
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(1, items.length);
+
+  // ---------- wall geometry ----------
+  const COAT_T = 352, COAT_B = 1466, PLINTH = 1490;          // the new coat runs edge to edge
+  const OLD = { x0: 30, y0: 372, x1: 1050, y1: 1450 };        // the old sign, hidden under the coat
+
+  // ---------- kicker ----------
+  const epNo = String(D.ep || "").trim();
+  document.getElementById("kick").innerHTML = "<span>" + esc(D.series || D.kicker || "") + "</span>" + (epNo ? "<b>" + esc(epNo) + "</b>" : "");
+
+  // ---------- painter's signature (source + date) ----------
+  const srcEl = document.getElementById("src");
+  srcEl.textContent = D.source || "";
+  document.getElementById("date").textContent = D.date || "";
+  const sig = document.getElementById("sig");
+  for (let f = 34; f > 28 && sig.offsetHeight > 82; f -= 2) srcEl.style.fontSize = f + "px";
+  const sigTop = 1426 - sig.offsetHeight;
+  sig.style.top = sigTop + "px";
+
+  // ---------- title, painted on the wall ----------
+  const t = D.title || "", hl = D.hl || "";
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = document.getElementById("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  const TT = 404, GAP = 24, ROWMIN = 76, GHMIN = 54;
+  const itemsMin = n * ROWMIN + (n - 1) * GAP;
+  const maxTH = Math.min(340, sigTop - 28 - TT - 26 - GHMIN - 30 - itemsMin);
+  let tfs = 124;
+  for (; tfs >= 64; tfs -= 2) {
+    titleEl.style.fontSize = tfs + "px";
+    if (titleEl.offsetHeight <= maxTH && titleEl.scrollWidth <= 860) break;
+  }
+  const titleBottom = TT + titleEl.offsetHeight;
+
+  // ---------- vertical budget: ghost band + flaked windows ----------
+  const itemsBottom = sigTop - 28;
+  const avail = itemsBottom - (titleBottom + 26);
+  const ghostMax = Math.min(90, Math.round(tfs * 0.72));          // ghost caps never outgrow the title caps (Ultra caps ~0.72 em)
+  const ghostH = Math.max(Math.min(GHMIN, ghostMax), Math.min(ghostMax, avail - itemsMin - 30));
+  const rest = avail - ghostH - 30;
+  const rowH = Math.max(ROWMIN, Math.min(118, Math.floor((rest - (n - 1) * GAP) / n)));
+  const used = n * rowH + (n - 1) * GAP;
+  const left = Math.max(0, rest - used);
+  const ghostTop = titleBottom + 26 + left * 0.4;
+  const itemsTop = ghostTop + ghostH + 30 + left * 0.35;
+
+  // ---------- one-stroke capitals of the old sign (100 x 200 grid, 1-3 strokes each) ----------
+  const OG = "M50,0C10,0 0,25 0,60V140C0,175 10,200 50,200C90,200 100,175 100,140V60C100,25 90,0 50,0Z";
+  const G = { A: "M0,200L50,0L100,200M20,130H80", B: "M0,200V0H54C84,0 96,18 96,48C96,78 82,96 50,96H0M50,96C86,96 100,118 100,148C100,182 84,200 52,200H0",
+    C: "M100,48C96,16 78,0 50,0C14,0 0,28 0,64V136C0,172 14,200 50,200C78,200 96,184 100,152", D: "M0,0V200H38C88,200 100,170 100,130V70C100,30 88,0 38,0Z",
+    E: "M100,0H0V200H100M0,98H78", F: "M100,0H0V200M0,98H76", G: "M100,48C96,16 78,0 50,0C14,0 0,28 0,64V136C0,172 14,200 50,200C86,200 100,174 100,136V110H56",
+    H: "M0,0V200M100,0V200M0,100H100", I: "M0,0V200", J: "M100,0V146C100,182 82,200 52,200C20,200 2,182 0,150", K: "M0,0V200M100,0L0,126M36,92L100,200",
+    L: "M0,0V200H96", M: "M0,200V0L55,124L110,0V200", N: "M0,200V0L100,200V0", O: OG, P: "M0,200V0H52C86,0 100,20 100,54C100,88 86,108 52,108H0",
+    Q: OG + "M58,148L106,210", R: "M0,200V0H52C86,0 100,20 100,52C100,84 86,104 52,104H0M54,104L100,200",
+    S: "M98,40C96,12 78,0 50,0C20,0 2,16 2,50C2,82 24,92 50,100C78,108 98,118 98,150C98,184 80,200 50,200C20,200 2,188 0,158",
+    T: "M0,0H100M50,0V200", U: "M0,0V140C0,176 14,200 50,200C86,200 100,176 100,140V0", V: "M0,0L50,200L100,0", W: "M0,0L26,200L60,64L94,200L120,0",
+    X: "M0,0L100,200M100,0L0,200", Y: "M0,0L50,104L100,0M50,104V200", Z: "M0,0H100L0,200H100",
+    0: "M50,0C12,0 4,30 4,70V130C4,170 12,200 50,200C88,200 96,170 96,130V70C96,30 88,0 50,0Z", 1: "M0,36L40,0V200",
+    2: "M2,52C4,18 24,0 52,0C82,0 98,20 98,52C98,94 62,124 0,200H100",
+    3: "M4,40C10,12 28,0 52,0C82,0 96,20 96,50C96,80 78,96 46,96C82,96 100,116 100,148C100,182 80,200 50,200C20,200 4,184 0,156",
+    4: "M76,200V0L0,140H100", 5: "M94,0H12L4,92C18,80 32,76 52,76C84,76 100,100 100,136C100,176 80,200 50,200C22,200 4,186 0,160",
+    6: "M92,30C84,8 68,0 50,0C14,0 0,34 0,100V140C0,176 16,200 50,200C84,200 100,176 100,140V132C100,98 84,78 52,78C24,78 6,96 0,116",
+    7: "M0,0H100L36,200", 8: "M50,96C20,96 6,80 6,50C6,18 22,0 50,0C78,0 94,18 94,50C94,80 80,96 50,96C16,96 0,116 0,148C0,182 18,200 50,200C82,200 100,182 100,148C100,116 84,96 50,96Z",
+    9: "M8,170C16,192 32,200 50,200C86,200 100,166 100,100V60C100,24 84,0 50,0C16,0 0,24 0,60V68C0,102 16,122 48,122C76,122 94,104 100,84",
+    "-": "M0,110H70", ".": "M0,184V200" };
+  const GW = { I: 0, 1: 40, M: 110, W: 120, "-": 70, ".": 0 }, ADV = 44, SPACE = 70;
+  // ghost word from data: D.ghost || D.series, plain capitals, at most ~14 characters
+  let gWord = String(D.ghost || D.series || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase()
+    .replace(/[^A-Z0-9 .\-]+/g, " ").replace(/\s+/g, " ").trim();
+  if (gWord.length > 14) { const cut = gWord.slice(0, 15).lastIndexOf(" "); gWord = (cut >= 4 ? gWord.slice(0, cut) : gWord.slice(0, 14)).trim(); }
+  const glyphRow = word => {
+    let x = 0; const out = [];
+    for (const ch of word) {
+      if (ch === " ") { x += SPACE; continue; }
+      if (!G[ch]) continue;                              // missing glyph: skip, never break
+      out.push(`<path transform="translate(${x},0)" d="${G[ch]}"/>`);
+      x += (GW[ch] != null ? GW[ch] : 100) + ADV;
+    }
+    return { paths: out.join(""), w: Math.max(1, x - ADV) };
+  };
+  const ghost = glyphRow(gWord);
+  const gs = Math.min(812 / (ghost.w + 30), ghostH / 200);
+  const gox = 540 - ghost.w * gs / 2, goy = ghostTop + (ghostH - 200 * gs) / 2;
+  const letters = [...gWord].filter(c => G[c] && c !== "-" && c !== ".");
+
+  // ---------- windows (items): flakes where the new coat fell off ----------
+  const OFF = [72, 0, 40, 14, 56];                          // only the LEFT edge staggers; right edge = x 900
+  const R = 900;
+  const rows = document.getElementById("rows");
+  const wins = [];
+  items.forEach((it, i) => {
+    const el = document.createElement("div");
+    el.className = "win";
+    el.innerHTML = '<span class="lb">' + esc(it.label) + '</span><span class="ld"></span><span class="vl">' + esc(it.value) + "</span>";
+    rows.appendChild(el);
+    const lb = el.querySelector(".lb"), vl = el.querySelector(".vl");
+    const natural = () => lb.offsetWidth + vl.offsetWidth + 32 + 60 + 28;
+    for (let f = 40; f >= 30 && natural() > 780; f -= 2) lb.style.fontSize = f + "px";
+    for (let f = 46; f >= 34 && natural() > 780; f -= 2) vl.style.fontSize = f + "px";
+    const need = Math.max(520, natural() + 110);
+    const L = Math.max(120, Math.min(120 + OFF[i], R - need));
+    const T = Math.round(itemsTop + i * (rowH + GAP));
+    el.style.cssText = `left:${L}px;top:${T}px;width:${R - L}px;height:${rowH}px`;
+    wins.push({ L, T, B: T + rowH, lbR: L + 30 + lb.offsetWidth, vlL: R - 30 - vl.offsetWidth });
+  });
+
+  // jagged flake outline: height varies ~15 px, 1-2 deep bites into the margins, never into the text band
+  const flake = (w, i) => {
+    const { L, T, B } = w, mid = (T + B) / 2, tTop = mid - 27, tBot = mid + 27, s = 31 + i * 17;
+    const pts = []; let k = 0;
+    const base = (x, ph) => 6 * Math.sin((x - L) / 97 + ph) + 3 * Math.sin((x - L) / 41 + ph * 1.7);
+    const biteTopX = L + 70 + hsh(s, 90) * (R - L - 180), biteBotX = L + 90 + hsh(s, 91) * (R - L - 200);
+    const dTop = Math.min(30, tTop - 5 - T), dBot = Math.min(30, B - 5 - tBot);
+    // top edge, left -> right
+    for (let x = L + 4; x < R - 6;) {
+      if (i % 2 === 0 && dTop > 8 && x <= biteTopX && x + 60 > biteTopX) {
+        pts.push([x, T - 2 + base(x, s)], [biteTopX - 14, T + 2], [biteTopX - 3, T + dTop], [biteTopX + 7, T + dTop - 6], [biteTopX + 22, T + 1]);
+        x = biteTopX + 34; continue;
+      }
+      pts.push([x, T - 2 + base(x, s) + (hsh(s, k++) - 0.5) * 7]);
+      x += 20 + hsh(s, k++) * 36;
+    }
+    // right edge, top -> bottom (stays within 892-900 so the value column holds)
+    for (let y = T + 4; y < B - 4; y += 18 + hsh(s, k++) * 14) pts.push([R - hsh(s, k++) * 8, y]);
+    // bottom edge, right -> left; odd rows lose their bottom-left corner (a diagonal chunk below the text band)
+    const cut = i % 2 ? Math.min(34, B - tBot - 2) : 0;
+    for (let x = R - 6; x > L + (cut > 8 ? 48 : 6);) {
+      if ((i % 2 === 1 || n < 4) && dBot > 8 && x >= biteBotX && x - 60 < biteBotX) {
+        pts.push([x, B + 2 - base(x, s + 2)], [biteBotX + 16, B - 1], [biteBotX + 4, B - dBot], [biteBotX - 8, B - dBot + 7], [biteBotX - 22, B]);
+        x = biteBotX - 34; continue;
+      }
+      pts.push([x, B + 2 - base(x, s + 2) + (hsh(s + 5, k++) - 0.5) * 7]);
+      x -= 20 + hsh(s + 5, k++) * 36;
+    }
+    // left edge, bottom -> top
+    if (cut > 8) pts.push([L + 40, B + 1], [L + 22, B - cut * 0.35], [L + 6, B - cut]);
+    for (let y = B - 4 - (cut > 8 ? cut : 0); y > T + 4; y -= 16 + hsh(s, k++) * 12) pts.push([L + hsh(s + 9, k++) * 10, y]);
+    return P(pts);
+  };
+
+  // ---------- caption (karaoke) ----------
+  const capText = String(D.caption || D.sub || "");
+  const words = capText.split(/\s+/).filter(Boolean);
+  const normW = s => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+  const hlW = hl.split(/\s+/).map(normW).filter(Boolean);
+  let a0 = -1, a1 = -1;
+  if (hlW.length) for (let i = 0; i + hlW.length <= words.length; i++) {
+    if (hlW.every((h, j) => normW(words[i + j]) === h)) { a0 = i; a1 = i + hlW.length - 1; break; }
+  }
+  if (a0 < 0 && words.length) { a0 = 0; a1 = 0; }
+  const parts = [];
+  for (let i = 0; i < words.length; i++) {
+    if (i === a0) { parts.push('<span class="w on">' + esc(words.slice(a0, a1 + 1).join(" ")) + "</span>"); i = a1; }
+    else parts.push('<span class="w">' + esc(words[i]) + "</span>");
+  }
+  const cap = document.getElementById("cap");
+  cap.innerHTML = parts.join(" ");
+  for (let f = 46; f >= 40; f -= 2) { cap.style.fontSize = f + "px"; if (cap.offsetHeight <= f * 1.24 * 2 + 2) break; }
+
+  // ---------- SVG wall ----------
+  const svg = [];
+  svg.push(`<defs>
+    <pattern id="jw" patternUnits="userSpaceOnUse" width="124" height="92"><g fill="${OX}" fill-opacity="0.2">
+      <rect x="0" y="40" width="124" height="6"/><rect x="0" y="86" width="124" height="6"/><rect x="118" y="0" width="6" height="40"/><rect x="56" y="46" width="6" height="40"/></g></pattern>
+    <filter id="erode" filterUnits="userSpaceOnUse" x="0" y="0" width="1080" height="1920" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.11 0.2" numOctaves="2" seed="11" result="nz"/>
+      <feColorMatrix in="nz" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  14 0 0 0 -5.0" result="m"/>
+      <feComposite in="SourceGraphic" in2="m" operator="in"/></filter>
+    <filter id="erode2" filterUnits="userSpaceOnUse" x="0" y="0" width="1080" height="1920" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.12 0.22" numOctaves="2" seed="27" result="nz"/>
+      <feColorMatrix in="nz" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  14 0 0 0 -4.6" result="m"/>
+      <feComposite in="SourceGraphic" in2="m" operator="in"/></filter>
+    <filter id="chalk" filterUnits="userSpaceOnUse" x="0" y="0" width="1080" height="1920" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.045 0.006" numOctaves="3" seed="4" result="nz"/>
+      <feColorMatrix in="nz" type="matrix" values="0 0 0 0 0.96  0 0 0 0 0.91  0 0 0 0 0.77  1.1 0 0 0 -0.42"/>
+      <feComposite in2="SourceGraphic" operator="in"/></filter>
+    <filter id="patchy" filterUnits="userSpaceOnUse" x="0" y="0" width="1080" height="1920" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.07 0.018" numOctaves="3" seed="19" result="nz0"/>
+      <feColorMatrix in="nz0" type="matrix" values="1 0 0 0 0  1 0 0 0 0  1 0 0 0 0  0 0 0 0 1" result="nz"/>
+      <feColorMatrix in="SourceGraphic" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0 1" result="sg"/>
+      <feComposite in="sg" in2="nz" operator="arithmetic" k1="0" k2="1" k3="-1" k4="0.5" result="d"/>
+      <feColorMatrix in="d" type="matrix" values="24 0 0 0 -12  24 0 0 0 -12  24 0 0 0 -12  0 0 0 0 1" result="t"/>
+      <feComposite in="t" in2="SourceAlpha" operator="in"/></filter>
+    <filter id="brush" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.006 0.05" numOctaves="2" seed="8" result="nz"/>
+      <feColorMatrix in="nz" type="matrix" values="0 0 0 0 0.36  0 0 0 0 0.16  0 0 0 0 0.13  0.30 0 0 0 -0.12"/>
+      <feComposite in2="SourceGraphic" operator="in"/></filter>
+    <linearGradient id="rake" x1="0" y1="0" x2="1" y2="0.25">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.10"/><stop offset="0.55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.10"/></linearGradient>
+  </defs>`);
+
+  // bricks: running bond, 118x40 bricks, 6px joints, tones by hash
+  const TONES = ["#8E3B2A", "#863727", "#94412E", "#7F3324", "#9B4832", "#8A3A2B", "#A0503A", "#7A3123", "#8E3B2A", "#913E2C"];
+  svg.push(`<rect x="0" y="0" width="1080" height="1920" fill="${OX}"/>`);
+  const br = [];
+  for (let r = 0; r < 42; r++) {
+    const y = r * 46, off = r % 2 ? -62 : 0;
+    for (let c = 0; c < 10; c++) {
+      const bx = off + c * 124, x = Math.max(0, bx), bw = Math.min(1080, bx + 118) - x, tone = TONES[Math.floor(hsh(r + 1, c + 1) * TONES.length)];
+      if (bw <= 0) continue;
+      br.push(`<rect x="${x}" y="${y}" width="${bw}" height="40" fill="${tone}"/><rect x="${x}" y="${y + 35}" width="${bw}" height="5" fill="#000" fill-opacity="0.10"/><rect x="${x}" y="${y}" width="${bw}" height="2" fill="#FFE2C8" fill-opacity="0.07"/>`);
+    }
+  }
+  svg.push(br.join(""));
+
+  // gable: sky above the pitched edge, coping along it, two S-shaped tie anchors
+  svg.push(`<path d="M0,0H1080V262L540,54L0,262Z" fill="${NAVY}"/>`);
+  svg.push(`<path d="M-20,270L540,58L1100,270" fill="none" stroke="${OX}" stroke-width="28" stroke-linejoin="miter"/>`);
+  svg.push(`<path d="M-20,256L540,44L1100,256" fill="none" stroke="#E9DCC2" stroke-opacity="0.18" stroke-width="3"/>`);
+  const anchor = (cx, cy) => `<g transform="translate(${cx},${cy})"><path d="M-14,-34 C-34,-30 -30,-6 -8,-4 C14,-2 34,8 18,30 C10,40 -6,36 -10,28" fill="none" stroke="#1B2129" stroke-width="10" stroke-linecap="round"/><circle r="9" fill="#1B2129"/><circle r="3" fill="#E9DCC2" fill-opacity="0.25"/></g>`;
+  svg.push(anchor(214, 230), anchor(866, 230));
+
+  // the old ochre sign, hidden under the coat (seen only where paint is lost), with its old navy border
+  svg.push(`<rect x="${OLD.x0}" y="${OLD.y0}" width="${OLD.x1 - OLD.x0}" height="${OLD.y1 - OLD.y0}" fill="${OCHRE}"/>
+    <rect x="${OLD.x0}" y="${OLD.y0}" width="${OLD.x1 - OLD.x0}" height="${OLD.y1 - OLD.y0}" fill="${OCHRE}" filter="url(#chalk)"/>
+    <rect x="${OLD.x0}" y="${OLD.y0}" width="${OLD.x1 - OLD.x0}" height="${OLD.y1 - OLD.y0}" fill="url(#jw)"/>
+    <rect x="${OLD.x0 + 20}" y="${OLD.y0 + 20}" width="${OLD.x1 - OLD.x0 - 40}" height="${OLD.y1 - OLD.y0 - 40}" fill="none" stroke="${NAVY}" stroke-width="6"/>`);
+
+  // the new coat, edge to edge: brushed top edge, splash-worn bottom edge
+  const edge = []; let k = 0;
+  for (let x = -10; x <= 1090; x += 34) edge.push([x, COAT_T + (hsh(91, k++) - 0.5) * 6]);
+  edge.push([1090, COAT_B]);
+  for (let x = 1090; x >= -10; x -= 26) edge.push([x, COAT_B - hsh(93, k++) * 12]);
+  const coatD = P(edge);
+  // vertical paint-loss streaks (rain washed down from the coping): ragged bands where the coat is
+  // gone at the top and thins out further down (mask gradient black -> white), never pointed like drips
+  const streak = (cx, y0, len, w0, sd) => {
+    const l = [], r = []; let j = 0;
+    for (let y = 0; y <= len; y += 18) {
+      const w = w0 * (1 - 0.35 * y / len) + (hsh(sd, j++) - 0.5) * 6;
+      l.push([cx - w / 2 + (hsh(sd, j++) - 0.5) * 5, y0 + y]); r.push([cx + w / 2 + (hsh(sd, j++) - 0.5) * 5, y0 + y]);
+    }
+    return P(l.concat(r.reverse()));
+  };
+  const tb = Math.round(titleBottom + 20);
+  const streaks = [streak(15, COAT_T - 6, 640, 28, 1), streak(62, COAT_T - 6, 330, 20, 2), streak(72, 860, 380, 14, 3),
+    streak(1062, COAT_T - 6, 780, 34, 4), streak(1012, COAT_T - 6, 380, 20, 5), streak(984, tb, 460, 12, 6)];
+  // small chips in the coat
+  const chipD = (cx, cy, rr, sd) => {
+    const p = []; for (let j = 0; j < 9; j++) { const a = j / 9 * Math.PI * 2, q = rr * (0.6 + hsh(sd, j) * 0.55); p.push([cx + Math.cos(a) * q * 1.3, cy + Math.sin(a) * q]); }
+    return P(p);
+  };
+  const chips = [chipD(44, 1260, 11, 5), chipD(1010, 560, 10, 6), chipD(986, Math.round(sigTop - 30), 11, 8), chipD(70, 368, 9, 9)];
+  svg.push(`<defs><linearGradient id="wash" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000"/><stop offset="0.12" stop-color="#262626"/><stop offset="1" stop-color="#fff"/></linearGradient>
+    <mask id="coatM" maskUnits="userSpaceOnUse" x="0" y="0" width="1080" height="1920"><path d="${coatD}" fill="#fff"/>
+    <g fill="url(#wash)" filter="url(#patchy)">${streaks.map(d => `<path d="${d}"/>`).join("")}</g><g fill="#000">${chips.map(d => `<path d="${d}"/>`).join("")}</g></mask></defs>`);
+  svg.push(`<g mask="url(#coatM)"><path d="${coatD}" fill="${CREAM}"/><path d="${coatD}" fill="${CREAM}" filter="url(#brush)"/></g>`);
+  svg.push(`<g fill="none" stroke="${OX}" stroke-opacity="0.3" stroke-width="1.4">${chips.map(d => `<path d="${d}"/>`).join("")}</g>`);
+
+  // ghost: the old sign's one-stroke capitals bleeding through the coat, crisp and flat, ochre shade offset 7 px
+  svg.push(`<g filter="url(#erode)">
+    <g opacity="0.42"><g transform="translate(${(gox + 7).toFixed(1)},${(goy + 7).toFixed(1)}) scale(${gs.toFixed(4)})" fill="none" stroke="${OCHRE}" stroke-width="30" stroke-linejoin="miter" stroke-miterlimit="2">${ghost.paths}</g></g>
+    <g opacity="0.24"><g transform="translate(${gox.toFixed(1)},${goy.toFixed(1)}) scale(${gs.toFixed(4)})" fill="none" stroke="${NAVY}" stroke-width="30" stroke-linejoin="miter" stroke-miterlimit="2">${ghost.paths}</g></g>
+  </g>`);
+
+  // flakes: ochre old sign, chalky fade, joints, a cropped fragment of the old navy lettering, hard shadow, cream lip
+  const fl = ["<defs>"];
+  const fds = wins.map((w, i) => flake(w, i));
+  fds.forEach((d, i) => fl.push(`<clipPath id="fc${i}"><path d="${d}"/></clipPath>`));
+  fl.push("</defs>");
+  wins.forEach((w, i) => {
+    const d = fds[i];
+    let frag = "";
+    const x0 = w.lbR + 22, x1 = w.vlL - 22, room = x1 - x0;
+    if (room >= 60 && letters.length) {
+      const ch = letters[i % letters.length], gw = (GW[ch] != null ? GW[ch] : 100) + 30;
+      const fs = Math.min(rowH * 2.3 / 200, room / gw);
+      const gwp = (GW[ch] != null ? GW[ch] : 100) * fs, fh = 200 * fs;
+      const fx = x0 + 15 * fs + (room - gwp - 30 * fs) * (0.15 + 0.7 * hsh(i + 5, 41));
+      const fy = i % 2 === 0 ? w.T - fh * 0.55 : w.B - fh * 0.45;
+      frag = `<g filter="url(#erode2)"><g opacity="0.44"><path transform="translate(${fx.toFixed(1)},${fy.toFixed(1)}) scale(${fs.toFixed(4)})" d="${G[ch]}" fill="none" stroke="${NAVY}" stroke-width="30" stroke-linejoin="miter" stroke-miterlimit="2"/></g></g>`;
+    }
+    fl.push(`<g clip-path="url(#fc${i})">
+      <rect x="${w.L - 20}" y="${w.T - 30}" width="${R - w.L + 40}" height="${rowH + 60}" fill="${OCHRE}"/>
+      <rect x="${w.L - 20}" y="${w.T - 30}" width="${R - w.L + 40}" height="${rowH + 60}" fill="${OCHRE}" filter="url(#chalk)"/>
+      <rect x="${w.L - 20}" y="${w.T - 30}" width="${R - w.L + 40}" height="${rowH + 60}" fill="url(#jw)"/>
+      ${frag}
+      <path d="${d}" transform="translate(5,6)" fill="none" stroke="${NAVY}" stroke-opacity="0.36" stroke-width="12"/>
+      <path d="${d}" transform="translate(-3,-4)" fill="none" stroke="#F7EFDA" stroke-width="8"/>
+    </g>
+    <path d="${d}" fill="none" stroke="${OX}" stroke-opacity="0.55" stroke-width="1.6"/>`);
+  });
+  svg.push(fl.join(""));
+
+  // plinth: string course, painted shop fascia (caption lettered on it), roll shutter below
+  svg.push(`<rect x="0" y="${PLINTH - 12}" width="1080" height="16" fill="${OX}"/><rect x="0" y="${PLINTH - 12}" width="1080" height="3" fill="#E9DCC2" fill-opacity="0.22"/>`);
+  svg.push(`<rect x="0" y="${PLINTH + 4}" width="1080" height="${1650 - PLINTH - 4}" fill="${NAVY}"/>`);
+  svg.push(`<rect x="0" y="1638" width="1080" height="4" fill="${OCHRE}" fill-opacity="0.8"/><rect x="0" y="1642" width="1080" height="10" fill="#141B22"/>`);
+  const sl = [];
+  for (let y = 1664; y < 1920; y += 20) sl.push(`<rect x="0" y="${y}" width="1080" height="3" fill="#000" fill-opacity="0.16"/><rect x="0" y="${y + 3}" width="1080" height="2" fill="#E9DCC2" fill-opacity="0.15"/>`);
+  svg.push(`<rect x="0" y="1652" width="1080" height="268" fill="#33414D"/>` + sl.join(""));
+  document.getElementById("wall").innerHTML = svg.join("");
+
+  // ---------- relief over everything painted on the wall: mortar joints run through the title and the flakes ----------
+  const rl = [];
+  rl.push(`<defs><pattern id="rel" patternUnits="userSpaceOnUse" width="124" height="92">
+      <g fill="#2A120C" fill-opacity="0.09"><rect x="0" y="40" width="124" height="5"/><rect x="0" y="86" width="124" height="5"/><rect x="118" y="0" width="5" height="40"/><rect x="56" y="46" width="5" height="40"/></g>
+      <g fill="#FFF6E2" fill-opacity="0.2"><rect x="0" y="45" width="124" height="2"/><rect x="0" y="91" width="124" height="1"/><rect x="0" y="0" width="124" height="1"/><rect x="123" y="0" width="1" height="40"/><rect x="61" y="46" width="2" height="40"/></g>
+    </pattern><clipPath id="coatC"><path d="${coatD}"/></clipPath></defs>`);
+  const faces = [];
+  for (let r = 7; r < 33; r++) {
+    const y = r * 46, off = r % 2 ? -62 : 0;
+    for (let c = 0; c < 10; c++) {
+      const bx = off + c * 124, h = hsh(r + 3, c + 7);
+      if (h > 0.62) faces.push(`<rect x="${bx}" y="${y}" width="118" height="40" fill="#000" fill-opacity="${(0.015 + (h - 0.62) * 0.07).toFixed(3)}"/>`);
+      else if (h < 0.3) faces.push(`<rect x="${bx}" y="${y}" width="118" height="40" fill="#fff" fill-opacity="${(0.02 + (0.3 - h) * 0.08).toFixed(3)}"/>`);
+    }
+  }
+  rl.push(`<g clip-path="url(#coatC)">${faces.join("")}<rect x="0" y="${COAT_T - 10}" width="1080" height="${COAT_B - COAT_T + 20}" fill="url(#rel)"/></g>`);
+
+  // the chip still half lifted at row 1: hinged on the flake's left edge, folded out over the coat,
+  // free edge rolled up; its hard shadow grows with the lift; ochre old paint stuck to its underside
+  if (wins.length) {
+    const w = wins[0], h = w.B - w.T, cw = Math.max(64, Math.min(112, w.L - 34)), hx = w.L + 3, y0 = w.T + h * 0.06, y1 = w.B - h * 0.1;
+    const free = [[hx - cw * 0.25, y0 - 8], [hx - cw * 0.5, y0 - 4], [hx - cw * 0.62, y0 - 11], [hx - cw * 0.86, y0 + h * 0.06], [hx - cw, y0 + h * 0.3],
+      [hx - cw * 0.9, y0 + h * 0.42], [hx - cw * 0.97, y0 + h * 0.64], [hx - cw * 0.72, y1 + 8], [hx - cw * 0.5, y1 + 2], [hx - cw * 0.26, y1 + 7], [hx - cw * 0.1, y1 + 1]];
+    const pts = [[hx, y0]].concat(free, [[hx, y1]]);
+    const cd = P(pts), sh = P(pts.map(p => { const f = (hx - p[0]) / cw; return [p[0] + 3 + f * 13, p[1] + 5 + f * 15]; }));
+    const rim = "M" + free.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join("L");
+    const res = (cx, cy, rr, sd) => { const p = []; for (let j = 0; j < 6; j++) { const a = j / 6 * Math.PI * 2 + sd, q = rr * (0.55 + hsh(sd, j) * 0.6); p.push([cx + Math.cos(a) * q * 1.4, cy + Math.sin(a) * q]); } return P(p); };
+    rl.push(`<defs><linearGradient id="lift" x1="${hx}" y1="0" x2="${hx - cw}" y2="0" gradientUnits="userSpaceOnUse">
+        <stop offset="0" stop-color="#B3A586"/><stop offset="0.18" stop-color="#CFC2A3"/><stop offset="0.75" stop-color="#EEE5CE"/><stop offset="1" stop-color="#E2D7BB"/></linearGradient>
+        <clipPath id="cc"><path d="${cd}"/></clipPath></defs>
+      <path d="${sh}" fill="${NAVY}" fill-opacity="0.38"/>
+      <path d="${cd}" fill="url(#lift)"/>
+      <g clip-path="url(#cc)"><path d="${res(hx - cw * 0.5, y0 + h * 0.36, 9, 3)}" fill="${OCHRE}" fill-opacity="0.75"/><path d="${res(hx - cw * 0.3, y0 + h * 0.66, 6, 5)}" fill="${OCHRE}" fill-opacity="0.65"/>
+        <path d="${res(hx - cw * 0.74, y0 + h * 0.58, 5, 7)}" fill="${OCHRE}" fill-opacity="0.6"/></g>
+      <path d="${rim}" fill="none" stroke="#FCF7E8" stroke-width="5" stroke-linejoin="miter" stroke-miterlimit="3"/>
+      <path d="M${(hx - cw * 0.62).toFixed(1)},${(y0 - 11).toFixed(1)}L${(hx - cw * 0.55).toFixed(1)},${(y0 + h * 0.18).toFixed(1)}L${(hx - cw * 0.64).toFixed(1)},${(y0 + h * 0.32).toFixed(1)}" fill="none" stroke="${OX}" stroke-opacity="0.45" stroke-width="1.4"/>
+      <path d="${cd}" fill="none" stroke="${OX}" stroke-opacity="0.65" stroke-width="1.3"/>
+      <path d="M${hx},${y0}L${hx},${y1}" stroke="${OX}" stroke-opacity="0.5" stroke-width="2"/>`);
+  }
+  // soft raking light across the wall above the plinth
+  rl.push(`<rect x="0" y="0" width="1080" height="${PLINTH - 12}" fill="url(#rake)"/>`);
+  document.getElementById("relief").innerHTML = rl.join("");
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Gloock&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Batik Resist: a batik tulis workbench seen from above. Mori cotton is lashed
+    into a wooden stretcher; a coconut-shell ladle has poured indigo over it and
+    the wet front (soga-brown tide line, drips) is still running down. Whatever
+    was waxed first stays undyed: the title itself (cream letters with dye
+    crackle and a rough wax edge), the maker's cap mark, the border band and one
+    lobed wax medallion per item (= one rule / guardrail), outlined with canting
+    cecek dots. The highlight is fresh malam wax (amber). Raw mori below the
+    front holds the voice-over caption. Two-bath palette: indigo + soga brown.
+    Metaphor: the system prompt / guardrails are waxed before any dye (user
+    request) arrives, so they stay protected however much is poured.
+    Deterministic: fixed sines, hard-coded vein lists, feTurbulence with fixed seeds.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #3A2418; }
+  body { position: relative; font-family: "Plus Jakarta Sans", sans-serif; color: #F1E6CF; }
+  #scene { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  .fx { position: absolute; width: 0; height: 0; }
+
+  /* maker's cap mark (kicker), centred, letters waxed like the title */
+  .kick { position: absolute; left: 90px; width: 810px; top: 302px; text-align: center; filter: url(#waxEdgeS); }
+  #kcap { display: inline-block; padding: 8px 30px 7px; font: 700 28px "Plus Jakarta Sans", sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: #F1E6CF; line-height: 1.2; white-space: nowrap; }
+  #kcap b { color: #D99A3E; font-weight: 800; }
+
+  /* title = the biggest waxed (resisted) area: cream cloth, rough wax edge, dye crackle clipped to the letters */
+  #tw { position: absolute; left: 90px; width: 810px; filter: url(#waxEdge); }
+  .title { font-family: "Gloock", serif; font-weight: 400; line-height: 1.04; color: #F1E6CF; letter-spacing: -0.005em; text-align: center; text-wrap: balance; }
+  .title .hl { color: #C98A2E; -webkit-text-stroke: 0.05em #5A3112; paint-order: stroke fill; }
+  .title.veins { position: absolute; left: 0; top: 0; width: 100%; color: #6B3E1F; -webkit-mask-size: 100% 100%; mask-size: 100% 100%; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; }
+  .title.veins .hl { visibility: hidden; }
+  .sym { font-family: "Plus Jakarta Sans", sans-serif; font-weight: 700; font-size: 0.9em; }
+
+  .mtx { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .mtx .orn { display: block; margin-bottom: 8px; }
+  .mtx .lb { font: 600 34px "Plus Jakarta Sans", sans-serif; line-height: 1.16; color: #3A2418; max-width: 100%; }
+  .mtx .vl { font-family: "Gloock", serif; font-size: 64px; line-height: 1.06; color: #1F2F5C; white-space: nowrap; margin-top: 4px; }
+
+  .cap { position: absolute; left: 90px; width: 810px; font: 600 44px "Plus Jakarta Sans", sans-serif; line-height: 1.32; color: #6E4420; }
+  .cap .w.done { color: #3A2418; }
+  .cap .w.on { color: #F1E6CF; background: #1F2F5C; border-radius: 10px; padding: 0 0.16em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+
+  .meta { position: absolute; left: 90px; width: 810px; font: 500 26px "Plus Jakarta Sans", sans-serif; line-height: 1.3; color: #3A2418; }
+  .meta b { font-weight: 700; }
+</style>
+</head>
+<body>
+<svg class="fx" aria-hidden="true">
+  <filter id="waxEdge" x="-4%" y="-8%" width="108%" height="116%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="2" seed="7" result="n"/>
+    <feDisplacementMap in="SourceGraphic" in2="n" scale="3" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+  <filter id="waxEdgeS" x="-4%" y="-20%" width="108%" height="140%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.07" numOctaves="2" seed="5" result="n"/>
+    <feDisplacementMap in="SourceGraphic" in2="n" scale="2" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+</svg>
+<svg id="scene" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+<div class="kick" id="kick"><span id="kcap"></span></div>
+<div id="tw"><div class="title" id="title"></div><div class="title veins" id="titleV" aria-hidden="true" data-layout-ignore></div></div>
+<div id="mtx"></div>
+<div class="cap" id="cap" data-slot="caption"></div>
+<div class="meta" id="meta"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  // Measure only after the web fonts are in.
+  Promise.all(['400 100px "Gloock"', '600 34px "Plus Jakarta Sans"', '700 28px "Plus Jakarta Sans"', '800 28px "Plus Jakarta Sans"', '500 26px "Plus Jakarta Sans"', '600 44px "Plus Jakarta Sans"']
+    .map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  // Gloock's maths glyphs are tiny: set them in the (bold) sans inside serif text.
+  const escS = s => esc(s).replace(/[=±×÷+≈]/g, c => '<span class="sym">' + c + "</span>");
+  const INDIGO = "#1F2F5C", DEEP = "#141E40", MORI = "#F1E6CF";
+  const MALAM = "#C98A2E", MALAM_D = "#5A3112";       // fresh wax (amber) + its darker rim
+  const SOGA = "#6B3E1F", SOGA_D = "#3E2412", VEIN = "#563015", BENCH = "#3A2418";
+  const WOOD = "#8B5A2B", WOOD_D = "#5C3A22", WOOD_L = "#A9743E";
+  const $ = id => document.getElementById(id);
+  const f1 = v => (Math.round(v * 10) / 10).toString();
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+
+  // Cloth (inside the wooden stretcher).
+  const CL = 62, CR = 1018, CT = 284, CB = 1636;
+
+  // ---------- maker's cap mark (kicker) ----------
+  const ep = String(D.ep || "").trim();
+  $("kcap").innerHTML = (ep ? "<b>Kain " + esc(ep) + "</b> · " : "") + esc(D.series || D.kicker || "");
+  { const k = $("kcap"); for (let fs = 28; fs >= 26 && k.offsetWidth > 760; fs--) k.style.fontSize = fs + "px"; }
+  const kr = $("kcap").getBoundingClientRect();
+
+  // ---------- title (waxed letters) ----------
+  const t = String(D.title || ""), hl = String(D.hl || "");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const tHtml = at < 0 ? escS(t) : escS(t.slice(0, at)) + '<span class="hl">' + escS(t.slice(at, at + hl.length)) + '<i class="hlb" style="display:inline-block;width:0;height:0;vertical-align:baseline"></i></span>' + escS(t.slice(at + hl.length));
+  const titleEl = $("title"), veinEl = $("titleV"), tw = $("tw");
+  titleEl.innerHTML = tHtml; veinEl.innerHTML = tHtml;
+  const TT = Math.round(kr.bottom + 30);
+  tw.style.top = TT + "px";
+  let TFS = 128;
+  for (; TFS >= 72; TFS -= 2) { titleEl.style.fontSize = veinEl.style.fontSize = TFS + "px"; if (titleEl.offsetHeight <= 312 && titleEl.scrollWidth <= 812) break; }
+  const titleBottom = TT + titleEl.offsetHeight;
+
+  // ---------- bottom block (bottom-up): meta, caption, dye front ----------
+  const meta = $("meta");
+  meta.innerHTML = (D.source ? "<b>Sumber:</b> " + esc(D.source) : "") + (D.date ? '<span style="white-space:nowrap">' + (D.source ? " · " : "") + esc(D.date) + "</span>" : "");
+  const metaTop = 1620 - meta.offsetHeight;
+  meta.style.top = metaTop + "px";
+
+  // Caption: karaoke voice-over line; active word = D.hl if it appears, else the first word.
+  const cap = $("cap");
+  const ct = String(D.caption || D.sub || "");
+  const words = [], re = /\S+/g; let m;
+  while ((m = re.exec(ct))) words.push({ s: m.index, e: m.index + m[0].length, w: m[0] });
+  const hAt = hl ? ct.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  let a0 = 0, a1 = 0;
+  if (hAt >= 0) { a0 = words.findIndex(w => w.e > hAt); a1 = a0; while (a1 + 1 < words.length && words[a1 + 1].s < hAt + hl.length) a1++; }
+  const capHtmlFor = (lo, hi) => {
+    let h = lo > 0 ? "… " : "";
+    for (let i = lo; i <= hi; i++) {
+      if (i === a0) { h += '<span class="w on">' + esc(ct.slice(words[a0].s, words[a1].e)) + "</span>"; i = a1; }
+      else h += '<span class="w' + (i < a0 ? " done" : "") + '">' + esc(words[i].w) + "</span>";
+      if (i < hi) h += " ";
+    }
+    return h + (hi < words.length - 1 ? " …" : "");
+  };
+  cap.innerHTML = words.length ? capHtmlFor(0, words.length - 1) : "";
+  let capFs = 46;
+  for (; capFs >= 40; capFs -= 2) { cap.style.fontSize = capFs + "px"; if (cap.offsetHeight <= capFs * 1.32 * 2 + 2) break; }
+  if (capFs < 40) {
+    // Karaoke shows the current phrase: trim words away from the active one until it fits 2 lines.
+    capFs = 40; cap.style.fontSize = "40px";
+    let lo = 0, hi = words.length - 1;
+    while (cap.offsetHeight > 40 * 1.32 * 2 + 2 && hi - lo > a1 - a0) {
+      if (hi - a1 >= a0 - lo) hi--; else lo++;
+      cap.innerHTML = capHtmlFor(lo, hi);
+    }
+  }
+  const capTop = metaTop - 18 - cap.offsetHeight;
+  cap.style.top = capTop + "px";
+
+  const FY = capTop - 76;                   // dye front base line
+  const GT = titleBottom + 46, GB = FY - 50; // band for the waxed medallions
+
+  // ---------- medallion layout: a staggered (zig-zag) run, as the canting laid them ----------
+  const GX0 = 98, GX1 = 900, GAPX = 42, GAPV = 34, HALO = 12;
+  const boxes = [];
+  let stag = null;
+  if (n <= 1) {
+    const h = Math.min(300, GB - GT);
+    boxes.push({ x: 245, y: GT + (GB - GT - h) / 2, w: 500, h, i: 0 });
+  } else {
+    const W = (GX1 - GX0 - GAPX) / 2;
+    let h = (2 * (GB - GT) - (n - 1) * GAPV) / (n + 1);
+    h = Math.min(h, 300);
+    const s = (h + GAPV) / 2;
+    const T = (n - 1) * s + h;
+    const y0 = GT + Math.max(0, (GB - GT - T) / 2);
+    for (let k = 0; k < n; k++) boxes.push({ x: k % 2 ? GX0 + W + GAPX : GX0, y: y0 + k * s, w: W, h, i: k });
+    stag = { W, h, s, y0, T };
+  }
+
+  // Lobed wax silhouette: a rounded cushion walked by arc length, pushed INWARD by
+  // uneven lobes (fixed length list) and a fixed hand wobble, so it stays inside its box.
+  const LOBES = [84, 72, 90, 76, 80, 94, 70, 86, 78, 92, 74, 82];
+  function lobed(b) {
+    const { x, y, w, h, i } = b;
+    const R = Math.min(w, h) * 0.3;
+    const sw = w - 2 * R, sh = h - 2 * R, arc = Math.PI * R / 2;
+    const legs = [sw, arc, sh, arc, sw, arc, sh, arc];
+    const P = 2 * (sw + sh) + 4 * arc;
+    const base = d => {
+      let k = 0; while (k < 7 && d > legs[k]) { d -= legs[k]; k++; }
+      const corner = (cx, cy, a0) => { const a = a0 + d / R; return [cx + R * Math.cos(a), cy + R * Math.sin(a), Math.cos(a), Math.sin(a)]; };
+      switch (k) {
+        case 0: return [x + R + d, y, 0, -1];
+        case 1: return corner(x + w - R, y + R, -Math.PI / 2);
+        case 2: return [x + w, y + R + d, 1, 0];
+        case 3: return corner(x + w - R, y + h - R, 0);
+        case 4: return [x + w - R - d, y + h, 0, 1];
+        case 5: return corner(x + R, y + h - R, Math.PI / 2);
+        case 6: return [x, y + h - R - d, -1, 0];
+        default: return corner(x + R, y + R, Math.PI);
+      }
+    };
+    // lobe boundaries (scaled so they close exactly)
+    const ll = []; let acc = 0, k = (i * 5) % LOBES.length;
+    while (acc < P) { const L = LOBES[k % LOBES.length] * clamp(h / 230, 0.7, 1.1); ll.push(L); acc += L; k++; }
+    const sc = P / acc; let st = 0; const starts = ll.map(L => { const s0 = st; st += L * sc; return [s0, L * sc]; });
+    const A = clamp(h * 0.045, 6, 10), Wb = clamp(h * 0.05, 7, 12);
+    const pts = []; let li = 0;
+    for (let d = 0; d < P; d += 3) {
+      while (li < starts.length - 1 && d >= starts[li][0] + starts[li][1]) li++;
+      const v = (d - starts[li][0]) / starts[li][1];
+      const [px, py, nx, ny] = base(d);
+      const ph = 2 * Math.PI * d / P;
+      const wob = Wb * (1 + 0.6 * Math.sin(3 * ph + 0.9 * i + 0.4) + 0.4 * Math.sin(5 * ph + 1.7 * i + 2.1)) / 2;
+      const o = A * (1 - Math.pow(Math.sin(Math.PI * v), 0.75)) + wob;
+      pts.push([px - nx * o, py - ny * o, nx, ny]);
+    }
+    return pts;
+  }
+  const shapes = boxes.map(lobed);
+  const pathOf = pts => "M" + pts.map(p => f1(p[0]) + "," + f1(p[1])).join("L") + "Z";
+
+  // Generic 8-petal flower (line art).
+  const flower8 = (cx, cy, r, stroke, sw) => {
+    let d = "";
+    for (let k = 0; k < 8; k++) {
+      const a = k * Math.PI / 4, a1 = a - 0.32, a2 = a + 0.32;
+      const ix = cx + r * 0.32 * Math.cos(a), iy = cy + r * 0.32 * Math.sin(a);
+      const tx = cx + r * Math.cos(a), ty = cy + r * Math.sin(a);
+      const c1x = cx + r * 0.95 * Math.cos(a1), c1y = cy + r * 0.95 * Math.sin(a1);
+      const c2x = cx + r * 0.95 * Math.cos(a2), c2y = cy + r * 0.95 * Math.sin(a2);
+      d += `M${f1(ix)},${f1(iy)}Q${f1(c1x)},${f1(c1y)} ${f1(tx)},${f1(ty)}Q${f1(c2x)},${f1(c2y)} ${f1(ix)},${f1(iy)}Z`;
+    }
+    return `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${sw}" stroke-linejoin="round"/><circle cx="${f1(cx)}" cy="${f1(cy)}" r="${f1(r * 0.2)}" fill="none" stroke="${stroke}" stroke-width="${sw}"/><circle cx="${f1(cx)}" cy="${f1(cy)}" r="${f1(r * 0.07)}" fill="${stroke}"/>`;
+  };
+
+  // ---------- item text, fitted INSIDE each lobed silhouette ----------
+  const mtx = $("mtx");
+  mtx.innerHTML = boxes.map((b, i) => {
+    const it = items[i] || {};
+    const orn = b.h >= 240 ? `<svg class="orn" width="66" height="66" viewBox="0 0 66 66">${flower8(33, 33, 30, INDIGO, 2.4)}</svg>` : "";
+    const px = 40;
+    return `<div class="mtx" id="m${i}" style="left:${f1(b.x + px)}px;top:${f1(b.y)}px;width:${f1(b.w - 2 * px)}px;height:${f1(b.h)}px">${orn}<div class="lb">${esc(it.label)}</div><div class="vl">${escS(it.value)}</div></div>`;
+  }).join("");
+  const unionOf = els => {
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (const el of els) {
+      if (!el || el.style.display === "none") continue;
+      const rs = el.tagName.toLowerCase() === "svg" ? [el.getBoundingClientRect()] : (() => { const r = document.createRange(); r.selectNodeContents(el); return [...r.getClientRects()]; })();
+      for (const r of rs) { if (r.width < 1) continue; x0 = Math.min(x0, r.left); y0 = Math.min(y0, r.top); x1 = Math.max(x1, r.right); y1 = Math.max(y1, r.bottom); }
+    }
+    return { x0, y0, x1, y1 };
+  };
+  // Collision test: no wax edge point (incl. the ~8 px dye bleed) may come within PAD of the text block.
+  const PAD = 20;
+  // Every medallion gets the same type sizes (largest that fits them all); flowers only if all keep one.
+  const M = boxes.map((b, i) => {
+    const box = $("m" + i), pts = shapes[i];
+    const lb = box.querySelector(".lb"), vl = box.querySelector(".vl"), orn = box.querySelector(".orn");
+    const fits = () => {
+      if (vl.scrollWidth > box.clientWidth + 1) return false;
+      const u = unionOf([lb, vl, orn]);
+      return !pts.some(p => p[0] > u.x0 - PAD && p[0] < u.x1 + PAD && p[1] > u.y0 - PAD && p[1] < u.y1 + PAD);
+    };
+    if (orn) orn.style.display = "none";
+    return { box, lb, vl, orn, fits, vMax: b.h >= 250 ? 66 : b.h >= 200 ? 60 : 54 };
+  });
+  const setSizes = (vfs, lfs) => M.forEach(o => { o.vl.style.fontSize = Math.min(vfs, o.vMax) + "px"; o.lb.style.fontSize = lfs + "px"; });
+  const allFit = () => M.every(o => o.fits());
+  let fitted = false;
+  for (let vfs = 66; vfs >= 40 && !fitted; vfs -= 2)
+    for (const lfs of [34, 32, 30]) { setSizes(vfs, lfs); if (allFit()) { fitted = true; break; } }
+  if (!fitted) {
+    // beyond the contract (labels > 16 chars): the offending labels keep one line, ellipsised
+    setSizes(40, 30);
+    M.forEach(o => { if (!o.fits()) Object.assign(o.lb.style, { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }); });
+    for (let vfs = 66; vfs >= 40; vfs -= 2) { setSizes(vfs, 30); if (allFit()) break; }
+  }
+  if (M.length && M.every(o => o.orn)) {
+    M.forEach(o => { o.orn.style.display = ""; });
+    if (!allFit()) M.forEach(o => { o.orn.style.display = "none"; });
+  }
+  const textRects = M.map(o => {
+    const u = unionOf([o.lb, o.vl, o.orn]);
+    return { x: u.x0 - 12, y: u.y0 - 10, w: u.x1 - u.x0 + 24, h: u.y1 - u.y0 + 20 };
+  });
+  const partRects = M.map(o => [o.lb, o.vl, o.orn].filter(el => el && el.style.display !== "none").map(el => unionOf([el])));
+
+  // ---------- SVG scene ----------
+  const svg = [];
+  const P = s => svg.push(s);
+  P(`<defs>
+    <pattern id="weave" width="6" height="6" patternUnits="userSpaceOnUse"><path d="M0 .5H6M.5 0V6" stroke="#DCCDAE" stroke-width="1"/></pattern>
+    <pattern id="weaveD" width="6" height="6" patternUnits="userSpaceOnUse"><path d="M0 .5H6M.5 0V6" stroke="#121B3A" stroke-width="1" opacity=".35"/></pattern>
+    <filter id="mottle" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.03 0.0045" numOctaves="3" seed="11" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.07  0 0 0 0 0.11  0 0 0 0 0.25  1.6 0 0 0 -0.62"/>
+    </filter>
+    <filter id="mottleIn" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.03 0.0045" numOctaves="3" seed="11" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.07  0 0 0 0 0.11  0 0 0 0 0.25  1.6 0 0 0 -0.62" result="c"/>
+      <feComposite in="c" in2="SourceGraphic" operator="in"/>
+    </filter>
+    <filter id="mottleL" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.02 0.006" numOctaves="2" seed="4" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.20  0 0 0 0 0.29  0 0 0 0 0.52  1.5 0 0 0 -0.66"/>
+    </filter>
+    <filter id="soft" x="-10%" y="-50%" width="120%" height="200%"><feGaussianBlur stdDeviation="7"/></filter>
+    <filter id="wetEdge" x="-10%" y="-100%" width="120%" height="300%"><feGaussianBlur stdDeviation="13"/></filter>
+    <filter id="feather" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="1.6"/></filter>
+    <filter id="maskSoft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="5"/></filter>
+    <filter id="grainW" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.004 0.09" numOctaves="2" seed="3" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.16  0 0 0 0 0.09  0 0 0 0 0.05  1.2 0 0 0 -0.5"/>
+    </filter>
+    <linearGradient id="sogaFade" x1="0" y1="${FY - 360}" x2="0" y2="${FY}" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${SOGA}" stop-opacity="0"/><stop offset="1" stop-color="${SOGA}" stop-opacity=".26"/></linearGradient>
+    <clipPath id="clothClip"><rect x="${CL}" y="${CT}" width="${CR - CL}" height="${CB - CT}"/></clipPath>`);
+
+  // Dye front: wavy base + drip fingers (fixed sines and fixed drips).
+  const DRIPS = [{ x: 134, L: 30, s: 8, r: 8 }, { x: 300, L: 44, s: 10, r: 9.5 }, { x: 468, L: 20, s: 7, r: 7 },
+                 { x: 652, L: 38, s: 9, r: 9 }, { x: 838, L: 26, s: 8, r: 8 }, { x: 966, L: 40, s: 9, r: 9 }];
+  const wave = x => 6 * Math.sin(x / 57 + 0.3) + 4 * Math.sin(x / 23 + 1.7) + 3 * Math.sin(x / 131 + 2.2);
+  const frontY = x => FY + wave(x) + DRIPS.reduce((acc, d) => acc + d.L * Math.exp(-(((x - d.x) / d.s) ** 2)), 0);
+  const fp = [];
+  for (let x = CR; x >= CL; x -= 3) fp.push([x, frontY(x)]);
+  fp.push([CL, frontY(CL)]);
+  const frontLine = "M" + fp.map(p => f1(p[0]) + "," + f1(p[1])).join("L");
+  const dyeD = `M${CL},${CT}L${CR},${CT}L` + fp.map(p => f1(p[0]) + "," + f1(p[1])).join("L") + "Z";
+  P(`<clipPath id="dyeClip"><path d="${dyeD}"/>${DRIPS.map(d => `<circle cx="${d.x}" cy="${f1(frontY(d.x) - 2)}" r="${d.r}"/>`).join("")}</clipPath>`);
+  shapes.forEach((pts, i) => {
+    const tr = textRects[i];
+    P(`<clipPath id="mc${i}"><path d="${pathOf(pts)}"/></clipPath>
+       <mask id="mm${i}" maskUnits="userSpaceOnUse" x="0" y="0" width="1080" height="1920"><rect width="1080" height="1920" fill="#fff"/><rect x="${f1(tr.x)}" y="${f1(tr.y)}" width="${f1(tr.w)}" height="${f1(tr.h)}" rx="16" fill="#000" filter="url(#maskSoft)"/></mask>`);
+  });
+  P(`</defs>`);
+
+  // Bench.
+  P(`<rect width="1080" height="1920" fill="${BENCH}"/>`);
+  P(`<rect width="1080" height="1920" filter="url(#grainW)" opacity=".9"/>`);
+
+  // Cloth: raw mori + a faint weave (kept light so the caption band does not read as graph paper).
+  P(`<g clip-path="url(#clothClip)">`);
+  P(`<rect x="${CL}" y="${CT}" width="${CR - CL}" height="${CB - CT}" fill="${MORI}"/>`);
+  P(`<rect x="${CL}" y="${CT}" width="${CR - CL}" height="${CB - CT}" fill="url(#weave)" opacity=".25"/>`);
+  // Wax already laid on the raw part (faint, glossy): the border band continues.
+  P(`<rect x="922" y="${CT}" width="80" height="${CB - CT}" fill="#E9D3A2" opacity=".5"/>`);
+  P(`<path d="M67 ${CT}V${CB}M75 ${CT}V${CB}" stroke="#E2C894" stroke-width="3" opacity=".6"/>`);
+  // Wet halo just below the front: soga wicking into the cotton.
+  P(`<path d="${frontLine}" fill="none" stroke="#B98B5E" stroke-width="24" opacity=".32" filter="url(#soft)" transform="translate(0 9)"/>`);
+  // Dye region (indigo bath, soga second bath gathering at the wet edge).
+  P(`<g clip-path="url(#dyeClip)">
+      <rect x="${CL}" y="${CT}" width="${CR - CL}" height="${CB - CT}" fill="${INDIGO}"/>
+      <rect x="${CL}" y="${CT}" width="${CR - CL}" height="${CB - CT}" filter="url(#mottleL)" opacity=".55"/>
+      <rect x="${CL}" y="${CT}" width="${CR - CL}" height="${CB - CT}" filter="url(#mottle)" opacity=".75"/>
+      <rect x="${CL}" y="${CT}" width="${CR - CL}" height="${CB - CT}" fill="url(#weaveD)"/>
+      <rect x="${CL}" y="${FY - 360}" width="${CR - CL}" height="420" fill="url(#sogaFade)"/>
+      <path d="${frontLine}" fill="none" stroke="${SOGA}" stroke-width="56" opacity=".85" filter="url(#wetEdge)" transform="translate(0 -6)"/>`);
+
+  // ---- waxed elements (cream where the dye surrounds them) ----
+  // Left double wax line.
+  P(`<path d="M67 ${CT}V${CB}M75 ${CT}V${CB}" stroke="${MORI}" stroke-width="3"/>`);
+  // Right border band (pinggiran): waxed strip with a dyed running vine, leaves and cecek dots.
+  {
+    P(`<rect x="922" y="${CT}" width="80" height="${CB - CT}" fill="${MORI}"/>`);
+    let vine = "", leaves = "", dots = "";
+    for (let y = CT; y <= CB; y += 4) vine += (y === CT ? "M" : "L") + f1(962 + 15 * Math.sin((y - CT) / 34)) + "," + y;
+    for (let k = 0; ; k++) {
+      const y = CT + 34 * (Math.PI / 2 + k * Math.PI);      // vine peaks alternate right / left
+      if (y > CB) break;
+      const side = k % 2 ? -1 : 1, px = 962 + 15 * side;     // leaf grows from the peak back across the band
+      leaves += `M${f1(px)},${f1(y)}Q${f1(px - 8 * side)},${f1(y - 20)} ${f1(px - 24 * side)},${f1(y - 22)}Q${f1(px - 18 * side)},${f1(y - 6)} ${f1(px)},${f1(y)}Z`;
+      dots += `<circle cx="${f1(962 - 17 * side)}" cy="${f1(y + 16)}" r="3.6"/>`;
+    }
+    P(`<path d="M930 ${CT}V${CB}M994 ${CT}V${CB}" stroke="${INDIGO}" stroke-width="2.4"/>
+       <path d="${vine}" fill="none" stroke="${INDIGO}" stroke-width="3.2"/>
+       <path d="${leaves}" fill="${INDIGO}"/><g fill="${INDIGO}">${dots}</g>`);
+  }
+
+  // Maker's cap mark outline: a pointed cartouche traced in wax, with a cecek triplet at each point.
+  {
+    const x0 = kr.left - 8, x1 = kr.right + 8, y0 = kr.top - 4, y1 = kr.bottom + 4, cy = (y0 + y1) / 2, tip = 22;
+    const poly = [[x0 + tip, y0], [x1 - tip, y0], [x1, cy], [x1 - tip, y1], [x0 + tip, y1], [x0, cy], [x0 + tip, y0]];
+    let d = "", q = 0;
+    for (let k = 0; k < poly.length - 1; k++) {
+      const [ax, ay] = poly[k], [bx, by] = poly[k + 1], L = Math.hypot(bx - ax, by - ay), steps = Math.max(2, Math.round(L / 10));
+      for (let j = 0; j <= steps; j++, q++) {
+        const u = j / steps, wx = ax + (bx - ax) * u, wy = ay + (by - ay) * u + 1.3 * Math.sin(q / 3.1) + 0.7 * Math.sin(q / 1.7);
+        d += (d ? "L" : "M") + f1(wx) + "," + f1(wy);
+      }
+    }
+    P(`<path d="${d}" fill="none" stroke="${MORI}" stroke-width="3.2" stroke-linejoin="round"/>`);
+    P(`<g fill="${MORI}">` + [[x0 - 14, cy, -1], [x1 + 14, cy, 1]].map(([cx, cyy, sx]) =>
+      `<circle cx="${f1(cx)}" cy="${f1(cyy)}" r="4"/><circle cx="${f1(cx + 11 * sx)}" cy="${f1(cyy - 8)}" r="3"/><circle cx="${f1(cx + 11 * sx)}" cy="${f1(cyy + 8)}" r="3"/>`).join("") + `</g>`);
+  }
+
+  // Crackle veins (unit coordinates; mirrored per medallion). Trunks run near the ends, branches reach in.
+  const TRUNKS = [
+    [[0, .18], [.06, .26], [.09, .4], [.16, .47], [.19, .62], [.15, .74], [.2, .88], [.24, 1]],
+    [[.78, 0], [.82, .12], [.8, .26], [.88, .36], [.9, .52], [.97, .6], [1, .72]],
+    [[.36, 1], [.42, .9], [.5, .94], [.56, .86]]
+  ];
+  const BRANCH = [
+    [[.09, .4], [0, .46]], [[.16, .47], [.26, .42], [.3, .3]], [[.19, .62], [.28, .66], [.32, .78]], [[.15, .74], [.05, .8], [0, .78]],
+    [[.06, .26], [.1, .12], [.07, 0]], [[.82, .12], [.72, .18], [.68, .08], [.66, 0]], [[.88, .36], [.8, .44], [.82, .56], [.76, .64]],
+    [[.9, .52], [1, .48]], [[.97, .6], [.92, .74], [.96, .86], [.9, 1]], [[.5, .94], [.52, 1]], [[.42, .9], [.36, .82]], [[.24, 0], [.28, .1], [.38, .07], [.42, 0]],
+    [[.26, .42], [.24, .3], [.16, .26]], [[.8, .26], [.7, .3], [.66, .24]], [[.2, .88], [.3, .9], [.32, 1]], [[.92, .74], [.84, .78], [.82, .9]]
+  ];
+
+  boxes.forEach((b, i) => {
+    const pts = shapes[i], shape = pathOf(pts), tr = textRects[i];
+    // cecek halo: canting dots traced just outside the wax edge, evenly spaced along it
+    let halo = "", acc = 0, last = null;
+    for (let k = 0; k < pts.length; k++) {
+      const p = pts[k], q = pts[(k + 1) % pts.length];
+      acc += Math.hypot(q[0] - p[0], q[1] - p[1]);
+      if (acc < 17) continue;
+      acc = 0;
+      const dx = p[0] + p[2] * HALO, dy = p[1] + p[3] * HALO;
+      if (last && Math.hypot(dx - last[0], dy - last[1]) < 11) continue;
+      last = [dx, dy];
+      halo += `<circle cx="${f1(dx)}" cy="${f1(dy)}" r="${k % 2 ? 2.8 : 3.4}"/>`;
+    }
+    P(`<g fill="${MORI}">${halo}</g>`);
+    P(`<path d="${shape}" fill="${MORI}"/>`);
+    // dye bleeding a few px under the wax edge: the cloth resisted, it is not a sticker
+    P(`<g clip-path="url(#mc${i})"><path d="${shape}" fill="none" stroke="${INDIGO}" stroke-width="10" opacity=".55" filter="url(#feather)"/></g>`);
+    const mx = i % 2 === 1, my = i % 3 === 2;
+    const map = line => "M" + line.map(([u, v]) => f1(b.x + (mx ? 1 - u : u) * b.w) + "," + f1(b.y + (my ? 1 - v : v) * b.h)).join("L");
+    P(`<g clip-path="url(#mc${i})" mask="url(#mm${i})" fill="none" stroke="${VEIN}" stroke-linejoin="round" stroke-linecap="round" opacity=".7">
+         <path d="${TRUNKS.map(map).join("")}" stroke-width="3.4"/><path d="${BRANCH.map(map).join("")}" stroke-width="2.1"/></g>`);
+    if (i === 0) {
+      // dye beads that landed on the wax and could not soak in; placed where they clear the text
+      // dye beads that landed on the wax and could not soak in: first spot that sits fully on the wax, clear of the text
+      const cluster = (sx, sy) => [[sx, sy, 7], [sx - 12 * Math.sign(sx - b.w / 2), sy + 16, 4.6], [sx + 6 * Math.sign(sx - b.w / 2), sy + 24, 3.4]];
+      const onWax = ([dx, dy, r]) => { const cx = b.x + dx, cy = b.y + dy, m = r + 8;
+        return partRects[i].every(u => cx > u.x1 + m || cx < u.x0 - m || cy > u.y1 + m || cy < u.y0 - m) && pts.every(p => Math.hypot(p[0] - cx, p[1] - cy) > r + 12); };
+      const spots = [[b.w * 0.82, b.h * 0.17], [b.w * 0.18, b.h * 0.17], [b.w * 0.86, b.h * 0.5], [b.w * 0.14, b.h * 0.5], [b.w * 0.82, b.h * 0.7], [b.w * 0.18, b.h * 0.7]];
+      const free = spots.find(([sx, sy]) => cluster(sx, sy).every(onWax));
+      const beads = free ? cluster(free[0], free[1]) : [];
+      P(beads.map(([dx, dy, r]) => { const cx = b.x + dx, cy = b.y + dy;
+        return `<ellipse cx="${f1(cx + 1.5)}" cy="${f1(cy + 2.5)}" rx="${f1(r * 1.05)}" ry="${f1(r * 0.9)}" fill="#C9BFA8" opacity=".7"/><ellipse cx="${f1(cx)}" cy="${f1(cy)}" rx="${f1(r * 1.05)}" ry="${f1(r * 0.92)}" fill="${INDIGO}"/><circle cx="${f1(cx - r * 0.35)}" cy="${f1(cy - r * 0.35)}" r="${f1(r * 0.3)}" fill="#BCC8E6"/>`; }).join(""));
+    }
+  });
+
+  // Waxed flowers fill the two empty corners the zig-zag leaves (top-right, and the bottom of the shorter column).
+  if (stag) {
+    const { W, h, s, y0 } = stag, RX = GX0 + W + GAPX;
+    const lastCol = (n - 1) % 2;
+    const zones = [{ x: RX, y: y0, hh: s - GAPV / 2 - HALO }];
+    const otherBottom = y0 + (n - 2) * s + h;
+    zones.push({ x: lastCol ? GX0 : RX, y: otherBottom + HALO + GAPV / 2, hh: y0 + (n - 1) * s + h - otherBottom - HALO - GAPV / 2 });
+    zones.forEach(z => {
+      if (z.hh < 50) return;
+      const r = Math.min(46, z.hh / 2 - 4), cx = z.x + W / 2, cy = z.y + z.hh / 2;
+      P(flower8(cx, cy, r, MORI, 3.2));
+      P(`<g fill="${MORI}">` + [-1, 1].map(sx => [0, 1, 2].map(j => `<circle cx="${f1(cx + sx * (r + 26 + j * 16))}" cy="${f1(cy)}" r="${j === 1 ? 4 : 3}"/>`).join("")).join("") + `</g>`);
+    });
+  }
+  P(`</g>`); // end dye clip
+
+  // Front: soga tide line (dye concentrates at the wet edge) + drip beads.
+  P(`<path d="${frontLine}" fill="none" stroke="${SOGA_D}" stroke-width="5" stroke-linejoin="round"/>`);
+  P(DRIPS.map(d => `<circle cx="${d.x}" cy="${f1(frontY(d.x) - 2)}" r="${d.r}" fill="${SOGA_D}"/><circle cx="${d.x - d.r * 0.35}" cy="${f1(frontY(d.x) - 2 - d.r * 0.35)}" r="${f1(d.r * 0.28)}" fill="#B07A4E" opacity=".85"/>`).join(""));
+  P(`</g>`); // end cloth clip
+
+  // Wooden stretcher: bars, grain, pegs, and a few thick thread lashings.
+  const bar = (x, y, w, h, vert) => {
+    let g = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${WOOD}"/>`;
+    const L = vert ? h : w;
+    for (let k = 0; k < 3; k++) {
+      const off = (vert ? w : h) * (0.25 + k * 0.25);
+      let d = "";
+      for (let s = 0; s <= L; s += 24) {
+        const o = off + 2.2 * Math.sin(s / 90 + k * 2.1) + 1.2 * Math.sin(s / 31 + k);
+        d += (s ? "L" : "M") + (vert ? f1(x + o) + "," + f1(y + s) : f1(x + s) + "," + f1(y + o));
+      }
+      g += `<path d="${d}" fill="none" stroke="${WOOD_D}" stroke-width="${k === 1 ? 2.2 : 1.4}" opacity=".7"/>`;
+    }
+    g += vert ? `<rect x="${x}" y="${y}" width="4" height="${h}" fill="${WOOD_L}" opacity=".7"/>` : `<rect x="${x}" y="${y}" width="${w}" height="4" fill="${WOOD_L}" opacity=".7"/>`;
+    return g;
+  };
+  P(bar(0, 222, 1080, 42, false));
+  P(bar(0, 1656, 1080, 42, false));
+  P(bar(0, 190, 44, 1540, true));
+  P(bar(1036, 190, 44, 1540, true));
+  P([[22, 243], [1058, 243], [22, 1677], [1058, 1677]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="10" fill="${WOOD_D}"/><circle cx="${x - 3}" cy="${y - 3}" r="3.5" fill="${WOOD_L}"/>`).join(""));
+  {
+    // each lashing = three parallel cotton turns from the bar to the cloth hem
+    let th = "", sh = "";
+    const turn = (ax, ay, bx, by, ox, oy) => { for (let j = -1; j <= 1; j++) { th += `M${f1(ax + ox * j)},${f1(ay + oy * j)}L${f1(bx + ox * j)},${f1(by + oy * j)}`; sh += `M${f1(ax + ox * j + 1.5)},${f1(ay + oy * j + 2)}L${f1(bx + ox * j + 1.5)},${f1(by + oy * j + 2)}`; } };
+    for (let y = CT + 110; y < CB - 40; y += 150) { turn(36, y - 6, CL + 4, y + 4, 0, 6); turn(1044, y - 6, CR - 4, y + 4, 0, 6); }
+    for (let x = 160; x < 1000; x += 150) { turn(x - 6, 256, x + 4, CT + 4, 6, 0); turn(x - 6, 1664, x + 4, CB - 4, 6, 0); }
+    P(`<path d="${sh}" stroke="#2A1A10" stroke-width="3.4" opacity=".45" stroke-linecap="round"/><path d="${th}" stroke="#EADFC6" stroke-width="3.4" fill="none" stroke-linecap="round"/>`);
+  }
+
+  // The pour (top right, clear of the cap mark): coconut-shell ladle tipping indigo onto the cloth.
+  P(`<g data-layout-allow-overflow>
+      <path d="M856 150 C862 192 870 236 872 ${CT + 1} L900 ${CT + 1} C902 236 908 192 916 150 Z" fill="${INDIGO}"/>
+      <path d="M872 166 C877 206 882 246 884 ${CT - 4}" fill="none" stroke="#6E86C0" stroke-width="3" stroke-linecap="round" opacity=".85"/>
+      <ellipse cx="886" cy="${CT + 1}" rx="34" ry="7" fill="${INDIGO}"/>
+      <g fill="${INDIGO}"><circle cx="846" cy="268" r="4.6"/><circle cx="834" cy="254" r="3"/><circle cx="926" cy="266" r="4.6"/><circle cx="940" cy="250" r="3"/></g>
+      <path d="M960 66 L1100 18" stroke="${WOOD}" stroke-width="18" stroke-linecap="round"/>
+      <path d="M960 62 L1100 14" stroke="${WOOD_L}" stroke-width="4" stroke-linecap="round" opacity=".7"/>
+      <ellipse cx="872" cy="100" rx="118" ry="62" transform="rotate(-8 872 100)" fill="${WOOD_D}"/>
+      <ellipse cx="872" cy="95" rx="106" ry="52" transform="rotate(-8 872 95)" fill="${WOOD}"/>
+      <ellipse cx="872" cy="100" rx="94" ry="43" transform="rotate(-8 872 100)" fill="${INDIGO}"/>
+      <path d="M800 110 C824 138 890 150 942 132" fill="none" stroke="#4A63A3" stroke-width="5" stroke-linecap="round"/>
+      <path d="M822 82 C850 70 892 66 924 72" fill="none" stroke="${DEEP}" stroke-width="5" stroke-linecap="round" opacity=".6"/>
+    </g>`);
+
+  // Bench below: dye bath (clay basin) and a copper canting (bamboo handle, small bowl, thin spout) dripping malam.
+  P(`<g data-layout-allow-overflow>
+      <circle cx="150" cy="1990" r="262" fill="${WOOD_D}"/>
+      <circle cx="150" cy="1990" r="244" fill="${WOOD}"/>
+      <circle cx="150" cy="1990" r="222" fill="${INDIGO}"/>
+      <circle cx="150" cy="1990" r="222" fill="#000" filter="url(#mottleIn)" opacity=".7"/>
+      <ellipse cx="150" cy="1990" rx="160" ry="150" fill="none" stroke="#4A63A3" stroke-width="3" opacity=".55"/>
+      <ellipse cx="150" cy="1990" rx="96" ry="88" fill="none" stroke="#4A63A3" stroke-width="2.5" opacity=".4"/>
+      <path d="M8 1880 C60 1800 170 1776 262 1794" fill="none" stroke="#6E86C0" stroke-width="5" stroke-linecap="round" opacity=".7"/>
+    </g>`);
+  P(`<g>
+      <path d="M548 1900 L812 1784" stroke="#2A1A10" stroke-width="20" stroke-linecap="round" opacity=".5" transform="translate(4 6)"/>
+      <path d="M548 1900 L812 1784" stroke="#B88A4E" stroke-width="18" stroke-linecap="round"/>
+      <path d="M550 1894 L810 1779" stroke="#E2C38C" stroke-width="3" stroke-linecap="round" opacity=".6"/>
+      <path d="M640 1854 l6 14 M734 1813 l6 14" stroke="${WOOD_D}" stroke-width="4" stroke-linecap="round"/>
+      <path d="M806 1786 L836 1772" stroke="#8C4A22" stroke-width="12" stroke-linecap="round"/>
+      <path d="M836 1756 C836 1792 888 1798 894 1762 Z" fill="#A65A2A"/>
+      <path d="M842 1766 C850 1786 878 1788 886 1770" fill="none" stroke="#E0955A" stroke-width="3" stroke-linecap="round" opacity=".8"/>
+      <ellipse cx="865" cy="1758" rx="30" ry="11" fill="#7A3E1A"/>
+      <ellipse cx="865" cy="1758" rx="24" ry="7" fill="${MALAM}"/>
+      <ellipse cx="858" cy="1756" rx="8" ry="2.4" fill="#F0C47A" opacity=".8"/>
+      <path d="M880 1786 C896 1796 910 1806 922 1820" fill="none" stroke="#A65A2A" stroke-width="5" stroke-linecap="round"/>
+      <path d="M923 1828 C918 1838 918 1844 923 1848 C928 1844 928 1838 923 1828 Z" fill="${MALAM}"/>
+      <circle cx="958" cy="1874" r="6.5" fill="${MALAM}" opacity=".9"/><circle cx="982" cy="1850" r="4" fill="${MALAM}" opacity=".9"/>
+    </g>`);
+
+  // hl: a dotted canting line (cecek row) in malam under the highlighted words, ending in a wax bead.
+  const hlw = titleEl.querySelector(".hl");
+  if (hlw) {
+    const rects = [...hlw.getClientRects()].filter(r => r.width > 2);
+    const base = titleEl.querySelector(".hlb").getBoundingClientRect().top - rects[rects.length - 1].top;
+    const sp = Math.max(13, TFS * 0.12), rr = Math.max(4, TFS * 0.038);
+    let dots = "";
+    rects.forEach((r, k) => {
+      const yb = r.top + base + TFS * 0.13, x0 = r.left + 6, x1 = r.right - 6, cnt = Math.max(2, Math.round((x1 - x0) / sp));
+      for (let j = 0; j <= cnt; j++) {
+        const x = x0 + (x1 - x0) * j / cnt, y = yb + 2.2 * Math.sin(j * 1.3 + k);
+        dots += `<circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(j % 3 === 1 ? rr * 0.75 : rr)}"/>`;
+      }
+      if (k === rects.length - 1) {
+        const bx = x1 + sp * 0.9, by = yb + 3;
+        dots += `<circle cx="${f1(bx)}" cy="${f1(by)}" r="${f1(rr * 1.6)}"/><path d="M${f1(bx - rr * 0.9)},${f1(by + rr)} C${f1(bx - rr)},${f1(by + rr * 3)} ${f1(bx)},${f1(by + rr * 4)} ${f1(bx)},${f1(by + rr * 4.4)} C${f1(bx)},${f1(by + rr * 4)} ${f1(bx + rr)},${f1(by + rr * 3)} ${f1(bx + rr * 0.9)},${f1(by + rr)} Z"/>`;
+      }
+    });
+    P(`<g fill="${MALAM}" stroke="${MALAM_D}" stroke-width="1.6">${dots}</g>`);
+  }
+
+  // Title crackle: dye that crept into the cracked wax = a soga copy of the letters, masked down to the vein strokes.
+  {
+    const W = titleEl.offsetWidth, H = titleEl.offsetHeight, sw = Math.max(2.4, TFS * 0.028);
+    const V = [
+      [[0, .12], [.05, .3], [.03, .5], [.09, .66], [.06, .86], [.1, 1]],
+      [[.16, 0], [.21, .18], [.27, .26], [.33, .44], [.3, .6], [.37, .74], [.42, 1]],
+      [[.55, 0], [.52, .16], [.58, .3], [.56, .46], [.63, .58], [.6, .76], [.66, .9], [.64, 1]],
+      [[.8, 0], [.84, .2], [.79, .36], [.86, .52], [.83, .7], [.9, .84], [.94, 1]],
+      [[.27, .26], [.38, .22], [.46, .3], [.52, .16]], [[.63, .58], [.72, .62], [.79, .56]],
+      [[.09, .66], [.18, .62], [.22, .7]], [[.37, .74], [.47, .8], [.56, .76]]
+    ];
+    const d = V.map(l => "M" + l.map(([u, v]) => f1(u * W) + " " + f1(v * H)).join(" L")).join(" ");
+    const sv = `<svg xmlns='http://www.w3.org/2000/svg' width='${W}' height='${H}' viewBox='0 0 ${W} ${H}'><path d='${d}' fill='none' stroke='#000' stroke-width='${f1(sw)}' stroke-linejoin='round' stroke-linecap='round' opacity='.9'/></svg>`;
+    veinEl.style.webkitMaskImage = veinEl.style.maskImage = `url("data:image/svg+xml,${encodeURIComponent(sv)}")`;
+  }
+
+  $("scene").innerHTML = svg.join("\n");
+  }
+</script>
+</body>
+</html>

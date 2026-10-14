@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Plate Number</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;700;800&family=Saira+Semi+Condensed:wght@500;600&family=IBM+Plex+Mono:wght@500;600&family=Kalam:wght@700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Plate Number: stamped aluminium number plates (the 2022 Indonesian
+    format: black embossed characters on white, raised black rim, a small
+    expiry row under the number) bolted to two blue slotted steel uprights
+    on a charcoal block wall in a garage, lit by one tube light.
+    Metaphor: token IDs. A person writes the word on the wall in yellow
+    lumber crayon; the model never reads that word, only the plate the
+    word was issued.
+    Item -> one row: crayon word on the wall (label) -> short crayon arrow
+    -> plate whose embossed main row is the value; the plate's expiry row
+    is reused as the position index (01.04 = plate 1 of 4).
+    The title's highlight is stamped on its own small plate; the active
+    caption word sits on a small plate too: "a plate = what the AI reads".
+    3D: plates are real slabs (stacked edge layers) standing off the
+    uprights, uprights stand off the wall, the rack is seen at an angle,
+    everything casts a shadow on the wall.
+    Deterministic: fixed noise seeds, hard-coded tilts and wobbles.
+  */
+  :root { --wall: #121314; --ink: #0E0F11; --plate: #F3F4F2; --blue: #2F6FD6; --crayon: #C9A13B; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--wall); }
+  body { position: relative; color: var(--plate); font-family: "Saira Semi Condensed", sans-serif; }
+  #bg { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* meta: the series rides on an old-style black plate, the episode is stencilled beside it */
+  .top { position: absolute; left: 90px; right: 90px; top: 300px; height: 54px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+  .ser { display: inline-flex; align-items: center; height: 54px; padding: 0 22px; border-radius: 8px; background: var(--ink); white-space: nowrap;
+         box-shadow: inset 0 0 0 4px var(--ink), inset 0 0 0 6.5px #DADBD8, 0 2px 0 #34363A, 0 10px 16px rgba(0,0,0,.6);
+         font: 600 28px "IBM Plex Mono", monospace; letter-spacing: .1em; text-transform: uppercase; color: #F3F4F2; }
+  .ep { font: 600 28px "IBM Plex Mono", monospace; letter-spacing: .1em; color: #C4C6C2; white-space: nowrap; }
+  .ep b { color: var(--crayon); font-weight: 600; }
+
+  .title { position: absolute; left: 90px; width: 900px; top: 384px; font-family: "Saira Condensed", sans-serif; font-weight: 700;
+           text-transform: uppercase; line-height: 1.06; letter-spacing: .004em; color: #F3F4F2; text-wrap: pretty; }
+  .title .hl { position: relative; z-index: 0; isolation: isolate; display: inline-block; white-space: nowrap; margin: 0 .16em 0 .14em; color: var(--ink); }
+  .title .hl::before { content: ""; position: absolute; z-index: -1; left: -.15em; right: -.15em; top: .06em; bottom: .05em; border-radius: .075em;
+                       background: linear-gradient(176deg, #FCFCFB 0%, #F1F2F0 55%, #DFE1DE 100%);
+                       box-shadow: inset 0 0 0 .05em #ECEDEA, inset 0 0 0 .085em var(--ink), inset 0 .1em 0 rgba(255,255,255,.5),
+                                   0 .045em 0 #8C908F, 0 .06em 0 #5C6062, 0 .16em .16em rgba(0,0,0,.55); }
+
+  /* the rack, in 3D */
+  #stage { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; perspective: 2100px; perspective-origin: 540px 1000px; }
+  #rack { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; transform-style: preserve-3d; }
+  .wallshade { position: absolute; border-radius: 18px; background: rgba(0,0,0,.66); filter: blur(15px); }
+  .rail { position: absolute; width: 44px; transform-style: preserve-3d; }
+  .rail .lay { position: absolute; inset: 0; border-radius: 4px; background: #14306A; }
+  .rail .face { position: absolute; inset: 0; border-radius: 4px; overflow: hidden;
+                background: linear-gradient(90deg, #1B3F86 0%, #2F6FD6 20%, #4683E4 38%, #2F6FD6 62%, #2457B0 84%, #173675 100%); }
+  .rail .face::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(0,0,0,.28)); }
+  .rail .slot { position: absolute; left: 15px; width: 14px; height: 30px; border-radius: 7px 7px 4px 4px; background: #08090B;
+                box-shadow: inset 0 3px 3px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.18); }
+  .rail .foot { position: absolute; left: -7px; width: 58px; height: 14px; border-radius: 3px; background: linear-gradient(180deg, #4A4D51, #26282B); }
+  .plate { position: absolute; transform-style: preserve-3d; }
+  .plate .lay { position: absolute; inset: 0; border-radius: 15px; }
+  .plate .face { position: absolute; inset: 0; border-radius: 15px; overflow: hidden;
+                 background:
+                   linear-gradient(118deg, rgba(255,255,255,0) 30%, rgba(255,255,255,.55) 41%, rgba(255,255,255,0) 52%),
+                   repeating-linear-gradient(90deg, rgba(0,0,0,.016) 0 1px, rgba(255,255,255,0) 1px 4px),
+                   linear-gradient(174deg, #FDFDFC 0%, #F3F4F2 46%, #E1E3E0 100%);
+                 box-shadow: inset 0 2px 0 rgba(255,255,255,.95), inset 0 -4px 0 rgba(0,0,0,.13), inset 3px 0 0 rgba(255,255,255,.5); }
+  .plate .rim { position: absolute; inset: 11px; border-radius: 10px; border: 5px solid var(--ink);
+                box-shadow: 0 1.5px 0 rgba(255,255,255,.9), inset 0 1.5px 0 rgba(255,255,255,.75), 0 -1.5px 0 rgba(0,0,0,.22), inset 0 -1.5px 0 rgba(0,0,0,.2); }
+  .plate .num { position: absolute; left: 0; right: 0; text-align: center; white-space: nowrap; color: var(--ink);
+                font-family: "Saira Condensed", sans-serif; font-weight: 700; letter-spacing: .05em; line-height: 1;
+                text-shadow: -1px -1px 0 rgba(255,255,255,.95), 1px 2px 0 rgba(0,0,0,.26), 2px 4px 4px rgba(0,0,0,.2); }
+  .plate .num span { display: inline-block; }
+  .plate .rule { position: absolute; height: 4px; border-radius: 2px; background: var(--ink); box-shadow: 0 1.5px 0 rgba(255,255,255,.9), 0 -1px 0 rgba(0,0,0,.2); }
+  .plate .exp { position: absolute; left: 0; right: 0; text-align: center; white-space: nowrap; color: var(--ink);
+                font: 600 30px "IBM Plex Mono", monospace; letter-spacing: .08em; line-height: 1;
+                text-shadow: -1px -1px 0 rgba(255,255,255,.95), 1px 2px 1px rgba(0,0,0,.22); }
+  .plate .bolt { position: absolute; width: 32px; height: 32px; }
+
+  /* crayon on the wall: the human word */
+  .word { position: absolute; color: var(--crayon); font-family: "Kalam", cursive; font-weight: 700; line-height: 1.02; text-align: right; text-wrap: balance; filter: url(#crayon); }
+  #arrows { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; overflow: visible; }
+
+  /* caption: karaoke voice-over line; the active word is stamped on a small plate */
+  .cap { position: absolute; left: 90px; width: 810px; font: 500 46px/1.3 "Saira Semi Condensed", sans-serif; color: #D2D4D0; }
+  .cap .w { display: inline; }
+  .cap .on { white-space: nowrap; color: var(--ink); font-weight: 600; padding: 0 .18em; border-radius: 7px;
+             background: linear-gradient(176deg, #FCFCFB 0%, #F1F2F0 55%, #DFE1DE 100%);
+             box-shadow: inset 0 0 0 3px #ECEDEA, inset 0 0 0 5.5px var(--ink), 0 3px 0 #6E7272, 0 8px 12px rgba(0,0,0,.55); }
+
+  .meta { position: absolute; left: 90px; right: 90px; display: flex; justify-content: space-between; align-items: flex-end; gap: 36px;
+          font: 500 26px/1.3 "IBM Plex Mono", monospace; color: #AEB1AD; }
+  .meta span:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg id="bg" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <radialGradient id="pool" gradientUnits="userSpaceOnUse" cx="540" cy="190" r="1500" fx="540" fy="170">
+      <stop offset="0" stop-color="#34363A" />
+      <stop offset=".22" stop-color="#232427" />
+      <stop offset=".55" stop-color="#16171A" />
+      <stop offset="1" stop-color="#0A0B0C" />
+    </radialGradient>
+    <linearGradient id="sides" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#000" stop-opacity=".45" />
+      <stop offset=".18" stop-color="#000" stop-opacity="0" />
+      <stop offset=".82" stop-color="#000" stop-opacity="0" />
+      <stop offset="1" stop-color="#000" stop-opacity=".5" />
+    </linearGradient>
+    <filter id="grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="17" />
+      <feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.12 -0.04" />
+    </filter>
+    <filter id="mottle" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.0045 0.008" numOctaves="3" seed="23" />
+      <feColorMatrix type="matrix" values="0 0 0 0 0.6  0 0 0 0 0.61  0 0 0 0 0.63  0 0 0 0.13 -0.035" />
+    </filter>
+    <filter id="crayon" x="-4%" y="-8%" width="108%" height="116%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.95" numOctaves="1" seed="5" result="t" />
+      <feDisplacementMap in="SourceGraphic" in2="t" scale="2.6" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+    <filter id="crayonLine" x="-10%" y="-50%" width="120%" height="200%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.75" numOctaves="1" seed="9" result="t" />
+      <feDisplacementMap in="SourceGraphic" in2="t" scale="3" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+    <filter id="soft" x="-30%" y="-200%" width="160%" height="500%"><feGaussianBlur stdDeviation="22" /></filter>
+    <filter id="bloom" x="-10%" y="-150%" width="120%" height="400%"><feGaussianBlur stdDeviation="9" /></filter>
+    <linearGradient id="tube" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" /><stop offset=".55" stop-color="#EDEEEA" /><stop offset="1" stop-color="#B9BCBA" />
+    </linearGradient>
+    <linearGradient id="housing" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3A3C40" /><stop offset="1" stop-color="#1C1D20" />
+    </linearGradient>
+    <linearGradient id="benchTop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1A1B1E" /><stop offset="1" stop-color="#2A2C30" />
+    </linearGradient>
+    <linearGradient id="blank" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#BFC2C0" /><stop offset=".5" stop-color="#ECEDEA" /><stop offset="1" stop-color="#B3B6B4" />
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1920" fill="url(#pool)" />
+  <rect width="1080" height="1920" filter="url(#mottle)" />
+  <g id="joints"></g>
+  <rect width="1080" height="1920" fill="url(#sides)" />
+  <rect width="1080" height="1920" filter="url(#grain)" />
+
+  <!-- one tube light on the wall (decoration, top band) -->
+  <g>
+    <ellipse cx="540" cy="200" rx="360" ry="70" fill="#FFFFFF" opacity=".06" filter="url(#soft)" />
+    <rect x="262" y="146" width="556" height="30" rx="15" fill="#FFFFFF" opacity=".22" filter="url(#bloom)" />
+    <rect x="262" y="104" width="10" height="34" rx="2" fill="#2A2C30" />
+    <rect x="808" y="104" width="10" height="34" rx="2" fill="#2A2C30" />
+    <rect x="240" y="126" width="600" height="26" rx="6" fill="url(#housing)" />
+    <rect x="240" y="126" width="600" height="3" rx="1.5" fill="#55585D" />
+    <rect x="252" y="150" width="576" height="20" rx="10" fill="url(#tube)" />
+    <rect x="252" y="150" width="576" height="4" rx="2" fill="#FFFFFF" opacity=".8" />
+    <rect x="246" y="148" width="16" height="26" rx="4" fill="#2C2E32" />
+    <rect x="818" y="148" width="16" height="26" rx="4" fill="#2C2E32" />
+    <path d="M300 186 Q540 204 780 186" fill="none" stroke="#000" stroke-opacity=".35" stroke-width="10" filter="url(#soft)" />
+  </g>
+
+  <!-- workbench at the foot of the wall (decoration, bottom band) -->
+  <g>
+    <path d="M0 1716 L1080 1704 L1080 1772 L0 1786 Z" fill="url(#benchTop)" />
+    <path d="M0 1786 L1080 1772 L1080 1779 L0 1793 Z" fill="#55595E" />
+    <path d="M0 1793 L1080 1779 L1080 1920 L0 1920 Z" fill="#070808" />
+    <path d="M0 1716 L1080 1704" stroke="#000" stroke-opacity=".55" stroke-width="3" />
+    <!-- stack of blank, unstamped plates: numbers not issued yet -->
+    <ellipse cx="770" cy="1748" rx="200" ry="13" fill="#000" opacity=".6" />
+    <path d="M604 1724 L930 1717 L921 1731 L595 1738 Z" fill="url(#blank)" />
+    <path d="M595 1738 L921 1731 L921 1737 L595 1744 Z" fill="#7D8180" />
+    <path d="M598 1711 L924 1704 L915 1718 L589 1725 Z" fill="url(#blank)" />
+    <path d="M589 1725 L915 1718 L915 1724 L589 1731 Z" fill="#8E9291" />
+    <path d="M598 1712.5 L922 1705.5" stroke="#FFFFFF" stroke-width="1.2" opacity=".75" />
+    <path d="M612 1715 L908 1708.6 L901 1716.5 L605 1723 Z" fill="none" stroke="#0E0F11" stroke-width="2.4" opacity=".55" />
+    <!-- the yellow lumber crayon that wrote the words -->
+    <g transform="translate(232 1742) rotate(-7)">
+      <ellipse cx="96" cy="16" rx="128" ry="9" fill="#000" opacity=".55" />
+      <path d="M0 -9 L176 -9 L176 9 L0 9 Z" fill="#B48F31" />
+      <path d="M0 -9 L176 -9 L176 -2 L0 -2 Z" fill="#DDB654" />
+      <path d="M0 4 L176 4 L176 9 L0 9 Z" fill="#8A6B22" />
+      <path d="M176 -9 L206 -4 L210 1 L204 6 L176 9 Z" fill="#C9A13B" />
+      <path d="M176 -9 L206 -4 L176 -2 Z" fill="#E6C66A" />
+      <path d="M0 -9 L-4 -6 L-4 6 L0 9 Z" fill="#7A5E1E" />
+    </g>
+    <!-- two loose screws -->
+    <g transform="translate(470 1746)"><ellipse cx="2" cy="7" rx="15" ry="4.5" fill="#000" opacity=".55" /><ellipse cx="0" cy="0" rx="13" ry="7" fill="#9A9FA1" /><ellipse cx="0" cy="-1.5" rx="11" ry="5" fill="#C9CDCE" /><path d="M-6 -1.5 H6 M0 -4.5 V1.5" stroke="#4A4E50" stroke-width="2" /></g>
+    <g transform="translate(520 1758) rotate(12)"><rect x="-20" y="-4" width="40" height="8" rx="3" fill="#6E7274" /><rect x="-20" y="-4" width="40" height="3" rx="1.5" fill="#B6BABB" /><ellipse cx="-22" cy="0" rx="5" ry="8" fill="#A4A8A9" /></g>
+  </g>
+</svg>
+
+<div class="top"><span class="ser" id="ser"></span><span class="ep" id="ep"></span></div>
+<div class="title" id="title"></div>
+
+<div id="stage"><div id="rack"></div></div>
+<div id="words"></div>
+<svg id="arrows" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" data-layout-allow-overlap></svg>
+
+<div class="cap" id="cap" data-slot="caption"></div>
+<div class="meta" id="meta"><span id="src"></span><span id="date"></span></div>
+
+<script>
+  // Built-in sample so the file also opens on its own in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const FONTS = ['700 120px "Saira Condensed"', '500 46px "Saira Semi Condensed"', '600 46px "Saira Semi Condensed"',
+                 '600 30px "IBM Plex Mono"', '500 26px "IBM Plex Mono"', '700 50px Kalam'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render, render);
+
+  function render() {
+    const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const $ = id => document.getElementById(id);
+    const cx = document.createElement("canvas").getContext("2d");
+    // real glyph box of a string (for optical centring of plate characters)
+    function glyph(font, text) {
+      cx.font = font;
+      const m = cx.measureText(text), size = parseFloat(font.match(/(\d+(?:\.\d+)?)px/)[1]);
+      const fa = m.fontBoundingBoxAscent, fd = m.fontBoundingBoxDescent;
+      return { a: m.actualBoundingBoxAscent, d: Math.max(0, m.actualBoundingBoxDescent), base: (size - (fa + fd)) / 2 + fa };
+    }
+    const items = (D.items || []).slice(0, 5);
+    const n = Math.max(1, items.length);
+
+    // ---- wall: charcoal concrete block, running bond (joints catch the light from above) ----
+    let j = "";
+    for (let y = 40, r = 0; y < 1704; y += 200, r++) {
+      j += `<path d="M0 ${y}H1080" stroke="#060607" stroke-width="5" opacity=".6"/><path d="M0 ${y + 3.6}H1080" stroke="#3A3C40" stroke-width="1.4" opacity=".5"/>`;
+      for (let x = (r % 2 ? 0 : 200) - 400; x < 1080; x += 400) if (x > 0) j += `<path d="M${x} ${y}V${Math.min(1704, y + 200)}" stroke="#060607" stroke-width="5" opacity=".5"/><path d="M${x + 3.4} ${y + 3}V${Math.min(1704, y + 200)}" stroke="#34363A" stroke-width="1.2" opacity=".35"/>`;
+    }
+    $("joints").innerHTML = j;
+
+    // ---- meta ----
+    $("ser").textContent = D.series || D.kicker || "";
+    const epNo = String(D.ep || "").replace(/^#/, "");
+    $("ep").innerHTML = epNo ? "EP <b>#" + esc(epNo) + "</b>" : "";
+    $("src").textContent = D.source ? "Sumber: " + D.source : "";
+    $("date").textContent = D.date || "";
+
+    // ---- title: the highlight is stamped on its own small plate ----
+    const t = D.title || "", hl = D.hl || "";
+    const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    const titleEl = $("title");
+    titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+    for (let fs = 118; fs >= 76; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (titleEl.offsetHeight <= 262 && titleEl.scrollWidth <= 900) break; }
+    const titleBottom = titleEl.offsetTop + titleEl.offsetHeight;
+
+    // ---- meta row sits on the safe-zone floor; caption right above it ----
+    const meta = $("meta");
+    meta.style.top = (1620 - meta.offsetHeight) + "px";
+    const metaTop = 1620 - meta.offsetHeight;
+
+    // ---- caption: karaoke line, one active word (hl if it is in the line, else the first word) ----
+    const capText = D.caption || D.sub || "";
+    const capEl = $("cap");
+    const lc = capText.toLowerCase(), hi = hl ? lc.indexOf(hl.toLowerCase()) : -1;
+    const words = s => s.split(/\s+/).filter(Boolean).map(w => ({ w, on: false }));
+    let tok = [];
+    if (hi >= 0) tok = [...words(capText.slice(0, hi)), { w: capText.slice(hi, hi + hl.length).trim(), on: true }, ...words(capText.slice(hi + hl.length))];
+    else { tok = words(capText); if (tok.length) tok[0].on = true; }
+    const act = Math.max(0, tok.findIndex(x => x.on));
+    const capHTML = (a, b) => (a > 0 ? "… " : "") + tok.slice(a, b).map(x => `<span class="w${x.on ? " on" : ""}">${esc(x.w)}</span>`).join(" ") + (b < tok.length ? " …" : "");
+    let cs = 46;
+    const fits = () => capEl.offsetHeight <= Math.ceil(cs * 1.3 * 2) + 6;
+    capEl.innerHTML = capHTML(0, tok.length);
+    for (; cs >= 40; cs--) { capEl.style.fontSize = cs + "px"; if (fits()) break; }
+    if (cs < 40) {
+      // longer than two lines: show the stretch of the voice-over around the active word
+      cs = 44; capEl.style.fontSize = cs + "px";
+      let best = null;
+      for (let a = 0; a <= act && !best; a++) {
+        let b = act + 1;
+        capEl.innerHTML = capHTML(a, b);
+        if (!fits()) continue;
+        while (b < tok.length) { capEl.innerHTML = capHTML(a, b + 1); if (!fits()) break; b++; }
+        best = [a, b];
+      }
+      capEl.innerHTML = best ? capHTML(best[0], best[1]) : capHTML(act, act + 1);
+    }
+    const capTop = metaTop - 26 - capEl.offsetHeight;
+    capEl.style.top = capTop + "px";
+    if (!capText) capEl.style.display = "none";
+
+    // ---- rack geometry (flat coordinates; the rack is tilted in 3D afterwards) ----
+    const RAIL_OVER = 34;                                    // uprights run past the first/last plate
+    const bandTop = Math.max(640, titleBottom + 46 + RAIL_OVER), bandBot = (capText ? capTop : metaTop) - 38 - RAIL_OVER;
+    const gap = n >= 5 ? 18 : n === 4 ? 24 : 38;
+    // the crayon column needs room for each word in at most two lines at ~46 px; plates take the rest
+    const probe = document.createElement("div");
+    probe.style.cssText = 'position:absolute;left:0;top:0;visibility:hidden;white-space:nowrap;font:700 46px Kalam';
+    document.body.appendChild(probe);
+    const wpx = s => { probe.textContent = s; return probe.offsetWidth; };
+    let labelCol = 150;
+    items.forEach(it => {
+      const ws = String(it.label == null ? "" : it.label).split(/\s+/).filter(Boolean);
+      let need = wpx(ws.join(" "));
+      for (let k = 1; k < ws.length; k++) need = Math.min(need, Math.max(wpx(ws.slice(0, k).join(" ")), wpx(ws.slice(k).join(" "))));
+      labelCol = Math.max(labelCol, need);
+    });
+    probe.remove();
+    labelCol = Math.min(380, labelCol + 10);
+    const plateW = Math.round(Math.min(566, ((bandBot - bandTop - (n - 1) * gap) / n) * 2.86, 884 - 90 - 84 - 14 - labelCol));
+    const plateH = Math.round(Math.min(206, (bandBot - bandTop - (n - 1) * gap) / n, plateW / 2.6));
+    const plateR = 884, plateX = plateR - plateW;
+    const used = n * plateH + (n - 1) * gap;
+    const y0 = Math.round(bandTop + (bandBot - bandTop - used) / 2);
+    const boltIn = Math.round(Math.max(34, plateH * 0.21));
+    const railX = [plateX + boltIn, plateR - boltIn];
+    const railTop = y0 - RAIL_OVER, railBot = y0 + used + RAIL_OVER;
+    const tilt = [-0.7, 0.55, -0.35, 0.8, -0.5];             // hand-bolted, never quite level
+
+    let html = "";
+    for (const c of railX) {
+      const x = c - 22, h = railBot - railTop;
+      html += `<div class="wallshade" style="left:${x + 14}px;top:${railTop + 16}px;width:44px;height:${h}px"></div>`;
+      html += `<div class="rail" style="left:${x}px;top:${railTop}px;height:${h}px;transform:translateZ(16px)">`;
+      for (let k = 1; k <= 7; k++) html += `<div class="lay" style="transform:translateZ(${-k * 2.2}px)"></div>`;
+      html += `<div class="face">`;
+      for (let sy = 22; sy < h - 40; sy += 62) html += `<div class="slot" style="top:${sy}px"></div>`;
+      html += `</div><div class="foot" style="top:-4px"></div><div class="foot" style="top:${h - 10}px"></div></div>`;
+    }
+    items.forEach((it, i) => {
+      const py = y0 + i * (plateH + gap), tz = tilt[i % tilt.length];
+      html += `<div class="wallshade" style="left:${plateX + 18}px;top:${py + 26}px;width:${plateW}px;height:${plateH}px;transform:rotate(${tz}deg)"></div>`;
+      html += `<div class="plate" style="left:${plateX}px;top:${py}px;width:${plateW}px;height:${plateH}px;transform:translateZ(44px) rotate(${tz}deg)">`;
+      for (let k = 1; k <= 8; k++) html += `<div class="lay" style="background:${k < 3 ? "#C3C6C4" : k < 6 ? "#959997" : "#5D6163"};transform:translateZ(${-k * 1.5}px)"></div>`;
+      html += `<div class="face"><div class="rim"></div><div class="num"><span></span></div><div class="rule"></div><div class="exp"></div>`;
+      for (const bx of [boltIn, plateW - boltIn]) {
+        html += `<svg class="bolt" viewBox="0 0 32 32" style="left:${bx - 16}px;top:${Math.round(plateH / 2) - 16}px" aria-hidden="true">
+          <circle cx="16.8" cy="17.6" r="14" fill="#000" opacity=".28"/>
+          <circle cx="16" cy="16" r="14" fill="#7E8385"/><circle cx="16" cy="15.2" r="12.6" fill="#C3C7C8"/>
+          <path d="M6.2 11.5 A11 11 0 0 1 25.8 11.5" fill="none" stroke="#F2F4F4" stroke-width="2" stroke-linecap="round"/>
+          <path d="M10.5 15.2 H21.5 M16 9.7 V20.7" stroke="#3E4244" stroke-width="3.2" stroke-linecap="round"/>
+          <path d="M10.5 16.4 H21.5 M17.2 9.7 V20.7" stroke="#F2F4F4" stroke-width="1" stroke-linecap="round" opacity=".6"/></svg>`;
+      }
+      html += `</div></div>`;
+    });
+    const rack = $("rack");
+    rack.innerHTML = html;
+
+    // ---- plate faces: embossed value, rule, expiry row reused as the position index ----
+    const plates = rack.querySelectorAll(".plate");
+    items.forEach((it, i) => {
+      const plate = plates[i];
+      const num = plate.querySelector(".num"), span = num.firstChild, rule = plate.querySelector(".rule"), exp = plate.querySelector(".exp");
+      let v = it.value == null ? "" : String(it.value);
+      // plates are stamped in capitals, unless that would change a unit (Wh, kB, GHz...)
+      if (!/[a-z][A-Z]|[A-Z][a-z]/.test(v)) v = v.toUpperCase();
+      span.textContent = v;
+      exp.textContent = String(i + 1).padStart(2, "0") + "." + String(n).padStart(2, "0");
+      const textW = plateW - 2 * (boltIn + 28);
+      const small = plateH < 130, pad = small ? 19 : 22;   // small plates: tighter stack so the number stays big
+      const innerTop = pad, innerH = plateH - 2 * pad;
+      const expFs = plateH < 150 ? 26 : 30;
+      exp.style.fontSize = expFs + "px";
+      const em = glyph('600 ' + expFs + 'px "IBM Plex Mono"', exp.textContent);
+      const expG = em.a + em.d;
+      const ruleGap = small ? 5 : Math.max(8, Math.round(plateH * 0.06));
+      const maxG = innerH - (ruleGap * 2 + 4 + expG) - 4;
+      let fs = Math.round(plateH * 0.62), gm;
+      for (;;) {
+        num.style.fontSize = fs + "px";
+        gm = glyph('700 ' + fs + 'px "Saira Condensed"', v || "0");
+        if (fs <= 40 || (span.offsetWidth <= textW && gm.a + gm.d <= maxG)) break;
+        fs -= 2;
+      }
+      if (span.offsetWidth > textW) num.style.letterSpacing = "0";
+      const numG = gm.a + gm.d, stack = numG + ruleGap * 2 + 4 + expG;
+      const gTop = innerTop + Math.round((innerH - stack) / 2);
+      num.style.top = Math.round(gTop - (gm.base - gm.a)) + "px";
+      const ry = Math.round(gTop + numG + ruleGap);
+      const rw = Math.round(Math.min(textW, Math.max(160, span.offsetWidth * 0.78)));
+      rule.style.top = ry + "px"; rule.style.height = (small ? 3 : 4) + "px"; rule.style.left = Math.round(plateW / 2 - rw / 2) + "px"; rule.style.width = rw + "px";
+      exp.style.top = Math.round(ry + 4 + ruleGap - (em.base - em.a)) + "px";
+    });
+
+    // the rack is seen at an angle; tilt it now, then hang the crayon words off the real plate edges
+    rack.style.transformOrigin = ((railX[0] + railX[1]) / 2) + "px " + Math.round((railTop + railBot) / 2) + "px";
+    rack.style.transform = "rotateY(-11deg) rotateX(3deg)";
+
+    // ---- crayon words on the wall + short crayon arrows into the plates ----
+    const wob = [[-3, 2, 3], [2, -3, -2], [-2, 3, 2], [3, -2, -3], [-2, 2, 3]];
+    let wordHTML = "", arrowSVG = "";
+    const wordsEl = $("words");
+    items.forEach((it, i) => { wordHTML += `<div class="word"></div>`; });
+    wordsEl.innerHTML = wordHTML;
+    const faces = rack.querySelectorAll(".plate .face");
+    items.forEach((it, i) => {
+      const r = faces[i].getBoundingClientRect();
+      const midY = r.top + r.height / 2;
+      const right = Math.round(r.left - 84);
+      const maxW = right - 90;
+      const el = wordsEl.children[i];
+      el.textContent = it.label == null ? "" : String(it.label);
+      el.style.maxWidth = maxW + "px";
+      let ls = Math.min(60, Math.max(40, Math.round(plateH * 0.42)));
+      el.style.fontSize = ls + "px";
+      while (ls > 40 && (el.offsetWidth > maxW || el.offsetHeight > ls * 1.02 * 2 + 6)) { ls -= 2; el.style.fontSize = ls + "px"; }
+      el.style.left = (right - el.offsetWidth) + "px";
+      el.style.top = Math.round(midY - el.offsetHeight / 2 + ls * 0.04) + "px";
+      const w = wob[i % wob.length];
+      const x1 = right + 14, x2 = Math.round(r.left - 18), y = Math.round(midY + 2);
+      arrowSVG += `<path d="M${x1} ${y + w[0]} C ${x1 + 22} ${y + w[1]}, ${x2 - 26} ${y + w[2]}, ${x2} ${y}" stroke-width="5"/>`
+                + `<path d="M${x2 - 16} ${y - 12 + w[1] * 0.3} L ${x2 + 1} ${y} L ${x2 - 15} ${y + 12 + w[2] * 0.3}" stroke-width="5.4"/>`;
+    });
+    $("arrows").innerHTML = `<g filter="url(#crayonLine)" fill="none" stroke="#C9A13B" stroke-linecap="round" stroke-linejoin="round">${arrowSVG}</g>`;
+  }
+</script>
+</body>
+</html>

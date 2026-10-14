@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Keep Warm</title>
+<link href="https://fonts.googleapis.com/css2?family=Antonio:wght@600;700&family=IBM+Plex+Mono:wght@600&family=IBM+Plex+Sans+Condensed:wght@500;600&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Keep Warm (keep-warm): a white Indonesian "magic com" rice cooker, front on, on a kitchen counter.
+    Domed lid with an arched carry handle and steam rising from the vent. The title is the cooker's own
+    printed feature decal on the white body (hl = an amber retail sticker slapped across it). Below it the
+    white/silver printed control panel: one amber-backlit LCD (the hero item, lit), the MASAK / HANGAT
+    lamps over their keys, and a bank of round rubber menu keys for the other items, each with a small
+    amber LCD tag above and its name printed under. The caption is a paper hang-tag propped on the
+    counter, tied to the power cord.
+    Metaphor: prompt caching. A prompt already "cooked" is kept warm, so the next request reuses it
+    instead of cooking from raw, until the warm timer runs out.
+    Deterministic: every irregular shape (steam, cord) is a hard-coded path.
+  */
+  :root { --wall: #E8E1D3; --white: #FFFFFF; --ink: #2D3340; --red: #E64B2E; --amber: #F2A33A; --print: #4A505C; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--wall); }
+  body { position: relative; color: var(--ink); font-family: "IBM Plex Sans Condensed", sans-serif; }
+
+  #scene, #fore { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  #fore { pointer-events: none; }
+
+  /* printed decal on the white body: model line + feature title */
+  .kick { position: absolute; left: 150px; width: 780px; top: 492px; display: flex; justify-content: center; align-items: center; gap: 18px;
+    font: 600 30px/1 "Antonio", sans-serif; letter-spacing: 0.16em; text-transform: uppercase; color: var(--print); white-space: nowrap; }
+  .kick::before, .kick::after { content: ""; flex: none; width: 54px; height: 3px; background: #9DA1A9; border-radius: 2px; }
+  .title { position: absolute; left: 150px; width: 780px; top: 536px; text-align: center; font-family: "Antonio", sans-serif; font-weight: 700;
+    text-transform: uppercase; line-height: 1.07; letter-spacing: 0.005em; color: var(--ink); }
+  .title .hl { display: inline-block; position: relative; color: var(--ink); padding: 0 0.12em; margin: 0 0.04em; border-radius: 0.16em; line-height: 0.9;
+    background: linear-gradient(170deg, #FFC468 0%, #F2A33A 55%, #E8962C 100%); transform: rotate(-2deg);
+    box-shadow: 0 0 0 6px #FFFFFF, 0 0 0 8px rgba(45,51,64,0.10), 0 12px 16px -6px rgba(45,51,64,0.32); }
+
+  /* white/silver printed control panel */
+  .panel { position: absolute; left: 170px; top: 768px; width: 740px; height: 406px; padding: 6px; border-radius: 42px;
+    background: linear-gradient(160deg, #EEF0F2 0%, #BFC4CB 30%, #F2F3F5 55%, #AEB3BB 100%);
+    box-shadow: 0 16px 22px -12px rgba(45,51,64,0.38), 0 0 0 1px rgba(45,51,64,0.12); }
+  .face { height: 100%; border-radius: 36px; padding: 20px 24px 18px; display: flex; flex-direction: column;
+    background: linear-gradient(180deg, #FFFFFF 0%, #F6F6F4 60%, #EEEEEB 100%); box-shadow: inset 0 2px 3px rgba(45,51,64,0.10), inset 0 -2px 0 rgba(255,255,255,0.9); }
+  .hero { flex: 1 1 auto; min-height: 0; display: flex; gap: 18px; }
+  .lcd { position: relative; flex: 0 0 430px; border-radius: 16px; padding: 10px 20px 12px; display: flex; flex-direction: column; justify-content: space-between;
+    background: radial-gradient(ellipse 80% 90% at 46% 40%, #FFCB78 0%, #F7B24E 55%, #EE9B33 100%);
+    box-shadow: 0 0 0 5px #3A3F4B, 0 0 0 8px #CDD1D6, 0 0 30px 6px rgba(242,163,58,0.42), inset 0 3px 8px rgba(110,58,0,0.32); }
+  .lcd .lb { font: 600 30px/1.1 "IBM Plex Mono", monospace; letter-spacing: 0.02em; text-transform: uppercase; color: #262A33; max-width: calc(100% - 84px); }
+  .lcd .ico { position: absolute; right: 16px; top: 10px; }
+  .rd { display: flex; align-items: flex-end; justify-content: flex-start; gap: 10px; white-space: nowrap; }
+  .lcd .rd { justify-content: flex-end; }
+  .rd svg { display: block; flex: none; overflow: visible; }
+  .rd .pre, .rd .unit { font-family: "Antonio", sans-serif; font-weight: 600; color: #262A33; line-height: 1; }
+  .rd .pre.sym { font-family: "IBM Plex Sans Condensed", sans-serif; font-weight: 600; align-self: center; margin-right: -2px; }
+  .rd .txt { font-family: "Antonio", sans-serif; font-weight: 700; color: #262A33; line-height: 0.95; text-transform: uppercase; letter-spacing: 0.02em; white-space: normal; overflow-wrap: anywhere; }
+
+  .lamps { flex: 1; display: flex; justify-content: space-around; align-items: center; }
+  .lg { display: flex; flex-direction: column; align-items: center; gap: 9px; }
+  .lamp { width: 30px; height: 30px; border-radius: 50%; position: relative; }
+  .lamp .ring { position: absolute; left: -11px; top: -11px; }
+  .lamp.off { background: radial-gradient(circle at 38% 34%, #E7A79B 0%, #C4604E 55%, #94402F 100%); box-shadow: inset 0 0 0 2px rgba(0,0,0,0.18), 0 1px 0 #FFFFFF; }
+  .lamp.on { background: radial-gradient(circle at 38% 34%, #FFF1D2 0%, #FFC468 38%, #F2A33A 66%, #C97A1E 100%); box-shadow: 0 0 0 2px rgba(150,80,0,0.35), 0 0 22px 6px rgba(242,163,58,0.55); }
+  .btn { width: 90px; height: 42px; border-radius: 21px; background: radial-gradient(ellipse 70% 80% at 50% 28%, #FFFFFF 0%, #ECECEA 55%, #CFD0CE 100%);
+    box-shadow: 0 0 0 2px #C3C6CA, 0 5px 0 #A3A6AA, 0 8px 12px rgba(45,51,64,0.28), inset 0 -3px 4px rgba(45,51,64,0.12); }
+  .lg .nm { font: 600 30px/1 "Antonio", sans-serif; letter-spacing: 0.1em; text-transform: uppercase; color: #B12E18; }
+  .lg.warm .nm { color: #915209; }
+
+  .rule { flex: none; height: 2px; margin: 14px 4px 12px; background: #D3D5D8; border-radius: 1px; }
+  .keys { flex: none; display: flex; align-items: flex-start; }
+  .k { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; padding: 0 4px; }
+  .k .tga { display: flex; align-items: flex-end; justify-content: center; width: 100%; }
+  .tg { display: inline-flex; justify-content: center; border-radius: 10px; padding: 5px 10px; background: linear-gradient(180deg, #FBE2B4 0%, #F5CF8C 100%);
+    box-shadow: 0 0 0 3px #3A3F4B, inset 0 2px 4px rgba(110,58,0,0.22); }
+  .tg .rd { align-items: center; justify-content: center; gap: 7px; width: 100%; }
+  .tg .txt { text-align: center; }
+  .key { flex: none; width: 64px; height: 64px; margin: 13px 0 11px; border-radius: 50%;
+    background: radial-gradient(circle at 40% 32%, #FFFFFF 0%, #EFEFED 45%, #CCCDCB 100%);
+    box-shadow: 0 0 0 2px #C3C6CA, 0 5px 0 #A3A6AA, 0 9px 12px rgba(45,51,64,0.26), inset 0 -4px 6px rgba(45,51,64,0.10); }
+  .k .kl { font: 600 30px/1.04 "Antonio", sans-serif; letter-spacing: 0.04em; text-transform: uppercase; color: var(--print); text-align: center; overflow-wrap: anywhere; max-width: 100%; }
+
+  /* rating print under the panel: source + date */
+  .plate { position: absolute; left: 190px; width: 700px; top: 1190px; text-align: center; font: 500 26px/1.24 "IBM Plex Sans Condensed", sans-serif; color: #4C525F; text-wrap: balance; }
+  .plate .nw { white-space: nowrap; }
+
+  /* paper hang-tag propped on the counter */
+  .tag { position: absolute; left: 84px; width: 916px; top: 1480px; padding: 11px 74px 11px 30px; border-radius: 8px;
+    background: linear-gradient(180deg, #FFFDF7 0%, #FBF7EC 100%); transform: rotate(0.8deg); transform-origin: 50% 50%;
+    box-shadow: 0 14px 18px -10px rgba(45,51,64,0.42), 0 0 0 1px rgba(45,51,64,0.14); }
+  .tag::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 9px; border-radius: 8px 0 0 8px; background: var(--red); }
+  .tag .hole { position: absolute; right: 24px; top: 50%; width: 24px; height: 24px; margin-top: -12px; border-radius: 50%;
+    background: #D9CFBD; box-shadow: 0 0 0 5px #E9E1D0, 0 0 0 6px rgba(45,51,64,0.18), inset 0 2px 3px rgba(45,51,64,0.35); }
+  .caption { font: 500 44px/1.12 "IBM Plex Sans Condensed", sans-serif; color: var(--ink); }
+  .caption .w { white-space: nowrap; }
+  .caption .on { background: var(--amber); color: var(--ink); border-radius: 7px; padding: 0 0.14em; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+</style>
+</head>
+<body>
+<svg id="scene" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+<div class="kick" id="kick"><span id="kickT"></span></div>
+<div class="title" id="title"></div>
+<div class="panel" id="panel"><div class="face">
+  <div class="hero" id="hero">
+    <div class="lcd" id="lcd">
+      <svg class="ico" width="58" height="34" viewBox="0 0 58 34"><path d="M4,16h30v9a6,6 0 0 1 -6,6h-18a6,6 0 0 1 -6,-6z M1,16h36" fill="none" stroke="#262A33" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"/><path d="M12,11c-3,-3 3,-5 0,-9 M19,11c-3,-3 3,-5 0,-9 M26,11c-3,-3 3,-5 0,-9" fill="none" stroke="#262A33" stroke-width="2.6" stroke-linecap="round"/><circle cx="49" cy="22" r="7" fill="none" stroke="rgba(38,42,51,0.12)" stroke-width="2.6"/><path d="M49,18v4h3" fill="none" stroke="rgba(38,42,51,0.12)" stroke-width="2.4" stroke-linecap="round"/></svg>
+      <div class="lb" id="heroLb"></div><div class="rd" id="heroRd"></div>
+    </div>
+    <div class="lamps">
+      <div class="lg"><div class="lamp off"></div><div class="btn"></div><div class="nm">Masak</div></div>
+      <div class="lg warm"><div class="lamp on"><svg class="ring" width="52" height="52" viewBox="0 0 52 52"><circle cx="26" cy="26" r="22" fill="none" stroke="rgba(242,163,58,0.25)" stroke-width="3"/><circle cx="26" cy="26" r="22" fill="none" stroke="#E08A1E" stroke-width="3" stroke-linecap="round" stroke-dasharray="96 139" transform="rotate(-90 26 26)"/></svg></div><div class="btn"></div><div class="nm">Hangat</div></div>
+    </div>
+  </div>
+  <div class="rule" id="rule"></div>
+  <div class="keys" id="keys"></div>
+</div></div>
+<div class="plate" id="plate"></div>
+<div class="tag" id="tag"><div class="caption" id="caption" data-slot="caption"></div><span class="hole" id="hole"></span></div>
+<svg id="fore" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const FONTS = ['700 120px "Antonio"', '600 30px "Antonio"', '600 30px "IBM Plex Mono"', '500 44px "IBM Plex Sans Condensed"', '600 30px "IBM Plex Sans Condensed"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render, render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+  const INK = "#262A33", GHOST = "rgba(38,42,51,0.06)";
+
+  // ---------- kitchen, cord, cooker body, domed lid, handle and steam (SVG, behind everything) ----------
+  const CX = 540, LY = 394, LRX = 432, LRY = 58, RIM = 22, DOME = 72, BT = 410, BM = 440, BRX = 396, BY = 1290, BRY = 56, WALL = 1240;
+  const L = CX - LRX, R = CX + LRX, BL = CX - BRX, BR = CX + BRX, DT = LY - LRY - DOME;
+  // pot-bellied body: straight lid seat, sides bulge out a little, then tuck in to the base
+  const bodyD = `M${CX - BT},${LY} C${CX - BM},${LY + 300} ${CX - BM},${BY - 250} ${BL},${BY} A${BRX} ${BRY} 0 0 0 ${BR},${BY} C${CX + BM},${BY - 250} ${CX + BM},${LY + 300} ${CX + BT},${LY} Z`;
+  let tiles = "";
+  for (let x = 0; x <= 1080; x += 180) tiles += `M${x},0V${WALL}`;
+  for (let y = 160; y < WALL; y += 180) tiles += `M0,${y}H1080`;
+  const steam = ["M682,290 C662,262 700,236 684,204 C670,176 690,150 704,126 C714,108 706,90 694,72",
+                 "M706,288 C726,258 696,232 712,198 C726,168 716,146 730,120"];
+  $("scene").innerHTML = `
+    <defs>
+      <linearGradient id="bodyG" x1="0" x2="1" y1="0" y2="0">
+        <stop offset="0" stop-color="#CBC3B4"/><stop offset="0.07" stop-color="#E6E1D7"/><stop offset="0.22" stop-color="#FAF8F4"/>
+        <stop offset="0.45" stop-color="#FFFFFF"/><stop offset="0.72" stop-color="#F8F6F1"/><stop offset="0.9" stop-color="#E3DDD2"/><stop offset="1" stop-color="#C6BDAD"/>
+      </linearGradient>
+      <linearGradient id="bodyV" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0" stop-color="#2D3340" stop-opacity="0.08"/><stop offset="0.07" stop-color="#2D3340" stop-opacity="0"/>
+        <stop offset="0.85" stop-color="#2D3340" stop-opacity="0"/><stop offset="1" stop-color="#2D3340" stop-opacity="0.10"/>
+      </linearGradient>
+      <radialGradient id="domeG" cx="0.4" cy="0.3" r="0.75">
+        <stop offset="0" stop-color="#FFFFFF"/><stop offset="0.55" stop-color="#F5F2EC"/><stop offset="1" stop-color="#D6CEC0"/>
+      </radialGradient>
+      <linearGradient id="rimG" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0" stop-color="#FFFFFF"/><stop offset="0.6" stop-color="#ECE8E0"/><stop offset="1" stop-color="#D1C9BB"/>
+      </linearGradient>
+      <linearGradient id="counterG" x1="0" x2="0" y1="0" y2="1">
+        <stop offset="0" stop-color="#D5CBB8"/><stop offset="1" stop-color="#E0D7C6"/>
+      </linearGradient>
+      <filter id="soft" x="-20%" y="-200%" width="140%" height="500%"><feGaussianBlur stdDeviation="14"/></filter>
+      <filter id="soft6" x="-10%" y="-100%" width="120%" height="300%"><feGaussianBlur stdDeviation="6"/></filter>
+      <filter id="mist" x="-60%" y="-20%" width="220%" height="140%"><feGaussianBlur stdDeviation="3"/></filter>
+      <filter id="mist8" x="-80%" y="-20%" width="260%" height="140%"><feGaussianBlur stdDeviation="8"/></filter>
+    </defs>
+    <!-- wall tiles -->
+    <path d="${tiles}" fill="none" stroke="#DDD5C5" stroke-width="3"/>
+    <!-- counter top, front lip and cabinet -->
+    <rect x="0" y="${WALL}" width="1080" height="${1702 - WALL}" fill="url(#counterG)"/>
+    <line x1="0" y1="${WALL}" x2="1080" y2="${WALL}" stroke="#C9BEAA" stroke-width="3"/>
+    <!-- power cord: from behind the cooker, across the counter, over the front edge -->
+    <path d="M880,1300 C990,1322 1040,1372 1054,1430 C1068,1490 1052,1620 1060,1712" fill="none" stroke="#3B404C" stroke-width="13" stroke-linecap="round"/>
+    <path d="M880,1296 C990,1318 1036,1368 1050,1426 C1064,1486 1048,1618 1056,1710" fill="none" stroke="#6C7280" stroke-width="3" stroke-linecap="round"/>
+    <rect x="0" y="1702" width="1080" height="18" fill="#C8BBA4"/>
+    <rect x="0" y="1720" width="1080" height="200" fill="#D2C8B5"/>
+    <path d="M540,1720V1920 M0,1722H1080" stroke="#BFB39E" stroke-width="3"/>
+    <rect x="470" y="1752" width="44" height="10" rx="5" fill="#B3A790"/><rect x="566" y="1752" width="44" height="10" rx="5" fill="#B3A790"/>
+    <!-- cast shadow -->
+    <ellipse cx="${CX + 12}" cy="${BY + BRY + 20}" rx="${BRX + 40}" ry="30" fill="#2D3340" opacity="0.32" filter="url(#soft)"/>
+    <!-- foot ring (darker, set in under the body) -->
+    <path d="M${BL + 14},${BY} L${BL + 14},${BY + 26} A${BRX - 14} ${BRY - 2} 0 0 0 ${BR - 14},${BY + 26} L${BR - 14},${BY} Z" fill="#C9C1B2"/>
+    <path d="M${BL + 14},${BY + 26} A${BRX - 14} ${BRY - 2} 0 0 0 ${BR - 14},${BY + 26}" fill="none" stroke="#AFA592" stroke-width="2"/>
+    <!-- body -->
+    <path d="${bodyD}" fill="url(#bodyG)"/>
+    <path d="${bodyD}" fill="url(#bodyV)"/>
+    <path d="M${BL},${BY} A${BRX} ${BRY} 0 0 0 ${BR},${BY}" fill="none" stroke="#C2B9A9" stroke-width="2"/>
+    <!-- shadow under the lid rim -->
+    <path d="M${L + 14},${LY + RIM} A${LRX - 14} ${LRY} 0 0 0 ${R - 14},${LY + RIM} L${R - 14},${LY + RIM + 24} A${LRX - 14} ${LRY} 0 0 1 ${L + 14},${LY + RIM + 24} Z" fill="#2D3340" opacity="0.15" filter="url(#soft6)"/>
+    <!-- lid rim (front thickness) -->
+    <path d="M${L},${LY} A${LRX} ${LRY} 0 0 0 ${R},${LY} L${R},${LY + RIM} A${LRX} ${LRY} 0 0 1 ${L},${LY + RIM} Z" fill="url(#rimG)"/>
+    <path d="M${L},${LY + RIM} A${LRX} ${LRY} 0 0 0 ${R},${LY + RIM}" fill="none" stroke="#C3BBAC" stroke-width="2"/>
+    <!-- domed lid -->
+    <path d="M${L},${LY} C${L + 16},${LY - 96} ${CX - 252},${DT} ${CX},${DT} C${CX + 252},${DT} ${R - 16},${LY - 96} ${R},${LY} A${LRX} ${LRY} 0 0 1 ${L},${LY} Z" fill="url(#domeG)" stroke="#CDC5B7" stroke-width="2"/>
+    <path d="M${L + 26},${LY + 2} A${LRX - 26} ${LRY - 8} 0 0 0 ${R - 26},${LY + 2}" fill="none" stroke="#D9D2C5" stroke-width="3"/>
+    <ellipse cx="${CX - 130}" cy="${LY - 82}" rx="190" ry="34" fill="#FFFFFF" opacity="0.9" filter="url(#soft6)"/>
+    <!-- steam vent on the dome -->
+    <ellipse cx="${CX + 154}" cy="${DT + 34}" rx="52" ry="16" fill="#E5DFD5" stroke="#C4BCAE" stroke-width="2"/>
+    <ellipse cx="${CX + 154}" cy="${DT + 31}" rx="45" ry="11" fill="#F4F1EB"/>
+    <path d="M${CX + 128},${DT + 32} l10,-4 M${CX + 149},${DT + 31} l10,-4 M${CX + 170},${DT + 32} l10,-4" stroke="#8C8578" stroke-width="4" stroke-linecap="round"/>
+    <!-- arched carry handle -->
+    <path d="M${L + 12},${LY + 4} C${L + 40},${LY - 262} ${R - 40},${LY - 262} ${R - 12},${LY + 4}" fill="none" stroke="#B7AE9E" stroke-width="32" stroke-linecap="round"/>
+    <path d="M${L + 12},${LY + 4} C${L + 40},${LY - 262} ${R - 40},${LY - 262} ${R - 12},${LY + 4}" fill="none" stroke="#F8F6F2" stroke-width="24" stroke-linecap="round"/>
+    <path d="M${L + 20},${LY - 30} C${L + 52},${LY - 268} ${R - 52},${LY - 268} ${R - 20},${LY - 30}" fill="none" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"/>
+    <ellipse cx="${L + 12}" cy="${LY + 8}" rx="22" ry="30" fill="#ECE7DE" stroke="#B9B0A0" stroke-width="2"/>
+    <ellipse cx="${R - 12}" cy="${LY + 8}" rx="22" ry="30" fill="#ECE7DE" stroke="#B9B0A0" stroke-width="2"/>
+    <circle cx="${L + 12}" cy="${LY + 8}" r="6" fill="#CFC7B9"/><circle cx="${R - 12}" cy="${LY + 8}" r="6" fill="#CFC7B9"/>
+    <!-- steam wisps rising from the vent -->
+    <g fill="none" stroke-linecap="round">
+      <path d="${steam[0]}" stroke="#8A7F6C" stroke-width="30" opacity="0.13" filter="url(#mist8)"/>
+      <path d="${steam[1]}" stroke="#8A7F6C" stroke-width="24" opacity="0.11" filter="url(#mist8)"/>
+      <path d="${steam[0]}" stroke="#FFFFFF" stroke-width="15" opacity="0.88" filter="url(#mist)"/>
+      <path d="${steam[1]}" stroke="#FFFFFF" stroke-width="10" opacity="0.8" filter="url(#mist)"/>
+    </g>
+  `;
+
+  // ---------- printed decal: model line + feature title ----------
+  $("kickT").textContent = D.kicker || [D.series, D.ep].filter(Boolean).join(" · ");
+  const t = D.title || "", hl = (D.hl || "").trim();
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  let titleFs = 132;
+  for (; titleFs >= 60; titleFs -= 2) { titleEl.style.fontSize = titleFs + "px"; if (titleEl.offsetHeight <= 212 && titleEl.scrollWidth <= 780) break; }
+  titleEl.style.top = Math.round(536 + Math.max(0, 212 - titleEl.offsetHeight) / 2) + "px";   // centred in the decal band
+  const hlEl = titleEl.querySelector(".hl");
+  if (hlEl && hlEl.offsetWidth > 300) hlEl.style.transform = "rotate(" + (-Math.max(0.9, 2 * 300 / hlEl.offsetWidth)).toFixed(2) + "deg)";   // a long sticker tilts less, so it never covers the line above
+
+  // ---------- seven-segment digits (SVG, ink on the backlit LCD) ----------
+  const SEG = { "0": "abcdef", "1": "bc", "2": "abdeg", "3": "abcdg", "4": "bcfg", "5": "acdfg", "6": "acdefg", "7": "abc", "8": "abcdefg", "9": "abcdfg", "-": "g" };
+  function segSVG(num, h, ghostOn) {
+    const th = h * 0.135, cw = h * 0.52, gap = h * 0.16, s = th * 0.16, sk = Math.tan(7 * Math.PI / 180) * h;
+    const toks = [];
+    for (const ch of num) { if (SEG[ch] != null) toks.push({ k: "d", ch }); else if (ch === "," || ch === ".") toks.push({ k: "p", ch }); else if (ch === ":") toks.push({ k: "c" }); }
+    const hz = (x0, y) => { const a = x0 + th / 2 + s, b = x0 + cw - th / 2 - s, u = th / 2; return `M${a},${y}L${a + u},${y - u}L${b - u},${y - u}L${b},${y}L${b - u},${y + u}L${a + u},${y + u}Z`; };
+    const vt = (xc, y0, y1) => { const a = y0 + s, b = y1 - s, u = th / 2; return `M${xc},${a}L${xc + u},${a + u}L${xc + u},${b - u}L${xc},${b}L${xc - u},${b - u}L${xc - u},${a + u}Z`; };
+    let x = 0, ghost = "", lit = "", first = true;
+    for (const tk of toks) {
+      if (tk.k === "d") {
+        if (!first) x += gap;
+        const P = { a: hz(x, th / 2), g: hz(x, h / 2), d: hz(x, h - th / 2), f: vt(x + th / 2, th / 2, h / 2), e: vt(x + th / 2, h / 2, h - th / 2), b: vt(x + cw - th / 2, th / 2, h / 2), c: vt(x + cw - th / 2, h / 2, h - th / 2) };
+        for (const k in P) { if (SEG[tk.ch].includes(k)) lit += P[k]; else ghost += P[k]; }
+        x += cw; first = false;
+      } else if (tk.k === "p") {
+        const q = th * 1.1, px = x + gap * 0.45;
+        lit += `M${px},${h - q}h${q}v${q}h${-q}Z`;
+        if (tk.ch === ",") lit += `M${px + q * 0.25},${h}h${q * 0.75}l${-q * 0.55},${q * 0.95}h${-q * 0.5}Z`;
+        x = px + q - gap * 0.25;
+      } else {
+        const q = th * 1.05, px = x + gap * 0.55;
+        lit += `M${px},${h * 0.3 - q / 2}h${q}v${q}h${-q}Z M${px},${h * 0.72 - q / 2}h${q}v${q}h${-q}Z`;
+        x = px + q - gap * 0.15;
+      }
+    }
+    const w = x + sk;
+    return `<svg width="${w.toFixed(1)}" height="${h.toFixed(1)}" viewBox="0 0 ${w.toFixed(1)} ${h.toFixed(1)}"><g transform="translate(${sk.toFixed(2)},0) skewX(-7)">${ghostOn ? `<path d="${ghost}" fill="${GHOST}"/>` : ""}<path d="${lit}" fill="${INK}"/></g></svg>`;
+  }
+  function parseVal(v) {
+    const s = String(v == null ? "" : v).trim();
+    const m = s.match(/^(\D{0,3}?)\s*(\d(?:[\d.,:\-]*\d)?)\s*(.*)$/);
+    return m ? { pre: m[1].trim(), num: m[2], unit: m[3].trim() } : { text: s };
+  }
+  // fills `el` with value v at digit height h, shrinking (down to minH) until its natural width fits maxW
+  function readout(el, v, h, unitPx, maxW, minH, ghostOn) {
+    const p = parseVal(v);
+    for (let k = 0; k < 40; k++) {
+      const u = Math.max(30, Math.round(unitPx));
+      if (p.text != null) el.innerHTML = `<span class="txt" style="font-size:${Math.max(30, Math.round(h * 0.98))}px">${esc(p.text)}</span>`;
+      else el.innerHTML = (p.pre ? (/\p{L}/u.test(p.pre)
+          ? `<span class="pre" style="font-size:${Math.max(30, Math.round(h * 0.6))}px">${esc(p.pre)}</span>`
+          : `<span class="pre sym" style="font-size:${Math.max(30, Math.round(h * 0.9))}px">${esc(p.pre)}</span>`) : "") + segSVG(p.num, h, ghostOn) +
+        (p.unit ? `<span class="unit" style="font-size:${u}px">${esc(p.unit)}</span>` : "");
+      el.style.whiteSpace = "nowrap";
+      const w = Array.from(el.children).reduce((a, c) => a + c.getBoundingClientRect().width, 0) + Math.max(0, el.children.length - 1) * parseFloat(getComputedStyle(el).columnGap || 0);
+      if (w <= maxW) return true;
+      if (h <= minH) break;
+      h = Math.max(minH, h * 0.93); unitPx = Math.max(30, unitPx * 0.95);
+    }
+    el.style.flexWrap = "wrap"; el.style.whiteSpace = "normal"; el.style.maxWidth = maxW + "px"; el.style.justifyContent = "center";
+    return false;
+  }
+
+  // ---------- items: hero = the item matching hl (else the first) on the lit LCD, the rest = menu keys ----------
+  const items = (D.items || []).slice(0, 5);
+  const low = s => String(s || "").toLowerCase();
+  let act = hl ? items.findIndex(it => low(it.label).includes(low(hl)) || low(it.value).includes(low(hl))) : -1;
+  if (act < 0) act = 0;
+  const hero = items[act] || { label: "", value: "" };
+  const rest = items.filter((_, i) => i !== act);
+
+  const keysEl = $("keys");
+  if (!rest.length) { keysEl.style.display = "none"; $("rule").style.display = "none"; }
+  keysEl.innerHTML = rest.map(it => `<div class="k"><div class="tga"><div class="tg"><div class="rd"></div></div></div><div class="key"></div><div class="kl">${esc(it.label)}</div></div>`).join("");
+  const colW = 676 / Math.max(1, rest.length);
+  keysEl.querySelectorAll(".k").forEach((k, i) => readout(k.querySelector(".tg .rd"), rest[i].value, 40, 32, colW - 8 - 20 - 6, 26, false));
+  // tags are one fixed window size, like a moulded panel: same width (the widest, within the column) and one baseline
+  const tgs = Array.from(keysEl.querySelectorAll(".tg"));
+  const tagW = Math.min(colW - 8, Math.max(0, ...tgs.map(g => g.offsetWidth)));
+  tgs.forEach(g => g.style.width = tagW + "px");
+  const tgas = Array.from(keysEl.querySelectorAll(".tga"));
+  const tagH = Math.max(0, ...tgas.map(a => a.offsetHeight));
+  tgas.forEach(a => a.style.height = tagH + "px");
+  // the panel grows (406 -> 466 px) when wrapped tags or long key names need room, so the hero LCD keeps >= 150 px
+  const keysH = rest.length ? keysEl.offsetHeight : 0;
+  const panelH = Math.max(406, Math.min(466, 12 + 38 + (rest.length ? 28 : 0) + 150 + keysH));
+  $("panel").style.height = panelH + "px";
+  $("plate").style.top = (768 + panelH + 14) + "px";
+
+  // hero LCD: digits never taller than 0.8 x the title size, so the title stays the largest text
+  $("heroLb").textContent = hero.label || "";
+  const lcd = $("lcd");
+  const lcdInnerH = lcd.clientHeight - 14 - 16;
+  const heroDigit = Math.max(40, Math.min(140, titleFs * 0.8, lcdInnerH - $("heroLb").offsetHeight - 10));
+  readout($("heroRd"), hero.value, heroDigit, Math.round(heroDigit * 0.46), 432 - 44, 40, true);
+
+  // ---------- rating print: source + date ----------
+  $("plate").innerHTML = [D.source ? "Sumber: " + esc(D.source) : "", D.date ? `<span class="nw">${esc(D.date)}</span>` : ""].filter(Boolean).join(" · ");
+
+  // ---------- karaoke caption on the hang-tag (voice-over line) ----------
+  const cap = String(D.caption || D.sub || "").trim();
+  const words = cap.split(/\s+/).filter(Boolean);
+  const norm = w => w.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+  const hw = hl ? hl.split(/\s+/).map(norm) : [];
+  let a0 = -1, a1 = -1;
+  if (hw.length) {
+    for (let i = 0; i + hw.length <= words.length && a0 < 0; i++) if (hw.every((h2, k) => norm(words[i + k]) === h2)) { a0 = i; a1 = i + hw.length - 1; }
+    if (a0 < 0 && hw.length === 1) { const j = words.findIndex(w => norm(w).includes(hw[0])); if (j >= 0) { a0 = a1 = j; } }
+  }
+  if (a0 < 0) { a0 = a1 = 0; }
+  const parts = [];
+  for (let i = 0; i < words.length; i++) {
+    if (i === a0) { parts.push(`<span class="w on">${esc(words.slice(a0, a1 + 1).join(" "))}</span>`); i = a1; }
+    else parts.push(`<span class="w">${esc(words[i])}</span>`);
+  }
+  const capEl = $("caption"), tagEl = $("tag");
+  capEl.innerHTML = parts.join(" ");
+  let fits = false;
+  for (let fs = 44; fs >= 40; fs -= 2) { capEl.style.fontSize = fs + "px"; if (capEl.offsetHeight <= fs * 1.12 * 2 + 4) { fits = true; break; } }
+  if (!fits) {
+    // 3+ lines: narrow the tag so its text stays at x <= 890 (it now rises above y 1500) and tighten the leading
+    tagEl.style.width = "836px"; capEl.style.lineHeight = "1.08";
+  }
+  // the tag stands on the counter: its bottom edge is fixed, it grows upward against the cooker's base
+  tagEl.style.top = (1615 - tagEl.offsetHeight) + "px";
+
+  // string from the tag's eyelet to the power cord
+  const hr = $("hole").getBoundingClientRect();
+  const hx = hr.left + hr.width / 2, hy = hr.top + hr.height / 2;
+  $("fore").innerHTML = `<path d="M${hx.toFixed(1)},${hy.toFixed(1)} C${(hx + 40).toFixed(1)},${(hy - 10).toFixed(1)} ${(hx + 64).toFixed(1)},${(hy - 70).toFixed(1)} 1056,1446" fill="none" stroke="#8C7E66" stroke-width="3" stroke-linecap="round"/><ellipse cx="1056" cy="1448" rx="11" ry="7" fill="none" stroke="#8C7E66" stroke-width="3"/>`;
+  }
+</script>
+</body>
+</html>

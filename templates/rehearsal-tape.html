@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Rehearsal Tape</title>
+<link href="https://fonts.googleapis.com/css2?family=Caveat+Brush&family=Barlow+Condensed:wght@600;700&family=Red+Hat+Mono:wght@500;600&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Rehearsal Tape (rehearsal-tape): a dark rehearsal-room marley floor seen from above.
+    Every piece of type sits on tape, the way a stage manager writes on a floor:
+    - title = marker capitals on strips of cream masking tape laid across the upstage edge,
+      the hl words on their own strip of yellow spike tape;
+    - kicker = a label stuck on the upstage-left corner L;
+    - items = yellow actor X's spread over the floor in a snake walk, each with its tape label;
+    - caption = the downstage-edge gaffer strip with the centre-line ticks.
+    Hero (overfitting): the chair now stands in fresh blue L-marks with an EMPTY new X in front
+    of it (taped "BARU"), while the footprints still stand on the old, worn X facing the EMPTY
+    L-marks where the chair used to be. Red marker: a ring round the prints + a stroke to the new X.
+    Fully deterministic: every irregular shape is hard-coded.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #2E2F34; }
+  body { position: relative; color: #2B2C31; font-family: "Barlow Condensed", sans-serif; }
+  #floor, #stage { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* masking tape: cream crepe paper, slightly glossy middle, fibre lines */
+  .tape { background-color: #EFE7D2;
+          background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.30), rgba(255, 255, 255, 0) 28%, rgba(0, 0, 0, 0) 70%, rgba(80, 60, 25, 0.08)),
+                            repeating-linear-gradient(97deg, rgba(80, 60, 25, 0.045) 0 1px, rgba(0, 0, 0, 0) 1px 9px); }
+  .tape.y { background-color: #E8B630; }
+  .lift { filter: drop-shadow(0 4px 0 rgba(10, 10, 14, 0.45)); }
+
+  .lab { position: absolute; white-space: nowrap; }
+  .lab .tape { display: block; font: 600 26px/1 "Red Hat Mono", monospace; letter-spacing: 0.07em; text-transform: uppercase; color: #2B2C31; padding: 10px 18px 9px 20px; }
+
+  #title .ln { position: absolute; display: flex; align-items: center; white-space: nowrap; transform-origin: 50% 50%; }
+  #title .pc { display: block; font-family: "Caveat Brush", "Barlow Condensed", sans-serif; font-weight: 400; line-height: 1; text-transform: uppercase; color: #2B2C31; }
+
+  .tag { position: absolute; transform-origin: 0 0; }
+  .tag .tp { display: inline-block; padding: 8px 20px 9px 20px; }
+  .tag .lb { font: 600 32px/1.1 "Barlow Condensed", sans-serif; letter-spacing: 0.01em; color: #2B2C31; white-space: nowrap; }
+  .tag .vl { font: 400 52px/1 "Caveat Brush", "Barlow Condensed", sans-serif; color: #2B2C31; white-space: nowrap; margin-top: 2px; }
+
+  #baru .tape { font: 400 44px/1 "Caveat Brush", "Barlow Condensed", sans-serif; letter-spacing: 0.04em; text-transform: none; padding: 6px 18px 5px 18px; }
+
+  /* downstage edge: a full-width strip of white cloth gaffer tape with the centre-line ticks */
+  .cap { position: absolute; left: 0; width: 1080px; background-color: #E7E3D8;
+         background-image: repeating-linear-gradient(0deg, rgba(60, 55, 40, 0.035) 0 1px, rgba(0, 0, 0, 0) 1px 4px),
+                           repeating-linear-gradient(90deg, rgba(60, 55, 40, 0.03) 0 1px, rgba(0, 0, 0, 0) 1px 5px),
+                           linear-gradient(180deg, rgba(255, 255, 255, 0.25), rgba(0, 0, 0, 0.05));
+         padding: 30px 180px 22px 100px; font-weight: 600; font-size: 46px; line-height: 1.16; color: #5E5C63;
+         clip-path: polygon(0 3px, 18% 0, 41% 4px, 63% 1px, 82% 4px, 100% 0, 100% calc(100% - 3px), 77% 100%, 52% calc(100% - 4px), 29% 100%, 0 calc(100% - 2px)); }
+  .cap::before { content: ""; position: absolute; left: 0; right: 0; top: 4px; height: 15px;
+                 background: repeating-linear-gradient(90deg, #2B2C31 0 3px, rgba(0, 0, 0, 0) 3px 108px); background-position: -1.5px 0; opacity: 0.85; }
+  .cap::after { content: ""; position: absolute; left: 532px; top: 0; width: 16px; height: 26px; background: #2B2C31;
+                clip-path: polygon(0 0, 100% 0, 50% 100%); }
+  .cap .w { white-space: nowrap; }
+  .cap .w.done { color: #2B2C31; }
+  .cap .w.on { color: #2B2C31; font-weight: 700; background: #E8B630; padding: 0 0.14em; margin: 0 -0.03em;
+               clip-path: polygon(0 4%, 22% 0, 58% 5%, 100% 1%, 98% 50%, 100% 97%, 64% 100%, 30% 95%, 1% 100%, 3% 52%); }
+
+  .foot { position: absolute; left: 90px; width: 900px; bottom: 300px; display: flex; justify-content: space-between; align-items: flex-end; gap: 36px;
+          font: 500 26px/1.3 "Red Hat Mono", monospace; color: #BEC0C6; }
+  .foot span:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg id="floor" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <filter id="grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7" />
+      <feColorMatrix type="matrix" values="0 0 0 0 0.62  0 0 0 0 0.63  0 0 0 0 0.66  0.5 0 0 0 -0.2" />
+    </filter>
+    <filter id="wear" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.004 0.008" numOctaves="3" seed="3" />
+      <feColorMatrix type="matrix" values="0 0 0 0 0.36  0 0 0 0 0.37  0 0 0 0 0.40  0.75 0 0 0 -0.3" />
+    </filter>
+    <filter id="blur3"><feGaussianBlur stdDeviation="3" /></filter>
+  </defs>
+  <rect width="1080" height="1920" fill="#2E2F34" />
+  <rect width="1080" height="1920" filter="url(#wear)" />
+  <rect width="1080" height="1920" filter="url(#grain)" opacity="0.55" />
+  <!-- marley seams, taped with dark seam tape -->
+  <g>
+    <rect x="296" y="0" width="34" height="1920" fill="#27282C" opacity="0.8" />
+    <rect x="312" y="0" width="1.5" height="1920" fill="#45464D" />
+    <rect x="806" y="0" width="34" height="1920" fill="#27282C" opacity="0.8" />
+    <rect x="822" y="0" width="1.5" height="1920" fill="#45464D" />
+  </g>
+  <!-- ghost residue of old spike tape (removed marks leave a dusty outline) -->
+  <g fill="none" stroke="#5B5C63" stroke-width="2" opacity="0.5">
+    <path d="M118 1190 l46 46 M164 1190 l-46 46" /><path d="M936 760 h52 v12 h-40 v40 h-12 z" />
+    <path d="M620 1330 l34 34 M654 1330 l-34 34" /><path d="M402 290 h44 v10 h-34 v34 h-10 z" />
+    <path d="M960 1640 h50 v10 h-50 z" /><path d="M70 1700 l30 30 M100 1700 l-30 30" />
+  </g>
+  <!-- rubber scuffs and dust drags -->
+  <g fill="none" stroke-linecap="round" filter="url(#blur3)">
+    <g stroke="#9A9CA3" opacity="0.30">
+      <path d="M150 800 q22 -10 46 -4" stroke-width="7" /><path d="M640 1120 q24 6 44 -6" stroke-width="6" /><path d="M880 1360 q-16 12 -36 14" stroke-width="7" />
+      <path d="M380 1290 q12 -10 30 -12" stroke-width="5" /><path d="M960 980 q-20 -2 -34 8" stroke-width="6" /><path d="M560 1460 q16 6 34 4" stroke-width="5" />
+      <path d="M110 1060 q8 14 26 18" stroke-width="6" /><path d="M720 700 q20 -8 40 -6" stroke-width="5" /><path d="M470 1700 q20 -8 44 -2" stroke-width="6" />
+    </g>
+    <g stroke="#7E8087" opacity="0.28">
+      <path d="M210 900 C 300 880 380 892 452 920" stroke-width="4" /><path d="M520 1240 C 600 1210 700 1218 780 1256" stroke-width="3.5" />
+      <path d="M640 1560 C 720 1538 830 1548 900 1580" stroke-width="4" /><path d="M96 1400 C 150 1372 230 1370 290 1392" stroke-width="3.5" />
+      <path d="M860 1000 C 900 1030 920 1080 922 1130" stroke-width="3.5" /><path d="M420 640 C 470 628 540 630 590 646" stroke-width="3" />
+    </g>
+  </g>
+</svg>
+
+<svg id="stage" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+
+<div class="lab lift" id="kickL"><span class="tape" id="kick"></span></div>
+<div class="lab lift" id="kickR"><span class="tape">Latihan</span></div>
+<div id="title"></div>
+<div id="tags"></div>
+<div class="lab lift" id="baru"><span class="tape">BARU</span></div>
+<div class="cap" id="cap" data-slot="caption"></div>
+<div class="foot"><span id="src"></span><span id="date"></span></div>
+
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series_id: "how-ai-works", series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "Hafal posisi, salah tempat", hl: "salah tempat",
+    sub: "AI yang cuma menghafal contoh latihan akan gagal saat soalnya diubah sedikit.",
+    items: [{ label: "Data latihan", value: "100% benar" }, { label: "Soal baru", value: "61% benar" }, { label: "Penyebab", value: "overfitting" }, { label: "Obatnya", value: "data beragam" }],
+    source: "ilustrasi — angka contoh, bukan hasil uji", date: "per 14 Okt 2026" };
+
+  const FONTS = ['400 120px "Caveat Brush"', '600 32px "Barlow Condensed"', '700 46px "Barlow Condensed"', '600 26px "Red Hat Mono"', '500 26px "Red Hat Mono"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const INK = "#2B2C31", CREAM = "#EFE7D2", YEL = "#E8B630", BLUE = "#4C76C2", RED = "#D94F3A";
+  const f1 = v => (+v).toFixed(1);
+  const $ = id => document.getElementById(id);
+
+  // hand-torn ends for HTML tape pieces (hard-coded jags, cycled)
+  const CLIPS = [
+    "polygon(3px 0, calc(100% - 2px) 1px, 100% 18%, calc(100% - 6px) 34%, calc(100% - 1px) 52%, calc(100% - 5px) 70%, 100% 86%, calc(100% - 3px) 100%, 2px 100%, 6px 82%, 0 64%, 5px 47%, 1px 30%, 6px 14%)",
+    "polygon(1px 1px, calc(100% - 4px) 0, calc(100% - 1px) 16%, 100% 33%, calc(100% - 6px) 49%, calc(100% - 2px) 67%, calc(100% - 7px) 84%, calc(100% - 1px) 100%, 4px 100%, 0 85%, 6px 68%, 2px 51%, 7px 34%, 0 17%)",
+    "polygon(5px 0, calc(100% - 1px) 0, calc(100% - 6px) 15%, calc(100% - 2px) 31%, 100% 50%, calc(100% - 5px) 69%, calc(100% - 1px) 85%, calc(100% - 4px) 100%, 0 100%, 4px 84%, 1px 66%, 6px 50%, 0 33%, 3px 15%)"
+  ];
+  let ck = 0;
+  const clip = el => { el.style.clipPath = CLIPS[ck++ % CLIPS.length]; };
+
+  // ---------- kicker: a stage-manager label stuck on the upstage-left corner L ----------
+  const ep = String(D.ep || "").trim().replace(/^#/, "");
+  $("kick").textContent = D.series ? D.series + (ep ? " · Adegan " + ep : "") : (D.kicker || "");
+  [$("kick"), document.querySelector("#kickR .tape"), document.querySelector("#baru .tape")].forEach(clip);
+  const kL = $("kickL"), kR = $("kickR");
+  kL.style.left = "92px"; kL.style.top = "300px"; kL.style.transform = "rotate(-1.2deg)";
+  kR.style.left = (988 - kR.offsetWidth) + "px"; kR.style.top = "302px"; kR.style.transform = "rotate(1.4deg)";
+
+  // ---------- title: marker capitals on strips of masking tape, hl on its own yellow strip ----------
+  const T = String(D.title || "").replace(/\s+/g, " ").trim(), HL = String(D.hl || "").trim();
+  const at = HL ? T.toLowerCase().indexOf(HL.toLowerCase()) : -1;
+  let tokens;
+  if (at < 0) tokens = T.split(" ").filter(Boolean).map(t => ({ t }));
+  else {
+    let pre = T.slice(0, at), mid = T.slice(at, at + HL.length), post = T.slice(at + HL.length);
+    const g1 = post.match(/^\S+/); if (g1) { mid += g1[0]; post = post.slice(g1[0].length); }    // glued punctuation rides on the yellow strip
+    const g0 = pre.match(/\S+$/); if (g0) { mid = g0[0] + mid; pre = pre.slice(0, -g0[0].length); }
+    tokens = [...pre.split(" ").filter(Boolean).map(t => ({ t })), { t: mid.trim(), hl: true }, ...post.split(" ").filter(Boolean).map(t => ({ t }))];
+  }
+  const cv = document.createElement("canvas").getContext("2d");
+  const tw = (s, fs) => { cv.font = '400 ' + fs + 'px "Caveat Brush"'; return cv.measureText(s.toUpperCase()).width; };
+  const piecesOf = line => {
+    const out = [];
+    line.forEach(k => { const last = out[out.length - 1]; if (!k.hl && last && !last.hl) last.t += " " + k.t; else out.push({ t: k.t, hl: !!k.hl }); });
+    return out;
+  };
+  const lineW = (line, fs) => { const ps = piecesOf(line); return ps.reduce((a, p) => a + tw(p.t, fs) + fs * 0.44, 0) - (ps.length - 1) * fs * 0.06; };
+  const breakLines = (fs, maxW) => {
+    const lines = [[]];
+    tokens.forEach(k => { const cur = lines[lines.length - 1]; if (cur.length && lineW(cur.concat([k]), fs) > maxW) lines.push([k]); else cur.push(k); });
+    return lines;
+  };
+  const stripH = fs => Math.round(fs * 1.16);
+  let fs = 84, lines = breakLines(84, 900);
+  for (let f = 136; f >= 84; f -= 4) {
+    const L = breakLines(f, 900);
+    if (L.length <= 3 && L.every(l => lineW(l, f) <= 900) && L.length * (stripH(f) + 6) <= 410) { fs = f; lines = L; break; }
+  }
+  // balance the rag: the narrowest width that still gives the same number of strips
+  let lo = 200, hi = 900;
+  while (hi - lo > 4) { const m = (lo + hi) / 2; if (breakLines(fs, m).length <= lines.length) hi = m; else lo = m; }
+  lines = breakLines(fs, hi);
+  const titleEl = $("title");
+  const LROT = [-1.6, -1.1, -1.9], LOFF = [0, 34, 14], PROT = [0.5, -0.6, 0.9, -0.4];
+  let y = 366, pk = 0;
+  lines.forEach((line, i) => {
+    const ln = document.createElement("div");
+    ln.className = "ln lift";
+    piecesOf(line).forEach((p, j) => {
+      const s = document.createElement("span");
+      s.className = "pc tape" + (p.hl ? " y" : "");
+      s.textContent = p.t;
+      s.style.fontSize = fs + "px";
+      s.style.padding = Math.round(fs * 0.08) + "px " + Math.round(fs * 0.22) + "px " + Math.round(fs * 0.08) + "px";
+      if (j) s.style.marginLeft = -Math.round(fs * 0.06) + "px";
+      s.style.transform = "rotate(" + PROT[pk++ % PROT.length] * (p.hl ? 1.8 : 1) + "deg)";
+      clip(s);
+      ln.appendChild(s);
+    });
+    titleEl.appendChild(ln);
+    const w = ln.offsetWidth, h = ln.offsetHeight;
+    ln.style.left = (90 + Math.min(LOFF[i] || 0, Math.max(0, 900 - w))) + "px";
+    ln.style.top = y + "px";
+    ln.style.transform = "rotate(" + LROT[i % 3] + "deg)";
+    y += h + 6;
+  });
+  const titleBottom = y + 8;
+
+  // ---------- footer + caption (the downstage gaffer strip) ----------
+  $("src").textContent = D.source ? "Sumber: " + D.source : "";
+  $("date").textContent = D.date || "";
+  const footTop = 1620 - document.querySelector(".foot").offsetHeight;
+  const cap = $("cap");
+  const words = String(D.caption || D.sub || "").split(/\s+/).filter(Boolean);
+  const norm = w => w.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+  const hw = HL.split(/\s+/).map(norm).filter(Boolean);
+  let on0 = 0, on1 = 0;                              // active run = hl when spoken, else the first word
+  if (hw.length) for (let i = 0; i + hw.length <= words.length; i++) {
+    if (hw.every((h, k) => norm(words[i + k]) === h)) { on0 = i; on1 = i + hw.length - 1; break; }
+  }
+  const parts = [];
+  words.forEach((w, i) => {
+    if (i > on0 && i <= on1) return;
+    if (i === on0) parts.push('<span class="w on">' + esc(words.slice(on0, on1 + 1).join(" ")) + "</span>");
+    else parts.push('<span class="w' + (i < on0 ? " done" : "") + '">' + esc(w) + "</span>");
+  });
+  cap.innerHTML = parts.join(" ");
+  for (let f = 46; f >= 40; f -= 2) { cap.style.fontSize = f + "px"; if (cap.offsetHeight <= Math.round(f * 1.16 * 2) + 56) break; }
+  const capTop = footTop - 18 - cap.offsetHeight;
+  cap.style.top = capTop + "px";
+
+  // ---------- svg helpers: tape with hand-torn ends ----------
+  const JAG = [[3, -2, 4, -1, 2], [-2, 3, -1, 4, 1], [4, 0, -3, 2, -2], [1, -3, 2, 3, 0], [-3, 2, 3, -2, 4], [2, 4, -2, 0, 3]];
+  let jk = 0;
+  function tape(x1, y1, x2, y2, w, fill, extra) {
+    const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L, nx = -uy, ny = ux, h = w / 2, j = JAG[jk++ % JAG.length];
+    const across = [-h, -h / 3, h / 3, h], pts = [];
+    across.forEach((a, i) => pts.push([x1 + ux * j[i] + nx * a, y1 + uy * j[i] + ny * a]));
+    across.slice().reverse().forEach((a, i) => pts.push([x2 - ux * j[i + 1] + nx * a, y2 - uy * j[i + 1] + ny * a]));
+    return '<polygon points="' + pts.map(p => f1(p[0]) + "," + f1(p[1])).join(" ") + '" fill="' + fill + '"' + (extra || "") + "/>";
+  }
+  const spikeX = (cx, cy, arm, w, c, extra) => {
+    const d = arm / 2 / Math.SQRT2;
+    return tape(cx - d, cy - d, cx + d, cy + d, w, c, extra) + tape(cx + d, cy - d, cx - d, cy + d, w, c, extra);
+  };
+  const corner = (x, y, sx, sy, arm, w, c) => tape(x - sx * w / 2, y, x + sx * arm, y, w, c) + tape(x, y - sy * w / 2, x, y + sy * arm, w, c);
+  const box = (cx, cy, bw, bh, arm, w, c) =>
+    corner(cx - bw / 2, cy - bh / 2, 1, 1, arm, w, c) + corner(cx + bw / 2, cy - bh / 2, -1, 1, arm, w, c) +
+    corner(cx - bw / 2, cy + bh / 2, 1, -1, arm, w, c) + corner(cx + bw / 2, cy + bh / 2, -1, -1, arm, w, c);
+
+  let g = '<defs>' +
+    '<filter id="tsh" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="3" stdDeviation="0.6" flood-color="#0A0A0E" flood-opacity="0.5"/></filter>' +
+    '<filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="7"/></filter>' +
+    '<filter id="csh" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="6"/></filter>' +
+    '<marker id="ahc" viewBox="0 0 12 12" refX="7" refY="6" markerWidth="13" markerHeight="13" markerUnits="userSpaceOnUse" orient="auto">' +
+      '<path d="M1 1 L10 6 L1 11" fill="none" stroke="#EFE7D2" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></marker>' +
+    '<marker id="ahr" viewBox="0 0 20 20" refX="11" refY="10" markerWidth="26" markerHeight="26" markerUnits="userSpaceOnUse" orient="auto">' +
+      '<path d="M2 2 L16 10 L2 18" fill="none" stroke="#D94F3A" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/></marker>' +
+    '<mask id="tread" maskUnits="userSpaceOnUse" x="-20" y="-20" width="120" height="220"><rect x="-20" y="-20" width="120" height="220" fill="#fff"/>' +
+      '<g stroke="#000" stroke-width="4" fill="none" stroke-linecap="round"><path d="M10 26 Q36 17 62 26"/><path d="M8 41 Q36 32 64 41"/><path d="M9 56 Q36 47 63 56"/><path d="M11 71 Q36 62 61 71"/><path d="M14 86 Q36 78 58 86"/>' +
+      '<path d="M20 132 Q35 126 50 132"/><path d="M19 147 Q35 141 51 147"/><path d="M20 162 Q35 156 50 162"/></g></mask>' +
+    '</defs>';
+
+  // acting-area corners (cream glow tape) + upstage centre-line stub
+  g += '<g filter="url(#tsh)">' + corner(66, 318, 1, 1, 70, 14, CREAM) + corner(1014, 318, -1, 1, 70, 14, CREAM) + tape(540, 304, 540, 344, 12, CREAM) + "</g>";
+
+  // ---------- items: yellow actor X's in a snake walk, each with its tape label ----------
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+  const ROWS = n <= 2 ? [n] : n === 3 ? [2, 1] : n === 4 ? [2, 2] : [3, 2];
+  const SLOTS = { 1: [[90, 478]], 2: [[90, 478], [512, 900]], 3: [[90, 352], [364, 626], [638, 900]] };
+  const TROT = [-1.3, 1.1, -0.8, 1.4, -1.1], TJIT = [0, 26, 10, 30, 14];
+  const tagsEl = $("tags");
+  tagsEl.innerHTML = items.map(it =>
+    '<div class="tag lift"><div class="tp tape"><div class="lb">' + esc(it.label) + '</div><div class="vl">' + esc(it.value) + "</div></div></div>").join("");
+  const tags = [...tagsEl.children];
+  const MAXH = 112;
+  // which slot each item takes (rows run left-to-right, then right-to-left: a snake)
+  const place = [];
+  ROWS.forEach((k, r) => {
+    const sl = SLOTS[k], order = r % 2 ? sl.slice().reverse() : sl;
+    order.forEach(s => place.push({ r, s }));
+  });
+  tags.forEach((t, i) => {
+    const tp = t.querySelector(".tp"), lb = t.querySelector(".lb"), vl = t.querySelector(".vl");
+    clip(tp);
+    const maxW = place[i].s[1] - place[i].s[0];
+    const fits = () => tp.offsetWidth <= maxW && tp.offsetHeight <= MAXH;
+    for (let f = 32; f >= 30 && !fits(); f--) lb.style.fontSize = f + "px";
+    for (let f = 52; f >= 34 && !fits(); f -= 2) vl.style.fontSize = f + "px";
+    if (!fits()) { tp.style.paddingLeft = "12px"; tp.style.paddingRight = "12px"; }
+    for (let f = 30; f >= 26 && !fits(); f--) lb.style.fontSize = f + "px";
+    for (let f = 34; f >= 30 && !fits(); f -= 2) vl.style.fontSize = f + "px";
+  });
+  // rows: marks band (54) above each tag row
+  const rowH = ROWS.map((k, r) => 54 + Math.max(...tags.filter((t, i) => place[i].r === r).map(t => t.offsetHeight)));
+  const itemsH = rowH.reduce((a, b) => a + b, 0) + (ROWS.length - 1) * 18;
+
+  // ---------- floor zone split: hero above, items below ----------
+  const FZ0 = titleBottom + 14, FZ1 = capTop - 22;
+  const HERO_H = 340, HERO_W = 810;
+  const avail = FZ1 - FZ0 - itemsH - 26;
+  const hs = Math.max(0.74, Math.min(1, avail / HERO_H));
+  const slack = Math.max(0, avail - HERO_H * hs);
+  const heroTop = FZ0 + slack * 0.4, heroX = 90 + (HERO_W - HERO_W * hs) / 2;
+  const itemsTop = heroTop + HERO_H * hs + 26 + slack * 0.35;
+
+  const marks = [];
+  let rt = itemsTop;
+  ROWS.forEach((k, r) => { place.forEach((p, i) => { if (p.r === r) p.top = rt; }); rt += rowH[r] + 18; });
+  tags.forEach((t, i) => {
+    const p = place[i], w = t.offsetWidth, sw = p.s[1] - p.s[0];
+    const x = p.s[0] + Math.min(TJIT[i], Math.max(0, sw - w));
+    t.style.left = x + "px"; t.style.top = (p.top + 54) + "px"; t.style.transform = "rotate(" + TROT[i] + "deg)";
+    marks.push({ x: x + 32, y: p.top + 26, r: p.r, sl: p.s[0] });
+  });
+  let mk = "";
+  marks.forEach(m => { mk += spikeX(m.x, m.y, 46, 12, YEL); });
+
+  // chalk walk: enters from the wing, runs along each row above its labels, drops down the gutter between rows
+  let rd = "";
+  if (marks.length) {
+    const m0 = marks[0];
+    rd += '<path d="M40,' + f1(m0.y + 18) + " C70," + f1(m0.y + 14) + " " + f1(m0.x - 50) + "," + f1(m0.y + 4) + " " + f1(m0.x - 28) + "," + f1(m0.y) + '" marker-end="url(#ahc)"/>';
+  }
+  for (let i = 0; i + 1 < marks.length; i++) {
+    const a = marks[i], b = marks[i + 1], dir = b.x > a.x ? 1 : -1;
+    if (a.r === b.r) {
+      const p0 = a.x + dir * 30, p1 = b.x - dir * 30, sag = (i % 2 ? -8 : 8);
+      rd += '<path d="M' + f1(p0) + "," + f1(a.y) + " Q" + f1((p0 + p1) / 2) + "," + f1(a.y + sag) + " " + f1(p1) + "," + f1(b.y) + '" marker-end="url(#ahc)"/>';
+    } else {
+      const gx = a.sl - 17;                 // the gutter just left of the label that ends the row
+      rd += '<path d="M' + f1(a.x - 30) + "," + f1(a.y) + " C" + f1(gx + 6) + "," + f1(a.y) + " " + f1(gx) + "," + f1(a.y + 8) + " " + f1(gx) + "," + f1(a.y + 40) +
+            " L" + f1(gx) + "," + f1(b.y - 40) + " C" + f1(gx) + "," + f1(b.y - 6) + " " + f1(gx + (b.x > gx ? 8 : -8)) + "," + f1(b.y) + " " + f1(b.x + (b.x > gx ? -30 : 30)) + "," + f1(b.y) +
+            '" marker-end="url(#ahc)"/>';
+    }
+  }
+  const route = '<g fill="none" stroke="#EFE7D2" stroke-width="3" stroke-dasharray="10 9" stroke-linecap="round" opacity="0.6">' + rd + "</g>";
+
+  // ---------- hero (local 810 x 340): the chair moved; the prints did not ----------
+  const OX = 182, OY = 100, BW = 152, BH = 124, NX = 604;
+  const XO = 240, XN = 236;                           // centres of the old (worn) X and the new (empty) X
+  let hero = "";
+  // old spot: a clean, darker patch where the chair stood + a dusty outline around it, worn blue L's
+  hero += '<rect x="' + (OX - BW / 2 + 8) + '" y="' + (OY - BH / 2 + 8) + '" width="' + (BW - 16) + '" height="' + (BH - 16) + '" rx="12" fill="#1F2024" opacity="0.75" filter="url(#soft)"/>';
+  hero += '<rect x="' + (OX - BW / 2 + 2) + '" y="' + (OY - BH / 2 + 2) + '" width="' + (BW - 4) + '" height="' + (BH - 4) + '" rx="16" fill="none" stroke="#8C8E95" stroke-width="7" opacity="0.32" filter="url(#soft)"/>';
+  hero += '<g filter="url(#tsh)" opacity="0.9">' + box(OX, OY, BW, BH, 40, 14, BLUE) + "</g>";
+  // scuffs on the worn L's
+  hero += '<g stroke="#2E2F34" stroke-width="3" opacity="0.5" stroke-linecap="round"><path d="M' + (OX - BW / 2 + 14) + ',' + (OY - BH / 2 - 4) + ' l10 7"/><path d="M' + (OX + BW / 2 + 3) + ',' + (OY + BH / 2 - 22) + ' l-6 9"/></g>';
+  // new spot: fresh blue L's around the chair
+  hero += '<g filter="url(#tsh)">' + box(NX, OY, BW, BH, 40, 14, BLUE) + "</g>";
+  // the chair, seen from high above-front: feet on the floor, seat, legs, backrest
+  const P = (x, y, h) => [x + 0.17 * h, y - 0.56 * h];
+  const pp = a => a.map(p => f1(p[0]) + "," + f1(p[1])).join(" ");
+  const ft = [[-50, 44], [50, 44], [-46, -42], [46, -42]];
+  const sh = 44, bh2 = 92;
+  const seat = ft.map(([x, y]) => P(x, y, sh));
+  const seatTop = [seat[2], seat[3], seat[1], seat[0]];
+  const seatEdge = [seat[0], seat[1], P(50, 44, sh - 9), P(-50, 44, sh - 9)];
+  const backTop = [P(-46, -42, bh2), P(46, -42, bh2)];
+  let ch = '<g transform="translate(' + NX + "," + OY + ') rotate(-6)">';
+  ch += '<polygon points="' + pp([[-48, -36], [62, -36], [64, 52], [-44, 52]]) + '" fill="#000" opacity="0.5" filter="url(#csh)" transform="translate(10,8)"/>';
+  ch += '<g stroke="#2B4A86" stroke-width="7" stroke-linecap="round">';
+  ft.forEach(([x, y], i) => { const s = seat[i]; ch += '<line x1="' + f1(x) + '" y1="' + f1(y) + '" x2="' + f1(s[0]) + '" y2="' + f1(s[1]) + '"/>'; });
+  ch += "</g>";
+  // back posts + backrest panel
+  ch += '<g stroke="#2F5296" stroke-width="7" stroke-linecap="round"><line x1="' + f1(seat[2][0]) + '" y1="' + f1(seat[2][1]) + '" x2="' + f1(backTop[0][0]) + '" y2="' + f1(backTop[0][1]) + '"/>' +
+        '<line x1="' + f1(seat[3][0]) + '" y1="' + f1(seat[3][1]) + '" x2="' + f1(backTop[1][0]) + '" y2="' + f1(backTop[1][1]) + '"/></g>';
+  const bp = [P(-46, -42, bh2), P(46, -42, bh2), P(46, -42, bh2 - 30), P(-46, -42, bh2 - 30)];
+  ch += '<polygon points="' + pp(bp) + '" fill="#4C76C2" stroke="#2F5296" stroke-width="3" stroke-linejoin="round"/>';
+  ch += '<line x1="' + f1(bp[0][0] + 6) + '" y1="' + f1(bp[0][1] + 5) + '" x2="' + f1(bp[1][0] - 6) + '" y2="' + f1(bp[1][1] + 5) + '" stroke="#86A8E4" stroke-width="3.5" stroke-linecap="round"/>';
+  ch += '<polygon points="' + pp(seatEdge) + '" fill="#34599E"/>';
+  ch += '<polygon points="' + pp(seatTop) + '" fill="#5B85D0" stroke="#2F5296" stroke-width="3" stroke-linejoin="round"/>';
+  ch += '<line x1="' + f1(seat[0][0] + 8) + '" y1="' + f1(seat[0][1] - 6) + '" x2="' + f1(seat[1][0] - 8) + '" y2="' + f1(seat[1][1] - 6) + '" stroke="#86A8E4" stroke-width="3" stroke-linecap="round" opacity="0.8"/>';
+  ch += "</g>";
+  hero += ch;
+  // chalk arrow: the chair's move, from its old L's to the new ones
+  hero += '<path d="M' + (OX + BW / 2 + 18) + "," + (OY - 18) + " C" + (OX + 150) + "," + (OY - 70) + " " + (NX - 150) + "," + (OY - 70) + " " + (NX - BW / 2 - 18) + "," + (OY - 20) +
+          '" fill="none" stroke="#EFE7D2" stroke-width="3.5" stroke-dasharray="11 9" stroke-linecap="round" opacity="0.8" marker-end="url(#ahc)"/>';
+  // the old X: worn, scuffed, one end lifting
+  hero += '<g filter="url(#tsh)">' + spikeX(OX, XO, 196, 34, YEL) + "</g>";
+  hero += '<g stroke="#2E2F34" stroke-linecap="round" opacity="0.38"><path d="M' + (OX - 70) + "," + (XO - 52) + ' l26 6" stroke-width="5"/><path d="M' + (OX + 50) + "," + (XO + 58) + ' l18 -10" stroke-width="4"/><path d="M' + (OX + 58) + "," + (XO - 64) + ' l-14 8" stroke-width="3"/></g>';
+  hero += '<polygon points="' + (OX + 58) + "," + (XO + 80) + " " + (OX + 76) + "," + (XO + 62) + " " + (OX + 74) + "," + (XO + 84) + '" fill="#F6E3A6"/>';
+  // the new X: fresh, crisp, empty
+  hero += '<g filter="url(#tsh)">' + spikeX(NX, XN, 150, 30, YEL) + "</g>";
+  // footprints, toes into the empty L's (dusty sneaker prints with tread)
+  const SOLE = "M36 3 C56 2 70 18 70 44 C70 70 62 88 56 102 C52 112 52 124 54 138 C57 160 50 178 34 178 C18 178 12 162 14 144 C16 128 16 116 12 104 C6 88 2 68 2 46 C2 20 16 4 36 3 Z";
+  const toeY = OY + BH / 2 + 8;
+  const sole = (cx, rot, mirror) =>
+    '<g transform="translate(' + cx + "," + toeY + ") rotate(" + rot + ")" + (mirror ? " scale(-0.8,0.8)" : " scale(0.8,0.8)") + ' translate(-36,-3)">' +
+      '<path d="' + SOLE + '" fill="#ECE7DA" mask="url(#tread)"/>' +
+      '<path d="' + SOLE + '" fill="none" stroke="#1C1D21" stroke-width="2.5"/>' +
+    "</g>";
+  hero += sole(OX - 34, -5, true) + sole(OX + 34, 5, false);
+  // red marker: ring round the prints (hand drawn, overshooting) + a stroke to where they should be
+  hero += '<g transform="translate(' + OX + "," + (XO + 2) + ') scale(0.84,0.74)">' +
+    '<path d="M-118 -78 C-52 -140 86 -144 138 -70 C176 -12 154 86 76 122 C2 154 -108 136 -146 64 C-172 12 -154 -50 -102 -94 C-72 -118 -36 -130 6 -136" fill="none" stroke="#D94F3A" stroke-width="8" stroke-linecap="round" vector-effect="non-scaling-stroke"/>' +
+    '<path d="M-96 -104 C-74 -118 -50 -126 -26 -130" fill="none" stroke="#D94F3A" stroke-width="5" stroke-linecap="round" vector-effect="non-scaling-stroke" opacity="0.8"/>' +
+    "</g>";
+  hero += '<path d="M' + (OX + 128) + "," + (XO + 8) + " C" + (OX + 190) + "," + (XO + 22) + " " + (NX - 170) + "," + (XN - 14) + " " + (NX - 76) + "," + (XN - 2) +
+          '" fill="none" stroke="#D94F3A" stroke-width="7" stroke-linecap="round" marker-end="url(#ahr)"/>';
+
+  g += '<g filter="url(#tsh)">' + mk + "</g>" + route;
+  g += '<g transform="translate(' + f1(heroX) + "," + f1(heroTop) + ") scale(" + hs.toFixed(3) + ')">' + hero + "</g>";
+  $("stage").innerHTML = g;
+
+  // the BARU label sits beside the new X
+  const baru = $("baru");
+  baru.style.left = f1(heroX + (NX + 70) * hs) + "px";
+  baru.style.top = f1(heroTop + (XN - 26) * hs) + "px";
+  baru.style.transform = "rotate(-3deg)";
+  }
+</script>
+</body>
+</html>

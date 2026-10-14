@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Cracker Bloom</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;700&family=Rubik:wght@500;600;700;800;900&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Cracker Bloom: a kerupuk drying yard in hard noon sun, seen from above. The whole frame is
+    woven bamboo racks (a far rack, soft, up top; the main rack full-bleed; its front pole, the
+    ground and the edge of a wajan of hot oil at the bottom). The title is the paper label of a
+    wholesale raw-kerupuk pack (heat-seal crimps, hang hole, "cap" seal = hl) lying on the rack;
+    the caption is a second crimped strip at the bottom of the rack.
+    The object: one kerupuk kaleng has been fried and bloomed: a coiled dough rope, and the
+    numbers are printed ALONG the rope (textPath), so the vector literally is the cracker.
+    A dashed terracotta footprint in its core = the size it had when raw. The items are raw,
+    hard terracotta chips with the same coil, small.
+    Metaphor: embeddings (a token puffs into thousands of numbers); for ai-in-numbers topics the
+    coil carries the item values instead (a small number puffing up into a big one).
+    Hard sun = every object casts the same hard shadow down-right.
+    Deterministic: hard-coded harmonics + a seeded LCG, no Math.random / Date.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #E9CBB3; }
+  body { position: relative; color: #2B2523; font-family: "Rubik", sans-serif; }
+  #scene { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  #scene .vn { font: 400 26px "Azeret Mono", monospace; fill: #2B2523; letter-spacing: -0.04em; }
+  #scene .vn .b { font-weight: 700; }
+
+  /* paper label of a raw-kerupuk pack + the caption strip: cream paper, zigzag heat-seal crimps */
+  .lwrap { position: absolute; left: 66px; top: 270px; width: 948px; transform: rotate(-1.8deg); transform-origin: 50% 0;
+           filter: drop-shadow(14px 18px 0 rgba(90, 60, 34, 0.27)); }
+  .swrap { position: absolute; left: 116px; width: 808px; transform: rotate(1.1deg); transform-origin: 50% 100%;
+           filter: drop-shadow(12px 16px 0 rgba(90, 60, 34, 0.27)); }
+  .pack { position: relative; background: #FBF4EC; }
+  .crimp { position: relative; height: 28px;
+           background: repeating-linear-gradient(90deg, rgba(138, 106, 69, 0.2) 0 2px, rgba(255, 255, 255, 0) 2px 7px),
+                       linear-gradient(180deg, #EEE1CB, #F8EFE2 58%, #E9DAC1); }
+  .crimp.b { background: repeating-linear-gradient(90deg, rgba(138, 106, 69, 0.2) 0 2px, rgba(255, 255, 255, 0) 2px 7px),
+                         linear-gradient(0deg, #EEE1CB, #F8EFE2 58%, #E9DAC1); }
+  .hole { position: absolute; left: 50%; top: 9px; width: 72px; height: 12px; margin-left: -36px; border-radius: 6px;
+          background: #A88660; box-shadow: inset 3px 3px 0 rgba(60, 38, 20, 0.45); }
+  .lbody, .sbody { background: linear-gradient(112deg, rgba(255, 255, 255, 0) 30%, rgba(255, 255, 255, 0.6) 41%, rgba(255, 255, 255, 0) 52%), #FBF4EC; }
+  .lbody { padding: 16px 48px 22px; }
+  .kick { display: flex; justify-content: space-between; align-items: baseline; gap: 24px; white-space: nowrap;
+          font: 700 26px/1.25 "Rubik", sans-serif; letter-spacing: 0.09em; text-transform: uppercase; color: #2B2523;
+          padding-bottom: 8px; border-bottom: 6px double #2B2523; }
+  .title { margin-top: 14px; font-weight: 900; line-height: 1.04; letter-spacing: -0.025em; color: #2B2523; }
+  /* hl = the pack's oval "cap" seal: terracotta, inner ink ring, printed slightly askew */
+  .title .hl { display: inline-block; white-space: nowrap; background: #E9A27C; border-radius: 50%;
+               padding: 0.04em 0.34em 0.06em; margin: -0.08em 0.02em; transform: rotate(-3deg);
+               box-shadow: inset 0 0 0 0.05em #E9A27C, inset 0 0 0 0.085em #2B2523; }
+  .title .hl.long { display: inline; white-space: normal; border-radius: 0.5em; padding: 0 0.16em; transform: none;
+                    -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  .sbody { padding: 14px 40px 12px; }
+  .cap { font-weight: 600; line-height: 1.22; color: #6E5A4A; letter-spacing: -0.01em; }
+  .cap .w.done { color: #2B2523; }
+  .cap .w.on { color: #2B2523; font-weight: 800; background: #E9A27C; border-radius: 0.6em; padding: 0 0.24em; margin: 0 -0.05em;
+               box-shadow: inset 0 0 0 0.045em #E9A27C, inset 0 0 0 0.075em #2B2523;
+               -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  .small { display: flex; justify-content: space-between; align-items: flex-end; gap: 28px; margin-top: 10px; padding-top: 7px;
+           border-top: 2px solid rgba(43, 37, 35, 0.45); font: 500 26px/1.25 "Rubik", sans-serif; color: #5C4A3E; }
+  .small #src { text-wrap: balance; }
+  .small #date { white-space: nowrap; }
+
+  .stamp { position: absolute; font-weight: 800; letter-spacing: -0.02em; white-space: nowrap; line-height: 1; color: #2B2523; }
+  .chip-t { position: absolute; text-align: center; color: #2B2523; }
+  .chip-t .vl { font-weight: 800; font-size: 40px; line-height: 1.05; white-space: nowrap; letter-spacing: -0.02em; }
+  .chip-t .lb { font-weight: 700; font-size: 30px; line-height: 1.08; letter-spacing: -0.015em; margin-top: 3px; text-wrap: balance; }
+  .chip-t .lb.one { white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg id="scene" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+<div id="layer"></div>
+<div class="lwrap" id="lwrap"><div class="pack" id="label">
+  <div class="crimp"><div class="hole"></div></div>
+  <div class="lbody"><div class="kick"><span id="kser"></span><span id="kep"></span></div><div class="title" id="title"></div></div>
+  <div class="crimp b"></div>
+</div></div>
+<div class="swrap" id="swrap"><div class="pack" id="strip">
+  <div class="crimp"></div>
+  <div class="sbody"><div class="cap" data-slot="caption" id="cap"></div><div class="small"><span id="src"></span><span id="date"></span></div></div>
+  <div class="crimp b"></div>
+</div></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series_id: "how-ai-works", series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const FONTS = ['900 92px "Rubik"', '800 40px "Rubik"', '700 30px "Rubik"', '600 46px "Rubik"', '500 26px "Rubik"',
+                 '400 26px "Azeret Mono"', '700 26px "Azeret Mono"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const items = (D.items || []).slice(0, 5), n = items.length;
+  const t = String(D.title || ""), hl = String(D.hl || ""), sid = String(D.series_id || "");
+  // what the bloom is printed with: a vector (how-ai-works / token topics) or the topic's own values
+  const vecMode = sid !== "ai-in-numbers" && !/\d/.test(hl) && (sid === "how-ai-works" || /token|vektor|embedding/i.test(t + " " + hl));
+
+  // ---- pack label: kicker as small print, title, hl as the "cap" seal ---------------------------
+  const series = D.series || String(D.kicker || "").split("·")[0].trim();
+  $("kser").textContent = series;
+  $("kep").textContent = "Netto" + (D.ep ? " · " + D.ep : "");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const hlEnd = at < 0 ? -1 : at + hl.length + ((t.slice(at + hl.length).match(/^[.,!?:;]+/) || [""])[0].length);
+  const titleEl = $("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl' + (hlEnd - at > 16 ? " long" : "") + '">' + esc(t.slice(at, hlEnd)) + "</span>" + esc(t.slice(hlEnd));
+  const TW = titleEl.clientWidth, seal = titleEl.querySelector(".hl:not(.long)");
+  const setFs = fs => {
+    titleEl.style.fontSize = fs + "px";
+    if (!seal) return;
+    seal.style.paddingLeft = seal.style.paddingRight = "0px";
+    const tw = seal.offsetWidth, oval = tw / fs < 4.2;   // short word: true oval seal; long phrase: rounded stadium seal
+    seal.style.borderRadius = oval ? "50%" : "0.62em";
+    const px = oval ? Math.max(0.34 * fs, 0.15 * tw) : 0.36 * fs;   // the oval is widened so it never cuts the word's corners
+    seal.style.paddingLeft = seal.style.paddingRight = px.toFixed(1) + "px";
+    seal.style.paddingTop = (oval ? 0.08 : 0.04) + "em"; seal.style.paddingBottom = (oval ? 0.09 : 0.06) + "em";
+    seal.style.marginTop = seal.style.marginBottom = (oval ? -0.11 : -0.08) + "em";
+  };
+  // prefer two big lines (more room for the cracker); fall back to three
+  let tfs = 0;
+  for (let fs = 92; fs >= 78; fs -= 2) { setFs(fs); if (titleEl.scrollWidth <= TW + 1 && titleEl.offsetHeight <= fs * 2.35) { tfs = fs; break; } }
+  if (!tfs) for (tfs = 92; tfs >= 62; tfs -= 2) { setFs(tfs); if (titleEl.scrollWidth <= TW + 1 && titleEl.offsetHeight <= tfs * 3.4) break; }
+  if (seal) seal.style.transform = "rotate(" + (-3 * Math.min(1, 260 / seal.offsetWidth)).toFixed(2) + "deg)";   // long seals tilt less
+
+  // ---- caption strip: karaoke caption + source/date small print -----------------------------------
+  $("src").textContent = D.source || ""; $("date").textContent = D.date || "";
+  const capText = String(D.caption || D.sub || "");
+  const words = [...capText.matchAll(/\S+/g)].map(m => ({ w: m[0], s: m.index, e: m.index + m[0].length }));
+  const ci = hl ? capText.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  let act = ci < 0 ? [] : words.map((w, i) => (w.s < ci + hl.length && w.e > ci) ? i : -1).filter(i => i >= 0);
+  if (!act.length && words.length) act = [0];
+  const a0 = act[0], a1 = act[act.length - 1];
+  let capHtml = "";
+  words.forEach((w, i) => {
+    if (i === a0) capHtml += '<span class="w on">' + words.slice(a0, a1 + 1).map(x => esc(x.w)).join(" ") + "</span> ";
+    else if (i > a0 && i <= a1) return;
+    else capHtml += '<span class="w' + (i < a0 ? " done" : "") + '">' + esc(w.w) + "</span> ";
+  });
+  const cap = $("cap");
+  const capHTML = m => {            // words [0, m) with the karaoke spans; "…" when cut
+    let h = "";
+    words.slice(0, m).forEach((w, i) => {
+      if (i === a0) h += '<span class="w on">' + words.slice(a0, Math.min(a1 + 1, m)).map(x => esc(x.w)).join(" ") + "</span> ";
+      else if (i > a0 && i <= a1) return;
+      else h += '<span class="w' + (i < a0 ? " done" : "") + '">' + esc(i === m - 1 && m < words.length ? w.w.replace(/[.,;:!?]*$/, "") + "…" : w.w) + "</span> ";
+    });
+    return h.trim();
+  };
+  cap.innerHTML = capHtml.trim();
+  let cfs = 48;
+  for (; cfs >= 40; cfs -= 2) { cap.style.fontSize = cfs + "px"; if (cap.offsetHeight <= cfs * 1.22 * 2 + 4) break; }
+  const capMax = parseFloat(cap.style.fontSize) * 1.22 * 2 + 4;
+  for (let m = words.length - 1; cap.offsetHeight > capMax && m > a1; m--) cap.innerHTML = capHTML(m);   // > 2 lines at 40 px: cut, end with "…"
+  // zigzag heat-seal edges on both paper pieces (the drop shadow on the wrapper follows the cut)
+  const zig = el => {
+    const W = el.offsetWidth, H = el.offsetHeight, P = 7, A = 7, top = [], bot = [];
+    for (let i = 0, x = 0; x < W + P; i++, x += P) { const xx = Math.min(x, W); top.push(xx.toFixed(1) + "px " + (i % 2 ? A : 0) + "px"); bot.push(xx.toFixed(1) + "px " + (H - (i % 2 ? A : 0)) + "px"); }
+    el.style.clipPath = "polygon(" + top.concat(bot.reverse()).join(",") + ")";
+  };
+  const label = $("label"), strip = $("strip");
+  zig(label); zig(strip);
+  const labelBot = 270 + label.offsetHeight;
+  const stripTop = 1614 - strip.offsetHeight;
+  $("swrap").style.top = stripTop + "px";
+
+  // ---- helpers ------------------------------------------------------------------------------------
+  const f1 = v => v.toFixed(1);
+  const TAU = Math.PI * 2;
+  const hex = c => "#" + c.map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0")).join("");
+  const sh = (c, k) => hex([c[0] + k, c[1] + k, c[2] + k]);
+  const hsh = i => { const x = Math.sin(i * 12.9898 + 78.233) * 43758.5453; return x - Math.floor(x); };
+  let seed = 20261014; const rnd = () => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296;
+  const pl = pts => pts.map(p => f1(p[0]) + "," + f1(p[1])).join(" ");
+  const pathOf = (pts, close) => "M" + pts.map(p => f1(p[0]) + "," + f1(p[1])).join("L") + (close ? "Z" : "");
+
+  // A coiled dough rope (kerupuk kaleng is piped as a spiral). Built in "circle space" and squashed by k
+  // for the top-down view; returns the centre line + ribbons for shadow / body / highlight.
+  function coil(o) {
+    const { cx, cy, R, k, rho0, K, w0, thEnd, m, dt } = o;
+    const kw = 1 - 0.5 * (1 - k), th0 = thEnd - TAU * K, dRho = (1 - rho0) / K, P = [];
+    for (let th = th0; th <= thEnd + 1e-9; th += dt) {
+      const rho = rho0 + dRho * (th - th0) / TAU, mm = m(th), X = Math.cos(th) * R * rho * mm, Y = Math.sin(th) * R * rho * mm;
+      P.push({ th, X, Y, x: cx + X, y: cy + Y * k });
+    }
+    let s = 0;
+    P.forEach((p, i) => {
+      const a = P[Math.max(0, i - 1)], b = P[Math.min(P.length - 1, i + 1)];
+      const dx = b.X - a.X, dy = b.Y - a.Y, L = Math.hypot(dx, dy) || 1;
+      p.nx = -dy / L; p.ny = dx / L;
+      const sx = b.x - a.x, sy = b.y - a.y, SL = Math.hypot(sx, sy) || 1;
+      p.tx = sx / SL; p.ty = sy / SL;
+      if (i) s += Math.hypot(p.X - P[i - 1].X, p.Y - P[i - 1].Y);
+      p.s = s;
+    });
+    const S = s;
+    P.forEach(p => {
+      let w = w0 * (1 + 0.09 * Math.sin(p.s / 21 + o.ph) + 0.06 * Math.sin(p.s / 8.7 + 1.1 + o.ph));
+      if (p.s < 46) w *= 0.6 + 0.4 * p.s / 46;                       // tucked-in start
+      if (S - p.s < 50) w *= 1 + 0.16 * (1 - (S - p.s) / 50);        // strand end: a small lump
+      p.w = w;
+    });
+    const ribbon = (scale, ox, oy) => {
+      const L = [], Rr = [];
+      P.forEach(p => { const h = p.w * scale / 2; L.push([p.x + ox + p.nx * h, p.y + oy + p.ny * h * kw]); Rr.push([p.x + ox - p.nx * h, p.y + oy - p.ny * h * kw]); });
+      const a = P[0], z = P[P.length - 1];
+      return pathOf(L.concat(Rr.reverse()), true) +
+        `M${f1(z.x + ox + z.w * scale / 2)},${f1(z.y + oy)}a${f1(z.w * scale / 2)},${f1(z.w * scale / 2 * kw)} 0 1,0 0.1,0Z` +
+        `M${f1(a.x + ox + a.w * scale / 2)},${f1(a.y + oy)}a${f1(a.w * scale / 2)},${f1(a.w * scale / 2 * kw)} 0 1,0 0.1,0Z`;
+    };
+    // outer envelope = the last turn pushed out by half the rope (used for the body, thickness and shadow)
+    const last = P.filter(p => p.th >= thEnd - TAU);
+    const env = last.map(p => { const out = (p.nx * p.X + p.ny * p.Y) > 0 ? 1 : -1, h = p.w / 2 * out; return [p.x + p.nx * h, p.y + p.ny * h * kw]; });
+    return { P, ribbon, env, kw, dRho, th0, S };
+  }
+  const wob = (a, b, c, p) => th => 1 + a * Math.sin(5 * th + p) + b * Math.sin(9 * th + 1.7 + p) + c * Math.sin(14 * th + 0.6 + p);
+
+  // A woven bamboo plane (2/2 twill) in perspective: wide strips, soft lengthwise sheen, low warp/weft contrast.
+  function weave(o) {
+    const r = o.r, yh = (o.yB * r - o.yF) / (r - 1);
+    const P = (X, b) => { const d = 1 + b * (r - 1); return [540 + X / d, yh + (o.yF - yh) / d]; };
+    const NR = Math.max(3, Math.round((o.yF - o.yB) / (o.rowH * (1 + 1 / r) / 2)));
+    const NC = Math.ceil(2 * o.half / o.cell);
+    const near = [], far = [];
+    let edgeN = "", edgeF = "";
+    for (let j = 0; j < NR; j++) {
+      const b0 = j / NR, b1 = (j + 1) / NR, isFar = b0 >= o.farFrom;
+      let cells = "", edges = "";
+      for (let i = 0; i < NC; i++) {
+        const X0 = -o.half + i * o.cell, X1 = X0 + o.cell, warp = ((i + j + o.shift) & 3) < 2;
+        const q = [P(X0, b0), P(X1, b0), P(X1, b1), P(X0, b1)];
+        if (q[1][0] < -20 || q[0][0] > 1100) continue;
+        const base = warp ? sh(o.warp, (hsh(i + o.seed) - 0.5) * 12) : sh(o.weft, (hsh(j + 97 + o.seed) - 0.5) * 12);
+        cells += `<polygon points="${pl(q)}" fill="${base}"/><polygon points="${pl(q)}" fill="url(#${warp ? "gWarp" : "gWeft"})"/>`;
+        edges += warp ? `M${f1(q[0][0])},${f1(q[0][1])}L${f1(q[3][0])},${f1(q[3][1])}M${f1(q[1][0])},${f1(q[1][1])}L${f1(q[2][0])},${f1(q[2][1])}`
+                      : `M${f1(q[0][0])},${f1(q[0][1])}L${f1(q[1][0])},${f1(q[1][1])}M${f1(q[3][0])},${f1(q[3][1])}L${f1(q[2][0])},${f1(q[2][1])}`;
+      }
+      (isFar ? far : near).push(cells);
+      if (isFar) edgeF += edges; else edgeN += edges;
+    }
+    const ed = d => `<path d="${d}" fill="none" stroke="#7A5A3A" stroke-opacity=".28" stroke-width="1.5"/>`;
+    return { near: near.join("") + ed(edgeN), far: far.join("") + ed(edgeF), P };
+  }
+
+  const S = [];
+  S.push(`<defs>
+    <linearGradient id="pole" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#EAD3AE"/><stop offset=".35" stop-color="#CDA778"/><stop offset=".75" stop-color="#A47D52"/><stop offset="1" stop-color="#76563A"/></linearGradient>
+    <linearGradient id="gWarp" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5A3C22" stop-opacity=".16"/><stop offset=".2" stop-color="#FFF8EA" stop-opacity=".04"/><stop offset=".44" stop-color="#FFF8EA" stop-opacity=".34"/><stop offset=".72" stop-color="#FFF8EA" stop-opacity=".06"/><stop offset="1" stop-color="#5A3C22" stop-opacity=".17"/></linearGradient>
+    <linearGradient id="gWeft" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5A3C22" stop-opacity=".16"/><stop offset=".2" stop-color="#FFF8EA" stop-opacity=".04"/><stop offset=".44" stop-color="#FFF8EA" stop-opacity=".34"/><stop offset=".72" stop-color="#FFF8EA" stop-opacity=".06"/><stop offset="1" stop-color="#5A3C22" stop-opacity=".17"/></linearGradient>
+    <linearGradient id="haze" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F7E9DC" stop-opacity=".5"/><stop offset=".45" stop-color="#F7E9DC" stop-opacity=".12"/><stop offset="1" stop-color="#F7E9DC" stop-opacity="0"/></linearGradient>
+    <linearGradient id="sunfall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5A3C22" stop-opacity="0"/><stop offset="1" stop-color="#5A3C22" stop-opacity=".1"/></linearGradient>
+    <radialGradient id="oil" cx=".3" cy=".25" r=".8"><stop offset="0" stop-color="#E8B256"/><stop offset=".5" stop-color="#C98A2E"/><stop offset="1" stop-color="#8E5518"/></radialGradient>
+    <filter id="soft" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="1.1"/><feColorMatrix type="saturate" values=".72"/></filter>
+    <filter id="farf" x="-5%" y="-20%" width="110%" height="140%"><feGaussianBlur stdDeviation="2.6"/><feColorMatrix type="saturate" values=".55"/></filter>
+  </defs>`);
+
+  // ---- the yard: ground, far rack (soft), main rack (full-bleed) ---------------------------------
+  S.push(`<rect data-layout-allow-overflow x="0" y="0" width="1080" height="1920" fill="#E9CBB3"/>`);
+  const WARP = [208, 179, 138], WEFT = [198, 168, 127];
+  const farW = weave({ yB: -60, yF: 206, r: 1.14, half: 760, cell: 64, rowH: 46, warp: WARP, weft: WEFT, seed: 31, shift: 1, farFrom: 2 });
+  let farChips = "";
+  [[130, 70], [372, 52], [640, 74], [905, 58], [250, 160], [520, 168], [790, 162]].forEach(([x, y], i) => {
+    const C = coil({ cx: x, cy: y, R: 64, k: 0.52, rho0: 0.2, K: 2.5, w0: 13, thEnd: 2 + i + TAU * 3, m: wob(0.03, 0.02, 0.01, i), dt: 0.05, ph: i });
+    farChips += `<path d="${pathOf(C.env.map(p => [p[0] + 9, p[1] + 11]), true)}" fill="#5A3C22" opacity=".18"/><path d="${pathOf(C.env, true)}" fill="#D48A62"/><path d="${C.ribbon(1, 0, 0)}" fill="#E8A682"/>`;
+  });
+  S.push(`<g data-layout-allow-overflow filter="url(#farf)">${farW.near}${farW.far}${farChips}<rect x="-20" y="196" width="1120" height="16" fill="url(#pole)"/></g>`);
+  S.push(`<rect data-layout-allow-overflow x="0" y="0" width="1080" height="214" fill="#F6E6D8" opacity=".38"/>`);
+  S.push(`<rect data-layout-allow-overflow x="0" y="212" width="1080" height="22" fill="#5A3C22" opacity=".16"/>`);   // far rack's shadow
+
+  const yB = 263, yF = 1671;
+  const mainW = weave({ yB, yF, r: 1.22, half: 700, cell: 80, rowH: 72, warp: WARP, weft: WEFT, seed: 0, shift: 0, farFrom: 0.5 });
+  S.push(`<g data-layout-allow-overflow filter="url(#soft)">${mainW.far}</g>`);
+  S.push(`<g data-layout-allow-overflow>${mainW.near}</g>`);
+  S.push(`<rect data-layout-allow-overflow x="0" y="${yB}" width="1080" height="${yF - yB}" fill="url(#haze)"/>`);
+  S.push(`<rect data-layout-allow-overflow x="0" y="${yB}" width="1080" height="${yF - yB}" fill="url(#sunfall)"/>`);
+  // back pole (thin, far) with bamboo nodes
+  S.push(`<rect data-layout-allow-overflow x="-10" y="${yB - 11}" width="1100" height="22" fill="url(#pole)"/>`);
+  [150, 468, 802].forEach(x => S.push(`<rect x="${x}" y="${yB - 11}" width="6" height="22" fill="#76563A" opacity=".75"/><rect x="${x + 6}" y="${yB - 11}" width="3" height="22" fill="#EBD5B2" opacity=".8"/>`));
+
+  // ---- raw chips (the items): positions first, they bound the bloom ------------------------------
+  const RX = n <= 3 ? 140 : 134, RY = n <= 3 ? 82 : 76, THK = 9;
+  const rowF = stripTop - 26 - RY - THK, rowB = rowF - 132;
+  const pos = [];
+  if (n >= 4) {
+    const back = n === 4 ? [290, 580] : [216, 495, 774], front = n === 4 ? [435, 725] : [355, 634];
+    back.forEach(x => pos.push([x, rowB])); front.forEach(x => pos.push([x, rowF]));
+  } else {
+    const xs = n === 3 ? [216, 495, 774] : n === 2 ? [355, 645] : [500];
+    xs.forEach(x => pos.push([x, rowF]));
+  }
+
+  // ---- the bloomed cracker -----------------------------------------------------------------------
+  const layer = $("layer");
+  const BCX = 520, bloomTop = labelBot + 26, bloomBotT = n >= 4 ? rowB + 64 : rowF + 18;
+  let BRY = Math.max(150, (bloomBotT - bloomTop) / 2);
+  const BRX = Math.min(455, Math.max(380, BRY / 0.66));
+  BRY = Math.min(BRY, BRX * 0.8);
+  const BCY = bloomTop + BRY, k = BRY / BRX;
+
+  // footprint = the raw chip's size; its stamp: the word (vector mode) or the raw small number
+  const stampTxt = vecMode ? (hl || (items[0] && items[0].label) || "") : ((items[0] && items[0].value) || hl);
+  const st = document.createElement("div"); st.className = "stamp"; st.textContent = stampTxt; layer.appendChild(st);
+  let fpR = RX * 0.96, sfs = Math.min(62, tfs - 10);
+  for (; sfs >= 32; sfs -= 2) { st.style.fontSize = sfs + "px"; if (st.offsetWidth <= fpR * 1.62) break; }
+  if (st.offsetWidth > fpR * 1.62) fpR = Math.min(230, st.offsetWidth / 1.62);
+  st.style.left = f1(BCX - st.offsetWidth / 2) + "px"; st.style.top = f1(BCY - st.offsetHeight / 2 + 2) + "px";
+
+  const rho0 = fpR / BRX;
+  const K = Math.max(5, Math.min(7, Math.round((1 - rho0) * BRY / 38)));
+  const kwB = 1 - 0.5 * (1 - k), pitchTop = BRX * (1 - rho0) / K * k;
+  const w0 = Math.max(24, Math.min(38, 0.8 * pitchTop / kwB));
+  const bm = th => 1 + 0.022 * Math.sin(4 * th + 0.4) + 0.017 * Math.sin(7 * th + 1.7) + 0.011 * Math.sin(12 * th + 0.6) + 0.007 * Math.sin(19 * th + 2.4);
+  const B = coil({ cx: BCX, cy: BCY, R: BRX, k, rho0, K, w0, thEnd: Math.PI + 0.32 + TAU * 9, m: bm, dt: 0.012, ph: 0 });
+  S.push(`<path d="${pathOf(B.env.map(p => [p[0] + 30, p[1] + 40]), true)}" fill="#5A3C22" opacity=".26"/>`);     // hard sun shadow
+  S.push(`<path d="${pathOf(B.env.map(p => [p[0], p[1] + 17]), true)}" fill="#CFAE7C"/>`);                        // puffed thickness
+  S.push(`<path d="${pathOf(B.env, true)}" fill="#E4CC9E"/>`);                                                     // groove colour
+  // the core (where the strand starts) is plain dough, the same cream as the rope: no "yolk"
+  let core = []; for (let a = 0; a < TAU; a += 0.05) core.push([BCX + Math.cos(a) * BRX * rho0 * bm(a) * 1.02, BCY + Math.sin(a) * BRX * rho0 * bm(a) * 1.02 * k]);
+  S.push(`<path d="${pathOf(core, true)}" fill="#F6E7C8"/>`);
+  S.push(`<path d="${B.ribbon(1.02, 2, 4.5)}" fill="#D2B482"/>`);                                               // rope shadow
+  S.push(`<path d="${B.ribbon(1, 0, 0)}" fill="#F6E7C8" stroke="#E2C99A" stroke-width="1"/>`);                     // rope body
+  S.push(`<path d="${B.ribbon(0.52, -0.1 * w0, -0.13 * w0 * kwB)}" fill="#FCF4E2" opacity=".7"/>`);               // soft sheen
+  S.push(`<path d="${B.ribbon(0.13, -0.19 * w0, -0.25 * w0 * kwB)}" fill="#FFFFFF" opacity=".55"/>`);                // crisp highlight
+
+  // printable stretches of the rope: upper arcs read along the coil, lower arcs along the coil reversed,
+  // so every line stays upright; clear of chips, the stamp and the action-button band
+  const excl = pos.map(([x, y]) => [x - RX - 10, y - RY - 14, x + RX + 10, y + RY + 20]);
+  excl.push([BCX - fpR - 10, BCY - fpR * k - 10, BCX + fpR + 10, BCY + fpR * k + 10]);
+  const okPt = (x, y) => x > 104 && x < 976 && !(x > 884 && y > 884) && !excl.some(q => x > q[0] && x < q[2] && y > q[1] && y < q[3]);
+  const phOf = th => ((th % TAU) + TAU) % TAU;
+  const BS = 9.4;                                   // baseline sits 0.36em below the rope's centre line
+  const NP = B.P.length, printed = new Uint8Array(NP);
+  const tracks = [];
+  [[1, 1.5 * Math.PI], [-1, 0.5 * Math.PI]].forEach(([dir, mid], ti) => {
+    const idx = [...Array(NP).keys()]; if (dir < 0) idx.reverse();
+    const T = idx.map(i => { const p = B.P[i]; return [p.x - dir * p.ty * BS, p.y + dir * p.tx * BS]; });
+    const L = [0]; for (let j = 1; j < T.length; j++) L.push(L[j - 1] + Math.hypot(T[j][0] - T[j - 1][0], T[j][1] - T[j - 1][1]));
+    const runs = []; let r0 = -1;
+    idx.forEach((i, j) => {
+      const p = B.P[i];
+      const ok = Math.abs(phOf(p.th) - mid) < 0.9 && okPt(p.x, p.y) && okPt(p.x - p.ty * 16, p.y + p.tx * 16) && okPt(p.x + p.ty * 16, p.y - p.tx * 16);
+      if (ok && r0 < 0) r0 = j;
+      if ((!ok || j === NP - 1) && r0 >= 0) { const r1 = ok ? j : j - 1; if (L[r1] - L[r0] > (dir > 0 ? 110 : 190)) runs.push([r0, r1, Math.floor((B.P[idx[r0]].th - B.th0) / TAU)]); r0 = -1; }
+    });
+    // top: outer turn first (it sits highest); bottom: inner turn first; each left to right
+    runs.sort((u, v) => (dir > 0 ? v[2] - u[2] : u[2] - v[2]) || u[0] - v[0]);
+    runs.forEach(([r0_, r1_]) => { for (let j = r0_; j <= r1_; j++) printed[idx[j]] = 1; });
+    tracks.push({ id: "tp" + ti, T, L, runs });
+  });
+
+  // blisters and pores on the rope, kept off the printed stretches
+  let bl = "", pores = "";
+  for (let i = 0; i < NP; i += 5) {
+    const p = B.P[i], h = hsh(i * 0.37 + 3);
+    if (printed[i] || h > 0.26) continue;
+    const off = (hsh(i + 11) - 0.5) * 0.36 * p.w, bx = p.x + p.nx * off, by = p.y + p.ny * off * kwB, rr = 4 + hsh(i + 5) * 6;
+    bl += `<ellipse cx="${f1(bx + 1.6)}" cy="${f1(by + 2.4)}" rx="${f1(rr)}" ry="${f1(rr * kwB)}" fill="#D9BC8B"/><ellipse cx="${f1(bx)}" cy="${f1(by)}" rx="${f1(rr)}" ry="${f1(rr * kwB)}" fill="#FFFAF0"/>`;
+  }
+  for (let i = 2; i < NP; i += 7) {
+    const p = B.P[i]; if (printed[i]) continue;
+    const off = (rnd() - 0.5) * 0.7 * p.w;
+    pores += `<circle cx="${f1(p.x + p.nx * off)}" cy="${f1(p.y + p.ny * off * kwB)}" r="${f1(1.2 + rnd() * 1.4)}"/>`;
+  }
+  S.push(bl, `<g fill="#CBAE80" opacity=".85">${pores}</g>`);
+
+  // what is printed on the dough: a vector, or the topic's own values puffing up
+  const cv = document.createElement("canvas").getContext("2d"); cv.font = '400 26px "Azeret Mono"';
+  const ADV = cv.measureText("0000000000").width / 10 - 26 * 0.04, CM = 12;
+  const wOf = s => s.length * ADV - (s.split(",").length - 1) * CM;
+  const tight = s => esc(s).replace(/(\d),(\d)/g, '$1<tspan dx="-6" data-layout-allow-overlap>,</tspan><tspan dx="-6" data-layout-allow-overlap>$2</tspan>');
+  const note = D.note ? "// " + String(D.note) : vecMode ? "// vektor (ilustrasi)" : "// ilustrasi";
+  const cyc = [];
+  if (!vecMode) { items.forEach(it => it && it.value && cyc.push({ s: String(it.value), b: false })); if (hl) cyc.push({ s: hl, b: true }); if (!cyc.length) cyc.push({ s: "0", b: false }); }
+  let ci2 = 0;
+  const nextTok = () => {
+    if (vecMode) { const v = rnd() * 1.98 - 0.99; return { s: (v < 0 ? "−" : "") + Math.abs(v).toFixed(2).replace(".", ","), b: Math.abs(v) > 0.84 }; }
+    const tk = cyc[ci2 % cyc.length]; ci2++; return tk;
+  };
+  let first = true, pend = null;
+  const sep = vecMode ? " " : " · ";
+  tracks.forEach(tr => {
+    S.push(`<path id="${tr.id}" d="${pathOf(tr.T)}" fill="none"/>`);
+    tr.runs.forEach(([j0, j1]) => {
+      const L = tr.L[j1] - tr.L[j0] - 10, parts = []; let w = 0;
+      if (first) { parts.push({ s: note, c: true }); w = wOf(note); first = false; }
+      for (let guard = 0; guard < 80; guard++) {
+        const tk = pend || nextTok(); pend = null;
+        const add = (parts.length ? wOf(parts[parts.length - 1].c ? "  " : sep) : 0) + wOf(tk.s);
+        if (w + add > L) { pend = tk; break; }
+        parts.push(tk); w += add;
+      }
+      if (!parts.length) return;
+      const body = parts.map((p, j) => (j ? esc(parts[j - 1].c ? "  " : sep) : "") + (p.c ? esc(p.s) : p.b ? '<tspan class="b" data-layout-allow-overlap>' + tight(p.s) + "</tspan>" : tight(p.s))).join("");
+      const so = tr.L[j0] + 5 + Math.max(0, (L - w) / 2);
+      S.push(`<text class="vn" data-layout-allow-overlap><textPath href="#${tr.id}" startOffset="${f1(so)}" data-layout-allow-overlap>${body}</textPath></text>`);
+    });
+  });
+
+  // the footprint: how big it was when raw (terracotta dashes, no fill)
+  let fp = []; for (let a = 0; a < TAU; a += 0.05) fp.push([BCX + Math.cos(a) * fpR * (1 + 0.025 * Math.sin(5 * a + 0.3)), BCY + Math.sin(a) * fpR * k * (1 + 0.025 * Math.sin(5 * a + 0.3))]);
+  S.push(`<path d="${pathOf(fp, true)}" fill="none" stroke="#C4683E" stroke-width="4.5" stroke-dasharray="15 10" stroke-linecap="round"/>`);
+
+  // ---- raw chips: small, hard, glassy terracotta with the same coil --------------------------------
+  pos.forEach(([x, y], i) => {
+    const kc = RY / RX, cm = wob(0.026, 0.016, 0.01, i * 1.3);
+    const C = coil({ cx: x, cy: y, R: RX * 0.97, k: kc, rho0: 0.17, K: 3, w0: 17, thEnd: Math.PI * 1.1 + i * 0.9 + TAU * 4, m: cm, dt: 0.03, ph: i * 2 });
+    S.push(`<path d="${pathOf(C.env.map(p => [p[0] + 14, p[1] + 18 + THK]), true)}" fill="#5A3C22" opacity=".26"/>`);
+    S.push(`<path d="${pathOf(C.env.map(p => [p[0], p[1] + THK]), true)}" fill="#B86E48"/>`);
+    S.push(`<path d="${pathOf(C.env, true)}" fill="#D98C60"/>`);
+    S.push(`<path d="${C.ribbon(1.05, 1.5, 3)}" fill="#C47A50"/>`);
+    S.push(`<path d="${C.ribbon(1, 0, 0)}" fill="#EAA47E"/>`);
+    S.push(`<path d="${C.ribbon(0.28, -2.6, -2.4)}" fill="#FFDCC8" opacity=".55"/>`);
+    S.push(`<ellipse cx="${f1(x - RX * 0.5)}" cy="${f1(y - RY * 0.6)}" rx="28" ry="6" transform="rotate(-14 ${f1(x - RX * 0.5)} ${f1(y - RY * 0.6)})" fill="#FFF4EC" opacity=".75"/>`);
+
+    const it = items[i] || {};
+    const d = document.createElement("div"); d.className = "chip-t";
+    const BW = 246;
+    d.style.width = BW + "px";
+    d.innerHTML = '<div class="vl">' + esc(it.value) + '</div><div class="lb' + (n >= 4 ? " one" : "") + '">' + esc(it.label) + "</div>";
+    layer.appendChild(d);
+    const vl = d.firstChild, lb = d.lastChild;
+    for (let fs = 40; fs > 30 && vl.scrollWidth > BW; fs -= 1) vl.style.fontSize = (fs - 1) + "px";
+    if (n >= 4) { let s = String(it.label || ""); while (lb.scrollWidth > BW && s.length > 2) { s = s.slice(0, -1).trimEnd(); lb.textContent = s + "…"; } }
+    else if (lb.offsetHeight > 30 * 1.08 * 2 + 2) { let s = String(it.label || ""); while (lb.offsetHeight > 30 * 1.08 * 2 + 2 && s.length > 2) { s = s.slice(0, -1).trimEnd(); lb.textContent = s + "…"; } }
+    d.style.left = (x - BW / 2) + "px"; d.style.top = f1(y - d.offsetHeight / 2 - 1) + "px";
+  });
+
+  // ---- front of the rack: pole, the rack's dappled shadow, ground, and the wajan of hot oil --------
+  S.push(`<rect data-layout-allow-overflow x="0" y="${yF + 20}" width="1080" height="${1920 - yF - 20}" fill="#EACDB5"/>`);
+  let dap = ""; for (let r = 0; r < 4; r++) for (let c = 0; c < 15; c++) { const x = 18 + c * 74 + (r % 2) * 37 + (hsh(r * 17 + c) - 0.5) * 10, y = yF + 58 + r * 26; dap += `<ellipse cx="${f1(x)}" cy="${f1(y)}" rx="${f1(9 + hsh(c + r) * 6)}" ry="4"/>`; }
+  S.push(`<g data-layout-allow-overflow><rect x="0" y="${yF + 20}" width="1080" height="118" fill="#5A3C22" opacity=".24"/><g fill="#F2D9C9" opacity=".32">${dap}</g></g>`);
+  // the wajan: dark iron rim, translucent amber oil, one kerupuk puffing in it with a ring of bubbles
+  const WX = 905, WY = 2040, WR = 318;
+  const ha = 215 * Math.PI / 180, hx = WX + Math.cos(ha) * (WR + 14), hy = WY + Math.sin(ha) * (WR + 14);
+  let shim = "";
+  [[-150, -250, 64, 7, -14], [40, -268, 50, 6, 3], [-238, -150, 36, 5, -40], [120, -222, 30, 5, 12]].forEach(([dx, dy, rx, ry, rot]) => shim += `<ellipse cx="${WX + dx}" cy="${WY + dy}" rx="${rx}" ry="${ry}" transform="rotate(${rot} ${WX + dx} ${WY + dy})" fill="#FFF3CF" opacity=".55"/>`);
+  const FX = WX - 118, FY = WY - 176;
+  const FC = coil({ cx: FX, cy: FY, R: 92, k: 0.6, rho0: 0.22, K: 3, w0: 17, thEnd: 1 + TAU * 3, m: wob(0.03, 0.02, 0.012, 2), dt: 0.03, ph: 1 });
+  let bub = "";
+  for (let q = 0; q < 16; q++) { const a = q / 16 * TAU + 0.2, rr = 3 + hsh(q + 40) * 5, d = 1.2 + hsh(q + 9) * 0.3; bub += `<circle cx="${f1(FX + Math.cos(a) * 92 * d)}" cy="${f1(FY + Math.sin(a) * 92 * 0.6 * d)}" r="${f1(rr)}" fill="none" stroke="#FFF1C4" stroke-width="2" opacity=".9"/>`; }
+  S.push(`<g data-layout-allow-overflow>
+    <circle cx="${WX + 26}" cy="${WY + 30}" r="${WR + 8}" fill="#5A3C22" opacity=".26"/>
+    <ellipse cx="${f1(hx)}" cy="${f1(hy)}" rx="30" ry="15" transform="rotate(${215 - 90} ${f1(hx)} ${f1(hy)})" fill="none" stroke="#2E2622" stroke-width="10"/>
+    <circle cx="${WX}" cy="${WY}" r="${WR}" fill="#2E2622"/>
+    <circle cx="${WX}" cy="${WY}" r="${WR - 22}" fill="url(#oil)"/>
+    <path d="M${WX - WR + 9},${WY - 40} A${WR - 9},${WR - 9} 0 0 1 ${WX + 60},${WY - WR + 15}" fill="none" stroke="#6E625A" stroke-width="3" opacity=".8"/>
+    ${shim}${bub}
+    <path d="${pathOf(FC.env, true)}" fill="#E4CC9E"/><path d="${FC.ribbon(1.02, 1.5, 3)}" fill="#D2B482"/><path d="${FC.ribbon(1, 0, 0)}" fill="#F6E7C8"/><path d="${FC.ribbon(0.2, -3, -3)}" fill="#FFFFFF" opacity=".8"/>
+  </g>`);
+  // a serok (wire ladle) left on the ground beside the wajan
+  const SX = 452, SY = 1858;
+  let mesh = ""; for (let q = -4; q <= 4; q++) mesh += `M${SX + q * 15},${SY - 46}L${SX + q * 15},${SY + 46}M${SX - 76},${SY + q * 10}L${SX + 76},${SY + q * 10}`;
+  S.push(`<g data-layout-allow-overflow>
+    <path d="M${SX - 60},${SY + 14}L-20,${SY + 92}" stroke="#5A3C22" stroke-opacity=".22" stroke-width="16" stroke-linecap="round" transform="translate(14 18)"/>
+    <ellipse cx="${SX + 14}" cy="${SY + 18}" rx="74" ry="46" fill="#5A3C22" opacity=".22"/>
+    <path d="M${SX - 60},${SY + 14}L-20,${SY + 92}" stroke="#A47D52" stroke-width="15" stroke-linecap="round"/>
+    <path d="M${SX - 60},${SY + 9}L-20,${SY + 87}" stroke="#E2C59A" stroke-width="4" stroke-linecap="round"/>
+    <clipPath id="srk"><ellipse cx="${SX}" cy="${SY}" rx="72" ry="44"/></clipPath>
+    <ellipse cx="${SX}" cy="${SY}" rx="72" ry="44" fill="#CDB49A" opacity=".55"/>
+    <path d="${mesh}" clip-path="url(#srk)" stroke="#3A322D" stroke-width="2.2" opacity=".75"/>
+    <ellipse cx="${SX}" cy="${SY}" rx="72" ry="44" fill="none" stroke="#3A322D" stroke-width="7"/>
+    <path d="M${SX - 64},${SY - 14}A72,44 0 0 1 ${SX + 30},${SY - 41}" fill="none" stroke="#8C8079" stroke-width="2.5"/>
+  </g>`);
+  S.push(`<rect data-layout-allow-overflow x="-10" y="${yF - 24}" width="1100" height="46" fill="url(#pole)"/>`);
+  [64, 352, 640, 930].forEach(x => S.push(`<rect x="${x}" y="${yF - 24}" width="9" height="46" fill="#76563A" opacity=".75"/><rect x="${x + 9}" y="${yF - 24}" width="4" height="46" fill="#EFDCBC" opacity=".8"/>`));
+
+  $("scene").innerHTML = S.join("");
+  }
+</script>
+</body>
+</html>

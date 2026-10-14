@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,500;0,600;1,500&family=IBM+Plex+Mono:wght@500;600&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Murmuration: a dusk sky over power lines and flooded rice paddies, seen as one
+    silhouette photograph. Everything dark is ink (title, flock, wires, palms); the sky
+    and its mirror in the sawah are the light.
+    - The title is set like the silhouettes; the hl word is knocked out of a dense
+      little flock of birds (the highlight IS a murmuration, not a colour).
+    - The flock is a smooth S-teardrop: a thin stream of single birds arrives from the
+      right (item 1) and swells into a folded body that tapers to a soft tail. Each item
+      is one section of the flock, pinched apart and ringed by a dashed field-glass
+      ellipse with a birder's tally that grows with the section.
+    - The karaoke caption perches on the power lines word by word; the active word is
+      the bird taking off. The source + date sit on the near dyke like a field-log entry.
+    Scale up simple birds and a shape appears that no bird planned = emergent abilities.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #C9B4A8; }
+  body { position: relative; font-family: "Spectral", serif; color: #121212; }
+
+  #sky, #flock, #land, #notes { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* kicker = an aluminium bird ring stamped with the series + episode */
+  .ring { position: absolute; left: 90px; top: 290px; height: 50px; display: flex; align-items: center; gap: 16px; padding: 0 24px 0 14px;
+          border-radius: 25px; white-space: nowrap; color: #121212;
+          background: linear-gradient(180deg, #F3F2EE 0%, #DADCE0 42%, #B7BBC4 56%, #E4E5E2 100%);
+          box-shadow: inset 0 0 0 2px #7D828D, 0 3px 0 rgba(18, 18, 18, 0.35);
+          font: 600 27px "IBM Plex Mono", monospace; letter-spacing: 0.12em; text-transform: uppercase; }
+  .ring i { flex: none; width: 3px; height: 50px; background: #7D828D; }
+
+  .title { position: absolute; left: 90px; width: 900px; top: 364px; font-weight: 500; line-height: 1.08; letter-spacing: -0.018em; color: #121212; }
+  .title .hl { display: inline-block; line-height: 0.8; color: #F4EFE6; white-space: nowrap; margin: 0 0.3em; }
+  .title .bl { display: inline-block; width: 0; height: 0; }
+
+  .it { position: absolute; left: 90px; display: flex; align-items: flex-start; gap: 14px; color: #121212; }
+  .it .no { flex: none; width: 46px; height: 46px; margin-top: 2px; border: 2px solid #121212; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; font: italic 500 30px "Spectral", serif; line-height: 1; padding-bottom: 3px; }
+  .it .lb { font: 600 30px "IBM Plex Mono", monospace; letter-spacing: 0.03em; text-transform: uppercase; color: #1B2133; line-height: 1.12; white-space: nowrap; }
+  .it .vl { font: 500 48px "Spectral", serif; line-height: 1.02; color: #121212; white-space: nowrap; }
+
+  .tally { position: absolute; height: 42px; display: flex; align-items: center; padding: 0 11px; border-radius: 6px; white-space: nowrap;
+           background: #F4EFE6; box-shadow: 0 2px 0 rgba(18, 18, 18, 0.55); font: 600 30px "IBM Plex Mono", monospace; letter-spacing: -0.02em; color: #121212; }
+
+  /* caption: words perch on the power lines */
+  .cap { position: absolute; left: 90px; width: 810px; }
+  .cap span { position: absolute; left: 0; top: 0; display: inline-block; white-space: nowrap; line-height: 1; font: 500 44px "Spectral", serif; color: #464A56; }
+  .cap .w-past { color: #121212; }
+  .cap .w-on { color: #121212; font-style: italic; text-decoration: underline; text-decoration-thickness: 4px; text-underline-offset: 8px; }
+
+  /* field-log entry on the near dyke */
+  .log { position: absolute; left: 90px; width: 880px; font: 500 26px "IBM Plex Mono", monospace; line-height: 1.32; color: #121212; }
+  .log b { font-weight: 600; }
+</style>
+</head>
+<body>
+<svg id="sky" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+<canvas id="flock" width="1080" height="1920" aria-hidden="true" data-layout-allow-overflow></canvas>
+<svg id="land" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" data-layout-allow-overflow></svg>
+<svg id="notes" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+<div class="ring"><i></i><span id="kick"></span></div>
+<div class="title" id="title"></div>
+<div id="items"></div>
+<div id="tallies"></div>
+<div class="cap" id="cap" data-slot="caption"></div>
+<div class="log" id="log"></div>
+<script>
+  // Built-in sample so the file also opens on its own.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const FONTS = ['500 100px Spectral', '400 100px Spectral', '500 44px Spectral', 'italic 500 44px Spectral', '500 48px Spectral',
+                 'italic 500 30px Spectral', '600 30px "IBM Plex Mono"', '600 27px "IBM Plex Mono"', '500 26px "IBM Plex Mono"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const PEACH = "#E9C9A8", INK = "#121212", CREAM = "#F4EFE6", SIL = "#16171C";
+  const HOR = 1404;                                      // horizon
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(items.length, 1);
+
+  // Seeded generator: same picture on every render.
+  function rng(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  const R = rng(20261014);
+
+  // colour helpers (sky gradient is shared by the sky and its mirror in the sawah)
+  const hx = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const toHex = a => "#" + a.map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, "0")).join("");
+  const mix = (a, b, t) => { const A = hx(a), B = hx(b); return toHex(A.map((v, i) => v + (B[i] - v) * t)); };
+  const STOPS = [[0, "#101726"], [160, "#1E2A44"], [290, "#4D5976"], [400, "#868CA2"], [560, "#A9A2A9"], [820, "#C9B3A8"], [1120, "#E0C2A7"], [HOR, "#EFD3B4"]];
+  const skyAt = y => { for (let k = 1; k < STOPS.length; k++) if (y <= STOPS[k][0]) { const a = STOPS[k - 1], b = STOPS[k]; return mix(a[1], b[1], Math.max(0, (y - a[0]) / (b[0] - a[0]))); } return STOPS[STOPS.length - 1][1]; };
+
+  // ---------- kicker ring + title ----------
+  const ep = String(D.ep || "").trim();
+  document.getElementById("kick").textContent = D.series ? D.series + (ep ? " · " + ep : "") : (D.kicker || "");
+  const t = String(D.title || ""), hl = String(D.hl || "");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = document.getElementById("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl" id="hl">' + esc(t.slice(at, at + hl.length)) + '<i class="bl" id="hlb"></i></span><span id="aft">' + esc(t.slice(at + hl.length)) + "</span>";
+  for (let fs = 116; fs >= 72; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (titleEl.offsetHeight <= 300 && titleEl.scrollWidth <= 900) break; }
+  const TF = parseFloat(titleEl.style.fontSize);
+  const T = 364 + titleEl.offsetHeight;                  // title bottom
+
+  // ---------- power lines (needed early: the caption perches on them) ----------
+  const PX = 46, WX1 = 1120;
+  const wires = [{ x0: PX + 28, y0: 1238, y1: 1268, sag: 40 }, { x0: PX + 28, y0: 1306, y1: 1336, sag: 40 }];
+  const wireY = (w, x) => { const u = (x - w.x0) / (WX1 - w.x0); return w.y0 + (w.y1 - w.y0) * u + w.sag * 4 * u * (1 - u); };
+  const wireSlope = (w, x) => { const u = (x - w.x0) / (WX1 - w.x0); return ((w.y1 - w.y0) + w.sag * 4 * (1 - 2 * u)) / (WX1 - w.x0); };
+
+  // ---------- karaoke caption, perched word by word on wire 1 and wire 2 ----------
+  const cap = document.getElementById("cap");
+  const capWords0 = String(D.caption || D.sub || "").split(/\s+/).filter(Boolean);
+  const norm = s => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+  const CX0 = 104, CX1 = 900;
+  function activeIdx(words) {
+    if (hl) { const hw = hl.split(/\s+/).map(norm).filter(Boolean); const k = words.findIndex(w => norm(w) && hw.includes(norm(w))); if (k >= 0) return k; }
+    return 0;
+  }
+  function measure(words, fs) {
+    const on = activeIdx(words);
+    cap.innerHTML = words.map((w, i) => `<span class="${i < on ? "w-past" : i === on ? "w-on" : "w-next"}" style="font-size:${fs}px">${esc(w)}</span>`).join(" ");
+    return [...cap.querySelectorAll("span")].map(s => s.offsetWidth);
+  }
+  function flow(widths, fs) {                            // words along the two wires; null when they do not fit
+    const gap = 0.3 * fs; let wi = 0, x = CX0; const out = [];
+    for (let i = 0; i < widths.length; i++) {
+      if (x + widths[i] > CX1) { wi++; x = CX0; if (wi > 1 || widths[i] > CX1 - CX0) return null; }
+      out.push({ wire: wi, x, w: widths[i] }); x += widths[i] + gap;
+    }
+    return out;
+  }
+  let capWords = capWords0, capFs = 46, placed = null;
+  for (let fs = 46; fs >= 40 && !placed; fs -= 2) { capFs = fs; placed = flow(measure(capWords, fs), fs); }
+  if (!placed) {                                         // still too long: drop whole words from the end, add an ellipsis
+    for (let k = capWords0.length - 1; k >= 1 && !placed; k--) {
+      const ws = capWords0.slice(0, k); ws[k - 1] = ws[k - 1].replace(/[,;:.—–-]+$/, "") + "…";
+      capWords = ws; placed = flow(measure(ws, 40), 40);
+    }
+    capFs = 40;
+  }
+  const capOn = activeIdx(capWords);
+  measure(capWords, capFs);
+  // baseline offset inside a word box (line-height 1)
+  const probe = document.createElement("span"); probe.style.cssText = `position:absolute;left:0;top:0;line-height:1;font:500 ${capFs}px Spectral;`;
+  probe.innerHTML = 'Hg<i style="display:inline-block;width:0;height:0"></i>'; cap.appendChild(probe);
+  const baseOff = probe.lastChild.getBoundingClientRect().top - probe.getBoundingClientRect().top; probe.remove();
+  const LIFT = 16;
+  const wordBoxes = [];
+  const capSpans = [...cap.querySelectorAll("span")];
+  (placed || []).forEach((p, i) => {
+    const w = wires[p.wire], cx = p.x + p.w / 2, by = wireY(w, cx) - 2;
+    const deg = Math.atan(wireSlope(w, cx)) * 180 / Math.PI, lift = i === capOn ? LIFT : 0;
+    wordBoxes.push({ i, wire: p.wire, x: p.x, w: p.w, by, top: by - baseOff - lift, bot: by - baseOff - lift + capFs * 1.02, deg, lift });
+  });
+  const capTop = Math.min(...wordBoxes.map(b => b.top)) - 6, capBot = Math.max(...wordBoxes.map(b => b.bot)) + 6;
+  cap.style.top = capTop + "px"; cap.style.height = (capBot - capTop) + "px";
+  wordBoxes.forEach(b => {
+    const s = capSpans[b.i];
+    s.style.left = (b.x - 90) + "px"; s.style.top = (b.by - baseOff - capTop) + "px";
+    s.style.transformOrigin = `${b.w / 2}px ${baseOff}px`;
+    s.style.transform = `translateY(${-b.lift}px) rotate(${b.deg.toFixed(2)}deg)`;
+  });
+  capSpans.slice(wordBoxes.length).forEach(s => s.remove());
+
+  // ---------- field-log entry (source + date) on the near dyke ----------
+  const logEl = document.getElementById("log");
+  logEl.innerHTML = (D.date ? `<b>${esc(D.date)}</b>` : "") + (D.date && D.source ? " · " : "") + (D.source ? "Sumber: " + esc(D.source) : "");
+  const logBot = 1602, logTop = logBot - logEl.offsetHeight;
+  logEl.style.top = logTop + "px";
+
+  // ---------- items: field-notebook notes in the left margin ----------
+  const box = document.getElementById("items");
+  box.innerHTML = items.map((it, i) => `<div class="it" id="it${i}"><span class="no">${i + 1}</span><div><div class="lb">${esc(it.label)}</div><div class="vl">${esc(it.value)}</div></div></div>`).join("");
+  const itEls = items.map((_, i) => document.getElementById("it" + i));
+  const itH = itEls.map(e => e.offsetHeight), itW = itEls.map(e => e.offsetWidth);
+  const colR = 90 + Math.max(0, ...itW);                 // right edge of the notes column
+
+  // ---------- flock geometry: one smooth S-teardrop ----------
+  // A thin stream arrives from the right edge just under the title (item 1), turns down and
+  // swells into the body, which tapers to a soft tail above the wires.
+  const Y0 = T + 58;
+  const notesBot = Math.min(1180, capTop - 16);
+  const Y1 = Math.min(1196, capTop - 22);
+  const H = Y1 - Y0;
+  const FL = Math.max(colR + 48, 440);                   // body keeps clear of the notes
+  let Wm = 168, BX = FL + 230;
+  function catmull(P) {
+    const poly = [];
+    for (let k = 0; k < P.length - 1; k++) {
+      const p0 = P[Math.max(k - 1, 0)], p1 = P[k], p2 = P[k + 1], p3 = P[Math.min(k + 2, P.length - 1)];
+      for (let j = 0; j < 60; j++) {
+        const u = j / 60, u2 = u * u, u3 = u2 * u;
+        poly.push([0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * u + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * u2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * u3),
+                   0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * u + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * u2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * u3)]);
+      }
+    }
+    poly.push(P[P.length - 1]);
+    return poly;
+  }
+  let poly, cum, LEN, S1;
+  function build() {
+    // a crescent "(": the stream joins the top tip, the body bows towards the notes, the tail tip swings back right
+    const P = [[1160, Y0 - 34], [1010, Y0 - 12], [BX + 150, Y0 + 14], [BX + 6, Y0 + 0.24 * H], [BX - 62, Y0 + 0.53 * H], [BX + 12, Y0 + 0.82 * H], [BX + 165, Y1]];
+    poly = catmull(P);
+    cum = [0];
+    for (let k = 1; k < poly.length; k++) cum.push(cum[k - 1] + Math.hypot(poly[k][0] - poly[k - 1][0], poly[k][1] - poly[k - 1][1]));
+    LEN = cum[cum.length - 1];
+    S1 = cum[120] / LEN;                                 // the stream ends at control point 2
+  }
+  function at_(s) {                                      // point, unit tangent, unit normal at arc fraction s
+    const d = Math.min(Math.max(s, 0), 1) * LEN;
+    let k = 1; while (k < cum.length - 1 && cum[k] < d) k++;
+    const a = poly[k - 1], b = poly[k], f = (d - cum[k - 1]) / ((cum[k] - cum[k - 1]) || 1);
+    const tx = b[0] - a[0], ty = b[1] - a[1], tl = Math.hypot(tx, ty) || 1;
+    return { x: a[0] + tx * f, y: a[1] + ty * f, tx: tx / tl, ty: ty / tl, nx: -ty / tl, ny: tx / tl };
+  }
+  const NB = Math.max(n - 1, 1);                         // body sections
+  const borders = []; for (let j = 1; j < NB; j++) borders.push(j / NB);
+  const pinch = u => { let p = 1; for (const b of borders) p *= 1 - Math.exp(-Math.pow((u - b) / 0.02, 2)); return p; };
+  // half-width: soft at both ends, widest a little past the middle (a crescent ribbon)
+  const halfW = u => 6 + (Wm - 6) * Math.pow(Math.sin(Math.PI * Math.pow(Math.min(Math.max(u, 0), 1), 1.12)), 0.8) + 14 * Math.pow(1 - u, 4);
+  const wl = u => 1 + 0.10 * Math.sin(4.1 * u + 2.1), wr = u => 1 + 0.12 * Math.sin(5.3 * u + 0.6);
+  const edgeX = (u, sg) => { const c = at_(S1 + (1 - S1) * u), w = halfW(u) * (sg > 0 ? wl(u) : wr(u)), lag = -w * 0.22; return c.x + c.nx * sg * w + c.tx * lag; };
+  for (let it = 0; it < 4; it++) {                       // fit the body between the notes and the right edge
+    build();
+    let mn = 1e9, mx = -1e9;
+    for (let k = 0; k <= 60; k++) for (const sg of [1, -1]) { const x = edgeX(k / 60, sg); mn = Math.min(mn, x); mx = Math.max(mx, x); }
+    if (mn < FL - 1) BX += FL - mn;
+    else if (mx > 1050 && Wm > 120) Wm = Math.max(120, Wm - (mx - 1050) / 2);
+    else break;
+  }
+  build();
+
+  // ---------- place notes next to their sections ----------
+  const secMid = j => j === 0 ? at_(S1 * 0.55) : at_(S1 + (1 - S1) * (j - 0.5) / NB);
+  const ys = [];
+  { const lo = T + 34, gap = 12, m = items.length;
+    const want = items.map((_, i) => secMid(i).y - itH[i] * 0.6);
+    for (let i = 0; i < m; i++) ys.push(Math.max(want[i], i ? ys[i - 1] + itH[i - 1] + gap : lo));       // top-down
+    for (let i = m - 1; i >= 0; i--) ys[i] = Math.min(ys[i], (i < m - 1 ? ys[i + 1] - gap : notesBot) - itH[i]); // bottom-up
+    if (m && ys[0] < lo) {                               // over-full column: spread evenly
+      const tot = itH.reduce((a, b) => a + b, 0), g = Math.max(4, (notesBot - lo - tot) / Math.max(m - 1, 1));
+      let y = lo; for (let i = 0; i < m; i++) { ys[i] = y; y += itH[i] + g; }
+    } }
+  itEls.forEach((e, i) => { e.style.top = ys[i] + "px"; });
+
+  // keep birds off the text
+  const avoid = [];
+  const pad = (x0, y0, x1, y1, p) => avoid.push([x0 - p, y0 - p, x1 + p, y1 + p]);
+  itEls.forEach((e, i) => pad(90, ys[i], 90 + itW[i], ys[i] + itH[i], 14));
+  pad(90, 364, 990, T, 4);
+  wordBoxes.forEach(b => pad(b.x, b.top, b.x + b.w, b.bot, 10));
+  const blocked = (x, y) => { for (const a of avoid) if (x > a[0] && x < a[2] && y > a[1] && y < a[3]) return true; return false; };
+
+  // ---------- draw the flock ----------
+  const cv = document.getElementById("flock"), dpr = window.devicePixelRatio || 1;
+  cv.width = 1080 * dpr; cv.height = 1920 * dpr;
+  const ctx = cv.getContext("2d"); ctx.scale(dpr, dpr);
+  ctx.fillStyle = INK; ctx.strokeStyle = INK; ctx.lineCap = "round"; ctx.lineJoin = "round";
+  const dots = [];                                       // kept for the reflection in the sawah
+  const secPts = items.map(() => []);
+  const wing = (x, y, a, tilt, lw) => { ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(x - a, y - a * (0.55 + tilt)); ctx.lineTo(x, y); ctx.lineTo(x + a, y - a * (0.55 - tilt)); ctx.stroke(); };
+
+  // item 1: the arriving stream, single birds as wing marks
+  const FIRST = 120;
+  { let placedN = 0, guard = 0;
+    while (placedN < FIRST && guard++ < 4000) {
+      const q = R(); if (R() > 0.55 + 0.45 * Math.sin(q * 23 + 0.9)) continue;      // loose clumps
+      const s = S1 * (0.04 + 0.96 * q), c = at_(s), w = 7 + 15 * q;
+      const v = (R() + R() - 1) * w;
+      const x = c.x + c.nx * v + (R() - 0.5) * 10, y = c.y + c.ny * v;
+      if (x < -6 || x > 1086 || y < T + 22 || blocked(x, y)) continue;
+      placedN++;
+      ctx.globalAlpha = 0.92; wing(x, y, 4.4 + 1.8 * R() + 1.4 * (1 - q), (R() - 0.5) * 0.7, 2.1);
+      dots.push([x, y, 1.6, 30]); if (secPts[0]) secPts[0].push([x, y]);
+    } }
+  // body sections: bird counts grow geometrically with the item index (scale makes the shape)
+  const TOT = 19000, RATIO = 2.05;
+  const wts = []; for (let j = 0; j < NB; j++) wts.push(Math.pow(RATIO, j));
+  const wsum = wts.reduce((a, b) => a + b, 0);
+  const counts = [FIRST].concat(wts.map(w => Math.round(TOT * w / wsum)));
+  for (let j = 0; j < NB; j++) {
+    const ulo = j / NB, uhi = (j + 1) / NB, cnt = counts[j + 1];
+    let placedN = 0, guard = 0;
+    while (placedN < cnt && guard++ < cnt * 60) {
+      const u = ulo + (uhi - ulo) * R(), w = halfW(u);
+      if (R() > w / Wm) continue;                        // area weighting
+      const v = R() * 2 - 1;
+      let a = (1 - Math.pow(Math.abs(v), 4)) * (0.55 + 0.45 * (1 - v * v));
+      // one long fold: a curved crest that crosses the ribbon from the outer edge (top) to the inner edge (tail)
+      const vf = 0.92 - 1.84 * Math.pow(u, 1.05), dv = v - vf;
+      const fold = dv < 0 ? Math.exp(-Math.pow(dv / 0.06, 2)) + 0.22 * Math.exp(-Math.pow(dv / 0.3, 2)) : 0.3 * Math.exp(-Math.pow(dv / 0.05, 2));
+      a *= (0.62 + 2.1 * fold) / 2.72 * (dv > 0 ? 0.85 : 1);
+      a *= 0.5 + 0.5 * pinch(u);
+      if (R() > a) continue;
+      const s = S1 + (1 - S1) * u, c = at_(s), side = v > 0 ? wl(u) : wr(u);
+      const cross = v * w * side + (R() - 0.5) * 5;
+      const lag = -(v * v) * w * 0.22 + (R() - 0.5) * 9;  // edges trail back: curved, never straight
+      const x = c.x + c.nx * cross + c.tx * lag, y = c.y + c.ny * cross + c.ty * lag;
+      if (x < -6 || x > 1086 || y < T + 26 || y > HOR - 60 || blocked(x, y)) continue;
+      placedN++;
+      const far = dv > 0;                                // the folded-back layer sits further away: smaller, paler
+      const r = far ? 1.0 + 0.3 * R() : 1.15 + 0.45 * R();
+      ctx.globalAlpha = far ? 0.64 : 0.82;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 6.283); ctx.fill();
+      dots.push([x, y, r, 1]); if (secPts[j + 1]) secPts[j + 1].push([x, y]);
+    }
+  }
+  // loose stragglers around the body (soft edge, depth)
+  for (let k = 0; k < 170; k++) {
+    const u = R(), c = at_(S1 + (1 - S1) * u), w = halfW(u), sg = R() < 0.5 ? -1 : 1;
+    const off = sg * w * (1.02 + 0.6 * R());
+    const x = c.x + c.nx * off + (R() - 0.5) * 30, y = c.y + c.ny * off + (R() - 0.5) * 30;
+    if (x < 0 || x > 1080 || y < T + 40 || y > HOR - 70 || blocked(x, y)) continue;
+    ctx.globalAlpha = 0.75; ctx.beginPath(); ctx.arc(x, y, 1.1 + R() * 0.7, 0, 6.283); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // ---------- the hl word: knocked out of its own small flock ----------
+  const hlEl = document.getElementById("hl");
+  if (hlEl) {
+    const r = hlEl.getBoundingClientRect(), base = document.getElementById("hlb").getBoundingClientRect().top;
+    ctx.font = `500 ${TF}px Spectral`;
+    const yMin = base - 0.84 * TF, yMax = base + 0.32 * TF;
+    const padPx = 0.3 * TF, reach = Math.max(12, padPx - 5);          // stipple lives in the span padding, never on neighbour glyphs
+    // per-letter boxes -> a skyline envelope that hugs the word: birds crowd tighter around tall letters
+    const txt = hlEl.firstChild, boxes = [];
+    for (let k = 0; k < txt.length; k++) {
+      const rg = document.createRange(); rg.setStart(txt, k); rg.setEnd(txt, k + 1);
+      const cr = rg.getBoundingClientRect(), ch = txt.data[k], mm = ctx.measureText(ch);
+      const ga = /\s/.test(ch) ? 0.36 * TF : Math.max(mm.actualBoundingBoxAscent || 0, 0.4 * TF), gd = /\s/.test(ch) ? 0 : Math.max(mm.actualBoundingBoxDescent || 0, 0);
+      boxes.push([cr.left - 7, Math.max(base - ga - 0.085 * TF, yMin + 6), cr.right + 7, Math.min(base + gd + 0.08 * TF, yMax - 4)]);
+    }
+    const xL = Math.min(...boxes.map(q => q[0])), xR = Math.max(...boxes.map(q => q[2])), cx = (xL + xR) / 2, cy = base - 0.3 * TF, ax = (xR - xL) / 2, ay = 0.5 * TF;
+    const STEP = 2, NX = Math.ceil((xR - xL) / STEP) + 1, rawT = [], rawB = [];
+    for (let k = 0; k < NX; k++) { const x = xL + k * STEP; let tp = 1e9, bt = -1e9;
+      for (const q of boxes) if (x >= q[0] && x <= q[2]) { tp = Math.min(tp, q[1]); bt = Math.max(bt, q[3]); }
+      if (tp > 1e8) { tp = base - 0.3 * TF; bt = base + 0.06 * TF; } rawT.push(tp); rawB.push(bt); }
+    const smooth = (A, w, f) => A.map((v, k) => { let s0 = 0, c0 = 0; for (let j = Math.max(0, k - w); j <= Math.min(A.length - 1, k + w); j++) { s0 += A[j]; c0++; } return f(v, s0 / c0); });
+    const topP = smooth(rawT, 9, Math.min).map((v, k) => v - 1.6 * Math.sin(k * 0.21 + 0.7)), botP = smooth(rawB, 9, Math.max).map((v, k) => v + 1.2 * Math.sin(k * 0.17 + 2.1));
+    const capR = 13;                                     // rounded ends
+    const endIn = k => { const d = Math.min(k, NX - 1 - k) * STEP; return d >= capR ? 0 : capR - Math.sqrt(Math.max(0, capR * capR - (capR - d) * (capR - d))); };
+    ctx.globalAlpha = 1; ctx.fillStyle = INK; ctx.beginPath();     // dense core: the birds overlap into solid ink
+    for (let k = 0; k < NX; k++) { const x = xL + k * STEP, y = topP[k] + endIn(k) * 0.9; k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
+    for (let k = NX - 1; k >= 0; k--) ctx.lineTo(xL + k * STEP, botP[k] - endIn(k) * 0.6);
+    ctx.closePath(); ctx.fill();
+    for (let k = 0; k < 5600; k++) {                     // stippled edge: single birds thinning out
+      const q = Math.pow(R(), 1.6), side = R();
+      let x, y;
+      if (side < 0.36) { const i = Math.floor(R() * NX); x = xL + i * STEP + (R() - 0.5) * 3; y = topP[i] + endIn(i) * 0.9 - (q * 12 - 3); }
+      else if (side < 0.66) { const i = Math.floor(R() * NX); x = xL + i * STEP + (R() - 0.5) * 3; y = botP[i] - endIn(i) * 0.6 + (q * 10 - 3); }
+      else { const e = side < 0.83 ? 0 : NX - 1, sg = e ? 1 : -1; x = xL + e * STEP + sg * (q * (reach + 6) - 4); const t0 = topP[e] + 6, b0 = botP[e] - 4; y = t0 + (b0 - t0) * (0.5 + (R() - 0.5) * (1 - 0.7 * q)); }
+      if (y < yMin || y > yMax || x < 82 || x > 1000) continue;
+      ctx.globalAlpha = 0.92 - 0.4 * q; ctx.beginPath(); ctx.arc(x, y, 1.2 + 0.8 * R() - 0.45 * q, 0, 6.283); ctx.fill();
+    }
+    ctx.strokeStyle = INK;                               // a few single birds hanging around the patch
+    for (const [fx, fy, a] of [[-0.66, -1.12, 4.6], [-0.18, -1.3, 3.8], [0.4, -1.18, 4.2], [0.9, -1.0, 3.6], [-0.92, 0.9, 3.6], [0.2, 0.92, 3.2]]) {
+      const x = cx + fx * ax, y = cy + fy * ay;
+      if (y - 5 < yMin || y + 2 > yMax) continue;
+      ctx.globalAlpha = 0.88; wing(x, y, a, 0.1 * fx, 1.7);
+    }
+    const x1 = xR;
+    // a few birds leaving the word, only into free space on its own line (or below the title on the last line)
+    const aft = document.getElementById("aft"), ar = aft ? [...aft.getClientRects()].filter(q => q.width > 0.5) : [];
+    const sameLine = ar.length && Math.abs(ar[0].top - r.top) < TF * 0.4;
+    const lastLine = !ar.length || ar.every(q => Math.abs(q.top - r.top) < TF * 0.4);
+    const freeX = (sameLine ? ar[0].right : x1) + 14;
+    if (lastLine && 1000 - freeX >= 70) {
+      const room = Math.min(150, 1000 - freeX);
+      ctx.strokeStyle = INK; ctx.globalAlpha = 0.9;
+      for (let k = 0; k < 9; k++) {
+        const q = k / 8, x = freeX + room * Math.pow(q, 1.15) + (R() - 0.5) * 8;
+        const y = cy - ay * 0.2 + (T + 24 - cy) * Math.pow(q, 1.6) * 0.9 + (R() - 0.5) * 10;
+        wing(x, y, 5.2 - 1.8 * q, (R() - 0.5) * 0.6, 1.8);
+      }
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  // ---------- reflection of the flock in the flooded sawah ----------
+  ctx.fillStyle = "#2A2D38";
+  for (const [x, y, r] of dots) {
+    const yy = 2 * HOR - y + 8;
+    if (yy < HOR + 10 || yy > 1920) continue;
+    if (Math.sin(yy * 0.31 + x * 0.004) > 0.55) continue;                 // broken by ripples
+    const xx = x + 3.5 * Math.sin(yy * 0.08);
+    ctx.globalAlpha = 0.26; ctx.fillRect(xx - r * 1.6, yy - 0.6, r * 3.2, 1.3);
+  }
+  ctx.globalAlpha = 1;
+
+  // ---------- section stats -> field-glass ellipses ----------
+  const ells = secPts.map((pts, i) => {
+    const c = secMid(i), use = pts.filter(p => p[0] < 1010);
+    if (use.length < 4) return null;
+    let mx = 0, my = 0; for (const p of use) { mx += p[0]; my += p[1]; } mx /= use.length; my /= use.length;
+    let sa = 0, sc = 0; for (const p of use) { const dx = p[0] - mx, dy = p[1] - my, al = dx * c.tx + dy * c.ty, cr = dx * c.nx + dy * c.ny; sa += al * al; sc += cr * cr; }
+    sa = Math.sqrt(sa / use.length); sc = Math.sqrt(sc / use.length);
+    return { cx: mx, cy: my, a: 1.3 * sa + 10, b: 1.55 * sc + 12, ang: Math.atan2(c.ty, c.tx) };
+  });
+  const ellPoint = (e, th) => { const c = Math.cos(e.ang), s = Math.sin(e.ang), px = e.a * Math.cos(th), py = e.b * Math.sin(th); return [e.cx + px * c - py * s, e.cy + px * s + py * c]; };
+
+  // ---------- land: tree line, palms, pole + wires, perched roost, sawah ----------
+  const land = document.getElementById("land");
+  let L = "";
+  // sky mirror below the horizon (water is the sky, a touch darker towards the viewer)
+  let tl = `M0,${HOR}`;
+  for (let x = 0; x <= 1080; x += 12) {
+    const h = 8 + 5 * Math.sin(x / 37 + 1.3) + 4 * Math.sin(x / 13.7) + 4 * Math.sin(x / 91 + 0.4) + (x > 560 && x < 720 ? 6 : 0);
+    tl += ` L${x},${(HOR - Math.max(3, h)).toFixed(1)}`;
+  }
+  L += `<path d="${tl} L1080,${HOR} Z" fill="${SIL}"/>`;
+  L += `<path d="${tl.replace(/(\d+(?:\.\d+)?),(\d+(?:\.\d+)?)/g, (m0, a, b) => a + "," + (2 * HOR - parseFloat(b)).toFixed(1))} L1080,${HOR} Z" fill="${SIL}" opacity="0.35"/>`;
+  // palms only where no caption word perches (right of the caption column)
+  const palms = [[956, 104, 9], [1034, 80, -7]];
+  for (const [px, ph, lean] of palms) {
+    const top = [px + lean, HOR - ph];
+    let g = `<path d="M${px - 2.5},${HOR} Q${px + lean * 0.2},${HOR - ph * 0.5} ${top[0]},${top[1]} L${top[0] + 3},${top[1] + 2} Q${px + lean * 0.2 + 4},${HOR - ph * 0.5} ${px + 3},${HOR} Z"/>`;
+    for (const [dx, dy] of [[-44, 6], [-36, 22], [-19, 30], [38, 4], [32, 22], [15, 30], [-6, -14], [10, -12]])
+      g += `<path d="M${top[0]},${top[1]} Q${top[0] + dx * 0.55},${top[1] + dy * 0.3 - 12} ${top[0] + dx},${top[1] + dy}" fill="none" stroke="${SIL}" stroke-width="5" stroke-linecap="round"/>`;
+    L += `<g fill="${SIL}">${g}</g><g fill="${SIL}" opacity="0.3" transform="translate(0 ${2 * HOR}) scale(1 -1)">${g}</g>`;
+  }
+  // water ripples (light streaks, mirror glints)
+  for (const [y, xa, xb, o] of [[HOR + 9, 30, 520, 0.5], [HOR + 9, 610, 1050, 0.45], [HOR + 31, 140, 460, 0.38], [HOR + 33, 700, 990, 0.34], [HOR + 78, 40, 300, 0.3], [HOR + 84, 520, 880, 0.3], [HOR + 104, 250, 640, 0.26]])
+    L += `<rect x="${xa}" y="${y}" width="${xb - xa}" height="2" fill="${CREAM}" opacity="${o}"/>`;
+  // dykes (pematang): irregular earthen bands, near ones thicker; never one vanishing point
+  const DK = "#2A2724";
+  const band = (yt, yb, wob, ph) => { let a = "", b = ""; for (let x = -10; x <= 1090; x += 30) { a += ` L${x},${(yt + wob * Math.sin(x / 83 + ph) + 0.6 * wob * Math.sin(x / 29 + ph * 2)).toFixed(1)}`; b = ` L${x},${(yb + wob * 0.6 * Math.sin(x / 71 + ph + 1)).toFixed(1)}` + b; } return `<path d="M-10,${yt}${a}${b} Z" fill="${DK}"/>`; };
+  L += band(HOR + 17, HOR + 22, 1.2, 0.3);
+  L += band(HOR + 56, HOR + 66, 2, 1.7);
+  L += `<path d="M300,${HOR + 20} L292,${HOR + 20} L214,${HOR + 60} L228,${HOR + 60} Z" fill="${DK}"/><path d="M770,${HOR + 20} L778,${HOR + 20} L872,${HOR + 60} L858,${HOR + 60} Z" fill="${DK}"/>`;
+  L += `<path d="M170,${HOR + 64} L184,${HOR + 64} L118,${logTop - 12} L96,${logTop - 12} Z" fill="${DK}"/><path d="M640,${HOR + 64} L654,${HOR + 64} L742,${logTop - 12} L722,${logTop - 12} Z" fill="${DK}"/>`;
+  // the near dyke carries the field-log entry
+  L += band(logBot + 4, logBot + 15, 1.6, 2.4);
+  // young rice: sparse irregular tufts, tiny far away, bigger near (kept off the log line)
+  const BL = [[-0.46, 0.74], [-0.22, 0.96], [0.03, 1.08], [0.25, 0.93], [0.47, 0.7]];
+  const tuft = (x, y, h) => { let d = ""; for (const [dx, hh] of (h < 12 ? BL.slice(1, 4) : BL)) d += `M${x.toFixed(1)},${y} q${(dx * h * 0.12).toFixed(1)},${(-hh * h * 0.6).toFixed(1)} ${(dx * h).toFixed(1)},${(-hh * h).toFixed(1)} `; return d; };
+  const rows = [[HOR + 42, 5, 30, 1.4], [HOR + 90, 9, 46, 1.8], [HOR + 118, 12, 58, 2], [logBot + 64, 20, 84, 2.6], [logBot + 132, 30, 112, 3], [logBot + 222, 44, 146, 3.4], [logBot + 330, 58, 180, 3.8]];
+  for (const [y, h, step, sw] of rows) {
+    if (y < logBot && y > logTop - 10) continue;
+    let d = "";
+    for (let x = 10 + (y * 7) % step, k = 0; x < 1090; x += step * (0.75 + 0.5 * ((k * 0.618) % 1)), k++) d += tuft(x, y, h * (0.8 + 0.4 * ((k * 0.382) % 1)));
+    L += `<path d="${d}" fill="none" stroke="${SIL}" stroke-width="${sw}" stroke-linecap="round" opacity="0.8"/>`;
+  }
+  // utility pole + crossarms + two sagging wires
+  L += `<path d="M${PX - 5},${wires[0].y0 - 34} L${PX + 5},${wires[0].y0 - 34} L${PX + 7},${HOR + 20} L${PX - 7},${HOR + 20} Z" fill="${SIL}"/>`;
+  L += `<path d="M${PX - 6},${HOR + 20} L${PX + 6},${HOR + 20} L${PX + 5},${HOR + 150} L${PX - 5},${HOR + 150} Z" fill="${SIL}" opacity="0.3"/>`;
+  for (const w of wires) {
+    L += `<rect x="${PX - 38}" y="${w.y0 + 4}" width="76" height="7" fill="${SIL}"/>`;
+    for (const ix of [PX - 30, PX + 28]) L += `<rect x="${ix - 3}" y="${w.y0 - 6}" width="6" height="11" rx="2" fill="${SIL}"/>`;
+    let d = `M${w.x0},${w.y0}`; for (let x = w.x0; x <= WX1; x += 16) d += ` L${x},${wireY(w, x).toFixed(1)}`;
+    L += `<path d="${d}" fill="none" stroke="${SIL}" stroke-width="2.4"/>`;
+    L += `<path d="M${PX - 30},${w.y0} Q${(PX - 30) / 2},${w.y0 + 9} -10,${w.y0 + 5}" fill="none" stroke="${SIL}" stroke-width="2.4"/>`;
+  }
+  // the roost: birds still perched wherever the wire is free of words (frame-0 perch spots)
+  const bird = "M-9,-1 C-7,-6 -3,-9 2,-9 C3,-12 7,-13 9,-10 L12,-9.6 L9,-8.4 C9,-5 7,-2 3,-0.6 L1,0 L-1,0 L-3,0.6 L-12,4 Z";
+  const PERCH = [[86, 1], [128, -1], [166, 1], [214, 1], [262, -1], [318, 1], [372, 1], [420, -1], [476, 1], [530, 1], [588, -1], [640, 1], [700, 1], [748, -1], [806, 1], [862, 1], [918, -1], [968, 1], [1012, 1], [1056, -1]];
+  wires.forEach((w, wi) => {
+    const occ = wordBoxes.filter(b => b.wire === wi).map(b => [b.x - 16, b.x + b.w + 16]);
+    let cnt = 0;
+    for (const [bx0, f] of PERCH) {
+      const bx = bx0 + (wi ? 19 : 0);
+      if (bx < w.x0 + 10 || occ.some(o => bx > o[0] && bx < o[1]) || (cnt >= 7)) continue;
+      if (wi === 0 && bx > 930 && bx < 1000) continue;
+      L += `<path d="${bird}" transform="translate(${bx} ${(wireY(w, bx) - 1).toFixed(1)}) scale(${f * 1.15} 1.15)" fill="${SIL}"/>`;
+      cnt++;
+    }
+  });
+  // the active caption word is the bird taking off: a small flyer just above it
+  const fly = "M-22,-6 C-15,-7 -8,-4 -3,0 C-1,-1.5 1,-1.5 3,0 C8,-5 15,-9 23,-8 C15,-3 9,1 4,3 L2,7 L-2,7 L-4,3 C-9,1 -15,-2 -22,-6 Z";
+  const onB = wordBoxes.find(b => b.lift);
+  if (onB) { const fx = onB.x + onB.w + 24, fy = onB.top - 4; if (fx < 990 && !wordBoxes.some(b => b !== onB && fx + 18 > b.x && fx - 18 < b.x + b.w && fy + 8 > b.top && fy - 8 < b.bot)) L += `<path d="${fly}" transform="translate(${fx.toFixed(1)} ${fy.toFixed(1)}) rotate(-14) scale(0.62)" fill="${SIL}"/>`; }
+  // two near birds in flight (depth cue)
+  for (const [fx, fy, sc, rot] of [[1004, Y0 - 44, 0.95, 8], [BX + 210, Y0 + 0.5 * H, 0.7, -6]]) {
+    if (!blocked(fx, fy) && fx < 1060) L += `<path d="${fly}" transform="translate(${fx.toFixed(1)} ${fy.toFixed(1)}) rotate(${rot}) scale(${sc})" fill="${SIL}"/>`;
+  }
+  land.innerHTML = L;
+
+  // ---------- notes layer: field-glass ellipses, leaders, birder tallies ----------
+  const fmt = v => { const r = v < 1000 ? Math.round(v / 10) * 10 : Number(v.toPrecision(2)); return String(r).replace(/\B(?=(\d{3})+(?!\d))/g, "."); };
+  const tallyBox = document.getElementById("tallies");
+  tallyBox.innerHTML = items.map((_, i) => `<div class="tally" id="ta${i}">≈${fmt(counts[i] || 0)} ekor</div>`).join("");
+  let N = "";
+  const taken = [];
+  for (let i = 0; i < items.length; i++) {
+    const e = ells[i]; if (!e) continue;
+    const sx = 90 + itW[i] + 12, sy = ys[i] + itH[i] * 0.62;
+    // ellipse point facing the note (never inside the action rail)
+    let best = null;
+    for (let k = 0; k < 72; k++) {
+      const p = ellPoint(e, k / 72 * 6.2832);
+      if (p[0] > 870 && p[1] > 880 && p[1] < 1520) continue;
+      const cst = Math.hypot(p[0] - sx, (p[1] - sy) * 1.6);
+      if (!best || cst < best.c) best = { x: p[0], y: p[1], c: cst };
+    }
+    const pts = [];
+    for (let k = 0; k <= 96; k++) pts.push(ellPoint(e, k / 96 * 6.2832).map(v => v.toFixed(1)).join(","));
+    const ed = "M" + pts.join(" L") + " Z";
+    N += `<path d="${ed}" fill="none" stroke="${CREAM}" stroke-width="6" opacity="0.45"/>`;
+    N += `<path d="${ed}" fill="none" stroke="${INK}" stroke-width="2.6" stroke-dasharray="13 9"/>`;
+    // tally tag next to where the leader meets the ellipse: try a few spots, keep the one hiding the fewest birds
+    const ta = document.getElementById("ta" + i), tw = ta.offsetWidth, th = ta.offsetHeight;
+    const cands = [[best.x - 8 - tw, best.y - th / 2], [best.x - 8 - tw, best.y - th - 6], [best.x - 8 - tw, best.y + 6],
+                   [best.x - tw / 2, best.y - th - 10], [best.x - tw / 2, best.y + 10], [best.x - tw * 0.3, best.y - th / 2]];
+    let pick = null;
+    for (const [cx0, cy0] of cands) {
+      const tx = Math.min(Math.max(cx0, 90), 990 - tw), ty = cy0;
+      const hit = (x0, y0, x1, y1, m) => tx < x1 + m && tx + tw > x0 - m && ty < y1 + m && ty + th > y0 - m;
+      if (ty < T + 10 || (tx + tw > 870 && ty + th > 880 && ty < 1520)) continue;
+      if (itEls.some((_, k) => hit(90, ys[k], 90 + itW[k], ys[k] + itH[k], 10))) continue;
+      if (taken.some(o => hit(o[0], o[1], o[2], o[3], 8)) || wordBoxes.some(b => hit(b.x, b.top, b.x + b.w, b.bot, 8))) continue;
+      let cov = 0; for (const d0 of dots) if (d0[0] > tx - 6 && d0[0] < tx + tw + 6 && d0[1] > ty - 6 && d0[1] < ty + th + 6) cov += d0[3];
+      const score = cov + 0.6 * Math.hypot(tx + tw / 2 - best.x, ty + th / 2 - best.y);
+      if (!pick || score < pick.score) pick = { tx, ty, score };
+    }
+    if (!pick) pick = { tx: Math.min(Math.max(best.x - tw / 2, 90), 870 - tw), ty: best.y + 10 };
+    taken.push([pick.tx, pick.ty, pick.tx + tw, pick.ty + th]);
+    ta.style.left = pick.tx.toFixed(1) + "px"; ta.style.top = pick.ty.toFixed(1) + "px";
+    const d = `M${sx.toFixed(1)},${sy.toFixed(1)} L${best.x.toFixed(1)},${best.y.toFixed(1)}`;
+    N += `<path d="${d}" fill="none" stroke="${CREAM}" stroke-width="6" stroke-linecap="round" opacity="0.5"/>`;
+    N += `<path d="${d}" fill="none" stroke="${INK}" stroke-width="2.2" stroke-linecap="round"/>`;
+    N += `<circle cx="${best.x.toFixed(1)}" cy="${best.y.toFixed(1)}" r="5" fill="${INK}" stroke="${CREAM}" stroke-width="2"/>`;
+  }
+  document.getElementById("notes").innerHTML = N;
+
+  // ---------- sky (drawn last so it can use T and the stops) ----------
+  const sky = document.getElementById("sky");
+  const sst = STOPS.map(([y, c]) => `<stop offset="${(y / HOR).toFixed(4)}" stop-color="${c}"/>`).join("");
+  let wst = "";
+  for (let d = 0; d <= 516; d += 43) wst += `<stop offset="${(d / 516).toFixed(4)}" stop-color="${mix(skyAt(HOR - d), "#2B3348", 0.12 + 0.26 * d / 516)}"/>`;
+  let stars = "";
+  for (const [sx, sy2, r] of [[140, 70, 1.6], [262, 150, 1.2], [388, 52, 1.4], [470, 196, 1.1], [598, 96, 1.7], [702, 38, 1.2], [790, 214, 1.1], [842, 108, 1.4], [1012, 64, 1.3], [60, 210, 1.2], [520, 260, 1], [1040, 250, 1.1]])
+    stars += `<circle cx="${sx}" cy="${sy2}" r="${r}" fill="${CREAM}" opacity="0.65"/>`;
+  sky.innerHTML = `
+    <defs>
+      <linearGradient id="g-sky" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="${HOR}">${sst}</linearGradient>
+      <linearGradient id="g-water" gradientUnits="userSpaceOnUse" x1="0" y1="${HOR}" x2="0" y2="1920">${wst}</linearGradient>
+      <radialGradient id="g-sun" gradientUnits="userSpaceOnUse" cx="360" cy="${HOR}" r="560" gradientTransform="translate(360 ${HOR}) scale(1.4 0.4) translate(-360 -${HOR})">
+        <stop offset="0" stop-color="#F8E0C2" stop-opacity="0.9"/><stop offset="1" stop-color="#F8E0C2" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <rect width="1080" height="${HOR}" fill="url(#g-sky)"/>
+    <rect y="${HOR}" width="1080" height="${1920 - HOR}" fill="url(#g-water)"/>
+    <rect width="1080" height="1920" fill="url(#g-sun)"/>
+    ${stars}
+    <path d="M928,150 a30,30 0 1,0 34,38 a24,24 0 1,1 -34,-38 z" fill="${PEACH}" opacity="0.92"/>`;
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@700;800&family=Zen+Kaku+Gothic+New:wght@500;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Paper Theatre (paper-theatre): a Showa street kamishibai stall as the system prompt.
+    The showman's signboard (kanban) on top of the honey-wood butai carries the title on nailed washi boards.
+    The picture card is pulled half out of the side slot: the half still in the window is the FRONT
+    (a flat poster-paint alley at dusk; each shop's eave + noren curtain = one item band, the label lettered
+    on the noren), the half outside has turned over to its BACK (the narrator's ruled script: one numbered
+    line per item = the value). Candy drawer with the source slip, hyoshigi clappers on the floor, and the
+    caption as a strip of the narrator's script. Everything is drawn from window.D; shapes are hard-coded.
+  */
+  :root { --night: #2A1D15; --washi: #EADCC0; --verm: #B8402B; --indigo: #24406A; --amber: #E3A847; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--night); }
+  body { position: relative; font-family: "Zen Kaku Gothic New", sans-serif; color: var(--washi); }
+  #bg { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  .abs { position: absolute; }
+  .p3 { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; pointer-events: none; }
+
+  /* ---- signboard (kanban) ---- */
+  #kroof { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  .kanban { position: absolute; border-radius: 3px;
+    background: repeating-linear-gradient(180deg, rgba(70,36,12,0) 0 9px, rgba(70,36,12,.13) 9px 11px, rgba(70,36,12,0) 11px 26px, rgba(255,214,150,.07) 26px 27px, rgba(70,36,12,0) 27px 41px),
+      linear-gradient(180deg, #B98249 0%, #A06A37 55%, #87582C 100%);
+    box-shadow: inset 0 0 0 5px rgba(50,24,8,.5), inset 0 7px 0 rgba(255,220,160,.18), 0 18px 26px rgba(0,0,0,.45); }
+  .kanban .nail { position: absolute; width: 16px; height: 16px; border-radius: 50%; background: radial-gradient(circle at 38% 35%, #F3CC7A, #9C7128 72%); box-shadow: 0 1px 0 rgba(0,0,0,.45); }
+  .title { position: absolute; left: 96px; width: 888px; font-family: "Shippori Mincho", serif; font-weight: 800; letter-spacing: -0.01em;
+    color: var(--night); text-align: center; text-wrap: balance; }
+  .title .ln { padding: 0 0.38em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  .title .hl { position: relative; color: #F8F0DE; }
+  .title .bl { display: inline-block; width: 0; height: 0; vertical-align: baseline; }
+  #tboards { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; pointer-events: none; }
+  .board { position: absolute; background: linear-gradient(180deg, #F2E7CF 0%, #E8D9B9 100%); box-shadow: 0 5px 0 rgba(46,22,6,.5), inset 0 0 0 1px rgba(120,80,30,.18); }
+  .board::before, .board::after { content: ""; position: absolute; top: 50%; width: 0.15em; height: 0.15em; margin-top: -0.075em; border-radius: 50%;
+    background: radial-gradient(circle at 38% 35%, #F3CC7A, #8E6422 72%); box-shadow: 0 1px 0 rgba(0,0,0,.45); }
+  .board::before { left: 0.1em; } .board::after { right: 0.1em; }
+  .slip { position: absolute; background: #AC3A26; transform: rotate(-0.8deg);
+    clip-path: polygon(0.6% 6%, 22% 1%, 61% 4%, 99.4% 0, 100% 48%, 99% 97%, 58% 100%, 19% 96%, 0 100%, 1% 52%); }
+
+  /* box side face + slot */
+  #side { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* ---- card back (outside the box): the narrator's script ---- */
+  .back { position: absolute; transform-origin: 0 50%; background: #E4D3AF; overflow: hidden;
+    box-shadow: 0 18px 30px rgba(0,0,0,.45), 0 2px 0 rgba(0,0,0,.2); }
+  .back .margin { position: absolute; top: 0; bottom: 0; width: 3px; background: var(--verm); opacity: .85; }
+  .back .rule { position: absolute; height: 2px; background: rgba(36,64,106,.30); }
+  .back .hd { position: absolute; color: var(--indigo); white-space: nowrap; }
+  .back .hd .t1 { display: block; font: 700 30px/1.15 "Zen Kaku Gothic New", sans-serif; letter-spacing: 0.12em; }
+  .back .hd .t2 { display: block; font: 500 30px/1.2 "Zen Kaku Gothic New", sans-serif; letter-spacing: 0.01em; }
+  .back .num { position: absolute; font: 700 30px/1 "Zen Kaku Gothic New", sans-serif; color: var(--verm); text-align: center; }
+  .back .val { position: absolute; font-family: "Zen Kaku Gothic New", sans-serif; font-weight: 700; color: var(--indigo); line-height: 1.06; white-space: nowrap; }
+
+  /* ---- card front in the window: poster-paint alley ---- */
+  .win { position: absolute; overflow: hidden; background: #22365C; }
+  .win svg { position: absolute; left: 0; top: 0; }
+  .win .tag { position: absolute; font: 700 30px/1.2 "Zen Kaku Gothic New", sans-serif; letter-spacing: 0.08em; color: #F2E8D4; white-space: nowrap; }
+  .win .shade { position: absolute; inset: 0; box-shadow: inset 0 10px 18px rgba(30,15,5,.45), inset 8px 0 12px rgba(30,15,5,.30), inset -6px 0 10px rgba(30,15,5,.25); }
+  .lab { position: absolute; font-family: "Shippori Mincho", serif; font-weight: 800; color: #F4EAD6; line-height: 1.05; white-space: nowrap; }
+  .lab .dot { color: var(--amber); }
+
+  /* frame rails */
+  .rail { position: absolute; }
+  .rail.v { background:
+      repeating-linear-gradient(90deg, rgba(70,36,12,0) 0 5px, rgba(70,36,12,.16) 5px 7px, rgba(70,36,12,0) 7px 13px, rgba(255,214,150,.08) 13px 14px, rgba(70,36,12,0) 14px 22px),
+      linear-gradient(90deg, #7C4C25 0%, #B07A42 30%, #A06C38 70%, #6E431F 100%); }
+  .rail.h { background:
+      repeating-linear-gradient(180deg, rgba(70,36,12,0) 0 6px, rgba(70,36,12,.15) 6px 8px, rgba(70,36,12,0) 8px 15px),
+      linear-gradient(180deg, #C08A4E 0%, #A3703B 35%, #8E5D2F 75%, #6C421F 100%); }
+  .hinge { position: absolute; width: 14px; height: 46px; background: linear-gradient(90deg, #8C6A2A, #E3B65A 45%, #9A7430); border-radius: 3px;
+    box-shadow: 0 1px 0 rgba(0,0,0,.4); }
+
+  /* left door (inner face) */
+  .door { position: absolute; transform-origin: 0 50%;
+    background: repeating-linear-gradient(90deg, rgba(70,36,12,0) 0 8px, rgba(70,36,12,.12) 8px 10px, rgba(70,36,12,0) 10px 21px),
+      linear-gradient(90deg, #6E431F 0%, #9A663A 40%, #A9743F 100%);
+    box-shadow: inset 0 0 0 4px rgba(50,24,8,.45); }
+  .door::after { content: ""; position: absolute; inset: 28px 26px; border: 3px solid rgba(50,24,8,.45); box-shadow: inset 0 0 0 2px rgba(255,214,150,.12); }
+
+  /* candy drawer */
+  .drawer { position: absolute; border-radius: 3px;
+    background: repeating-linear-gradient(180deg, rgba(70,36,12,0) 0 9px, rgba(70,36,12,.13) 9px 11px, rgba(70,36,12,0) 11px 23px),
+      linear-gradient(180deg, #8A5A2E 0%, #7A4C26 60%, #603A1C 100%);
+    box-shadow: inset 0 0 0 3px rgba(40,18,6,.4), 0 26px 40px rgba(0,0,0,.5); }
+  .drawer .knob { position: absolute; width: 22px; height: 22px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #F0C46C, #A97A2C 70%); top: 50%; margin-top: -11px; }
+  .drawer .label { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(-0.6deg); background: var(--washi); color: var(--night);
+    padding: 8px 18px 9px; font: 500 26px/1.28 "Zen Kaku Gothic New", sans-serif; text-align: center; text-wrap: balance; box-shadow: 0 2px 0 rgba(30,14,4,.4); }
+  .drawer .label .dt { display: block; font-weight: 700; letter-spacing: 0.04em; }
+
+  /* karaoke caption on a strip of the narrator's script */
+  .capstrip { position: absolute; left: 70px; width: 940px; background: linear-gradient(180deg, #EEE2C8, #E5D5B4);
+    box-shadow: 0 16px 24px rgba(0,0,0,.45), 0 2px 0 rgba(40,20,6,.35); transform: rotate(-0.35deg); }
+  .capstrip .mr { position: absolute; left: 44px; top: 0; bottom: 0; width: 3px; background: var(--verm); opacity: .85; }
+  .caption { position: absolute; left: 130px; width: 860px; font: 500 44px/1.2 "Zen Kaku Gothic New", sans-serif; color: var(--night); text-wrap: pretty; }
+  .caption .w { white-space: nowrap; }
+  .caption .on { color: #9C3322; font-weight: 700;
+    background: linear-gradient(90deg, #B8402B, #B8402B) no-repeat 0 96% / 100% 0.09em; }
+</style>
+</head>
+<body>
+<svg id="bg" data-layout-allow-overflow viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+<svg id="kroof" data-layout-allow-overflow viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+<div class="kanban" id="kanban"></div>
+<div id="tboards" aria-hidden="true"></div>
+<div class="title" id="title"></div>
+<svg id="side" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+<div class="p3" id="backWrap"><div class="back" id="back"></div></div>
+<div class="win" id="win"></div>
+<div id="rails"></div>
+<div class="p3" id="doorWrap"><div class="door" id="door" data-layout-allow-overflow></div></div>
+<div class="drawer" id="drawer"><span class="knob" style="left:22px"></span><span class="knob" id="knobR"></span><div class="label" id="meta"></div></div>
+<svg class="abs" id="clap" data-layout-allow-overflow width="290" height="130" viewBox="0 0 290 130" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+<div class="capstrip" id="capstrip" data-layout-allow-overlap><span class="mr"></span></div>
+<div class="caption" id="caption" data-slot="caption"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const FONTS = ['800 100px "Shippori Mincho"', '700 40px "Shippori Mincho"', '500 40px "Zen Kaku Gothic New"', '700 40px "Zen Kaku Gothic New"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f, "AaBb0123·±—"))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    // keep a number glued to its prefix / unit so a value never orphans "Rp" or "token"
+    const glue = s => String(s == null ? "" : s)
+      .replace(/(Rp|US\$|\$|€|±|~|≈|<|>|≤|≥|×)\s+(?=[\d.,])/g, "$1 ")
+      .replace(/(\d)\s+(?=[A-Za-z%×])/g, "$1 ");
+    const items = (D.items || []).slice(0, 5);
+    const n = Math.max(1, items.length);
+    const hl = String(D.hl || "");
+
+    // ---------- signboard: title lettered on nailed washi boards, hl on a vermilion slip ----------
+    const KB_TOP = 300, T_TOP = KB_TOP + 26, T_MAXH = 284;
+    const t = String(D.title || "");
+    const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    const titleEl = $("title");
+    titleEl.innerHTML = '<i class="bl"></i><span class="ln">' + (at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length))) + "</span>";
+    titleEl.style.top = T_TOP + "px";
+    let tfs = 98;
+    const setT = fs => { titleEl.style.fontSize = fs + "px"; titleEl.style.lineHeight = Math.round(fs * 1.32) + "px"; };
+    for (setT(tfs); tfs > 60 && titleEl.offsetHeight > T_MAXH; ) setT(tfs -= 2);
+    // washi boards (one per title line) and the vermilion hl slip, drawn from the measured line fragments
+    {
+      const lnRects = [...titleEl.querySelector(".ln").getClientRects()];
+      const base0 = titleEl.querySelector(".bl").getBoundingClientRect().top; // baseline of line 1
+      const off = base0 - lnRects[0].top;
+      let bd = lnRects.map(r => `<div class="board" style="font-size:${tfs}px; left:${Math.round(r.left)}px; top:${Math.round(r.top + off - tfs * 0.86)}px; width:${Math.round(r.width)}px; height:${Math.round(tfs * 1.16)}px"></div>`).join("");
+      const hlEl = titleEl.querySelector(".hl");
+      if (hlEl) bd += [...hlEl.getClientRects()].map(r => `<div class="slip" style="left:${Math.round(r.left - tfs * 0.07)}px; top:${Math.round(r.top + off - tfs * 0.80)}px; width:${Math.round(r.width + tfs * 0.14)}px; height:${Math.round(tfs * 1.04)}px"></div>`).join("");
+      $("tboards").innerHTML = bd;
+    }
+    const KB_BOT = T_TOP + titleEl.offsetHeight + 24;
+    const KX = 58, KW = 964;
+    Object.assign($("kanban").style, { left: KX + "px", top: KB_TOP + "px", width: KW + "px", height: (KB_BOT - KB_TOP) + "px" });
+    $("kanban").innerHTML = [[14, 12], [KW - 30, 12], [14, KB_BOT - KB_TOP - 28], [KW - 30, KB_BOT - KB_TOP - 28]].map(([x, y]) => `<span class="nail" style="left:${x}px; top:${y}px"></span>`).join("");
+    // little tiled roof on the signboard (rhymes with the eaves in the picture)
+    let kr = `<path d="M40 ${KB_TOP + 4} L58 ${KB_TOP - 24} L1022 ${KB_TOP - 24} L1040 ${KB_TOP + 4} Z" fill="#2B2730" stroke="#140C08" stroke-width="3"/>`;
+    kr += `<path d="M60 ${KB_TOP - 20} L1020 ${KB_TOP - 20}" stroke="#6A626E" stroke-width="3"/>`;
+    for (let x = 66; x < 1020; x += 32) kr += `<path d="M${x} ${KB_TOP - 18} L${x - 6} ${KB_TOP + 2}" stroke="#1A1418" stroke-width="2" opacity=".7"/>`;
+    for (let x = 54; x <= 1028; x += 26) kr += `<circle cx="${x}" cy="${KB_TOP + 3}" r="8" fill="#3D3742" stroke="#140C08" stroke-width="2"/>`;
+    $("kroof").innerHTML = kr;
+
+    // ---------- vertical plan ----------
+    const FX = 54, FW = 480, FR = FX + FW, S = 34;
+    const DRAWER_TOP = 1346, DRAWER_H = 122, FLOOR = DRAWER_TOP + DRAWER_H + 6;
+    const FY = KB_BOT + 8, FB = DRAWER_TOP - 4, FH = FB - FY;
+    const WX = FX + S, WY = FY + S, WW = FW - 2 * S, WH = FH - 2 * S;
+    const skyH = Math.round(clamp(WH * 0.2, 104, 150));
+    const AV = WH - skyH;
+
+    // ---------- background: lantern glow + vignette + floor ----------
+    const LX = 946, LY = 40;
+    $("bg").innerHTML = `
+      <defs>
+        <radialGradient id="glowL" cx="${LX}" cy="${LY + 90}" r="560" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#E3A847" stop-opacity=".26"/><stop offset=".45" stop-color="#E3A847" stop-opacity=".07"/><stop offset="1" stop-color="#E3A847" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="glowB" cx="330" cy="980" r="760" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#E3A847" stop-opacity=".16"/><stop offset=".55" stop-color="#E3A847" stop-opacity=".05"/><stop offset="1" stop-color="#E3A847" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="vig" cx="540" cy="960" r="1150" gradientUnits="userSpaceOnUse">
+          <stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".55"/>
+        </radialGradient>
+        <radialGradient id="paper" cx="${LX - 10}" cy="${LY + 80}" r="70" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#F08A55"/><stop offset=".6" stop-color="#C9492D"/><stop offset="1" stop-color="#8E2C1B"/>
+        </radialGradient>
+        <filter id="bgGrain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".75" numOctaves="2" seed="11" stitchTiles="stitch"/><feColorMatrix type="matrix" values="0 0 0 0 0.17  0 0 0 0 0.10  0 0 0 0 0.05  0 0 0 .9 0"/></filter>
+        <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3A271A"/><stop offset=".5" stop-color="#2E1F15"/><stop offset="1" stop-color="#1F150E"/></linearGradient>
+      </defs>
+      <rect width="1080" height="1920" fill="#2A1D15"/>
+      <rect width="1080" height="1920" fill="url(#glowB)"/>
+      <rect width="1080" height="1920" fill="url(#glowL)"/>
+      <path d="M${LX} 0 L${LX} ${LY + 6}" stroke="#120B07" stroke-width="3"/>
+      <rect x="${LX - 26}" y="${LY + 4}" width="52" height="14" rx="3" fill="#1C130D"/>
+      <path d="M${LX - 26} ${LY + 18} C ${LX - 70} ${LY + 40}, ${LX - 70} ${LY + 130}, ${LX - 26} ${LY + 152} L${LX + 26} ${LY + 152} C ${LX + 70} ${LY + 130}, ${LX + 70} ${LY + 40}, ${LX + 26} ${LY + 18} Z" fill="url(#paper)" stroke="#5E1C10" stroke-width="2"/>
+      ${[34, 52, 70, 88, 106, 124, 140].map(dy => { const k = 1 - Math.abs(dy - 85) / 70; const hw = 26 + 33 * Math.sqrt(Math.max(0, k)); return `<path d="M${(LX - hw).toFixed(1)} ${LY + dy} Q ${LX} ${LY + dy + 5}, ${(LX + hw).toFixed(1)} ${LY + dy}" stroke="#6E2214" stroke-width="2" fill="none" opacity=".55"/>`; }).join("")}
+      <rect x="${LX - 26}" y="${LY + 150}" width="52" height="14" rx="3" fill="#1C130D"/>
+      <path d="M${LX} ${LY + 164} L${LX} ${LY + 196}" stroke="#B8402B" stroke-width="4" stroke-linecap="round"/>
+      <path d="M0 ${FLOOR} L1080 ${FLOOR} L1080 1920 L0 1920 Z" fill="url(#floor)"/>
+      ${[38, 86, 146, 220, 312, 426].map(d => `<path d="M0 ${FLOOR + d} L1080 ${FLOOR + d}" stroke="#4E3524" stroke-width="2" opacity=".55"/>`).join("")}
+      ${[[-420, 120], [-60, 330], [300, 610], [700, 980]].map(([x0, x1]) => `<path d="M${x1} ${FLOOR} L${x0} 1920" stroke="#4E3524" stroke-width="2" opacity=".4"/>`).join("")}
+      <path d="M0 ${FLOOR} L1080 ${FLOOR}" stroke="#5C4029" stroke-width="3"/>
+      <ellipse cx="${FX + FW / 2 + 40}" cy="${FLOOR + 4}" rx="440" ry="18" fill="#000" opacity=".5"/>
+      <rect width="1080" height="1920" filter="url(#bgGrain)" opacity=".22"/>
+      <rect width="1080" height="1920" fill="url(#vig)"/>`;
+
+    // ---------- box side face with the card slot (narrator side) ----------
+    const SD = 26;
+    $("side").innerHTML = `
+      <path d="M${FR} ${FY} L${FR + SD} ${FY + 12} L${FR + SD} ${FB - 12} L${FR} ${FB} Z" fill="#5A361A"/>
+      <path d="M${FR} ${FY} L${FR + SD} ${FY + 12}" stroke="#C08A4E" stroke-width="2" opacity=".6"/>
+      <rect x="${FR + 6}" y="${WY - 16}" width="${SD - 9}" height="${WH + 32}" fill="#1A0F08"/>
+      ${[0, 1, 2, 3].map(k => `<rect x="${FR + 9 + k * 4}" y="${WY - 12 + k * 1.5}" width="1.6" height="${WH + 24 - k * 3}" fill="#D9C7A2" opacity="${0.75 - k * 0.12}"/>`).join("")}`;
+
+    // ---------- card back (geometry first so the value lane can be measured on screen) ----------
+    const back = $("back"), backWrap = $("backWrap");
+    const BX = FR + 8, BY = WY - 12, BW = 1004 - BX, BH = WH + 24;
+    backWrap.style.perspective = "1500px";
+    backWrap.style.perspectiveOrigin = (BX - 40) + "px " + (BY + BH / 2) + "px";
+    Object.assign(back.style, { left: BX + "px", top: BY + "px", width: BW + "px", height: BH + "px", transform: "rotateY(-6deg)" });
+    const ML = 36, VL = ML + 16; // vermilion margin line; values start right of it
+    back.innerHTML = items.map(it => `<div class="val">${esc(glue(it.value))}</div>`).join("");
+    const vals = [...back.querySelectorAll(".val")];
+    vals.forEach(v => v.style.left = VL + "px");
+    // value lane: widest local width whose right edge stays left of x 896 on screen (action-button lane)
+    const probe = document.createElement("div");
+    probe.style.cssText = "position:absolute; top:0; width:0; height:1px";
+    back.appendChild(probe);
+    let VAL_MAX = 340;
+    for (; VAL_MAX > 220; VAL_MAX -= 2) { probe.style.left = (VL + VAL_MAX) + "px"; if (probe.getBoundingClientRect().left <= 896) break; }
+    probe.remove();
+
+    // ---------- card front: labels first (measured), then the painting ----------
+    const win = $("win");
+    Object.assign(win.style, { left: WX + "px", top: WY + "px", width: WW + "px", height: WH + "px" });
+    win.innerHTML = `<div id="paint" data-layout-allow-overflow></div>` +
+      `<div class="tag" style="left:18px; top:12px">${esc(D.front || "GAMBAR")}</div>` +
+      items.map(it => `<div class="lab" style="left:18px">${esc(it.label).replace(/·/g, '<span class="dot">·</span>')}</div>`).join("") +
+      `<div class="shade"></div>`;
+    const labs = [...win.querySelectorAll(".lab")];
+    const LAB_MAX = WW - 30 - 36; // noren max width minus its padding
+    const eq = AV / n;
+    let lfsFit = Math.round(clamp(eq * 0.42, 36, 48));
+    const setL = fs => labs.forEach(l => l.style.fontSize = fs + "px");
+    setL(lfsFit);
+    while (lfsFit > 30 && Math.max(...labs.map(l => l.scrollWidth)) > LAB_MAX) setL(--lfsFit);
+
+    // joint fit: values and labels share a size band (label <= value + 6); rows grow for wrapped values
+    const tryFit = (v, wrap, force) => {
+      const lfs = Math.min(lfsFit, v + 6);
+      setL(lfs);
+      for (const el of vals) {
+        Object.assign(el.style, { fontSize: v + "px", whiteSpace: "nowrap", width: "auto", lineHeight: "1.06", textWrap: "" });
+        if (el.scrollWidth > VAL_MAX) {
+          if (!wrap) return null;
+          Object.assign(el.style, { whiteSpace: "normal", width: VAL_MAX + "px", lineHeight: "1.02", textWrap: "balance" });
+          const lines = Math.round(el.offsetHeight / (v * 1.02));
+          if (!force && (lines > 2 || el.scrollWidth > VAL_MAX + 1)) return null;
+        }
+      }
+      const need = items.map((_, i) => Math.max(labs[i].offsetHeight + 56, vals[i].offsetHeight + 18));
+      const total = need.reduce((a, b) => a + b, 0);
+      if (total > AV && !force) return null;
+      let lo = 0, hi = AV;
+      for (let k = 0; k < 30; k++) { const mid = (lo + hi) / 2; if (need.reduce((a, b) => a + Math.max(b, mid), 0) > AV) hi = mid; else lo = mid; }
+      let hs = need.map(b => Math.max(b, lo));
+      const sum = hs.reduce((a, b) => a + b, 0);
+      hs = sum > AV ? hs.map(h => h * AV / sum) : hs.map(h => h + (AV - sum) / n);
+      return { lfs, v, hs };
+    };
+    let fit = null;
+    const VSTART = Math.round(clamp(eq * 0.46, 38, 52));
+    for (let v = VSTART; v >= 34 && !fit; v--) fit = tryFit(v, false);
+    for (let v = 40; v >= 30 && !fit; v--) fit = tryFit(v, true);
+    if (!fit) fit = tryFit(30, true, true);
+    const ys = [skyH];
+    fit.hs.forEach(h => ys.push(ys[ys.length - 1] + h));
+    const R = ys.map(Math.round);
+
+    // ---------- the painting: dusk sky + one shop (eave, noren, lit window) per item ----------
+    const NOREN = ["#24406A", "#82301F", "#45304F", "#1F3352", "#5B3519"];
+    const geo = items.map((_, i) => {
+      const y0 = R[i], y1 = R[i + 1], h = y1 - y0;
+      const eh = Math.round(clamp(h * 0.22, 18, 30)), lg = Math.round(clamp(h * 0.1, 6, 12));
+      const nt = y0 + eh + 4, nb = y1 - lg;
+      let nw = Math.round(clamp(labs[i].scrollWidth + 40, WW * 0.56, WW));
+      if (WW - nw < 84) nw = WW + 3; // no room for a lantern: the curtain spans the whole shopfront
+      return { y0, y1, h, eh, lg, nt, nb, nw };
+    });
+    const f = (x) => (+x).toFixed(1);
+    let p = `<svg data-layout-allow-overflow width="${WW}" height="${WH}" viewBox="0 0 ${WW} ${WH}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">`;
+    // flat poster dusk: indigo, rust, amber bands
+    p += `<rect width="${WW}" height="${skyH + 4}" fill="#22365C"/>`;
+    p += `<rect y="${f(skyH * 0.5)}" width="${WW}" height="${f(skyH * 0.5 + 4)}" fill="#9A4A2C"/>`;
+    p += `<rect y="${f(skyH * 0.7)}" width="${WW}" height="${f(skyH * 0.3 + 4)}" fill="#D98E40"/>`;
+    // far rooftops (hard-coded skyline) with a few lit windows
+    const SKY = [[0, .80], [.07, .80], [.07, .70], [.13, .62], [.19, .70], [.19, .76], [.31, .76], [.31, .67], [.39, .58], [.47, .67], [.47, .78], [.57, .78], [.57, .69], [.64, .63], [.71, .69], [.71, .82], [.79, .82], [.79, .71], [.87, .64], [.95, .71], [1, .71], [1, 1.05], [0, 1.05]];
+    p += `<path d="M${SKY.map(([x, y]) => f(x * WW) + " " + f(y * skyH)).join(" L")} Z" fill="#2A2238"/>`;
+    [[.10, .84], [.24, .85], [.36, .74], [.52, .86], [.66, .76], [.83, .86]].forEach(([x, y]) => { p += `<rect x="${f(x * WW)}" y="${f(y * skyH)}" width="7" height="7" fill="#E8B04B"/>`; });
+    // telephone pole + wires + a paper lantern (Showa street)
+    const PX = Math.round(WW * 0.87);
+    p += `<path d="M${PX + 34} 22 Q ${PX + 70} 30, ${WW + 4} 26 M${PX - 30} 22 Q ${f(WW * 0.68)} ${f(skyH * 0.42)}, ${f(WW * 0.47)} ${f(skyH * 0.66)} M${PX - 30} 32 Q ${f(WW * 0.7)} ${f(skyH * 0.5)}, ${f(WW * 0.5)} ${f(skyH * 0.74)}" stroke="#120C0A" stroke-width="2.2" fill="none"/>`;
+    p += `<rect x="${PX - 4}" y="0" width="8" height="${skyH}" fill="#16100D"/><rect x="${PX - 34}" y="18" width="70" height="7" fill="#16100D"/>`;
+    p += `<circle cx="${PX - 28}" cy="16" r="3.5" fill="#D9C7A2"/><circle cx="${PX + 30}" cy="16" r="3.5" fill="#D9C7A2"/>`;
+    const LNX = Math.round(WW * 0.66), LNY = Math.round(skyH * 0.36);
+    p += `<circle cx="${LNX}" cy="${LNY + 6}" r="30" fill="#F2B45A" opacity=".35"/>`;
+    p += `<path d="M${LNX} ${LNY - 30} L${LNX} ${LNY - 14}" stroke="#120C0A" stroke-width="2"/>`;
+    p += `<rect x="${LNX - 9}" y="${LNY - 16}" width="18" height="5" fill="#16100D"/><rect x="${LNX - 9}" y="${LNY + 24}" width="18" height="5" fill="#16100D"/>`;
+    p += `<ellipse cx="${LNX}" cy="${LNY + 6}" rx="15" ry="19" fill="#C8452C" stroke="#140C08" stroke-width="2"/>`;
+    p += `<path d="M${LNX - 13} ${LNY} H${LNX + 13} M${LNX - 14} ${LNY + 8} H${LNX + 14} M${LNX - 12} ${LNY + 16} H${LNX + 12}" stroke="#7A2516" stroke-width="1.6"/>`;
+    // shops up the lane: kawara roof, dark plank wall, split noren lettered with the label, a lit chochin
+    const LAN = [0.66, 0.42, 0.74, 0.5, 0.62]; // hard-coded lantern positions (fraction of the free wall)
+    geo.forEach((g, i) => {
+      const { y0, y1, h, eh, nt, nb, nw } = g;
+      p += `<rect x="0" y="${y0}" width="${WW}" height="${h + 1}" fill="#2F1D10"/>`;
+      let pl = "";
+      for (let x = nw + 22; x < WW; x += 24) pl += `M${x} ${y0 + eh} V${y1} `;
+      if (pl) p += `<path d="${pl}" stroke="#1C1108" stroke-width="2.5"/>`;
+      // lantern glow on the wall (drawn under the curtain)
+      const free = WW - nw - 14;
+      const ry = Math.round(clamp((y1 - nt) * (0.25 + 0.08 * (n === 1 ? 1 : i / (n - 1))), 11, 26)), rx = Math.round(ry * 0.8);
+      const cx = Math.round(nw + 14 + rx + 4 + Math.max(0, free - 2 * rx - 12) * LAN[i % LAN.length]), cy = nt + 4 + ry;
+      if (free > 2 * rx + 12) p += `<circle cx="${cx}" cy="${cy}" r="${ry + 26}" fill="#E39A3E" opacity=".30"/><circle cx="${cx}" cy="${cy}" r="${ry + 12}" fill="#F2B95C" opacity=".45"/>`;
+      // light under the curtain
+      p += `<rect x="0" y="${nb}" width="${nw + 6}" height="${y1 - nb + 1}" fill="#D6963E"/>`;
+      // noren: three panels, slits open below the lettering, hem shadow, bamboo rod
+      const col = NOREN[i % NOREN.length], sy = Math.round(Math.max(nt + (nb - nt) * 0.74, (nt + nb) / 2 + labs[i].offsetHeight / 2 + 3));
+      p += `<path d="M-3 ${nt} H${nw} V${nb - 2} Q ${f(nw * 0.84)} ${nb + 2}, ${f(nw * 0.67)} ${nb} Q ${f(nw * 0.5)} ${nb - 3}, ${f(nw * 0.33)} ${nb} Q ${f(nw * 0.16)} ${nb + 2}, -3 ${nb - 1} Z" fill="${col}" stroke="#140C08" stroke-width="2.5"/>`;
+      if (nb - sy >= 4) p += `<path d="M${f(nw / 3)} ${sy} V${nb + 2} M${f(nw * 2 / 3)} ${sy} V${nb + 2}" stroke="#D6963E" stroke-width="4"/>`;
+      p += `<rect x="-3" y="${nt}" width="${nw + 3}" height="${Math.round(clamp((nb - nt) * 0.12, 5, 9))}" fill="#000" opacity=".3"/>`;
+      p += `<rect x="-3" y="${nt - 4}" width="${nw + 12}" height="5" fill="#CFA563"/><circle cx="${nw + 10}" cy="${nt - 1.5}" r="4" fill="#CFA563"/>`;
+      // chochin
+      if (free > 2 * rx + 12) {
+        p += `<path d="M${cx} ${y0 + eh} V${cy - ry}" stroke="#140C08" stroke-width="2"/>`;
+        p += `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="#D2502F" stroke="#140C08" stroke-width="2.5"/>`;
+        p += `<ellipse cx="${cx - rx * 0.25}" cy="${cy - ry * 0.15}" rx="${f(rx * 0.45)}" ry="${f(ry * 0.6)}" fill="#F08C55" opacity=".7"/>`;
+        p += `<path d="M${cx - rx + 2} ${f(cy - ry * 0.42)} H${cx + rx - 2} M${cx - rx} ${cy} H${cx + rx} M${cx - rx + 2} ${f(cy + ry * 0.42)} H${cx + rx - 2}" stroke="#7A2516" stroke-width="1.6"/>`;
+        p += `<rect x="${f(cx - rx * 0.62)}" y="${cy - ry - 3}" width="${f(rx * 1.24)}" height="5" fill="#140C08"/><rect x="${f(cx - rx * 0.62)}" y="${cy + ry - 2}" width="${f(rx * 1.24)}" height="5" fill="#140C08"/>`;
+      }
+      // kawara roof: ribbed tile rows, ridge highlight, round tile ends along the eave
+      const dk = n === 1 ? 1 : i / (n - 1), sp = Math.round(9 + 5 * dk), tr = (3.4 + 1.8 * dk).toFixed(1);
+      const rt = y0 - 4;
+      p += `<path d="M-2 ${rt} H${WW + 2} V${y0 + eh} H-2 Z" fill="#3A3D4C" stroke="#120C09" stroke-width="2"/>`;
+      let rib = "";
+      for (let x = 5; x < WW + 6; x += sp) rib += `M${x} ${rt + 3} V${y0 + eh - 4} `;
+      p += `<path d="${rib}" stroke="#23252F" stroke-width="3"/>`;
+      p += `<path d="M0 ${rt + 2} H${WW}" stroke="#7A7E92" stroke-width="2"/>`;
+      for (let x = 5; x < WW + 6; x += sp) p += `<circle cx="${x}" cy="${y0 + eh - 3}" r="${tr}" fill="#4A4E60" stroke="#140C08" stroke-width="1.4"/>`;
+      p += `<path d="M0 ${y0 + eh + 2} H${WW}" stroke="#000" stroke-width="4" opacity=".35"/>`;
+    });
+    p += `<defs><filter id="winGrain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="5" stitchTiles="stitch"/><feColorMatrix type="matrix" values="0 0 0 0 0.17  0 0 0 0 0.10  0 0 0 0 0.05  0 0 0 .9 0"/></filter></defs><rect width="${WW}" height="${WH}" filter="url(#winGrain)" opacity=".24"/>`;
+    p += `</svg>`;
+    $("paint").innerHTML = p;
+    labs.forEach((l, i) => { const g = geo[i]; l.style.top = Math.round((g.nt + g.nb) / 2 - l.offsetHeight / 2) + "px"; });
+
+    // ---------- card back: turned edge sliver, margin, header, rules, numbers, values ----------
+    let sl = `<svg style="position:absolute; left:0; top:0" width="14" height="${BH}" aria-hidden="true">`;
+    sl += `<rect width="14" height="${BH}" fill="#5E4A33"/><rect y="12" width="14" height="${f(skyH * 0.5)}" fill="#22365C"/><rect y="${f(12 + skyH * 0.5)}" width="14" height="${f(skyH * 0.5)}" fill="#9A4A2C"/>`;
+    geo.forEach((g, i) => { sl += `<rect y="${12 + g.y0}" width="14" height="${g.h}" fill="${NOREN[i % NOREN.length]}"/><rect y="${12 + g.y0}" width="14" height="${g.eh}" fill="#2B2730"/>`; });
+    sl += `<defs><linearGradient id="turnSh" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#000" stop-opacity=".55"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient></defs><rect width="14" height="${BH}" fill="url(#turnSh)"/><rect x="12" width="2" height="${BH}" fill="#C9B48C"/></svg>`;
+    let bh = `<svg style="position:absolute; left:0; top:0" width="${BW}" height="${BH}" aria-hidden="true"><defs><filter id="backGrain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="3" stitchTiles="stitch"/><feColorMatrix type="matrix" values="0 0 0 0 0.17  0 0 0 0 0.10  0 0 0 0 0.05  0 0 0 .9 0"/></filter></defs><rect width="${BW}" height="${BH}" filter="url(#backGrain)" opacity=".26"/></svg>`;
+    bh += sl + `<div class="margin" style="left:${ML}px"></div>`;
+    geo.forEach((g, i) => { bh += `<div class="rule" style="left:14px; right:0; top:${12 + g.y0 - 1}px"></div>`; });
+    const ser = String(D.series || D.kicker || "").trim(), epNo = String(D.ep || "").trim();
+    bh += `<div class="hd" id="hd" style="left:${VL}px"><span class="t1">${esc(D.back || "NASKAH")}</span>${ser || epNo ? `<span class="t2" id="t2">${esc(ser)}${ser && epNo ? " " : ""}${esc(epNo)}</span>` : ""}</div>`;
+    // real kamishibai backs carry a small sketch of the front picture next to the script
+    bh += `<svg style="position:absolute; left:${BW - 86}px; top:${Math.round(12 + skyH / 2 - 26)}px" width="66" height="52" viewBox="0 0 66 52" aria-hidden="true">
+      <rect x="1.5" y="1.5" width="63" height="49" fill="none" stroke="#24406A" stroke-width="3"/>
+      <path d="M2 17 H64 M2 30 H64 M2 42 H64" stroke="#24406A" stroke-width="2.5"/>
+      <path d="M8 20 H34 V28 H8 Z M8 33 H28 V40 H8 Z" fill="#24406A"/>
+      <path d="M48 4 V9" stroke="#24406A" stroke-width="1.6"/><ellipse cx="48" cy="12" rx="4" ry="5" fill="#B8402B"/></svg>`;
+    back.insertAdjacentHTML("afterbegin", bh);
+    geo.forEach((g, i) => { back.insertAdjacentHTML("beforeend", `<div class="num" style="left:13px; width:22px; top:${Math.round(12 + (g.y0 + g.y1) / 2 - 15)}px">${i + 1}</div>`); });
+    vals.forEach((v, i) => { const g = geo[i]; v.style.top = Math.round(12 + (g.y0 + g.y1) / 2 - v.offsetHeight / 2) + "px"; });
+    const hd = $("hd"), t2 = $("t2");
+    if (t2) for (let fs = 30; fs > 26 && t2.scrollWidth > BW - VL - 96; fs--) t2.style.fontSize = (fs - 1) + "px";
+    hd.style.top = Math.round(12 + skyH / 2 - hd.offsetHeight / 2) + "px";
+
+    // ---------- frame rails + hinges ----------
+    $("rails").innerHTML = `
+      <div class="rail h" style="left:${FX}px; top:${FY}px; width:${FW}px; height:${S}px"></div>
+      <div class="rail h" style="left:${FX}px; top:${FB - S}px; width:${FW}px; height:${S}px"></div>
+      <div class="rail v" style="left:${FX}px; top:${FY + S}px; width:${S}px; height:${FH - 2 * S}px"></div>
+      <div class="rail v" style="left:${FR - S}px; top:${FY + S}px; width:${S}px; height:${FH - 2 * S}px"></div>
+      <div class="abs" style="left:${WX}px; top:${WY}px; width:${WW}px; height:${WH}px; box-shadow: 0 0 0 2px #5A361A, 0 0 0 4px rgba(255,214,150,.18);"></div>
+      <div class="hinge" style="left:${FX - 6}px; top:${FY + 70}px"></div>
+      <div class="hinge" style="left:${FX - 6}px; top:${FB - 116}px"></div>
+      <div class="hinge" style="left:${FX + 80}px; top:${FY - 12}px; width:46px; height:16px"></div>
+      <div class="hinge" style="left:${FR - 126}px; top:${FY - 12}px; width:46px; height:16px"></div>`;
+
+    // ---------- left door, swung open toward the audience ----------
+    const doorWrap = $("doorWrap"), door = $("door");
+    doorWrap.style.perspective = "2000px";
+    doorWrap.style.perspectiveOrigin = (FX + 260) + "px " + (FY + FH / 2) + "px";
+    Object.assign(door.style, { left: FX + "px", top: FY + "px", width: Math.round(FW / 2) + "px", height: FH + "px", transform: "rotateY(-106deg)" });
+
+    // ---------- candy drawer with the source / date slip ----------
+    const dr = $("drawer");
+    Object.assign(dr.style, { left: FX + "px", top: DRAWER_TOP + "px", width: FW + "px", height: DRAWER_H + "px" });
+    $("knobR").style.left = (FW - 44) + "px";
+    const meta = $("meta");
+    meta.innerHTML = esc(D.source || "") + (D.date ? '<span class="dt">' + esc(D.date) + "</span>" : "");
+    meta.style.width = (FW - 110) + "px";
+
+    // ---------- hyoshigi clappers on the floor ----------
+    const clap = $("clap");
+    Object.assign(clap.style, { left: (FR + 34) + "px", top: (FLOOR - 112) + "px" });
+    clap.innerHTML = `
+      <defs><linearGradient id="stick" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D9A868"/><stop offset=".55" stop-color="#B07C3C"/><stop offset="1" stop-color="#7A4E24"/></linearGradient></defs>
+      <ellipse cx="150" cy="114" rx="128" ry="8" fill="#000" opacity=".45"/>
+      <g transform="rotate(-5 150 72)">
+        <rect x="40" y="42" width="232" height="30" rx="3" fill="url(#stick)"/>
+        <rect x="40" y="42" width="232" height="6" rx="2" fill="#F2CF90" opacity=".5"/>
+        <rect x="266" y="42" width="6" height="30" fill="#6A4220"/>
+        <rect x="30" y="76" width="232" height="30" rx="3" fill="url(#stick)"/>
+        <rect x="30" y="76" width="232" height="6" rx="2" fill="#F2CF90" opacity=".5"/>
+        <rect x="256" y="76" width="6" height="30" fill="#6A4220"/>
+        <rect x="64" y="38" width="13" height="72" rx="2" fill="#B8402B"/>
+        <rect x="64" y="38" width="13" height="5" fill="#E07A5F" opacity=".6"/>
+        <path d="M70 108 C 66 124, 44 128, 36 118 C 30 110, 40 102, 52 106" stroke="#B8402B" stroke-width="5" fill="none" stroke-linecap="round"/>
+      </g>`;
+
+    // ---------- karaoke caption (D.caption || D.sub) on a script strip ----------
+    const cap = String(D.caption || D.sub || "").trim();
+    const words = cap.split(/\s+/).filter(Boolean);
+    const hk = hl ? cap.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    let pos = 0, lit = false;
+    const capEl = $("caption");
+    capEl.innerHTML = words.map((w, i) => {
+      const s = cap.indexOf(w, pos); pos = s + w.length;
+      // exactly one active word: the first word overlapping hl, else the first word
+      const on = !lit && (hk >= 0 ? (s < hk + hl.length && s + w.length > hk) : i === 0);
+      if (on) lit = true;
+      return '<span class="w' + (on ? " on" : "") + '">' + esc(w) + "</span>";
+    }).join(" ");
+    const CAP_TOP = 1504, CAP_BOT = 1612;
+    for (let fs = 44; fs >= 36; fs--) { capEl.style.fontSize = fs + "px"; if (capEl.offsetHeight <= 2 * Math.round(fs * 1.2) + 4) break; }
+    const ch = capEl.offsetHeight;
+    const ct = ch <= CAP_BOT - CAP_TOP ? CAP_TOP : CAP_BOT - ch;
+    capEl.style.top = ct + "px";
+    const lh = parseFloat(getComputedStyle(capEl).lineHeight) || 52;
+    Object.assign($("capstrip").style, { top: (ct - 12) + "px", height: (ch + 26) + "px",
+      backgroundImage: `repeating-linear-gradient(180deg, rgba(0,0,0,0) 0 ${lh - 3}px, rgba(36,64,106,.20) ${lh - 3}px ${lh - 1}px, rgba(0,0,0,0) ${lh - 1}px ${lh}px), linear-gradient(180deg, #EEE2C8, #E5D5B4)`,
+      backgroundPosition: "0 12px, 0 0", backgroundRepeat: "repeat-y, no-repeat" });
+  }
+</script>
+</body>
+</html>

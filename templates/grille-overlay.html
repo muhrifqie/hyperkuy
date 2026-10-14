@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Grille Overlay</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Grille Overlay: a browser printout of a web page's HTML source on laid paper. An oxblood
+    Cardan-grille card lies on it in register and IS the frame's object: the title is stamped on
+    its top panel, the title highlight is a die-cut hole, and the item words are page words seen
+    through staggered holes (same mono as the page, only blue). The rows that stay visible above
+    and below the card are an innocent page (a recipe by default, D.page to swap it).
+    Metaphor: prompt injection; the human reads a recipe, the model reads the command.
+    Blue = what the AI reads. Fully deterministic: fixed column table, layout after fonts load.
+  */
+  :root {
+    --paper: #EEE8DA; --ink: #1C1A18; --ox: #8E2C24; --blue: #2F4A7A; --laid: #C8BEA6;
+    --ink2: #57524A; /* ink tint: tags, gutter, meta */
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--paper); }
+  body, .laid {
+    background-color: var(--paper);
+    /* laid paper: wide chain lines + fine laid lines; one 1080x1920 tile so holes line up with the page */
+    background-image:
+      repeating-linear-gradient(90deg, transparent 0 118px, rgba(200,190,166,.42) 118px 120px),
+      repeating-linear-gradient(180deg, rgba(200,190,166,.20) 0 1px, transparent 1px 6px);
+    background-size: 1080px 1920px;
+  }
+  body { position: relative; color: var(--ink); font-family: "Libre Caslon Text", Georgia, serif; }
+
+  /* browser print header / footer (world decoration in the UI bands) */
+  .pr { position: absolute; left: 90px; right: 90px; display: flex; justify-content: space-between; gap: 40px;
+        font: 400 26px/34px "IBM Plex Mono", monospace; color: var(--ink2); white-space: nowrap; }
+
+  /* the printed source listing */
+  .gut { position: absolute; left: 90px; width: 58px; text-align: right; font: 400 26px/58px "IBM Plex Mono", monospace; color: var(--ink2); }
+  .gut.on { color: var(--blue); font-weight: 600; }
+  .vrule { position: absolute; left: 166px; width: 2px; background: var(--laid); }
+  .code { position: absolute; left: 186px; font: 500 36px/58px "IBM Plex Mono", monospace; white-space: pre; color: var(--ink); }
+  .t { color: var(--ink2); }
+  .meta { position: absolute; left: 186px; font: 400 26px/58px "IBM Plex Mono", monospace; white-space: pre; color: var(--ink2); }
+  .mark { position: absolute; width: 34px; height: 34px; } /* register crosshairs printed on the page */
+
+  /* the grille card */
+  #card { position: absolute; left: 176px; width: 856px; background-color: var(--ox); border-radius: 10px;
+          background-image:
+            radial-gradient(120% 60% at 10% 0%, rgba(255,240,220,.10), transparent 60%),
+            url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23f)' opacity='.22'/%3E%3C/svg%3E");
+          box-shadow: 0 5px 0 #6A1F19, 0 6px 2px rgba(28,26,24,.25), 0 34px 50px -14px rgba(28,26,24,.55), 0 10px 18px -6px rgba(28,26,24,.30); }
+  .cut { box-shadow: inset 0 7px 8px -4px rgba(28,26,24,.55), inset 7px 0 8px -6px rgba(28,26,24,.38), 0 1px 0 rgba(255,230,210,.24); }
+  .serial, .cardtxt { position: absolute; font: 500 30px/36px "IBM Plex Mono", monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--paper); white-space: nowrap; }
+  .serial b { font-weight: 600; padding: 0 .3em; margin: 0 .1em; box-shadow: inset 0 0 0 2px rgba(238,232,218,.85); border-radius: 2px; }
+  .title { position: absolute; left: 36px; width: 748px; font-weight: 400; line-height: 1.08; letter-spacing: -.01em; color: var(--paper); }
+  .title .nb { white-space: nowrap; }
+  /* title highlight = a die-cut hole: the page shows through, the word is blue, page code clipped at its edges */
+  .hl { display: inline-block; position: relative; clip-path: inset(0 round 3px); vertical-align: baseline; line-height: 1.2; /* clip-path, not overflow: keeps the text baseline */
+        padding: 0 .36em; margin: 0 .04em; border-radius: 3px; font-style: italic; color: var(--blue); white-space: nowrap; }
+  .fr { position: absolute; top: 50%; transform: translateY(-50%); font: normal 500 36px/1 "IBM Plex Mono", monospace; color: var(--ink2); letter-spacing: 0; white-space: pre; }
+  /* item holes: same mono, size and weight as the page; only the colour marks the hidden word */
+  .win { position: absolute; overflow: hidden; border-radius: 3px; }
+  .snip { position: absolute; top: 0; font: 500 36px "IBM Plex Mono", monospace; white-space: pre; color: var(--ink2); }
+  .snip .hw { color: var(--blue); }
+  .num { position: absolute; left: 18px; width: 44px; text-align: center; font: italic 400 40px/1 "Libre Caslon Text", serif; color: var(--paper); }
+  .val { position: absolute; font: italic 400 32px/1.1 "Libre Caslon Text", serif; color: var(--paper); white-space: nowrap; padding-left: 34px; }
+  .val::before { content: ""; position: absolute; left: 0; top: 52%; width: 22px; height: 2px; background: rgba(238,232,218,.8); }
+  .val.nodash { padding-left: 0; } .val.nodash::before { display: none; }
+  .pin { position: absolute; width: 34px; height: 34px; border-radius: 50%;
+         box-shadow: inset 0 4px 5px -2px rgba(28,26,24,.6), inset 3px 0 4px -2px rgba(28,26,24,.35); }
+  .notch { position: absolute; top: -1px; width: 132px; height: 40px; border-radius: 0 0 66px 66px / 0 0 40px 40px;
+           box-shadow: inset 0 5px 6px -3px rgba(28,26,24,.5); }
+
+  /* caption = the page's printed line under the card */
+  .cap { position: absolute; left: 186px; width: 714px; font: 400 44px/58px "Libre Caslon Text", serif; color: var(--ink2); text-wrap: balance; }
+  .cap .wd { white-space: nowrap; }
+  .cap .past { color: var(--ink); }
+  .cap .act { color: var(--blue); background: var(--paper); border-radius: 3px; padding: 0 .14em; margin: 0 .02em;
+              box-shadow: 0 0 0 4px var(--ox), inset 0 5px 5px -3px rgba(28,26,24,.45); }
+</style>
+</head>
+<body>
+<div class="pr" style="top:62px"><span id="pdate"></span><span id="ptitle"></span></div>
+<div id="listing"></div>
+<div id="card"><div class="title" id="title"></div></div>
+<div class="cap" id="cap" data-slot="caption"></div>
+<div class="pr" style="top:1812px"><span id="purl"></span><span>1/1</span></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  // The innocent page. Override with D.page = { title, url, lines: [...] } (lines = raw HTML source, <= 37 chars).
+  const PAGE = { title: "Nasi Goreng Kampung", url: "resep-kampung.id/nasi-goreng", lines: [
+    '<article class="resep">',
+    '  <h2>Nasi goreng kampung</h2>',
+    '  <p>2 porsi · 20 menit</p>',
+    '  <ul class="bahan">',
+    '    <li>2 piring nasi dingin</li>',
+    '    <li>3 siung bawang merah</li>',
+    '    <li>1 butir telur</li>',
+    '    <li>kecap manis secukupnya</li>',
+    '  </ul>',
+    '  <p>Sajikan selagi hangat.</p>',
+    '</article>',
+    '<footer>Selamat mencoba!</footer>' ] };
+
+  const FONTS = ['400 100px "Libre Caslon Text"', 'italic 400 100px "Libre Caslon Text"', '400 26px "IBM Plex Mono"', '500 36px "IBM Plex Mono"', '600 26px "IBM Plex Mono"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+    const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const $ = id => document.getElementById(id);
+    const el = (tag, cls, html, parent) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; (parent || document.body).appendChild(e); return e; };
+    const codeHTML = s => String(s).split(/(<[^>]*>)/).map(p => p.startsWith("<") ? '<span class="t">' + esc(p) + "</span>" : esc(p)).join("");
+    const items = (D.items || []).slice(0, 5);
+    const n = Math.max(items.length, 1);
+
+    // Page grid: 28 printed rows, 58 px each, y 140-1764. Meta must end by row 25 (y 1590, inside the safe zone).
+    const LH = 58, Y0 = 140, R = 28, LAST = 25, CX = 186, CL = 176, BASE = 21;
+    const rowY = r => Y0 + r * LH;
+    const L = $("listing");
+    const probe = el("span", "code", "0000000000", L); const cw = probe.getBoundingClientRect().width / 10; probe.remove();
+
+    // Print header / footer.
+    const pg = D.page && typeof D.page === "object" ? D.page : {};
+    const lines = Array.isArray(pg.lines) && pg.lines.length ? pg.lines.map(String) : PAGE.lines;
+    $("pdate").textContent = String(D.date || "").replace(/^per\s+/i, "");
+    $("ptitle").textContent = pg.title || PAGE.title;
+    $("purl").textContent = "view-source:" + (pg.url || PAGE.url);
+
+    // Caption (karaoke VO line): active = hl if it occurs in the caption, else the first word. Max 2 rows.
+    const hl = D.hl || "";
+    const capText = String(D.caption || D.sub || "");
+    const spans = capText.split(/\s+/).filter(Boolean);
+    const low = capText.toLowerCase(), hpos = hl ? low.indexOf(hl.toLowerCase()) : -1;
+    let pos = 0, actIdx = [];
+    spans.forEach((w, i) => { const s = low.indexOf(w.toLowerCase(), pos), e = s + w.length; pos = e; if (hpos >= 0 && s < hpos + hl.length && e > hpos) actIdx.push(i); });
+    if (!actIdx.length) actIdx = [0];
+    const first = actIdx[0], last = actIdx[actIdx.length - 1];
+    const C = $("cap");
+    const paint = (a, b) => {
+      C.innerHTML = (a > 0 ? "…" : "") + spans.slice(a, b).map((w, k) => { const i = a + k;
+        return '<span class="wd' + (i < first ? " past" : i <= last ? " act" : "") + '">' + esc(w) + (i === b - 1 && b < spans.length ? "…" : "") + "</span>"; }).join(" ");
+    };
+    const fits = () => C.offsetHeight <= 2 * LH + 4;
+    let ca = 0, cb = spans.length, cfs = 44;
+    paint(ca, cb);
+    for (; cfs >= 40; cfs -= 1) { C.style.fontSize = cfs + "px"; if (fits()) break; }
+    if (cfs < 40) { cfs = 40; C.style.fontSize = "40px"; }
+    while (!fits() && cb - ca > 1) { if (cb - 1 > last) cb--; else if (ca < first) ca++; else break; paint(ca, cb); }
+    const capRows = Math.max(1, Math.round(C.offsetHeight / LH));
+
+    // Meta as an HTML comment in 26 px mono (x 186-900): one row if it fits, else source on row 1, date on row 2.
+    const mcw = cw * 26 / 36, maxCh = Math.floor(714 / mcw);
+    const src = String(D.source || "").trim(), dt = String(D.date || "").trim();
+    let metaLines = ["<!-- " + [src, dt].filter(Boolean).join(" · ") + " -->"];
+    if (metaLines[0].length > maxCh) {
+      const ws = src.split(/\s+/).filter(Boolean); let r1 = "<!--", k = 0;
+      while (k < ws.length && (r1 + " " + ws[k]).length <= maxCh) r1 += " " + ws[k++];
+      const tail = " -->" , dtPart = dt ? (k < ws.length ? " · " : "") + dt : "";
+      let rest = ws.slice(k).join(" ");
+      const room = maxCh - 5 - dtPart.length - tail.length;      // row 2 = 5-space indent + rest + date + -->
+      if (rest.length > room) rest = rest.slice(0, Math.max(0, room - 1)).replace(/\s+\S*$/, "") + "…";
+      metaLines = [r1, "     " + rest + dtPart + tail];
+    }
+    const metaRows = metaLines.length;
+
+    // Title stamped on the card's top panel; its hl is a die-cut hole onto the page.
+    const t = D.title || "", at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    const nb = s => esc(s).replace(/(\S*\w-\w\S*)/g, '<span class="nb">$1</span>');
+    const T = $("title");
+    T.innerHTML = at < 0 ? nb(t) : nb(t.slice(0, at)) +
+      '<span class="hl laid cut" id="hl" data-layout-allow-overflow><span class="fr l" data-layout-allow-overflow>p&gt;</span>' + esc(t.slice(at, at + hl.length)) +
+      '<span class="fr r" data-layout-allow-overflow>&lt;/</span></span>' + nb(t.slice(at + hl.length));
+    const fixedRows = 1 + (2 * n - 1) + 1;                       // serial + slot zone + footer
+    const maxTT = LAST - 3 - 1 - fixedRows - capRows - metaRows; // >= 3 innocent rows above, >= 1 between card and caption
+    let fs = 104, th = 0, TT = 0;
+    for (; fs >= 72; fs -= 2) {
+      T.style.fontSize = fs + "px"; th = T.offsetHeight; TT = Math.ceil((th + 18) / LH);
+      if (Math.round(th / (fs * 1.08)) <= (fs >= 84 ? 3 : 4) && TT <= maxTT) break;   // 4 lines only for long titles at small sizes
+    }
+    if (fs < 72) { fs = 72; T.style.fontSize = "72px"; th = T.offsetHeight; TT = Math.ceil((th + 18) / LH); }
+
+    // Row plan: card sized to the item count; freed rows go to the innocent page around it.
+    const cardRows = 1 + TT + (2 * n - 1) + 1;
+    const free = LAST - (cardRows + capRows + metaRows);
+    const gap1 = free >= 7 ? 2 : 1;                              // the caption never touches the card
+    const above = Math.max(3, Math.min(7, free - gap1));
+    const cs = above, ce = cs + cardRows, capR = ce + gap1, metaR = capR + capRows, botR = metaR + metaRows;
+    const slotRow = i => cs + 1 + TT + 2 * i;
+    const onRows = items.map((_, i) => slotRow(i));
+
+    // Listing: gutter numbers + hairline + the visible (innocent) rows.
+    const vr = el("div", "vrule", null, L); vr.style.top = Y0 + "px"; vr.style.height = (R * LH) + "px";
+    for (let r = 0; r < R; r++) { const g = el("div", "gut" + (onRows.includes(r) ? " on" : ""), String(BASE + r), L); g.style.top = rowY(r) + "px"; }
+    const putCode = (r, s) => { if (s) { const c = el("div", "code", codeHTML(s), L); c.style.top = rowY(r) + "px"; } };
+    for (let r = 0; r < cs; r++) putCode(r, lines[r]);
+    const endN = R - botR, endFrom = Math.max(above + gap1, lines.length - endN);
+    for (let k = 0; k < gap1; k++) putCode(ce + k, above + k < endFrom ? lines[above + k] : "");
+    for (let k = 0; k < endN; k++) putCode(botR + k, lines[endFrom + k]);
+    C.style.top = rowY(capR) + "px";
+    metaLines.forEach((s, k) => { const m = el("div", "meta", esc(s), L); m.style.top = rowY(metaR + k) + "px"; });
+
+    // The grille card.
+    const K = $("card");
+    const cTop = rowY(cs) - 6, cH = cardRows * LH + 12;
+    K.style.top = cTop + "px"; K.style.height = cH + "px";
+    const ry = r => rowY(r) - cTop;                                // page row -> card y
+    const laidAt = e => { const b = e.getBoundingClientRect(); e.classList.add("laid"); e.style.backgroundPosition = (-b.left) + "px " + (-b.top) + "px"; };
+
+    // ruling: title/slot divider + faint debossed rows + register ticks on the left edge
+    let svg = '<svg width="856" height="' + cH + '" style="position:absolute;left:0;top:0" aria-hidden="true">';
+    const z0 = cs + 1 + TT;
+    svg += '<path d="M36 ' + (Math.round(ry(z0)) + .5) + 'H820" stroke="#EEE8DA" stroke-opacity=".32" stroke-width="2" stroke-dasharray="2 8" stroke-linecap="round"/>';
+    for (let r = z0 + 1; r < ce; r++) {
+      const y = Math.round(ry(r)) + .5;
+      svg += '<path d="M76 ' + y + 'H840" stroke="#5E1A15" stroke-opacity=".30" stroke-width="1.5"/>';
+    }
+    for (let r = z0; r <= ce - 1; r++) svg += '<path d="M0 ' + (Math.round(ry(r)) + .5) + 'H12" stroke="#EEE8DA" stroke-opacity=".75" stroke-width="2"/>';
+    K.insertAdjacentHTML("beforeend", svg + "</svg>");
+
+    // serial row: stamped kicker (KISI NO. 01 · series) + thumb notch on the top edge
+    const ep = String(D.ep || "#01").replace(/^#/, "");
+    const series = D.series || D.kicker || "";
+    const S = el("div", "serial", "Kisi no. <b>" + esc(ep) + "</b>" + (series ? " · " + esc(series) : ""), K);
+    for (let ls = .08; S.offsetWidth > 600 && ls > 0; ls -= .02) S.style.letterSpacing = ls.toFixed(2) + "em";
+    S.style.left = "36px"; S.style.top = (ry(cs) + LH / 2 - 18) + "px";
+    const nt = el("div", "notch", null, K); nt.style.left = "660px";
+
+    // title, centred in its rows; page code peeks in at both edges of the hl hole
+    T.style.top = (ry(cs + 1) + (TT * LH - th) / 2 - 4) + "px";
+    const H = $("hl");
+    if (H) {
+      const pad = fs * 0.36, hw = H.offsetWidth, fl = H.querySelector(".fr.l"), fr = H.querySelector(".fr.r");
+      fl.style.left = (pad - 6 - fl.offsetWidth) + "px"; fr.style.left = (hw - pad + 6) + "px";
+    }
+
+    // item holes, staggered like a real grille (fixed column table)
+    const COLS = [6, 15, 9, 18, 12];
+    const CTX = [["b>", "</"], ["a ", " d"], ["n ", " s"], ["m>", "</"], ["u ", " k"]];
+    const WH = 50;
+    items.forEach((it, i) => {
+      const r = slotRow(i), mid = rowY(r) + LH / 2;
+      const num = el("div", "num", String(i + 1), K); num.style.top = (mid - cTop - 21) + "px";
+      const val = el("div", "val", esc(it.value), K);
+      const win = el("div", "win cut", null, K);
+      const [pre, post] = CTX[i % CTX.length];
+      const sn = el("span", "snip", esc(pre) + '<span class="hw">' + esc(it.label) + "</span>" + esc(post), win);
+      sn.setAttribute("data-layout-allow-overflow", "");
+      sn.style.lineHeight = WH + "px";
+      const wordW = sn.querySelector(".hw").getBoundingClientRect().width;
+      let valW = val.offsetWidth;
+      if (CX + 5 * cw + wordW + 1.5 * cw + 20 + valW > 890) { val.style.fontSize = "30px"; valW = val.offsetWidth; }
+      const maxCol = Math.floor((890 - 20 - valW - wordW - 1.5 * cw - CX) / cw);
+      const col = Math.max(5, Math.min(COLS[i % COLS.length], maxCol));
+      const wl = CX + (col - 1.5) * cw, ww = wordW + 3 * cw;             // page x of the hole
+      win.style.left = (wl - CL) + "px"; win.style.top = (mid - WH / 2 - cTop) + "px";
+      win.style.width = ww + "px"; win.style.height = WH + "px";
+      sn.style.left = (-0.5 * cw) + "px";                                  // snippet starts 2 columns before the word
+      if (wl + ww + 20 + valW > 890) { val.classList.add("nodash"); valW = val.offsetWidth; }   // tight: drop the lead-in dash
+      val.style.left = (wl + ww + (val.classList.contains("nodash") ? 16 : 20) - CL) + "px"; val.style.top = (mid - cTop - val.offsetHeight / 2) + "px";
+    });
+
+    // footer row: reading instruction between two register pin holes (page crosshairs show through)
+    const fMid = ry(ce - 1) + LH / 2;
+    const ft = el("div", "cardtxt", "baca lewat lubang 1 → " + n, K);
+    ft.style.left = "76px"; ft.style.top = (fMid - 18) + "px";
+    const cross = '<svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="8" fill="none" stroke="#1C1A18" stroke-width="2"/><path d="M17 3v28M3 17h28" stroke="#1C1A18" stroke-width="2"/></svg>';
+    [20, 802].forEach(x => { const p = el("div", "pin", cross, K); p.style.left = x + "px"; p.style.top = (fMid - 17) + "px"; });
+
+    // paper inside every hole lines up with the page's laid pattern
+    K.querySelectorAll(".win, .pin, .notch, #hl").forEach(laidAt);
+  }
+</script>
+</body>
+</html>

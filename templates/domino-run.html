@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700;800&family=DM+Mono:wght@400;500&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Domino Run (domino-run): a U-shaped run of matte black-and-ivory dominoes
+    on a table that moves from shadow (back, top) into a pool of soft light
+    (front, bottom). Every data item is one standing tile: label engraved on
+    the upper half, value on the lower half, split by the centre bar and pin.
+    The first tile already leans into the second (frame 0 of the hook). The
+    back row runs left -> right in the shadow, turns at the right through black
+    pip tiles and comes forward along the front row; the last item is the red
+    tile, twisted off the blue pencil guide line. Behind it the run forks: a
+    wrong branch of black tiles with red pips veers back into the dark, while
+    the guide line carries on, dashed, through empty footprints - the right
+    continuation that never got a tile.
+    Metaphor: the model writes one token at a time and each token tips the
+    next; one wrong word and everything after it falls the wrong way.
+    Each tile is a CSS 3D box (front, top, sides) with its own perspective,
+    placed on a hand-tuned run so no tile ever hides another tile's words.
+    Deterministic: no randomness, fixed layouts per item count.
+  */
+  :root { --ink: #141414; --ivory: #ECE8E1; --light: #F8F5EE; --red: #B83A22; --blue: #3557A7; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #141414; }
+  body { position: relative; color: var(--ink); font-family: "Inter Tight", sans-serif; }
+
+  #bg { position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 1250px 940px at 540px 1760px, #F8F5EE 0%, #F2EEE6 34%, #DDD8CF 50%, #9A958D 64%, #4A4844 78%, #1C1C1B 92%, #141414 100%),
+      #141414; }
+
+  #floor, #run { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  .top { position: absolute; left: 90px; right: 90px; top: 292px; display: flex; justify-content: space-between; align-items: baseline; gap: 30px;
+    font: 500 28px "DM Mono", monospace; letter-spacing: 0.06em; text-transform: uppercase; color: #B9B3A9; white-space: nowrap; }
+  .top b { color: var(--light); font-weight: 500; }
+
+  #title { position: absolute; left: 90px; width: 900px; top: 352px; font-family: "Inter Tight", sans-serif; font-weight: 800;
+    letter-spacing: -0.03em; line-height: 1.08; color: var(--light); }
+  /* hl = an ivory domino tile, tipping like the first tile of the run */
+  #title .hl { display: inline-block; position: relative; background: var(--ivory); color: var(--ink); border-radius: 0.14em;
+    padding: 0.02em 0.16em 0.06em; line-height: 0.92; transform: rotate(var(--tip, -2deg)); transform-origin: 0% 100%;
+    box-shadow: 0.05em 0.06em 0 #6E6A63; margin: 0 0.04em; }
+
+  /* tiles */
+  .tile { position: absolute; transform-origin: 50% 100%; transform-style: preserve-3d; }
+  .lean { position: absolute; inset: 0; transform-style: preserve-3d; transform-origin: 50% 100% 31px; }
+  .f { position: absolute; backface-visibility: hidden; }
+  .fr { border-radius: 16px; background: #1A1A1A; padding: 11px; }
+  .tp { border-radius: 8px; background: #57534D; }
+  .sd { background: #262524; }
+  .tile.red .fr { background: #7E2414; }
+  .tile.red .tp { background: #C9624A; }
+  .tile.red .sd { background: #5E1A0E; }
+  .tile.pip .tp { background: #46433F; }
+
+  .panel { position: relative; width: 100%; height: 100%; border-radius: 9px; background: var(--ivory); overflow: hidden; }
+  .tile.dim .panel { background: #D9D3C9; }
+  .tile.red .panel { background: var(--red); }
+  .half { position: absolute; left: 0; right: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 0 16px; }
+  .tile.leaning .half.b { padding: 0 26px; }
+  .half.a { top: 0; height: 50%; }
+  .half.b { bottom: 0; height: 50%; }
+  .rule { position: absolute; left: 20px; right: 20px; top: 50%; height: 5px; margin-top: -2.5px; background: rgba(20,20,20,0.22); border-radius: 3px; }
+  .pin { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%;
+    background: radial-gradient(circle at 38% 34%, #8A867F 0%, #3A3835 60%, #1B1B1B 100%); }
+  .tile.red .rule { background: rgba(248,245,238,0.32); }
+  .tile.red .pin { background: radial-gradient(circle at 38% 34%, #F8F5EE 0%, #D9CFC4 55%, #7E2414 100%); }
+  .lb { font: 700 46px/1.04 "Inter Tight", sans-serif; letter-spacing: -0.015em; color: var(--ink); width: 100%; }
+  .vl { font: 500 42px/1.05 "DM Mono", monospace; letter-spacing: -0.03em; color: var(--ink); white-space: nowrap; }
+  .tile.red .lb, .tile.red .vl { color: var(--light); }
+  .pips { position: absolute; inset: 0; border-radius: 9px; background: #1A1A1A; }
+  .pips i { position: absolute; width: 30px; height: 30px; margin: -15px 0 0 -15px; border-radius: 50%;
+    background: radial-gradient(circle at 40% 36%, #F8F5EE 0%, #ECE8E1 55%, #B9B3A9 100%); }
+  .tile.wrong .pips i { background: radial-gradient(circle at 40% 36%, #E07A5F 0%, #C4482C 55%, #8E2C1A 100%); }
+  .pips b { position: absolute; left: 20px; right: 20px; top: 50%; height: 5px; margin-top: -2.5px; background: #3A3835; border-radius: 3px; }
+
+  #cap { position: absolute; left: 90px; width: 900px; top: 1456px; font: 600 44px/1.22 "Inter Tight", sans-serif; letter-spacing: -0.012em; color: var(--ink); }
+  #cap .w { display: inline; }
+  /* active word = a black domino face */
+  #cap .on { background: var(--ink); color: var(--light); border-radius: 9px; padding: 0 12px 2px; margin: 0 -2px;
+    box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+  #src { position: absolute; left: 90px; width: 900px; top: 1586px; font: 400 26px/1.2 "DM Mono", monospace; letter-spacing: 0.01em;
+    color: #4B4740; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+</style>
+</head>
+<body>
+<div id="bg"></div>
+<svg id="floor" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+<div id="run" data-layout-allow-overlap></div>
+<div class="top"><span id="kick"></span><span id="date"></span></div>
+<div id="title"></div>
+<div id="cap" data-slot="caption"></div>
+<div id="src"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const fontsIn = Promise.all(['800 100px "Inter Tight"', '700 46px "Inter Tight"', '600 44px "Inter Tight"', '500 42px "DM Mono"', '400 26px "DM Mono"', '500 28px "DM Mono"']
+    .map(f => document.fonts.load(f))).then(() => document.fonts.ready).catch(() => {});
+  fontsIn.then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(1, items.length);
+
+  // ---- meta + title ----
+  const ep = D.ep ? String(D.ep) : "";
+  document.getElementById("kick").innerHTML = D.series ? esc(D.series) + (ep ? " · <b>" + esc(ep) + "</b>" : "") : esc(D.kicker || "");
+  document.getElementById("date").textContent = D.date || "";
+  document.getElementById("src").textContent = D.source ? "Sumber: " + D.source : "";
+
+  const t = D.title || "", hl = D.hl || "";
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = document.getElementById("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  for (let fs = 118; fs >= 72; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (titleEl.offsetHeight <= 252) break; }
+  // tip the hl tile like a falling domino, but never lift its far corner more than ~9 px into the line above
+  const chip = titleEl.querySelector(".hl");
+  if (chip) chip.style.setProperty("--tip", -Math.min(2.5, Math.asin(Math.min(1, 9 / chip.offsetWidth)) * 180 / Math.PI).toFixed(2) + "deg");
+
+  // ---- run layout: screen position of each tile's base centre ----
+  // x, y = base centre; s = scale; ry = yaw (face turned along the run); roll = twist in the face plane
+  const W = 250, H = 420, T = 62;
+  const LAYOUT = {
+    1: { back: [], front: [] },
+    2: { back: [[520, 960, 0.8, 28]], front: [] },
+    3: { back: [[430, 960, 0.78, 26], [670, 966, 0.79, 30]], front: [] },
+    4: { back: [[430, 960, 0.78, 26], [670, 966, 0.79, 30]], front: [[705, 1372, 0.95, -30]] },
+    5: { back: [[372, 960, 0.72, 18], [566, 964, 0.73, 22], [760, 969, 0.74, 26]], front: [[705, 1372, 0.95, -30]] }
+  }[n] || { back: [], front: [] };
+  const RED = [425, 1372, 0.95];
+  const slots = [];
+  const dataSlots = [];
+  LAYOUT.back.forEach(([x, y, s, ry]) => { const p = { x, y, s, ry, kind: "data", dim: true }; slots.push(p); dataSlots.push(p); });
+  // the turn: black pip tiles, mostly edge-on, down the right side
+  [[918, 1062, 0.8, 62], [962, 1176, 0.86, 74], [918, 1300, 0.92, -64]].forEach(([x, y, s, ry]) => slots.push({ x, y, s, ry, kind: "pip" }));
+  if (n === 3) slots.push({ x: 705, y: 1372, s: 0.95, ry: -32, kind: "pip" }); // keep the front row continuous
+  LAYOUT.front.forEach(([x, y, s, ry]) => { const p = { x, y, s, ry, kind: "data" }; slots.push(p); dataSlots.push(p); });
+  // the last item is the red tile: twisted off the line, nudged off the guide
+  const onLine = { x: RED[0], y: RED[1] };
+  const red = { x: RED[0] - 4, y: RED[1] - 14, s: RED[2], ry: -8, roll: -5, kind: "red" };
+  slots.push(red); dataSlots.push(red);
+  dataSlots.forEach((p, i) => { p.item = items[i] || { label: "", value: "" }; });
+  dataSlots[0].lean = dataSlots.length > 1 ? 10 : 0; // the first tile already tips into the second
+  // wrong branch: black tiles with red pips veering back into the shadow (up-left)
+  const branch = [[262, 1270, 0.84, -58, -4], [158, 1186, 0.76, -70, -8], [86, 1112, 0.68, -80, -11]];
+  branch.forEach(([x, y, s, ry, roll]) => slots.push({ x, y, s, ry, roll, kind: "pip", wrong: true }));
+
+  // ---- floor: guide line, shadows, footprints, push marks (SVG, decoration only) ----
+  const svg = document.getElementById("floor");
+  const path = slots.filter(p => !p.wrong).map(p => (p === red ? onLine : p));
+  // run order = back row, turn, front row, red (as pushed)
+  const p0 = path[0];
+  let d = "M " + (p0.x - 70) + " " + (p0.y + 2);
+  let prev = { x: p0.x - 70, y: p0.y + 2 };
+  path.forEach(p => { const mx = (p.x + prev.x) / 2, my = (p.y + prev.y) / 2; d += ` Q ${prev.x} ${prev.y} ${mx} ${my}`; prev = p; });
+  d += ` L ${onLine.x} ${onLine.y}`;
+  // the right continuation: guide keeps going left on the front row, dashed, with empty footprints
+  const cy = onLine.y + 6;
+  let foot = "";
+  // one empty footprint: the right next tile that never got placed
+  const fx = onLine.x - 212;
+  foot += `<path d="M ${fx - 84} ${cy - 12} L ${fx + 80} ${cy - 20} L ${fx + 88} ${cy + 14} L ${fx - 76} ${cy + 22} Z" fill="#3557A7" fill-opacity="0.12" stroke="#3557A7" stroke-width="4" stroke-dasharray="11 8" stroke-linejoin="round"/>`;
+  let shadows = "";
+  slots.forEach(p => {
+    const w = W * p.s * 0.82, h = H * p.s;
+    shadows += `<path d="M ${p.x - w / 2} ${p.y} L ${p.x + w / 2} ${p.y + 4} L ${p.x + w / 2 - h * 0.38} ${p.y - h * 0.3} L ${p.x - w / 2 - h * 0.38} ${p.y - h * 0.32} Z" fill="#141414" opacity="${p.y > 1200 ? 0.24 : 0.34}" filter="url(#soft)"/>`;
+    shadows += `<ellipse cx="${p.x}" cy="${p.y + 2}" rx="${w * 0.58}" ry="15" fill="#141414" opacity="0.5" filter="url(#tight)"/>`;
+  });
+  // push marks: two short arcs behind the first tile's top = the finger just leaving
+  const f0 = dataSlots[0], fh = H * f0.s;
+  const push = dataSlots.length > 1 ? `<g fill="none" stroke="#B9B3A9" stroke-width="5" stroke-linecap="round">
+      <path d="M ${f0.x - 158} ${f0.y - fh * 0.86} Q ${f0.x - 126} ${f0.y - fh * 0.96} ${f0.x - 92} ${f0.y - fh * 0.92}"/>
+      <path d="M ${f0.x - 178} ${f0.y - fh * 0.72} Q ${f0.x - 144} ${f0.y - fh * 0.8} ${f0.x - 110} ${f0.y - fh * 0.76}"/>
+      <path d="M ${f0.x - 104} ${f0.y - fh * 0.88} L ${f0.x - 90} ${f0.y - fh * 0.92} L ${f0.x - 102} ${f0.y - fh * 0.97}" stroke-linejoin="round"/>
+    </g>` : "";
+  svg.innerHTML = `<defs>
+      <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="16"/></filter>
+      <filter id="tight" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="6"/></filter>
+      <marker id="arw" viewBox="0 0 12 12" refX="6" refY="6" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 1 L 11 6 L 0 11 Z" fill="#3557A7"/></marker>
+    </defs>
+    ${shadows}
+    <path d="${d}" fill="none" stroke="#3557A7" stroke-width="4" stroke-linecap="round" opacity="0.92"/>
+    <path d="M ${onLine.x} ${onLine.y} Q ${fx + 40} ${cy + 2} ${fx - 112} ${cy + 1}" fill="none" stroke="#3557A7" stroke-width="4" stroke-dasharray="14 12" stroke-linecap="round" marker-end="url(#arw)"/>
+    ${foot}
+    ${push}`;
+
+  // ---- tiles (CSS 3D boxes) ----
+  const run = document.getElementById("run");
+  const PIPS = [
+    [[0.3, 0.14], [0.7, 0.36], [0.5, 0.25], [0.3, 0.64], [0.7, 0.86], [0.7, 0.64], [0.3, 0.86]],
+    [[0.5, 0.25], [0.3, 0.6], [0.7, 0.9], [0.5, 0.75]],
+    [[0.3, 0.14], [0.7, 0.36], [0.3, 0.36], [0.7, 0.14], [0.5, 0.75]],
+    [[0.3, 0.14], [0.7, 0.36], [0.3, 0.64], [0.7, 0.86], [0.3, 0.86], [0.7, 0.64]],
+    [[0.5, 0.25], [0.3, 0.64], [0.7, 0.86], [0.7, 0.64], [0.3, 0.86]]
+  ];
+  let pipIx = 0;
+  slots.slice().sort((a, b) => a.y - b.y).forEach(p => {
+    const el = document.createElement("div");
+    el.className = "tile " + p.kind + (p.dim ? " dim" : "") + (p.wrong ? " wrong" : "") + (p.lean ? " leaning" : "");
+    el.style.cssText = `left:${p.x - W / 2}px; top:${p.y - H}px; width:${W}px; height:${H}px; z-index:${Math.round(p.y)};` +
+      `transform: scale(${p.s}) perspective(1600px) rotateX(-13deg) rotateY(${p.ry}deg) rotateZ(${p.roll || 0}deg);`;
+    let face;
+    if (p.kind === "pip") {
+      const pts = PIPS[pipIx++ % PIPS.length];
+      face = `<div class="pips">${pts.map(([u, v]) => `<i style="left:${(u * 100).toFixed(1)}%;top:${(v * 100).toFixed(1)}%"></i>`).join("")}<b></b></div>`;
+    } else {
+      const it = p.item;
+      face = `<div class="panel"><div class="half a"><span class="lb">${esc(it.label)}</span></div><div class="rule"></div><div class="pin"></div><div class="half b"><span class="vl">${esc(it.value)}</span></div></div>`;
+    }
+    el.innerHTML = `<div class="lean" style="transform: rotateX(${-(p.lean || 0)}deg)">
+        <div class="f tp" style="left:0;top:${(H - T) / 2}px;width:${W}px;height:${T}px;transform:rotateX(90deg) translateZ(${H / 2}px)"></div>
+        <div class="f sd" style="left:${(W - T) / 2}px;top:0;width:${T}px;height:${H}px;transform:rotateY(-90deg) translateZ(${W / 2 - 1}px)"></div>
+        <div class="f sd" style="left:${(W - T) / 2}px;top:0;width:${T}px;height:${H}px;transform:rotateY(90deg) translateZ(${W / 2 - 1}px)"></div>
+        <div class="f fr" style="left:0;top:0;width:${W}px;height:${H}px;transform:translateZ(${T / 2}px)">${face}</div>
+      </div>`;
+    el.dataset.s = p.s;
+    run.appendChild(el);
+  });
+
+  // fit tile text: label up to 3 lines inside its half, value 1-2 lines; keep on-screen size >= 31 / 30 px
+  run.querySelectorAll(".tile").forEach(tl => {
+    const pn = tl.querySelector(".panel"); if (!pn) return;
+    const s = +tl.dataset.s;
+    const lb = pn.querySelector(".lb"), vl = pn.querySelector(".vl"), ha = pn.querySelector(".half.a"), hb = pn.querySelector(".half.b");
+    const minL = Math.ceil(31 / s), minV = Math.ceil(30 / s);
+    const fitLabel = () => { for (let fs = 52; fs >= minL; fs -= 1) { lb.style.fontSize = fs + "px"; if (lb.offsetHeight <= ha.clientHeight - 26 && !longWord(lb, ha)) return true; } return false; };
+    if (!fitLabel()) { lb.innerHTML = syllables(lb.textContent); fitLabel(); }
+    let ok = false;
+    for (let fs = 48; fs >= minV; fs -= 1) { vl.style.fontSize = fs + "px"; if (vl.offsetWidth <= hb.clientWidth - 34) { ok = true; break; } }
+    if (!ok) { // long value: allow two lines (break at spaces and after "/")
+      vl.innerHTML = esc(vl.textContent).replace(/\//g, "/\u200B");
+      vl.style.whiteSpace = "normal"; vl.style.width = (hb.clientWidth - 34) + "px"; vl.style.lineHeight = "1.08";
+      for (let fs = 48; fs >= minV - 4; fs -= 1) { vl.style.fontSize = fs + "px"; if (vl.scrollWidth <= hb.clientWidth - 34 && vl.offsetHeight <= hb.clientHeight - 30) break; }
+    }
+  });
+  function longWord(lb, ha) {
+    // a single word wider than the half would overflow: measure each word (soft-hyphen pieces count separately)
+    const r = document.createElement("span"); r.style.cssText = "position:absolute;visibility:hidden;white-space:nowrap;font:" + getComputedStyle(lb).font;
+    document.body.appendChild(r);
+    const bad = lb.textContent.split(/[\s\u00AD]+/).some(w => { r.textContent = w + (lb.textContent.includes("\u00AD") ? "-" : ""); return r.offsetWidth > ha.clientWidth - 32; });
+    r.remove(); return bad;
+  }
+  function syllables(txt) {
+    // rough Indonesian syllable breaks for long words: soft hyphen before consonant+vowel (per-min-taan)
+    return txt.split(/(\s+)/).map(w => w.length < 8 ? esc(w) :
+      esc(w).replace(/([aiueoAIUEO])([^aiueoAIUEO\s·\-/]?)(?=[^aiueoAIUEO\s·\-/][aiueo])/g, "$1$2\u00AD")).join("");
+  }
+
+  // ---- caption: karaoke voice-over line (caption || sub) ----
+  const cap = String(D.caption || D.sub || "");
+  const words = cap.split(/\s+/).filter(Boolean);
+  let activeFrom = 0, activeTo = 0;
+  if (hl) {
+    const lc = cap.toLowerCase(), k = lc.indexOf(hl.toLowerCase());
+    if (k >= 0) {
+      let pos = 0; activeFrom = -1;
+      words.forEach((w, i) => { const s = lc.indexOf(w.toLowerCase(), pos); const e = s + w.length; pos = e;
+        if (e > k && s < k + hl.length) { if (activeFrom < 0) activeFrom = i; activeTo = i; } });
+      if (activeFrom < 0) { activeFrom = 0; activeTo = 0; }
+    }
+  }
+  const capEl = document.getElementById("cap");
+  const html = [];
+  for (let i = 0; i < words.length; i++) {
+    if (i === activeFrom) { html.push('<span class="w on">' + esc(words.slice(activeFrom, activeTo + 1).join(" ")) + "</span>"); i = activeTo; continue; }
+    html.push('<span class="w">' + esc(words[i]) + "</span>");
+  }
+  capEl.innerHTML = html.join(" ");
+  for (let fs = 46; fs >= 40; fs -= 2) { capEl.style.fontSize = fs + "px"; if (capEl.offsetHeight <= fs * 1.22 * 2 + 2) break; }
+  }
+</script>
+</body>
+</html>

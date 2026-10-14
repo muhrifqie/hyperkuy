@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Debit Feed</title>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700;800&family=Spline+Sans+Mono:wght@400;500;600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Debit Feed: an e-wallet "Riwayat transaksi" screen.
+    Navy header = the wallet's balance block, all centred: a label line with an
+    eye icon + account chip (series · ep), the title set as the balance line
+    (hl in tabular mono figures, like "Rp 1.240"), and two round quick-action
+    buttons joined by a transfer strip.
+    Light statement sheet (two older statements peeking behind) = one list card;
+    every item is a debit row and every row ends in a thick segmented strip that
+    doubles as the divider. The caption lives in an outlined "Catatan:" memo field.
+
+    Two content modes, decided by the data (never by the template):
+    - statement (default): neutral ledger. Strip k = k of n transactions, chip "k/n",
+      buttons = "n transaksi" + the total when all values share one unit.
+    - history (D.mode === "history" or items carry "turn"): the context-cost episode.
+      Row t shows t message cells (t-1 blue history + 1 red new), chip "xt",
+      buttons = "kamu ketik T" / "AI baca T(T+1)/2".
+    Deterministic; every shape is hard-coded.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #101828; }
+  body { position: relative; color: #1A1A1A; font-family: "Golos Text", sans-serif; }
+
+  #deco { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  .time { position: absolute; left: 92px; top: 44px; font: 600 32px "Golos Text", sans-serif; color: #F7F6F2; }
+  .appbar { position: absolute; left: 180px; right: 180px; top: 124px; height: 60px; display: flex; align-items: center; justify-content: center; font: 600 34px "Golos Text", sans-serif; color: #F7F6F2; }
+
+  /* balance block (centred) */
+  .acct { position: absolute; left: 90px; width: 900px; top: 300px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px 18px; }
+  .acct .lbl { display: inline-flex; align-items: center; gap: 12px; font: 500 30px "Golos Text", sans-serif; color: #A9B1C2; white-space: nowrap; }
+  .acct .chip { display: inline-flex; align-items: center; gap: 10px; padding: 5px 16px 6px 12px; border: 2px solid #4A5570; border-radius: 999px; font: 600 26px "Spline Sans Mono", monospace; letter-spacing: 0.06em; text-transform: uppercase; color: #F7F6F2; white-space: nowrap; }
+
+  .title { position: absolute; left: 90px; width: 900px; font-family: "Golos Text", sans-serif; font-weight: 700; color: #F7F6F2; line-height: 1.04; letter-spacing: -0.022em; text-align: center; text-wrap: balance; }
+  .title .hl { font-family: "Spline Sans Mono", monospace; font-weight: 700; font-variant-numeric: tabular-nums; font-size: 0.92em; letter-spacing: -0.045em; word-spacing: -0.24em; color: #F26B5B; }
+  .title .nw { white-space: nowrap; }
+
+  .qa { position: absolute; left: 90px; width: 900px; height: 130px; }
+  .qa .b { position: absolute; top: 0; width: 220px; display: flex; flex-direction: column; align-items: center; }
+  .qa .b.l { left: 0; } .qa .b.r { right: 0; }
+  .qa .c { width: 84px; height: 84px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: "Spline Sans Mono", monospace; font-weight: 700; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+  .qa .b.l .c { background: #1C2638; border: 3px solid #4A5570; color: #F7F6F2; }
+  .qa .b.r .c { background: #F26B5B; color: #101828; }
+  .qa .b.r .c.ico { background: #1C2638; border: 3px solid #4A5570; }
+  .qa .t { margin-top: 6px; font: 500 30px "Golos Text", sans-serif; line-height: 1.1; color: #A9B1C2; white-space: nowrap; }
+  .qa .b.r .t { color: #F26B5B; }
+  .qa .b.r .c.ico + .t { color: #A9B1C2; }
+  .qa svg.flow { position: absolute; top: 28px; }
+
+  /* statement sheet */
+  .stk { position: absolute; border-radius: 40px 40px 0 0; }
+  .sheet { position: absolute; left: 40px; width: 1000px; bottom: 0; background: #F7F6F2; border-radius: 48px 48px 0 0; box-shadow: 0 -18px 40px -16px rgba(0, 0, 0, 0.55); }
+
+  .grp { position: absolute; left: 90px; width: 900px; display: flex; align-items: center; justify-content: space-between; white-space: nowrap; }
+  .grp .d { font: 700 34px "Golos Text", sans-serif; color: #1A1A1A; }
+  .grp .d span { font: 500 28px "Golos Text", sans-serif; color: #5B6272; margin-left: 12px; }
+  .grp .pill { display: inline-flex; align-items: center; gap: 10px; padding: 6px 22px 7px 16px; border: 3px solid #3366E0; border-radius: 999px; font: 600 30px "Golos Text", sans-serif; color: #2B57C4; }
+
+  .list { position: absolute; left: 90px; width: 900px; background: #FFFFFF; border-radius: 28px; box-shadow: 0 2px 0 rgba(16, 24, 40, 0.05), 0 22px 40px -22px rgba(16, 24, 40, 0.45); }
+  .row { position: relative; width: 900px; }
+  .row.last { background: #FDF0EE; border-radius: 0 0 28px 28px; }
+  .row .ic { position: absolute; left: 22px; border-radius: 50%; background: #F6E4E0; display: flex; align-items: center; justify-content: center; }
+  .row .ic.info { background: #ECEBE6; }
+  .row.last .ic { background: #D93A2B; }
+  .row .mid { position: absolute; }
+  .row .lb { font-family: "Golos Text", sans-serif; font-weight: 600; color: #1A1A1A; white-space: nowrap; }
+  .row .sec { font: 500 30px "Golos Text", sans-serif; line-height: 36px; height: 36px; margin-top: 2px; color: #5B6272; white-space: nowrap; }
+  .row .sec i { font-style: normal; color: #2B57C4; }
+  .row .rt { position: absolute; right: 60px; }
+  .row .amt { font-family: "Spline Sans Mono", monospace; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; word-spacing: -0.22em; color: #C2301F; white-space: nowrap; }
+  .row .amt.info { color: #1A1A1A; background: #EFEDE7; border-radius: 12px; padding: 0 14px; }
+  .row.last .amt { font-weight: 700; }
+  /* multiplier / count chip rides the strip at the end of the filled run */
+  .row .x { position: absolute; z-index: 3; font: 700 30px "Spline Sans Mono", monospace; line-height: 32px; height: 38px; padding: 0 10px; border: 3px solid #D93A2B; border-radius: 10px; white-space: nowrap; letter-spacing: -0.03em; background: #FFFFFF; color: #B42A1B; }
+  .row .x.n { border-color: #9AA0AC; color: #5B6272; }
+  .row.last .x { background: #C2301F; border-color: #C2301F; color: #FFFFFF; }
+  .row .barw { position: absolute; left: 0; bottom: 0; width: 900px; overflow: hidden; }
+  .row.last .barw { border-radius: 0 0 28px 28px; }
+  .row svg.chev { position: absolute; right: 24px; }
+  .row svg.bar { display: block; }
+
+  .src { position: absolute; left: 90px; width: 810px; font: 500 26px "Golos Text", sans-serif; line-height: 1.3; color: #5B6272; }
+
+  /* "Catatan:" memo field = caption slot */
+  .memo { position: absolute; left: 90px; width: 900px; border: 3px solid #C9C6BD; border-radius: 22px; }
+  .memo .ml { position: absolute; left: 18px; top: -20px; padding: 0 10px; background: #F7F6F2; font: 600 30px "Spline Sans Mono", monospace; line-height: 36px; color: #5B6272; white-space: nowrap; }
+  .cap { position: absolute; left: 21px; width: 786px; font: 500 44px "Golos Text", sans-serif; line-height: 1.3; color: #5B6272; }
+  .cap .w { white-space: nowrap; }
+  .cap .done { color: #1A1A1A; }
+  .cap .on { color: #1A1A1A; font-weight: 700; padding-bottom: 0.1em;
+    background:
+      linear-gradient(#D93A2B, #D93A2B) right bottom / 0.5em 0.13em no-repeat,
+      repeating-linear-gradient(90deg, #3366E0 0 0.36em, transparent 0.36em 0.46em) left bottom / calc(100% - 0.6em) 0.13em no-repeat;
+    -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+</style>
+</head>
+<body>
+<svg id="deco" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="time">09.48</div>
+<div class="appbar">Riwayat transaksi</div>
+<div class="acct" id="acct"></div>
+<div class="title" id="title"></div>
+<div class="qa" id="qa"></div>
+<div class="stk" id="stk2" style="background:#3B465E"></div>
+<div class="stk" id="stk1" style="background:#B9BFCB"></div>
+<div class="sheet" id="sheet"></div>
+<div class="grp" id="grp"></div>
+<div class="list" id="list"></div>
+<div class="src" id="src"></div>
+<div class="memo" id="memo"><div class="ml">Catatan:</div><div class="cap" id="cap" data-slot="caption"></div></div>
+<svg id="tabbar" style="position:absolute;left:40px;top:1636px" width="1000" height="284" viewBox="0 0 1000 284"></svg>
+<script>
+  // Fallback = the episode this design was built for (history mode), so the file also opens standalone.
+  const D = window.D || { series_id: "ai-in-numbers", series: "AI dalam angka", ep: "#07", mode: "history",
+    title: "Pesan ke-5 dipotong Rp 60", hl: "Rp 60",
+    sub: "Tiap pesan baru, seluruh riwayat chat ikut dibaca ulang.",
+    items: [{ label: "Pesan ke-1", value: "Rp 12", turn: 1 }, { label: "Pesan ke-2", value: "Rp 24", turn: 2 }, { label: "Pesan ke-3", value: "Rp 36", turn: 3 },
+      { label: "Pesan ke-4", value: "Rp 48", turn: 4 }, { label: "Pesan ke-5", value: "Rp 60", turn: 5 }],
+    source: "ilustrasi — Rp 12 per pesan yang dibaca AI", date: "per 14 Okt 2026" };
+
+  const FONTS = ['700 100px "Golos Text"', '600 40px "Golos Text"', '500 44px "Golos Text"', '700 44px "Golos Text"', '500 26px "Golos Text"',
+    '600 26px "Spline Sans Mono"', '600 40px "Spline Sans Mono"', '700 40px "Spline Sans Mono"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const PAPER = "#F7F6F2", INK = "#1A1A1A", RED = "#D93A2B", BLUE = "#3366E0", SAL = "#F26B5B", MUTE = "#A9B1C2";
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+  const items = (D.items || []).slice(0, 5).map(it => it || {});
+  const n = Math.max(1, items.length);
+
+  // ---- mode: the history (context-cost) layer appears only when the data asks for it ----
+  const HIST = D.mode === "history" || items.some(it => it.turn != null);
+  const turns = items.map((it, i) => { const t = parseInt(it.turn, 10); return HIST && t > 0 ? t : i + 1; });
+  const T = HIST ? Math.max(...turns) : n;          // cells per full strip
+  const READ = T * (T + 1) / 2;                       // messages the AI read over T turns
+
+  // ---- values: numeric debits get a minus; anything else is a neutral info pill ----
+  const parseVal = v => {
+    const m = String(v == null ? "" : v).trim().match(/^(rp\.?|us\$|\$|€|£|¥)?\s*(\d[\d.]*(?:,\d+)?)\s*(.*)$/i);
+    if (!m || /^%/.test(m[3])) return null;   // percentages and words are information, not debits
+    return { num: parseFloat(m[2].replace(/\.(?=\d{3}(?:\D|$))/g, "").replace(",", ".")), unit: m[1] ? (/^rp/i.test(m[1]) ? "Rp" : m[1].toUpperCase()) : m[3].trim() };
+  };
+  const fmtNum = x => { const r = Math.round(x * 100) / 100; const [i, d] = String(r).split("."); return i.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + (d ? "," + d : ""); };
+  const vals = items.map(it => parseVal(it.value));
+  const units = new Set(vals.map(v => v ? v.unit.toLowerCase() : "?"));
+  const sum = vals.every(Boolean) && units.size === 1 ? vals.reduce((a, v) => a + v.num, 0) : null;
+  const sumTxt = sum == null ? "" : fmtNum(sum);
+
+  // ---- decoration: status bar, app bar glyphs, tab bar, home indicator ----
+  let g = '';
+  [0, 1, 2, 3].forEach(i => g += '<rect x="' + (822 + i * 14) + '" y="' + (78 - (i + 1) * 8) + '" width="10" height="' + ((i + 1) * 8) + '" rx="2" fill="' + PAPER + '"/>');
+  g += '<rect x="898" y="54" width="58" height="28" rx="8" fill="none" stroke="' + PAPER + '" stroke-width="2.5" opacity="0.85"/>' +
+       '<rect x="903" y="59" width="36" height="18" rx="4" fill="' + PAPER + '"/><rect x="958" y="63" width="4" height="10" rx="1.5" fill="' + PAPER + '" opacity="0.85"/>';
+  g += '<path d="M128 154 H98 M112 138 L96 154 L112 170" fill="none" stroke="' + PAPER + '" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>';
+  g += '<circle cx="962" cy="154" r="20" fill="none" stroke="' + PAPER + '" stroke-width="4"/><path d="M955 148 C955 140 969 140 969 148 C969 154 962 154 962 160" fill="none" stroke="' + PAPER + '" stroke-width="4" stroke-linecap="round"/><circle cx="962" cy="167" r="2.6" fill="' + PAPER + '"/>';
+  $("deco").innerHTML = g;
+  const GREYI = "#9AA0AC", cx = [170, 390, 610, 830], cy = 92;
+  let tb = '<path d="M0 1 H1000" stroke="#E2DFD7" stroke-width="2"/>';
+  tb += '<path d="M' + (cx[0] - 24) + ' ' + (cy - 2) + ' L' + cx[0] + ' ' + (cy - 24) + ' L' + (cx[0] + 24) + ' ' + (cy - 2) + ' M' + (cx[0] - 16) + ' ' + (cy - 8) + ' V' + (cy + 22) + ' H' + (cx[0] + 16) + ' V' + (cy - 8) + '" fill="none" stroke="' + GREYI + '" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>';
+  tb += '<rect x="' + (cx[1] - 20) + '" y="' + (cy - 26) + '" width="40" height="50" rx="7" fill="none" stroke="' + BLUE + '" stroke-width="5"/>' +
+    '<path d="M' + (cx[1] - 9) + ' ' + (cy - 11) + ' H' + (cx[1] + 9) + ' M' + (cx[1] - 9) + ' ' + cy + ' H' + (cx[1] + 9) + ' M' + (cx[1] - 9) + ' ' + (cy + 11) + ' H' + (cx[1] + 2) + '" stroke="' + BLUE + '" stroke-width="5" stroke-linecap="round"/>' +
+    '<circle cx="' + cx[1] + '" cy="' + (cy + 42) + '" r="6" fill="' + BLUE + '"/>';
+  tb += '<path d="M' + (cx[2] - 24) + ' ' + (cy - 10) + ' V' + (cy - 24) + ' H' + (cx[2] - 10) + ' M' + (cx[2] + 10) + ' ' + (cy - 24) + ' H' + (cx[2] + 24) + ' V' + (cy - 10) + ' M' + (cx[2] + 24) + ' ' + (cy + 10) + ' V' + (cy + 24) + ' H' + (cx[2] + 10) + ' M' + (cx[2] - 10) + ' ' + (cy + 24) + ' H' + (cx[2] - 24) + ' V' + (cy + 10) + ' M' + (cx[2] - 16) + ' ' + cy + ' H' + (cx[2] + 16) + '" fill="none" stroke="' + GREYI + '" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>';
+  tb += '<circle cx="' + cx[3] + '" cy="' + (cy - 11) + '" r="11" fill="none" stroke="' + GREYI + '" stroke-width="5"/>' +
+    '<path d="M' + (cx[3] - 22) + ' ' + (cy + 24) + ' C' + (cx[3] - 20) + ' ' + (cy + 5) + ' ' + (cx[3] + 20) + ' ' + (cy + 5) + ' ' + (cx[3] + 22) + ' ' + (cy + 24) + '" fill="none" stroke="' + GREYI + '" stroke-width="5" stroke-linecap="round"/>';
+  tb += '<rect x="350" y="232" width="300" height="12" rx="6" fill="' + INK + '"/>';
+  $("tabbar").innerHTML = tb;
+
+  // ---- label line + account chip (series · ep), centred ----
+  const epTxt = String(D.ep || "").trim();
+  const ser = String(D.series || D.kicker || "").trim();
+  const eye = '<svg width="34" height="22" viewBox="0 0 34 22"><path d="M2 11 C8 2 26 2 32 11 C26 20 8 20 2 11 Z" fill="none" stroke="' + MUTE + '" stroke-width="2.6" stroke-linejoin="round"/><circle cx="17" cy="11" r="4.6" fill="' + MUTE + '"/></svg>';
+  const card = '<svg width="30" height="24" viewBox="0 0 30 24"><rect x="1.5" y="2" width="27" height="20" rx="4.5" fill="none" stroke="' + MUTE + '" stroke-width="2.6"/><path d="M1.5 8.5 H28.5" stroke="' + MUTE + '" stroke-width="2.6"/></svg>';
+  $("acct").innerHTML = '<span class="lbl">' + (HIST ? "Saldo dibaca AI" : "Ringkasan mutasi") + eye + '</span>' +
+    ((ser || epTxt) ? '<span class="chip">' + card + esc([ser, epTxt].filter(Boolean).join(" · ")) + '</span>' : "");
+
+  // ---- title = the balance line; hl in tabular mono figures ----
+  const t = String(D.title || ""), hl = String(D.hl || "");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  const nb = x => esc(x).replace(/ (=|—|–|-) /g, " $1 ");
+  titleEl.innerHTML = at < 0 ? nb(t) : nb(t.slice(0, at)) + '<span class="hl' + (hl.length <= 12 ? " nw" : "") + '">' + esc(t.slice(at, at + hl.length)) + "</span>" + nb(t.slice(at + hl.length));
+
+  // ---- quick actions: two round buttons joined by the transfer strip ----
+  const fitNum = s => s.length <= 2 ? 44 : s.length === 3 ? 38 : 32;
+  let left = { num: String(HIST ? T : n), lab: HIST ? "kamu ketik" : "transaksi" }, right;
+  if (HIST) right = { num: String(READ), lab: "AI baca" };
+  else if (sum != null && sumTxt.length <= 4) right = { num: sumTxt, lab: "total" + ([...units][0] && [...units][0] !== "?" ? " " + vals[0].unit : "") };
+  else right = { icon: true, lab: "Unduh mutasi" };
+  const dl = '<svg width="40" height="40" viewBox="0 0 40 40"><path d="M20 5 V25 M11 17 L20 26 L29 17 M7 33 H33" fill="none" stroke="' + PAPER + '" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const btn = (o, side) => '<div class="b ' + side + '"><div class="c' + (o.icon ? " ico" : "") + '"' + (o.icon ? "" : ' style="font-size:' + fitNum(o.num) + 'px"') + '>' + (o.icon ? dl : esc(o.num)) + '</div><div class="t">' + esc(o.lab) + '</div></div>';
+  // strip geometry: between the circles (circle centres at x 110 / 790 inside the 900 box, r 44)
+  const FX = 176, FW = 520, FH = 28;
+  let fs = '<svg class="flow" style="left:' + FX + 'px" width="' + (FW + 34) + '" height="' + FH + '" viewBox="0 0 ' + (FW + 34) + ' ' + FH + '">';
+  if (HIST && READ <= 40) {
+    // one cell per message read; turns grouped with wider gaps; last cell of each turn = the new message
+    const gT = 10, gC = 3, cw = (FW - (T - 1) * gT - (READ - T) * gC) / READ;
+    let x = 0;
+    for (let k = 1; k <= T; k++) for (let c = 1; c <= k; c++) {
+      fs += '<rect x="' + x.toFixed(1) + '" y="0" width="' + cw.toFixed(1) + '" height="' + FH + '" rx="3" fill="' + (c === k ? SAL : BLUE) + '"/>';
+      x += cw + (c < k ? gC : gT);
+    }
+  } else if (HIST) {
+    // long chats: one block per turn, width = messages read on that turn, salmon tail = the new message
+    const gT = 3, unit = (FW - (T - 1) * gT) / READ;
+    let x = 0;
+    for (let k = 1; k <= T; k++) {
+      const w = k * unit;
+      fs += '<rect x="' + x.toFixed(2) + '" y="0" width="' + Math.max(0.8, w - unit).toFixed(2) + '" height="' + FH + '" fill="' + BLUE + '"/>' +
+            '<rect x="' + (x + w - unit).toFixed(2) + '" y="0" width="' + unit.toFixed(2) + '" height="' + FH + '" fill="' + SAL + '"/>';
+      x += w + gT;
+    }
+  } else {
+    // statement: one segment per transaction, sized by value when every value shares one unit
+    const ws = sum != null && sum > 0 ? vals.map(v => v.num / sum) : items.map(() => 1 / n);
+    const gap = 6, avail = FW - (n - 1) * gap;
+    let x = 0;
+    ws.forEach((w, i) => {
+      const ww = Math.max(6, w * avail);
+      fs += '<rect x="' + x.toFixed(1) + '" y="0" width="' + ww.toFixed(1) + '" height="' + FH + '" rx="3" fill="' + (i === n - 1 ? SAL : BLUE) + '"/>';
+      x += ww + gap;
+    });
+  }
+  fs += '<path d="M' + (FW + 14) + ' 4 L' + (FW + 26) + ' 14 L' + (FW + 14) + ' 24" fill="none" stroke="' + MUTE + '" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  $("qa").innerHTML = btn(left, "l") + fs + btn(right, "r");
+  const QA_H = $("qa").querySelector(".b").offsetHeight;
+
+  // ---- caption in the "Catatan:" memo field (karaoke): D.caption || D.sub, max 2 lines, one active unit ----
+  const capEl = $("cap");
+  const capText = String(D.caption || D.sub || "");
+  let pos = 0;
+  const words = capText.split(/\s+/).filter(Boolean).map(w => { const st = capText.indexOf(w, pos); pos = st + w.length; return { w, s: st, e: st + w.length }; });
+  let hs = -1, he = -1;
+  if (hl) { const i = capText.toLowerCase().indexOf(hl.toLowerCase()); if (i >= 0) { hs = i; he = i + hl.length; } }
+  words.forEach((sp, k) => sp.on = hs >= 0 ? (sp.e > hs && sp.s < he) : k === 0);
+  const firstOn = Math.max(0, words.findIndex(sp => sp.on));
+  const buildCap = (b) => {
+    let h = "", inOn = false;
+    for (let k = 0; k < b; k++) {
+      const sp = words[k];
+      if (sp.on && !inOn) { h += '<span class="on">'; inOn = true; }
+      if (!sp.on && inOn) { h += "</span> "; inOn = false; }
+      h += '<span class="w' + (k < firstOn ? " done" : "") + '">' + esc(sp.w) + "</span>" + (k < b - 1 && !(sp.on && !words[k + 1].on) ? " " : "");
+    }
+    if (inOn) h += "</span>";
+    return h + (b < words.length ? ' <span class="w">…</span>' : "");
+  };
+  let capFs = 46, capB = words.length;
+  capEl.innerHTML = buildCap(capB);
+  for (capFs = 46; capFs >= 40; capFs -= 2) { capEl.style.fontSize = capFs + "px"; if (capEl.offsetHeight <= Math.ceil(2 * capFs * 1.3) + 2) break; }
+  if (capFs < 40) { capFs = 40; capEl.style.fontSize = "40px"; }
+  while (capB > 1 && capEl.offsetHeight > Math.ceil(2 * capFs * 1.3) + 2) { capB--; capEl.innerHTML = buildCap(capB); }
+  const CAP_BOTTOM = 1592, MEMO_PT = 24, MEMO_PB = 14;
+  const capH = capEl.offsetHeight;
+  const memoTop = CAP_BOTTOM - capH - MEMO_PT;
+  const memo = $("memo");
+  memo.style.top = memoTop + "px";
+  memo.style.height = (MEMO_PT + capH + MEMO_PB) + "px";
+  capEl.style.top = (MEMO_PT - 3) + "px";
+
+  // ---- source line under the list ----
+  const srcEl = $("src");
+  srcEl.textContent = D.source ? "Sumber: " + D.source : "";
+  const srcTop = memoTop - 20 - 22 - srcEl.offsetHeight;
+  srcEl.style.top = srcTop + "px";
+  const listBottom = srcTop - 30;              // room for the last chip hanging off the strip
+
+  // ---- group header (date) + pill ----
+  const dateTxt = String(D.date || "");
+  const plus = '<svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 3 V21 M3 12 H21" stroke="' + BLUE + '" stroke-width="4" stroke-linecap="round"/></svg>';
+  const funnel = '<svg width="26" height="24" viewBox="0 0 26 24"><path d="M3 4 H23 L15 13 V20 L11 22 V13 Z" fill="none" stroke="' + BLUE + '" stroke-width="3" stroke-linejoin="round"/></svg>';
+  $("grp").innerHTML = '<div class="d">Hari ini' + (dateTxt ? '<span>' + esc(dateTxt) + '</span>' : "") + '</div>' +
+    '<div class="pill">' + (HIST ? plus + "Chat baru" : funnel + "Semua") + '</div>';
+  const grpH = $("grp").offsetHeight;
+
+  // ---- rows ----
+  const listEl = $("list");
+  const arrow = c => '<svg viewBox="0 0 72 72" width="100%" height="100%"><path d="M27 45 L45 27 M31 27 H45 V41" fill="none" stroke="' + c + '" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const info = c => '<svg viewBox="0 0 72 72" width="100%" height="100%"><circle cx="36" cy="24" r="3.6" fill="' + c + '"/><path d="M36 33 V49" stroke="' + c + '" stroke-width="5" stroke-linecap="round"/></svg>';
+  listEl.innerHTML = items.map((it, i) => {
+    const k = i + 1, tk = turns[i], last = k === n && n > 1, deb = !!vals[i];
+    const v = String(it.value == null ? "" : it.value).trim();
+    const sec = it.note ? esc(it.note) : HIST
+      ? "baca " + tk + " pesan · <i>" + (tk === 1 ? "baru" : "+" + (tk - 1) + " riwayat") + "</i>"
+      : (it.time ? esc(it.time) : "09." + (40 + k)) + " · " + (deb ? "Debit" : "Info") + " #0" + k;
+    const chip = HIST ? "×" + tk : k + "/" + n;
+    const icon = last ? (deb ? arrow("#FFFFFF") : info("#FFFFFF")) : (deb ? arrow(RED) : info("#5B6272"));
+    return '<div class="row' + (last ? " last" : "") + '">' +
+      '<div class="ic' + (deb || last ? "" : " info") + '">' + icon + '</div>' +
+      '<div class="mid"><div class="lb">' + esc(it.label) + '</div><div class="sec">' + sec + '</div></div>' +
+      '<div class="rt"><span class="amt' + (deb ? "" : " info") + '">' + esc(deb ? "−" + v : v) + '</span></div>' +
+      '<svg class="chev" width="16" height="32" viewBox="0 0 16 32"><path d="M3 4 L13 16 L3 28" fill="none" stroke="' + (last ? RED : "#9AA0AC") + '" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+      '<div class="barw"><svg class="bar" width="900" height="24" viewBox="0 0 900 24"></svg></div>' +
+      '<span class="x' + (HIST ? "" : " n") + '">' + esc(chip) + '</span></div>';
+  }).join("");
+  const rows = [...listEl.querySelectorAll(".row")];
+
+  // Row modes, roomiest first. sec = the detail line on EVERY row, or on none. The strip + its chip never hide.
+  // Label and amount never go below 40 px; a long label wraps instead. pb >= 10 keeps the chip (38 px on the strip) clear of text.
+  const MODES = [
+    { lb: 46, amt: 44, sec: true, pt: 16, pb: 16, S: 30, ic: 68 },
+    { lb: 44, amt: 42, sec: true, pt: 12, pb: 12, S: 28, ic: 64 },
+    { lb: 42, amt: 42, sec: false, pt: 12, pb: 12, S: 26, ic: 54 },
+    { lb: 40, amt: 40, sec: false, pt: 10, pb: 10, S: 24, ic: 46 },
+  ];
+  function applyMode(m) {
+    return rows.map(r => {
+      const lb = r.querySelector(".lb"), sec = r.querySelector(".sec"), amt = r.querySelector(".amt"), mid = r.querySelector(".mid"), rt = r.querySelector(".rt");
+      sec.style.display = m.sec ? "block" : "none";
+      const ic = r.querySelector(".ic");
+      ic.style.width = ic.style.height = m.ic + "px";
+      const midL = 22 + m.ic + 18;
+      mid.style.left = midL + "px";
+      const lh = Math.round(m.lb * 1.14);
+      amt.style.fontSize = m.amt + "px"; amt.style.lineHeight = Math.round(m.amt * 1.14) + "px";
+      lb.style.fontSize = m.lb + "px"; lb.style.lineHeight = lh + "px";
+      lb.style.whiteSpace = "nowrap"; lb.style.width = "auto";
+      const maxLb = 900 - 60 - rt.offsetWidth - 22 - midL;
+      for (let f = m.lb; f > 40 && lb.offsetWidth > maxLb; f -= 2) { lb.style.fontSize = (f - 2) + "px"; }
+      if (lb.offsetWidth > maxLb) { lb.style.whiteSpace = "normal"; lb.style.width = maxLb + "px"; }
+      return { h: Math.max(m.ic, mid.offsetHeight, rt.offsetHeight) + m.pt + m.pb + m.S, m };
+    });
+  }
+  const needs = MODES.map(m => applyMode(m).reduce((a, r) => a + r.h, 0));
+
+  const TITLE_TOP = 300 + $("acct").offsetHeight + 22;
+  const linesAt = f => Math.round(titleEl.offsetHeight / (f * 1.04));
+  function layout(f) {
+    titleEl.style.fontSize = f + "px";
+    titleEl.style.top = TITLE_TOP + "px";
+    const qaTop = TITLE_TOP + titleEl.offsetHeight + 20;
+    const sheetTop = qaTop + QA_H + 26;
+    const grpTop = sheetTop + 22;
+    const listTop = grpTop + grpH + 14;
+    return { f, qaTop, sheetTop, grpTop, listTop, A: listBottom - listTop };
+  }
+  // Title first (it is the hook): 2 lines at >= 92 px with the roomy rows, else smaller / 3 lines, then compact rows.
+  const phases = [[2, 92, [0, 1]], [3, 80, [0, 1]], [2, 84, [2]], [3, 76, [2, 3]], [3, 72, [3]]];
+  let pick = null;
+  for (const [maxLines, minF, modes] of phases) {
+    for (let f = 120; f >= minF && !pick; f -= 2) {
+      const l = layout(f);
+      if (linesAt(f) > maxLines || titleEl.scrollWidth > 902) continue;
+      for (const mi of modes) if (needs[mi] <= l.A) { pick = { l, mi }; break; }
+    }
+    if (pick) break;
+  }
+  if (!pick) pick = { l: layout(72), mi: 3 };
+  const M = MODES[pick.mi];
+  const L = layout(pick.l.f);
+
+  // spare height: rows breathe first (<= 22 px each), then the header gaps open a little
+  const rowInfo = applyMode(M);
+  let spare = Math.max(0, L.A - needs[pick.mi]);
+  const grow = Math.min(22, Math.floor(spare * 0.7 / n)); spare -= grow * n;
+  const hdr = Math.min(36, Math.floor(spare / 3));
+  $("qa").style.top = (L.qaTop + hdr) + "px";
+  const sheetTop = L.sheetTop + 2 * hdr;
+  $("sheet").style.top = sheetTop + "px";
+  $("stk1").style.cssText += ";left:80px;width:920px;top:" + (sheetTop - 16) + "px;height:60px";
+  $("stk2").style.cssText += ";left:130px;width:820px;top:" + (sheetTop - 30) + "px;height:60px";
+  $("grp").style.top = (L.grpTop + 2 * hdr) + "px";
+  const listTop = L.listTop + 2 * hdr;
+  listEl.style.top = listTop + "px";
+
+  let total = 0;
+  rows.forEach((r, i) => {
+    const k = i + 1, tk = turns[i], pt = M.pt + Math.floor(grow / 2), pb = M.pb + Math.ceil(grow / 2);
+    const rowH = rowInfo[i].h + grow;
+    r.style.height = rowH + "px";
+    total += rowH;
+    const ic = r.querySelector(".ic"), mid = r.querySelector(".mid"), rt = r.querySelector(".rt"), chev = r.querySelector(".chev");
+    const inner = rowH - M.S - pt - pb;
+    mid.style.top = (pt + Math.round((inner - mid.offsetHeight) / 2)) + "px";
+    rt.style.top = (pt + Math.round((inner - rt.offsetHeight) / 2)) + "px";
+    ic.style.top = (pt + Math.round((inner - M.ic) / 2)) + "px";
+    chev.style.top = (pt + Math.round((inner - 32) / 2)) + "px";
+    // the row's strip = its divider: one cell per unit (history: messages read on this turn; statement: transactions so far)
+    const S = M.S, cells = HIST ? tk : k, cw = 900 / T, gap = 4;
+    const bar = r.querySelector(".bar");
+    r.querySelector(".barw").style.height = S + "px";
+    bar.setAttribute("height", S); bar.setAttribute("viewBox", "0 0 900 " + S);
+    let b = '<rect x="0" y="0" width="900" height="' + S + '" fill="#ECEAE4"/>';
+    for (let c = 1; c <= cells; c++) {
+      const x0 = (c - 1) * cw, w = cw - (c < T ? gap : 0);
+      b += '<rect x="' + x0.toFixed(1) + '" y="0" width="' + Math.max(1, w).toFixed(1) + '" height="' + S + '" fill="' + (c === cells ? RED : BLUE) + '"/>';
+    }
+    bar.innerHTML = b;
+    // chip rides the strip just past the filled run (a staircase down the list); on a full strip it sits at the right end
+    const x = r.querySelector(".x"), runEnd = cells * cw - (cells < T ? gap : 0);
+    x.style.left = Math.round(Math.max(22, Math.min(runEnd + 12, 900 - x.offsetWidth - 16))) + "px";
+    x.style.top = Math.round(rowH - S / 2 - 19) + "px";
+  });
+  listEl.style.height = total + "px";
+  }
+</script>
+</body>
+</html>

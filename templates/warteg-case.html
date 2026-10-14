@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Karla:wght@500;600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Warteg Case (warteg-case): a warteg etalase seen from the bench, slightly from above,
+    through the sloped top glass. Kerupuk bags hang over a centred, sign-painted name board.
+    Behind the glass: rows of enamel trays in perspective (3 per row), each a heaped dish.
+    Only some trays are documents: items = taped labels on the glass + values on the tray lips;
+    the rest are unlabelled distractor trays (ikan goreng, sayur nangka, terong balado).
+    The plate on the counter holds a steak with fries (no warteg sells that = the made-up answer),
+    struck out in sambal red; a fingertip presses the glass over the right tray (yellow tape) and a
+    dashed ladle path runs from that tray onto the plate. Caption painted on the counter apron.
+    Metaphor: RAG - point at the right trays (documents) instead of inventing a dish.
+    Deterministic: textures use a fixed hash, no randomness.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #1C1A18; }
+  body { position: relative; font-family: "Karla", sans-serif; color: #F4F1EA; }
+  svg.layer { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; overflow: hidden; }
+
+  .title { position: absolute; left: 90px; width: 900px; text-align: center; font-family: "Oswald", sans-serif; font-weight: 600; text-transform: uppercase; line-height: 1.04; letter-spacing: 0.005em; color: #F4F1EA; text-shadow: 0.045em 0.05em 0 #173466; text-wrap: balance; }
+  .title .hl { color: #E3B04B; }
+  .sub { position: absolute; top: 0; left: 0; font: 600 28px/42px "Oswald", sans-serif; letter-spacing: 0.18em; text-transform: uppercase; color: #F4F1EA; white-space: nowrap; }
+
+  .tape { position: absolute; background: #ECE2CB; color: #1C1A18; font: 500 34px/40px "Oswald", sans-serif; padding: 4px 12px 6px; white-space: nowrap;
+    clip-path: polygon(0 0, 100% 0, calc(100% - 4px) 18%, 100% 36%, calc(100% - 5px) 55%, 100% 74%, calc(100% - 4px) 88%, 100% 100%, 0 100%, 4px 84%, 0 66%, 5px 47%, 0 28%, 4px 12%); }
+  .tape.on { background: #E3B04B; }
+  .val { position: absolute; color: #1C1A18; font: 600 40px/1 "Oswald", sans-serif; white-space: nowrap; letter-spacing: 0.01em; }
+
+  .cap { position: absolute; left: 112px; width: 776px; font: 600 44px/1.3 "Karla", sans-serif; color: #F4F1EA; text-wrap: balance; }
+  .cap .w { white-space: nowrap; }
+  .cap .w.on { background: #E3B04B; color: #1C1A18; border-radius: 6px; padding: 0 0.16em; margin: 0 -0.05em; box-shadow: inset 0 -0.1em 0 #C2412D; }
+  .meta { position: absolute; left: 112px; right: 112px; top: 1586px; display: flex; justify-content: space-between; gap: 36px; font: 500 26px/1.25 "Karla", sans-serif; color: #F4F1EA; }
+  .meta span:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg class="layer" id="scene" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap data-layout-allow-overflow></svg>
+<svg class="layer" id="glass" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap data-layout-allow-overflow></svg>
+<div class="title" id="title"></div>
+<div class="sub" id="sub"></div>
+<div id="tags"></div>
+<svg class="layer" id="hand" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap data-layout-allow-overflow></svg>
+<div class="cap" id="cap" data-slot="caption"></div>
+<div class="meta" id="meta"><span id="src"></span><span id="date"></span></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series_id: "how-ai-works", series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  Promise.all(['600 100px "Oswald"', '500 34px "Oswald"', '600 40px "Oswald"', '600 28px "Oswald"', '600 44px "Karla"', '500 26px "Karla"'].map(f => document.fonts.load(f)))
+    .catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+  const f1 = v => (Math.round(v * 10) / 10).toString();
+  const BLUE = "#2B58A6", BLUE_D = "#1E3F7A", CREAM = "#F4F1EA", INK = "#1C1A18", YEL = "#E3B04B", RED = "#C2412D";
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+  // fixed hash in [0,1) - deterministic jitter
+  const hsh = (a, b) => { const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return s - Math.floor(s); };
+
+  // ================= 1. which tray gets tapped =================
+  // D.pick (index) wins; else the item whose label/value shares the most hl words
+  // (words of 3+ chars, or bare numbers matched as whole tokens; label hits count double); else items[0].
+  const hl = String(D.hl || "");
+  const toks = s => String(s == null ? "" : s).toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  const isNum = w => /^\d+$/.test(w);
+  const hlWords = toks(hl).filter(w => w.length >= 3 || isNum(w));
+  const hitIn = (w, tk) => isNum(w) ? tk.includes(w) : tk.some(t => t.includes(w));
+  let tap = 0;
+  const pk = Number(D.pick);
+  if (D.pick != null && D.pick !== "" && Number.isInteger(pk) && pk >= 0 && pk < n) tap = pk;
+  else if (hlWords.length) {
+    let best = 0;
+    items.forEach((it, i) => {
+      const L = toks(it.label), V = toks(it.value);
+      const sc = hlWords.reduce((a, w) => a + (hitIn(w, L) ? 2 : 0) + (hitIn(w, V) ? 1 : 0), 0);
+      if (sc > best) { best = sc; tap = i; }
+    });
+  }
+
+  // ================= 2. tray slots =================
+  // back row (row 0) = 3 small distractor trays; slots 0-2 = middle row, 3-5 = front row.
+  // slot 5 (front right, inside the action-button zone) is always a distractor (sayur nangka).
+  // Items keep their reading order (row-major); distractors fill the remaining slots, placed so the tapped
+  // tray is never hidden and the finger can reach it: from the RIGHT for slots 1, 2, 4, from the LEFT for 0, 3.
+  const nD = Math.max(0, 5 - n);
+  const PREF = { 2: 50, 0: 45, 4: 30, 3: 25, 1: 20 };
+  const combos = [];
+  (function rec(st, acc) { if (acc.length === nD) { combos.push(acc.slice()); return; } for (let s = st; s < 5; s++) { acc.push(s); rec(s + 1, acc); acc.pop(); } })(0, []);
+  let place = null;
+  combos.forEach(Ds => {
+    const isD = s => s === 5 || Ds.includes(s);
+    const itemSlots = [0, 1, 2, 3, 4].filter(s => !Ds.includes(s));
+    if (itemSlots.length < n) return;
+    let sc = n ? PREF[itemSlots[tap]] : 0;
+    if (Ds.some(s => s < 3)) sc += 6;
+    if (nD >= 2 && Ds.some(s => s === 3 || s === 4)) sc += 4;
+    [[0, 1], [1, 2], [3, 4], [4, 5]].forEach(([a, b]) => { if (isD(a) && isD(b)) sc -= 5; });
+    if (itemSlots[0] === 0) sc += 3;
+    if (!place || sc > place.sc) place = { sc, itemSlots };
+  });
+  const slotItem = [-1, -1, -1, -1, -1, -1];
+  for (let i = 0; i < n; i++) slotItem[place.itemSlots[i]] = i;
+  const tapSlot = n ? place.itemSlots[tap] : -1;
+  const fromLeft = tapSlot === 0 || tapSlot === 3;
+
+  // ================= 3. perspective geometry =================
+  const CX = 540, U = 470, GAPU = 28, TWU = (2 * U - 2 * GAPU) / 3;
+  const ROWS = [
+    { yB: 648, yF: 690, lip: 14, sB: 0.70, sF: 0.74 },
+    { yB: 722, yF: 850, lip: 46, sB: 0.80, sF: 0.87 },
+    { yB: 934, yF: 1060, lip: 50, sB: 0.89, sF: 0.95 },
+  ];
+  function geom(r, c) {
+    const R = ROWS[r], u0 = -U + c * (TWU + GAPU), u1 = u0 + TWU;
+    const sAt = y => R.sB + (R.sF - R.sB) * Math.min(1, Math.max(0, (y - R.yB) / (R.yF - R.yB)));
+    return { r, c, R, u0, u1, yB: R.yB, yF: R.yF, lipH: R.lip, sAt,
+      bl: CX + u0 * R.sB, br: CX + u1 * R.sB, fl: CX + u0 * R.sF, fr: CX + u1 * R.sF,
+      xl: y => CX + u0 * sAt(y), xr: y => CX + u1 * sAt(y) };
+  }
+  const gapX = (u, r) => CX + u * ROWS[r].sF;
+  const GAP_L = -U + TWU + GAPU / 2, GAP_R = -GAP_L;
+
+  const ITEM_KINDS = ["telur", "tempe", "perkedel", "mie", "ayam"];
+  const trays = [];
+  ["ikan", "nangka", "terong"].forEach((k, c) => trays.push({ g: geom(0, c), kind: k, item: -1, seed: 401 + c * 37 }));
+  let dk = 0;
+  const DIS = ["terong", "ikan", "nangka"];
+  for (let s = 0; s < 6; s++) {
+    const it = slotItem[s];
+    const kind = it >= 0 ? ITEM_KINDS[it % 5] : (s === 5 ? "nangka" : DIS[dk++ % 3]);
+    trays.push({ g: geom(1 + Math.floor(s / 3), s % 3), kind, item: it, slot: s, seed: 17 + s * 53 });
+  }
+
+  // ================= 4. dishes: heaped pieces =================
+  const P = {
+    telur: { base: "#8E2716", hw: 24, hh: 17, dx: 40, dy: 19, rot: 30, draw: k =>
+      `<ellipse rx="24" ry="17" fill="#F3E7CF"/><path d="M-24,1 C-23,-13 -8,-18 6,-17 C19,-16 26,-7 24,3 C15,-1 6,7 -4,3 C-12,0 -17,7 -24,1Z" fill="${RED}"/>` +
+      `<path d="M-19,-7 C-13,-12 -4,-14 4,-14" stroke="#E2674C" stroke-width="3" fill="none" stroke-linecap="round"/><circle cx="8" cy="-8" r="2.2" fill="#6E180C"/><circle cx="-6" cy="-11" r="1.8" fill="#6E180C"/><circle cx="16" cy="-2" r="1.8" fill="#6E180C"/><ellipse cx="-3" cy="9" rx="9" ry="3.6" fill="#E3CB98"/>` },
+    tempe: { base: "#3B200D", hw: 22, hh: 12, dx: 30, dy: 13, rot: 90, draw: k =>
+      `<line x1="-20" y1="-4" x2="18" y2="-9" stroke="#8F5C2C" stroke-width="7" stroke-linecap="round"/><line x1="-16" y1="5" x2="20" y2="2" stroke="#6E421D" stroke-width="7" stroke-linecap="round"/><line x1="-7" y1="-11" x2="9" y2="10" stroke="#AE7741" stroke-width="6.5" stroke-linecap="round"/><line x1="-18" y1="-6" x2="14" y2="-10" stroke="#C8925A" stroke-width="2" stroke-linecap="round"/>` +
+      (k % 3 === 0 ? `<path d="M2,-1 q6,-6 13,-1" stroke="${RED}" stroke-width="5" fill="none" stroke-linecap="round"/>` : "") },
+    perkedel: { base: "#4A2A10", hw: 24, hh: 16, dx: 40, dy: 18, rot: 20, draw: k =>
+      `<ellipse cy="3" rx="24" ry="15" fill="#6E3E16"/><ellipse rx="23" ry="14" fill="#B5732E"/><ellipse cx="-4" cy="-5" rx="13" ry="5" fill="#D69C4E"/><circle cx="9" cy="3" r="2.4" fill="#5A3212"/><circle cx="-10" cy="5" r="2" fill="#5A3212"/><circle cx="2" cy="8" r="1.8" fill="#5A3212"/>` },
+    mie: { base: "#7E4C20", hw: 26, hh: 12, dx: 30, dy: 11, rot: 70, draw: k =>
+      `<path d="M-26,-6 q6.5,-7 13,0 t13,0 t13,0 t13,0" stroke="#E7BE7E" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M-24,1 q6,6 12,0 t12,0 t12,0 t12,0" stroke="#C99152" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M-22,8 q6,-6 12,0 t12,0 t12,0" stroke="#F0CF96" stroke-width="4.5" fill="none" stroke-linecap="round"/>` +
+      (k % 4 === 0 ? `<rect x="-4" y="-4" width="10" height="5" rx="2" fill="${RED}"/>` : "") },
+    ayam: { base: "#5A3212", hw: 32, hh: 18, dx: 48, dy: 20, rot: 40, draw: k =>
+      `<path d="M-28,-2 C-28,-15 -10,-19 4,-14 C12,-11 16,-8 20,-6 L27,-8 C33,-10 35,-1 30,1 C35,4 32,11 27,8 L20,6 C14,9 8,13 2,14 C-12,17 -28,12 -28,-2Z" fill="#B0652A"/>` +
+      `<circle cx="-15" cy="-6" r="4.5" fill="#C98040"/><circle cx="-4" cy="-9" r="3.5" fill="#C98040"/><circle cx="-8" cy="4" r="3" fill="#8A4A1A"/><circle cx="6" cy="-2" r="2.6" fill="#8A4A1A"/><circle cx="30" cy="-5" r="3.6" fill="#F1E5CC"/><circle cx="30" cy="5" r="3.6" fill="#F1E5CC"/>` },
+    ikan: { base: "#3A2210", hw: 42, hh: 16, dx: 70, dy: 22, rot: 16, draw: k =>
+      `<path d="M-28,0 L-44,-13 L-41,0 L-44,13Z" fill="#7E4518"/><path d="M-30,0 C-22,-14 10,-17 30,-6 C36,-3 38,3 30,6 C10,17 -22,14 -30,0Z" fill="#A9652B"/><path d="M-8,-12 L4,-19 L14,-11Z" fill="#7E4518"/>` +
+      `<path d="M-14,-8 C-2,-12 10,-12 18,-8" stroke="#D99A55" stroke-width="3" fill="none"/><path d="M20,-9 q-5,9 0,17" stroke="#6A3812" stroke-width="2.5" fill="none"/><circle cx="27" cy="-2" r="3" fill="#F1E5CC"/><circle cx="27" cy="-2" r="1.5" fill="${INK}"/>` },
+    nangka: { base: "#C98420", hw: 21, hh: 14, dx: 40, dy: 17, rot: 60, draw: k =>
+      `<path d="M-20,8 L-6,-14 C-2,-18 6,-17 10,-12 L20,6 C21,11 16,13 12,13 L-14,13 C-19,13 -22,11 -20,8Z" fill="#E9C27A" stroke="#B9853C" stroke-width="2"/><path d="M-4,-10 C-2,0 2,6 10,10" stroke="#C9974E" stroke-width="2.4" fill="none"/>` +
+      (k % 3 === 0 ? `<path d="M10,-14 q8,2 12,9" stroke="${RED}" stroke-width="5" fill="none" stroke-linecap="round"/>` : "") },
+    terong: { base: "#6E1E1A", hw: 22, hh: 14, dx: 36, dy: 16, rot: 50, draw: k =>
+      `<path d="M-20,-2 C-20,-12 -4,-15 10,-12 C20,-9 22,2 16,8 C6,13 -14,11 -20,-2Z" fill="#3E1838"/><path d="M-15,-3 C-14,-9 -2,-10 8,-8 C14,-6 15,0 11,4 C4,7 -10,6 -15,-3Z" fill="#B9946A"/><path d="M-6,-10 C2,-14 12,-10 14,-4 C8,-6 0,-4 -6,-10Z" fill="${RED}"/>` },
+  };
+
+  function heap(tr, idx) {
+    const { g, kind, seed } = tr, K = P[kind];
+    const xlB = g.bl + 10, xrB = g.br - 10;
+    const rise = g.r === 0 ? 12 : 30, PS = g.r === 0 ? 1.15 : 1.45;   // pieces at real-dish size
+    const minTop = g.r === 2 ? ROWS[1].yF + ROWS[1].lip + 4 : -1e9;
+    const peakT = 0.42 + hsh(seed, 1) * 0.16;
+    const topY = x => {
+      const t = Math.min(1, Math.max(0, (x - xlB) / (xrB - xlB)));
+      const tt = t < peakT ? t / peakT * 0.5 : 0.5 + (t - peakT) / (1 - peakT) * 0.5;
+      return g.yB + 8 - (rise + 8) * Math.pow(Math.sin(Math.PI * tt), 0.55);
+    };
+    let d = `M${f1(g.fl + 10)},${g.yF + 6} L${f1(xlB)},${g.yB + 8}`;
+    for (let i = 1; i <= 24; i++) { const x = xlB + (xrB - xlB) * i / 24; d += ` L${f1(x)},${f1(topY(x) + Math.sin(i * 1.7 + seed) * 1.6)}`; }
+    d += ` L${f1(g.fr - 10)},${g.yF + 6} Z`;
+    let s = `<path d="${d}" fill="${K.base}"/>`;
+    const sMid = (g.R.sB + g.R.sF) / 2, dy = K.dy * sMid * PS, dx = K.dx * sMid * PS;
+    let k = 0;
+    for (let y = g.yB - rise + K.hh * sMid * PS * 0.5, row = 0; y <= g.yF + 6; y += dy, row++) {
+      const sy = g.sAt(y), xl = g.xl(y) + 10, xr = g.xr(y) - 10;
+      for (let x = xl + (row % 2 ? dx / 2 : 0) - dx * 0.3 + hsh(seed + row, 2) * dx * 0.3; x < xr + dx * 0.4; x += dx) {
+        const sc = (0.8 + 0.4 * hsh(seed + k, 3)) * sy * PS;
+        const cx = x + (hsh(seed + k, 4) - 0.5) * dx * 0.4, cy = y + (hsh(seed + k, 5) - 0.5) * dy * 0.5;
+        const rot = (hsh(seed + k, 6) - 0.5) * 2 * K.rot;
+        k++;
+        const ext = (K.hw * Math.abs(Math.cos(rot * Math.PI / 180)) + K.hh * Math.abs(Math.sin(rot * Math.PI / 180))) * sc;
+        if (cx - ext < xl - 2 || cx + ext > xr + 2) continue;          // never cut at the side walls
+        if (cy - K.hh * sc * 0.2 < topY(cx)) continue;                  // stay inside the heap
+        const extY = (K.hw * Math.abs(Math.sin(rot * Math.PI / 180)) + K.hh * Math.abs(Math.cos(rot * Math.PI / 180))) * sc;
+        if (cy - extY < minTop) continue;                                // front heaps never climb onto the lip text behind
+        s += `<g transform="translate(${f1(cx)},${f1(cy)}) rotate(${f1(rot)}) scale(${sc.toFixed(3)})">${K.draw(k)}</g>`;
+      }
+    }
+    if (kind === "nangka") for (let j = 0; j < 7; j++) s += `<ellipse cx="${f1(xlB + 20 + hsh(seed + j, 7) * (xrB - xlB - 40))}" cy="${f1(g.yB + 20 + hsh(seed + j, 8) * (g.yF - g.yB - 24))}" rx="${f1(9 * sMid)}" ry="${f1(4 * sMid)}" fill="#E8973A" opacity="0.8"/>`;
+    // soft light on the top of the mound
+    const px = xlB + (xrB - xlB) * peakT;
+    s += `<ellipse cx="${f1(px)}" cy="${f1(topY(px) + rise * 0.9)}" rx="${f1((xrB - xlB) * 0.3)}" ry="${f1(rise * 1.1 + 10)}" fill="url(#moundLight)"/>`;
+    return s;
+  }
+
+  // ================= 5. board text =================
+  const t = String(D.title || "");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  const TITLE_MAX = 224;
+  for (let fs = 120; fs >= 72; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (titleEl.offsetHeight <= TITLE_MAX && titleEl.scrollWidth <= 900) break; }
+  const TH = titleEl.offsetHeight;
+  const BOARD_B = 600, SUB_T = BOARD_B - 24 - 42, TITLE_T = SUB_T - 10 - TH, BOARD_T = TITLE_T - 26;
+  titleEl.style.top = TITLE_T + "px";
+
+  const epText = String(D.ep || "").trim();
+  const series = String(D.series || "").trim();
+  const subText = series ? series + (epText ? "  ·  " + epText : "") : String(D.kicker || epText);
+  const subEl = $("sub");
+  subEl.textContent = subText;
+  for (let ls = 0.18; ls >= 0.04 && subEl.offsetWidth > 700; ls -= 0.04) subEl.style.letterSpacing = ls.toFixed(2) + "em";
+  if (subEl.offsetWidth > 700) subEl.style.fontSize = "26px";
+  const SW = subEl.offsetWidth;
+  subEl.style.left = Math.round(540 - SW / 2) + "px";
+  subEl.style.top = SUB_T + "px";
+
+  // ================= 6. measure tags (tape labels + lip values) =================
+  const tags = $("tags");
+  const tagged = trays.filter(tr => tr.item >= 0);
+  const capX = (left, top, bottom, w) => (bottom > 900 && top < 1500) ? Math.min(w, 900 - left - 4) : Math.min(w, 990 - left);
+  tagged.forEach(tr => {
+    const g = tr.g, it = items[tr.item] || {};
+    tr.on = tr.item === tap;
+    const tp = document.createElement("div");
+    tp.className = "tape" + (tr.on ? " on" : "");
+    tp.textContent = String(it.label == null ? "" : it.label);
+    tags.appendChild(tp);
+    tr.tape = tp;
+    tr.tapeL = Math.round(g.bl - 2);            // tape sits on the glass: may reach the rim, not past it
+    tr.tapeT = g.yB - 22;
+    tr.tapeMax = capX(tr.tapeL, tr.tapeT, tr.tapeT + 50, (g.br - g.bl) + 4);
+    const v = document.createElement("div");
+    v.className = "val";
+    v.textContent = String(it.value == null ? "" : it.value);
+    tags.appendChild(v);
+    tr.val = v;
+    tr.valL = Math.round(g.fl + 14);
+    tr.valMax = capX(tr.valL, g.yF, g.yF + g.lipH, (g.fr - g.fl) - 36);
+  });
+  // one shared size for all tapes, one for all values (even look)
+  let tfs = 34;
+  for (; tfs >= 30; tfs -= 2) { tagged.forEach(tr => { tr.tape.style.fontSize = tfs + "px"; tr.tape.style.lineHeight = Math.round(tfs * 1.18) + "px"; }); if (tagged.every(tr => tr.tape.offsetWidth <= tr.tapeMax)) break; }
+  if (tfs < 30) tfs = 30;
+  tagged.forEach(tr => { if (tr.tape.offsetWidth > tr.tapeMax) { tr.tape.style.whiteSpace = "normal"; tr.tape.style.width = tr.tapeMax + "px"; } tr.tapeH = tr.tape.offsetHeight; });
+  let vfs = 40;
+  for (; vfs >= 32; vfs -= 2) { tagged.forEach(tr => { tr.val.style.fontSize = vfs + "px"; }); if (tagged.every(tr => tr.val.offsetWidth <= tr.valMax)) break; }
+
+  // ================= 7. scene SVG =================
+  let S = `<defs>
+    <filter id="blur6" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="6"/></filter>
+    <filter id="blur12" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="12"/></filter>
+    <radialGradient id="moundLight" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.34"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+    <radialGradient id="warm" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#E3B04B" stop-opacity="0.16"/><stop offset="1" stop-color="#E3B04B" stop-opacity="0"/></radialGradient>
+    <linearGradient id="caseBack" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#17140F"/><stop offset="0.45" stop-color="#2A231C"/><stop offset="1" stop-color="#3A3027"/></linearGradient>
+    <linearGradient id="boardLight" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.13"/><stop offset="0.4" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+    <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3E2A1D"/><stop offset="1" stop-color="#5A3E2A"/></linearGradient>
+    <linearGradient id="riceShade" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFFDF7"/><stop offset="1" stop-color="#E4DBC8"/></linearGradient>
+    <pattern id="planks" width="72" height="40" patternUnits="userSpaceOnUse"><rect width="72" height="40" fill="#1C1A18"/><path d="M0.5,0 V40" stroke="#F4F1EA" stroke-opacity="0.045" stroke-width="2"/></pattern>
+    <pattern id="floor" width="120" height="60" patternUnits="userSpaceOnUse"><rect width="120" height="60" fill="#171513"/><path d="M0,0.5 H120 M0.5,0 V60" stroke="#F4F1EA" stroke-opacity="0.05" stroke-width="2"/></pattern>
+  </defs>`;
+
+  // back wall + warm bulb glow
+  S += `<rect x="0" y="0" width="1080" height="1920" fill="url(#planks)"/>`;
+  S += `<ellipse cx="540" cy="250" rx="560" ry="300" fill="url(#warm)"/>`;
+
+  // kerupuk bags on a sagging string
+  const strY = x => { const tt = (x + 20) / 1120; return 38 + 92 * tt * (1 - tt); };
+  S += `<path d="M-20,38 Q540,130 1100,38" stroke="#8A7A62" stroke-width="3" fill="none"/>`;
+  const BAGS = 6;
+  // crackers settle at the bottom of each bag: [dx (x half-width), dy (x height, from the bottom)]
+  const STACK = [[-0.36, -0.17], [0.34, -0.2], [-0.02, -0.3], [-0.34, -0.47], [0.32, -0.5], [0.0, -0.63]];
+  for (let b = 0; b < BAGS; b++) {
+    const x = 92 + b * (896 / (BAGS - 1)), top = strY(x) + 6;
+    const w = 124 + hsh(b, 31) * 20;
+    const h = Math.max(110, Math.min(172 + hsh(b, 32) * 46, BOARD_T - 18 - top));
+    const red = b === 1 || b === 4;
+    const bw = w / 2, y0 = top;
+    const body = `M${f1(x - 7)},${f1(y0)} C${f1(x - 12)},${f1(y0 + 16)} ${f1(x - bw)},${f1(y0 + 24)} ${f1(x - bw)},${f1(y0 + 54)} L${f1(x - bw + 4)},${f1(y0 + h - 22)} Q${f1(x - bw + 6)},${f1(y0 + h)} ${f1(x - bw + 26)},${f1(y0 + h)} L${f1(x + bw - 26)},${f1(y0 + h)} Q${f1(x + bw - 6)},${f1(y0 + h)} ${f1(x + bw - 4)},${f1(y0 + h - 22)} L${f1(x + bw)},${f1(y0 + 54)} C${f1(x + bw)},${f1(y0 + 24)} ${f1(x + 12)},${f1(y0 + 16)} ${f1(x + 7)},${f1(y0)} Z`;
+    S += `<clipPath id="bag${b}"><path d="${body}"/></clipPath><g clip-path="url(#bag${b})">`;
+    STACK.forEach(([sx, sy], kk) => {
+      const cx = x + sx * bw + (hsh(b * 13 + kk, 33) - 0.5) * 10, cy = y0 + h + sy * h + (hsh(b * 13 + kk, 34) - 0.5) * 8;
+      if (cy < y0 + 62) return;
+      const r = 31 + hsh(b * 13 + kk, 35) * 6, rot = (hsh(b * 13 + kk, 36) - 0.5) * 60;
+      const c1 = red ? "#E8A486" : "#F1E6C9", c2 = red ? "#C9755B" : "#D3BA82";
+      S += `<g transform="translate(${f1(cx)},${f1(cy)}) rotate(${f1(rot)})"><ellipse rx="${f1(r)}" ry="${f1(r * 0.82)}" fill="${c1}" stroke="${c2}" stroke-width="3" stroke-dasharray="6 4"/>` +
+        `<path d="M${f1(-r * 0.55)},0 A${f1(r * 0.55)},${f1(r * 0.45)} 0 1 1 ${f1(r * 0.3)},${f1(r * 0.36)}" fill="none" stroke="${c2}" stroke-width="2.6" stroke-linecap="round"/>` +
+        `<path d="M${f1(-r * 0.22)},0 A${f1(r * 0.22)},${f1(r * 0.18)} 0 1 1 ${f1(r * 0.12)},${f1(r * 0.14)}" fill="none" stroke="${c2}" stroke-width="2.2" stroke-linecap="round"/></g>`;
+    });
+    S += `</g>`;
+    S += `<path d="${body}" fill="#FFFFFF" fill-opacity="0.12" stroke="#FFFFFF" stroke-opacity="0.38" stroke-width="2"/>`;
+    S += `<path d="M${f1(x - bw + 12)},${f1(y0 + 60)} L${f1(x - bw + 15)},${f1(y0 + h - 26)}" stroke="#FFFFFF" stroke-opacity="0.32" stroke-width="5" stroke-linecap="round"/>`;
+    S += `<path d="M${f1(x - 11)},${f1(y0 + 7)} L${f1(x + 11)},${f1(y0 + 7)} M${f1(x + 6)},${f1(y0 + 8)} l10,14 M${f1(x - 6)},${f1(y0 + 8)} l-8,15" stroke="${RED}" stroke-width="5" stroke-linecap="round" fill="none"/>`;
+    S += `<rect x="${f1(x - 5)}" y="${f1(top - 20)}" width="10" height="24" rx="3" fill="#C9A46A"/><rect x="${f1(x - 5)}" y="${f1(top - 20)}" width="10" height="5" rx="2" fill="#A98650"/>`;
+  }
+
+  // name board: blue, centred lettering, sign-painter pinstripes
+  const BX0 = 34, BX1 = 1046;
+  S += `<rect x="${BX0}" y="${BOARD_T + 12}" width="${BX1 - BX0}" height="${BOARD_B - BOARD_T}" fill="#000" opacity="0.5" filter="url(#blur6)"/>`;
+  S += `<rect x="${BX0}" y="${BOARD_T}" width="${BX1 - BX0}" height="${BOARD_B - BOARD_T}" rx="6" fill="${BLUE}"/>`;
+  S += `<rect x="${BX0}" y="${BOARD_T}" width="${BX1 - BX0}" height="${BOARD_B - BOARD_T}" rx="6" fill="url(#boardLight)"/>`;
+  S += `<rect x="${BX0}" y="${BOARD_B - 8}" width="${BX1 - BX0}" height="8" fill="${BLUE_D}"/>`;
+  S += `<rect x="${BX0 + 14}" y="${BOARD_T + 13}" width="${BX1 - BX0 - 28}" height="${BOARD_B - BOARD_T - 30}" rx="12" fill="none" stroke="${CREAM}" stroke-opacity="0.55" stroke-width="3"/>`;
+  S += `<rect x="${BX0 + 22}" y="${BOARD_T + 21}" width="${BX1 - BX0 - 44}" height="${BOARD_B - BOARD_T - 46}" rx="8" fill="none" stroke="${YEL}" stroke-opacity="0.45" stroke-width="1.5"/>`;
+  [[BX0 + 8, BOARD_T + 8], [BX1 - 8, BOARD_T + 8], [BX0 + 8, BOARD_B - 16], [BX1 - 8, BOARD_B - 16]].forEach(([x, y]) => { S += `<circle cx="${x}" cy="${y}" r="4" fill="${CREAM}" opacity="0.7"/>`; });
+  // sub-line ornaments: painted rules with diamonds
+  const subMid = SUB_T + 21, sgap = 22, rule = Math.min(130, (840 - SW) / 2 - sgap);
+  if (rule > 24) {
+    [-1, 1].forEach(sd => {
+      const xi = 540 + sd * (SW / 2 + sgap), xo = xi + sd * rule;
+      S += `<line x1="${f1(xi + sd * 14)}" y1="${subMid}" x2="${f1(xo)}" y2="${subMid}" stroke="${CREAM}" stroke-opacity="0.7" stroke-width="3" stroke-linecap="round"/>`;
+      S += `<path d="M${f1(xi)},${subMid - 7} l7,7 l-7,7 l-7,-7 Z" fill="${YEL}"/>`;
+    });
+  }
+
+  // case frame (blue painted wood), dim interior
+  const O = [[96, 606], [984, 606], [1050, 1148], [30, 1148]], G = [[132, 636], [948, 636], [1014, 1112], [66, 1112]];
+  const poly = a => a.map(p => p.join(",")).join(" ");
+  S += `<polygon points="${poly(G)}" fill="url(#caseBack)"/>`;
+  S += `<polygon points="${poly(G)}" fill="#000" opacity="0"/>`;
+  // trays (back to front)
+  trays.forEach((tr, idx) => {
+    const g = tr.g;
+    S += `<rect x="${f1(g.fl + 8)}" y="${g.yF + g.lipH - 4}" width="${f1(g.fr - g.fl - 16)}" height="14" rx="7" fill="#000" opacity="0.55" filter="url(#blur6)"/>`;
+    S += `<path d="M${f1(g.bl)},${g.yB} L${f1(g.br)},${g.yB} L${f1(g.fr)},${g.yF} L${f1(g.fl)},${g.yF} Z" fill="#E9E3D6" stroke="${BLUE}" stroke-width="5" stroke-linejoin="round"/>`;
+    S += `<path d="M${f1(g.bl + 8)},${g.yB + 5} L${f1(g.br - 8)},${g.yB + 5} L${f1(g.fr - 8)},${g.yF} L${f1(g.fl + 8)},${g.yF} Z" fill="#C4BBA8"/>`;
+    S += heap(tr, idx);
+    // enamel front lip
+    const L0 = g.fl, L1 = g.fr, ly = g.yF, lh = g.lipH, rr = Math.min(10, lh / 2);
+    S += `<path d="M${f1(L0)},${ly - 2} H${f1(L1)} V${ly + lh - rr} Q${f1(L1)},${ly + lh} ${f1(L1 - rr)},${ly + lh} H${f1(L0 + rr)} Q${f1(L0)},${ly + lh} ${f1(L0)},${ly + lh - rr} Z" fill="${CREAM}"/>`;
+    if (lh > 20) S += `<rect x="${f1(L0)}" y="${ly + lh - 8}" width="${f1(L1 - L0)}" height="8" rx="4" fill="#D8D0BF"/>`;
+    S += `<rect x="${f1(L0 - 2)}" y="${ly - 4}" width="${f1(L1 - L0 + 4)}" height="7" rx="3.5" fill="${BLUE}"/>`;
+    if (lh > 20 && tr.item < 0) S += `<path d="M${f1(L1 - 30)},${ly + 14} q6,-4 10,2" stroke="#1C1A18" stroke-opacity="0.25" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+  });
+  // frame drawn over tray edges
+  S += `<path d="M${poly(O).replace(/ /g, " L")} Z M${poly(G).replace(/ /g, " L")} Z" fill="${BLUE}" fill-rule="evenodd"/>`;
+  S += `<polygon points="96,606 984,606 980,612 100,612" fill="#FFFFFF" opacity="0.18"/>`;
+  S += `<polygon points="132,636 948,636 950,646 130,646" fill="#000" opacity="0.4"/>`;
+  S += `<line x1="66" y1="1112" x2="1014" y2="1112" stroke="#FFFFFF" stroke-opacity="0.3" stroke-width="3"/>`;
+  S += `<polygon points="30,1148 1050,1148 1050,1154 30,1154" fill="#000" opacity="0.3"/>`;
+
+  // counter top (wood) + nosing
+  S += `<polygon points="30,1148 1050,1148 1080,1386 0,1386" fill="url(#wood)"/>`;
+  for (let k = 0; k < 9; k++) { const y = 1166 + k * 26 + hsh(k, 41) * 8; S += `<path d="M0,${f1(y)} C300,${f1(y - 6)} 700,${f1(y + 6)} 1080,${f1(y)}" stroke="#7A5638" stroke-opacity="0.35" stroke-width="2" fill="none"/>`; }
+  S += `<rect x="0" y="1386" width="1080" height="20" fill="#6E4E36"/><rect x="0" y="1386" width="1080" height="4" fill="#FFFFFF" opacity="0.18"/>`;
+
+  // ---------- the plate: rice + a dish no warteg sells (steak + fries), struck out ----------
+  const side = tapSlot === 2 ? 1 : -1;                 // steak sits on the side the ladle path arrives from
+  const PX = 540, PY = 1262;
+  S += `<ellipse cx="${PX + 10}" cy="${PY + 22}" rx="300" ry="82" fill="#000" opacity="0.5" filter="url(#blur12)"/>`;
+  S += `<ellipse cx="${PX}" cy="${PY}" rx="292" ry="84" fill="#FBF8F1"/>`;
+  S += `<ellipse cx="${PX}" cy="${PY}" rx="287" ry="80" fill="none" stroke="${BLUE}" stroke-width="7"/>`;
+  S += `<ellipse cx="${PX}" cy="${PY + 5}" rx="226" ry="60" fill="#EFE9DD" stroke="#DCD3C0" stroke-width="2"/>`;
+  [[-250, -30], [205, 52], [262, -22], [-120, 70]].forEach(([dx, dy]) => { S += `<ellipse cx="${PX + dx}" cy="${PY + dy}" rx="5" ry="3" fill="#2E2A25" opacity="0.55"/>`; });
+  // rice mound
+  const RX = PX - side * 120, RB = 1272;
+  S += `<path d="M${RX - 120},${RB} C${RX - 118},${RB - 62} ${RX - 66},${RB - 112} ${RX - 4},${RB - 112} C${RX + 62},${RB - 112} ${RX + 118},${RB - 62} ${RX + 120},${RB} Q${RX},${RB + 22} ${RX - 120},${RB} Z" fill="url(#riceShade)" stroke="#D6CCB8" stroke-width="2"/>`;
+  for (let k = 0; k < 34; k++) {
+    const a = hsh(k, 42), b2 = hsh(k, 43);
+    const rx = RX - 96 + a * 192, ry = RB - 12 - b2 * 80 * Math.sin(Math.PI * (0.1 + a * 0.8));
+    S += `<line x1="${f1(rx)}" y1="${f1(ry)}" x2="${f1(rx + 8)}" y2="${f1(ry - 2.5)}" stroke="#D9D0BC" stroke-width="3.2" stroke-linecap="round"/>`;
+  }
+  // steak
+  const SX = PX + side * 112, SB = 1258;
+  const steakTop = `M${SX - 100},${SB - 34} C${SX - 96},${SB - 66} ${SX - 40},${SB - 78} ${SX + 10},${SB - 74} C${SX + 70},${SB - 70} ${SX + 104},${SB - 54} ${SX + 100},${SB - 26} C${SX + 96},${SB} ${SX + 40},${SB + 8} ${SX - 20},${SB + 4} C${SX - 70},${SB} ${SX - 104},${SB - 10} ${SX - 100},${SB - 34} Z`;
+  S += `<g transform="translate(0,18)"><path d="${steakTop}" fill="#3E1B0B"/></g>`;
+  S += `<path d="${steakTop}" fill="#7A3A17" stroke="#9A5426" stroke-width="4"/>`;
+  S += `<clipPath id="steakClip"><path d="${steakTop}"/></clipPath><g clip-path="url(#steakClip)">`;
+  for (let i = 0; i < 5; i++) S += `<line x1="${SX - 96 + i * 46}" y1="${SB - 84}" x2="${SX - 128 + i * 46}" y2="${SB + 10}" stroke="#2A1206" stroke-width="10" stroke-linecap="round" opacity="0.85"/>`;
+  S += `<ellipse cx="${SX - 20}" cy="${SB - 56}" rx="60" ry="12" fill="#FFFFFF" opacity="0.12"/></g>`;
+  S += `<rect x="${SX + 14}" y="${SB - 62}" width="34" height="26" rx="6" fill="#F3D77A" transform="rotate(-8 ${SX + 31} ${SB - 49})"/><rect x="${SX + 18}" y="${SB - 60}" width="16" height="6" rx="3" fill="#FFF6D0" transform="rotate(-8 ${SX + 31} ${SB - 49})"/>`;
+  // fries in front of the steak
+  const FR = [[-60, 6, -14], [-28, 14, 8], [6, 10, -6], [38, 16, 12], [70, 8, -18], [-44, 22, 20], [20, 24, -10], [56, 22, 4]];
+  FR.forEach(([dx, dy, a], i) => {
+    const fx = SX + side * dx, fy = SB + dy;
+    S += `<g transform="translate(${fx},${fy}) rotate(${side * a})"><rect x="-38" y="-7" width="76" height="14" rx="5" fill="${i % 2 ? "#E2AC3E" : "#EDBF55"}" stroke="#B7802A" stroke-width="2"/><rect x="-34" y="-5" width="60" height="4" rx="2" fill="#F7DD8A" opacity="0.8"/></g>`;
+  });
+  // red marker strike across the made-up dish
+  S += `<path d="M${SX - 132},${SB - 70} Q${SX - 10},${SB - 42} ${SX + 128},${SB + 12}" stroke="${RED}" stroke-width="19" fill="none" stroke-linecap="round"/>`;
+  S += `<path d="M${SX - 120},${SB - 64} Q${SX - 6},${SB - 40} ${SX + 116},${SB + 8}" stroke="#E2674C" stroke-width="4" fill="none" stroke-linecap="round" opacity="0.7"/>`;
+
+  // counter apron (blue), painted pinstripes; caption is painted on it
+  S += `<rect x="0" y="1406" width="1080" height="264" fill="${BLUE}"/>`;
+  S += `<rect x="0" y="1406" width="1080" height="14" fill="#000" opacity="0.28"/>`;
+  S += `<line x1="112" y1="1424" x2="968" y2="1424" stroke="${CREAM}" stroke-opacity="0.5" stroke-width="3"/>`;
+  S += `<line x1="112" y1="1644" x2="968" y2="1644" stroke="${CREAM}" stroke-opacity="0.5" stroke-width="3"/>`;
+  [[112, 1424], [968, 1424], [112, 1644], [968, 1644]].forEach(([x, y]) => { S += `<path d="M${x},${y - 7} l7,7 l-7,7 l-7,-7 Z" fill="${YEL}"/>`; });
+  S += `<rect x="0" y="1662" width="1080" height="8" fill="${BLUE_D}"/>`;
+
+  // floor + long bench in front of the counter
+  S += `<rect x="0" y="1670" width="1080" height="250" fill="url(#floor)"/>`;
+  S += `<rect x="0" y="1670" width="1080" height="18" fill="#000" opacity="0.4"/>`;
+  S += `<rect x="-10" y="1772" width="1100" height="14" fill="#000" opacity="0.35" filter="url(#blur6)"/>`;
+  S += `<rect x="150" y="1772" width="30" height="160" fill="#16305C"/><rect x="900" y="1772" width="30" height="160" fill="#16305C"/><rect x="150" y="1862" width="780" height="16" fill="#16305C"/>`;
+  S += `<rect x="-10" y="1716" width="1100" height="40" rx="4" fill="${BLUE_D}"/><rect x="-10" y="1716" width="1100" height="6" fill="#FFFFFF" opacity="0.16"/><rect x="-10" y="1756" width="1100" height="22" fill="#18366A"/>`;
+  $("scene").innerHTML = S;
+
+  // ================= 8. glass: reflections, touch ripple, ladle path =================
+  const tapTr = trays.find(tr => tr.on);
+  let Gl = `<defs><linearGradient id="slope" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F4F1EA" stop-opacity="0.16"/><stop offset="1" stop-color="#F4F1EA" stop-opacity="0"/></linearGradient>
+    <clipPath id="glassClip"><polygon points="${poly(G)}"/></clipPath></defs>`;
+  Gl += `<g clip-path="url(#glassClip)"><rect x="60" y="636" width="960" height="60" fill="url(#slope)"/>`;
+  Gl += `<polygon points="700,636 770,636 520,1112 440,1112" fill="#FFFFFF" opacity="0.04"/><polygon points="800,636 826,636 576,1112 550,1112" fill="#FFFFFF" opacity="0.05"/></g>`;
+  let tip = null;
+  if (tapTr) {
+    const g = tapTr.g;
+    const TB = tapTr.tapeT + tapTr.tapeH, LT = g.yF;
+    const sf = Math.max(0.6, Math.min(1, (LT - TB - 12) / 92));
+    const cy = (TB + LT) / 2 - 6 * sf;
+    const w = g.xr(cy) - g.xl(cy);
+    tip = { x: g.xl(cy) + (fromLeft ? 0.58 : 0.42) * w, y: cy, sf };
+    Gl += `<ellipse cx="${f1(tip.x)}" cy="${f1(tip.y)}" rx="${f1(48 * sf)}" ry="${f1(24 * sf)}" fill="none" stroke="${CREAM}" stroke-opacity="0.7" stroke-width="3"/>`;
+    Gl += `<ellipse cx="${f1(tip.x)}" cy="${f1(tip.y)}" rx="${f1(76 * sf)}" ry="${f1(38 * sf)}" fill="none" stroke="${CREAM}" stroke-opacity="0.32" stroke-width="3"/>`;
+    // ladle path: out of the tapped tray, down the gap between trays, onto the made-up dish
+    const gu = tapSlot === 2 ? GAP_R : GAP_L;
+    const exitRight = gu > (g.u0 + g.u1) / 2;
+    const P0 = { x: exitRight ? g.xr(cy + 12) - 30 : g.xl(cy + 12) + 30, y: cy + 12 };
+    const P1 = { x: gapX(gu, g.r), y: g.yF - 2 };
+    const pts = [P0, P1];
+    if (g.r === 1) pts.push({ x: gapX(gu, 2), y: ROWS[2].yF + ROWS[2].lip / 2 });
+    const last = pts[pts.length - 1];
+    const E = { x: SX - side * 8, y: SB - 92 };
+    let d = `M${f1(P0.x)},${f1(P0.y)} C${f1(P0.x + (P1.x - P0.x) * 0.2)},${f1(P0.y + 34)} ${f1(P1.x)},${f1(P1.y - 34)} ${f1(P1.x)},${f1(P1.y)}`;
+    if (pts.length === 3) d += ` L${f1(pts[2].x)},${f1(pts[2].y)}`;
+    d += ` C${f1(last.x)},${f1(last.y + 44)} ${f1(E.x)},${f1(E.y - 46)} ${f1(E.x)},${f1(E.y)}`;
+    Gl += `<path d="${d}" stroke="${INK}" stroke-opacity="0.6" stroke-width="11" fill="none" stroke-linecap="round" stroke-dasharray="17 10"/>`;
+    Gl += `<path d="${d}" stroke="${YEL}" stroke-width="5.5" fill="none" stroke-linecap="round" stroke-dasharray="17 10"/>`;
+    Gl += `<path d="M${f1(E.x - 15)},${f1(E.y - 6)} L${f1(E.x + 15)},${f1(E.y - 6)} L${f1(E.x)},${f1(E.y + 16)} Z" fill="${YEL}" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>`;
+  }
+  $("glass").innerHTML = Gl;
+
+  // ================= 9. place tapes + values =================
+  const tilts = [-1.6, 1.2, -0.8, 1.5, -1.2];
+  tagged.forEach((tr, k) => {
+    tr.tape.style.left = tr.tapeL + "px";
+    tr.tape.style.top = tr.tapeT + "px";
+    tr.tape.style.transform = `rotate(${tilts[k % 5]}deg)`;
+    tr.val.style.left = tr.valL + "px";
+    tr.val.style.top = Math.round(tr.g.yF + (tr.g.lipH - tr.val.offsetHeight) / 2 + 1) + "px";
+  });
+
+  // ================= 10. fingertip pressing the glass =================
+  if (tip) {
+    const ang = 3, sf = tip.sf;
+    const tf = fromLeft ? `translate(${f1(tip.x)},${f1(tip.y)}) scale(${-sf},${sf}) rotate(${ang})` : `translate(${f1(tip.x)},${f1(tip.y)}) scale(${sf}) rotate(${ang})`;
+    const tfs2 = fromLeft ? `translate(${f1(tip.x - 10)},${f1(tip.y + 12)}) scale(${-sf},${sf}) rotate(${ang})` : `translate(${f1(tip.x + 10)},${f1(tip.y + 12)}) scale(${sf}) rotate(${ang})`;
+    // index finger seen from behind (nail up), tip on the glass, pointing into the case
+    const F = "M 34,-30 C 12,-30 0,-16 0,0 C 0,16 12,30 34,31 L 130,34 Q 152,40 176,36 L 290,39 Q 316,45 342,40 L 760,46 L 760,-48 L 342,-42 Q 316,-48 290,-41 L 176,-37 Q 152,-42 130,-35 Z";
+    let Hn = `<defs><filter id="fblur" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="8"/></filter>
+      <linearGradient id="skin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#DDA47A"/><stop offset="0.45" stop-color="#C98A5E"/><stop offset="1" stop-color="#A2643E"/></linearGradient></defs>`;
+    Hn += `<g transform="${tfs2}"><path d="${F}" fill="#000" opacity="0.4" filter="url(#fblur)"/></g>`;
+    Hn += `<g transform="${tf}">`;
+    Hn += `<path d="${F}" fill="url(#skin)" stroke="#8E5634" stroke-opacity="0.5" stroke-width="2"/>`;
+    Hn += `<path d="M 6,12 C 12,26 22,31 36,31 L 130,34 Q 152,40 176,36 L 290,39 Q 316,45 342,40 L 760,46 L 760,26 L 40,20 C 24,20 14,17 6,12 Z" fill="#94573A" opacity="0.55"/>`;
+    // knuckle creases (soft shading, no ink outline)
+    Hn += `<path d="M 140,-30 q -7,20 -1,40 M 152,-31 q -6,18 0,36" stroke="#8E5634" stroke-opacity="0.55" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+    Hn += `<path d="M 298,-34 q -9,24 0,48 M 312,-35 q -8,22 0,44 M 326,-34 q -6,18 0,36" stroke="#8E5634" stroke-opacity="0.5" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+    Hn += `<ellipse cx="306" cy="-6" rx="26" ry="16" fill="#E7B48C" opacity="0.45"/>`;
+    // nail with nail-bed shade and cuticle
+    Hn += `<path d="M 66,-17 C 66,-24 58,-26 48,-26 C 26,-26 13,-22 11,-12 C 9,-4 9,6 11,12 C 13,20 26,22 48,22 C 58,22 66,20 66,14 Z" fill="#E2B193"/>`;
+    Hn += `<path d="M 66,-17 C 66,-24 58,-26 48,-26 C 26,-26 13,-22 11,-12 C 10,-8 10,-6 10,-4 L 66,-4 Z" fill="#F0CDB2" opacity="0.7"/>`;
+    Hn += `<path d="M 30,-20 C 22,-18 16,-10 16,-2 C 16,8 22,16 30,18" stroke="#F7E3D2" stroke-width="5" fill="none" stroke-linecap="round" opacity="0.9"/>`;
+    Hn += `<path d="M 66,-17 C 70,-10 70,8 66,14" stroke="#B57A57" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+    Hn += `<path d="M 40,-14 C 46,-17 56,-17 60,-15" stroke="#FFFFFF" stroke-opacity="0.6" stroke-width="3.5" fill="none" stroke-linecap="round"/>`;
+    Hn += `<path d="M 30,-28 L 760,-44" stroke="#EDBE98" stroke-width="6" stroke-linecap="round" opacity="0.5"/>`;
+    Hn += `</g>`;
+    $("hand").innerHTML = Hn;
+  }
+
+  // ================= 11. caption: karaoke line painted on the counter apron =================
+  const capEl = $("cap");
+  const cap = String(D.caption || D.sub || "").trim();
+  const words = cap.split(/\s+/).filter(Boolean);
+  let s0 = -1, s1 = -1;
+  if (hl) {
+    const ci = cap.toLowerCase().indexOf(hl.toLowerCase());
+    if (ci >= 0) {
+      let pos = 0;
+      words.forEach((w, i) => { const st = cap.indexOf(w, pos), en = st + w.length; pos = en; if (en > ci && st < ci + hl.length) { if (s0 < 0) s0 = i; s1 = i; } });
+    }
+  }
+  if (s0 < 0) { s0 = 0; s1 = 0; }
+  const parts = [];
+  for (let i = 0; i < words.length; i++) {
+    if (i === s0) { parts.push('<span class="w on">' + esc(words.slice(s0, s1 + 1).join(" ")) + "</span>"); i = s1; continue; }
+    parts.push('<span class="w">' + esc(words[i]) + "</span>");
+  }
+  capEl.innerHTML = parts.join(" ");
+  let capOk = false;
+  for (let fs = 46; fs >= 40 && !capOk; fs -= 2) { capEl.style.fontSize = fs + "px"; capOk = capEl.offsetHeight <= Math.round(fs * 1.3 * 2) + 2; }
+  if (!capOk) capEl.style.lineHeight = "1.2";                       // long caption: 3 lines at 40 px
+  const CAP_T = 1432, CAP_B = 1580;
+  capEl.style.top = Math.round((CAP_T + CAP_B) / 2 - capEl.offsetHeight / 2) + "px";
+
+  // ================= 12. meta =================
+  $("src").textContent = D.source || "";
+  $("date").textContent = D.date || "";
+  }
+</script>
+</body>
+</html>

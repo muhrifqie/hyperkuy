@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;600;700&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Playfair+Display:wght@700;800&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Knot Plate (knot-plate): one engraved plate from a seamanship manual fills the page.
+    The heading is engraved centred in the plate's top margin. Under it, the hero figure:
+    one knot drawn tight, both standing parts pulled outward (TARIK), a red tag tied on.
+    Under that, the smaller specimen figures (Gbr. 1...), each a short whipped length of
+    line tied into a knot; the tangle of each specimen follows the rank of its value.
+    The caption is the plate's italic legend under the bottom rule.
+    Metaphor: machine unlearning. Training ties data into the weights like a knot;
+    pulling one fact back out only tightens everything around it.
+
+    Every rope = one centreline, resampled every 2 px. Self-crossings are found
+    geometrically and over/under alternates along the line (a real alternating knot
+    diagram). Over-strands are redrawn on top with a paper gap. Engraved shading:
+    hatched cast shadow, hatched shadow side, laid-strand grooves, whipped ends.
+    Fully deterministic (no randomness).
+  */
+  :root { --paper: #F0EADB; --ink: #2B2B2B; --rope: #C77B3B; --navy: #2E4A7A; --red: #B53A2E; --meta: #5B5147; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--paper); }
+  body { position: relative; color: var(--ink); font-family: "Libre Caslon Text", serif; }
+
+  #paper { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; z-index: 0; }
+  #art { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; z-index: 1; overflow: visible; }
+
+  .kick { position: absolute; z-index: 2; left: 220px; width: 640px; top: 352px; text-align: center; white-space: nowrap;
+          font: 700 28px/1.2 "Playfair Display", serif; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink); }
+  .corner { position: absolute; z-index: 2; right: 124px; top: 314px; font: 700 28px/1.2 "Playfair Display", serif; color: var(--ink); white-space: nowrap; }
+  .title { position: absolute; z-index: 2; left: 120px; width: 840px; top: 398px; text-align: center; text-wrap: balance;
+           font-family: "Playfair Display", serif; font-weight: 800; text-transform: uppercase; line-height: 1.0; letter-spacing: 0.012em; font-variant-numeric: lining-nums; font-feature-settings: "lnum" 1; color: var(--ink); }
+  .title .hl { color: var(--navy); }
+  .bl { display: inline-block; width: 0; height: 0; vertical-align: baseline; }
+  .sub { position: absolute; z-index: 2; left: 150px; width: 780px; text-align: center; text-wrap: balance;
+         font: italic 400 40px/1.22 "Libre Caslon Text", serif; color: var(--ink); }
+
+  .cell { position: absolute; z-index: 2; }
+  .cell .no { font: 600 30px/1.1 "Archivo Narrow", sans-serif; letter-spacing: 0.14em; text-transform: uppercase; color: var(--navy); }
+  .cell .lb { font: italic 400 32px/1.14 "Libre Caslon Text", serif; color: var(--ink); margin-top: 6px; overflow-wrap: break-word; }
+  .cell .vl { font: 700 50px/1.0 "Archivo Narrow", sans-serif; color: var(--ink); margin-top: 8px; white-space: nowrap; }
+
+  .tag { position: absolute; z-index: 2; background: var(--red); color: var(--paper); padding: 14px 28px 16px 68px; transform-origin: 0 50%;
+         clip-path: polygon(32px 0, 100% 0, 100% 100%, 32px 100%, 0 calc(100% - 32px), 0 32px); }
+  .tag::before { content: ""; position: absolute; left: 24px; top: 50%; width: 22px; height: 22px; margin-top: -11px; border-radius: 50%;
+                 background: var(--paper); box-shadow: 0 0 0 5px #D9C3A3; }
+  .tag .tno { font: 600 30px/1.1 "Archivo Narrow", sans-serif; letter-spacing: 0.14em; text-transform: uppercase; }
+  .tag .tlb { font: italic 400 34px/1.1 "Libre Caslon Text", serif; margin-top: 6px; }
+  .tag .tvl { font: 700 56px/1.0 "Archivo Narrow", sans-serif; margin-top: 6px; white-space: nowrap; }
+
+  .pull { position: absolute; z-index: 2; width: 120px; text-align: center; font: 600 30px/1.1 "Archivo Narrow", sans-serif; letter-spacing: 0.2em; color: var(--navy); }
+
+  .imprint { position: absolute; z-index: 2; left: 128px; width: 772px; display: flex; justify-content: space-between; gap: 30px;
+             font: 500 26px/1.25 "Archivo Narrow", sans-serif; letter-spacing: 0.04em; color: var(--meta); }
+  .imprint span:last-child { white-space: nowrap; }
+
+  .cap { position: absolute; z-index: 2; left: 90px; width: 900px; text-align: center; text-wrap: balance;
+         font: italic 400 44px/1.3 "Libre Caslon Text", serif; color: var(--ink); }
+  .cap .gb { color: var(--meta); }
+  .cap .on { font-style: normal; font-weight: 700; font-variant: small-caps; letter-spacing: 0.03em; color: var(--navy); }
+</style>
+</head>
+<body>
+<svg id="paper" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <filter id="grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="11" result="n" />
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.36  0 0 0 0 0.29  0 0 0 0 0.20  0 0 0 0.10 0" />
+    </filter>
+    <radialGradient id="vig" cx="50%" cy="46%" r="75%">
+      <stop offset="0.62" stop-color="#8A6A3F" stop-opacity="0" />
+      <stop offset="1" stop-color="#8A6A3F" stop-opacity="0.16" />
+    </radialGradient>
+    <radialGradient id="fox" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#B98A4E" stop-opacity="0.10" />
+      <stop offset="1" stop-color="#B98A4E" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <rect width="1080" height="1920" fill="#F4EFE3" />
+  <!-- plate mark: the copper plate's pressed impression, slightly toned, bevelled edges -->
+  <rect x="70" y="280" width="940" height="1366" fill="#EDE5D3" />
+  <path d="M70,1646V280H1010" fill="none" stroke="#FBF8F0" stroke-width="3" />
+  <path d="M1010,280V1646H70" fill="none" stroke="#D3C5A6" stroke-width="3" />
+  <rect width="1080" height="1920" filter="url(#grain)" />
+  <ellipse cx="968" cy="212" rx="70" ry="54" fill="url(#fox)" />
+  <ellipse cx="128" cy="1760" rx="90" ry="64" fill="url(#fox)" />
+  <ellipse cx="1030" cy="1700" rx="40" ry="34" fill="url(#fox)" />
+  <rect width="1080" height="1920" fill="url(#vig)" />
+</svg>
+<svg id="art" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" data-layout-allow-overlap></svg>
+<div class="corner" id="corner"></div>
+<div class="kick" id="kick"></div>
+<div class="title" id="title"></div>
+<div class="sub" id="sub"></div>
+<div id="labels"></div>
+<div class="imprint" id="imprint"><span id="src"></span><span id="date"></span></div>
+<div class="cap" id="cap" data-slot="caption"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const FONTS = ['800 100px "Playfair Display"', '700 28px "Playfair Display"', '600 30px "Archivo Narrow"', '700 50px "Archivo Narrow"', '500 26px "Archivo Narrow"',
+                 '400 44px "Libre Caslon Text"', 'italic 400 44px "Libre Caslon Text"', '700 44px "Libre Caslon Text"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const INK = "#2B2B2B", PAPER = "#EDE5D3", ROPE = "#C77B3B", NAVY = "#2E4A7A";
+  const TAU = Math.PI * 2;
+  const items = (D.items || []).slice(0, 5);
+  if (!items.length) items.push({ label: "", value: "" });
+  const n = items.length, k = n - 1;            // k specimen figures; the last item is the hero
+  const svg = $("art");
+  const f1 = v => v.toFixed(1);
+  const nrm = v => { const l = Math.hypot(v[0], v[1]) || 1; return [v[0] / l, v[1] / l]; };
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+  // ---------- plate heading: corner number + small-caps line (fixed) ----------
+  const roman = x => { let s = ""; [[1000, "M"], [900, "CM"], [500, "D"], [400, "CD"], [100, "C"], [90, "XC"], [50, "L"], [40, "XL"], [10, "X"], [9, "IX"], [5, "V"], [4, "IV"], [1, "I"]].forEach(([v, r]) => { while (x >= v) { s += r; x -= v; } }); return s; };
+  const epRaw = String(D.ep || "").replace(/^#/, "").trim();
+  const pl = /^\d+$/.test(epRaw) && +epRaw > 0 && +epRaw < 4000 ? roman(+epRaw) : epRaw;
+  $("corner").textContent = pl ? "Pl. " + pl : "";
+  const kick = $("kick");
+  kick.textContent = [pl ? "Pelat " + pl : "", D.series || D.kicker || ""].filter(Boolean).join(" · ");
+  for (let fs = 28; fs > 26 && kick.scrollWidth > 640; fs -= 1) kick.style.fontSize = (fs - 1) + "px";
+
+  // ---------- legend under the plate = caption slot (karaoke), bottom-anchored ----------
+  const t = D.title || "", hl = D.hl || "";
+  const capText = D.caption || D.sub || "";
+  const capEl = $("cap");
+  const words = capText.split(/\s+/).filter(Boolean);
+  const clean = w => w.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+  const hlW = hl.split(/\s+/).map(clean).filter(Boolean);
+  let on = -1;
+  for (let i = 0; hlW.length && i + hlW.length <= words.length; i++) {
+    if (hlW.every((h, j) => clean(words[i + j]) === h)) {            // one active word: the longest word of the hl match
+      on = i; for (let j = 1; j < hlW.length; j++) if (clean(words[i + j]).length > clean(words[on]).length) on = i + j;
+      break;
+    }
+  }
+  if (on < 0 && words.length) on = 0;
+  const capWords = words.map((w, i) => i === on ? '<span class="w on" id="on">' + esc(w) + '<span class="bl" id="onbl"></span></span>' : '<span class="w">' + esc(w) + "</span>").join(" ");
+  let capFs = 44, capOk = false;
+  for (const pre of [true, false]) {                // the "Gbr. n —" prefix goes first when space is short
+    capEl.innerHTML = (pre ? '<span class="gb">Gbr. ' + n + " —</span> " : "") + capWords;
+    for (capFs = 44; capFs >= 40; capFs -= 2) { capEl.style.fontSize = capFs + "px"; if (capEl.offsetHeight <= 2 * capFs * 1.3 + 2) { capOk = true; break; } }
+    if (capOk) break;
+  }
+  if (!capOk) { capFs = 40; capEl.style.fontSize = "40px"; capEl.style.left = "120px"; capEl.style.width = "780px"; }   // 3 lines: stay left of the action rail
+  const capTop = Math.round(1614 - capEl.offsetHeight);
+  capEl.style.top = capTop + "px";
+
+  // plate rules (outer 3 px, inner hairline) run over the whole safe area
+  const PX0 = 90, PX1 = 990, PT = 300, PB = capTop - 22;
+
+  // ---------- value ranking: the tangle of each specimen follows its value ----------
+  const parseVal = s => {
+    const m = String(s == null ? "" : s).trim().match(/^([^\d]{0,4}?)\s*(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:[.,]\d+)?)\s*(.*)$/);
+    if (!m) return null;
+    const num = /^\d{1,3}(\.\d{3})+(,\d+)?$/.test(m[2]) ? m[2].replace(/\./g, "").replace(",", ".") : m[2].replace(",", ".");
+    return { v: parseFloat(num), unit: (m[1].replace(/[±~≈<>]/g, "").trim() + "|" + m[3].trim()).toLowerCase() };
+  };
+  const LADDER = ["turn", "over", "star5", "sept"];   // 1, 3, 5, 7 crossings; the hero is a Turk's head (8)
+  const vals = items.slice(0, k).map(it => parseVal(it.value));
+  const comparable = k >= 2 && vals.every(v => v && !isNaN(v.v) && v.unit === vals[0].unit);
+  let level;
+  if (comparable) {
+    const distinct = [...new Set(vals.map(v => v.v))].sort((a, b) => a - b);
+    level = vals.map(v => distinct.indexOf(v.v));
+  } else level = items.slice(0, k).map((_, i) => i);
+  const note = !comparable && k >= 2 ? "simpul: urutan, bukan besaran" : "";
+
+  // imprint (source / date) inside the plate's bottom margin
+  $("src").innerHTML = [D.source ? esc("Sumber: " + D.source) : "", note ? '<span style="white-space:nowrap">' + esc(note) + "</span>" : ""].filter(Boolean).join(" · ");
+  $("date").textContent = D.date || "";
+  const imp = $("imprint");
+  const impTop = Math.round(PB - 22 - imp.offsetHeight);
+  imp.style.top = impTop + "px";
+  const C1 = impTop - 18;
+
+  // ---------- specimen legends (measured before the bands are set) ----------
+  const labels = $("labels");
+  const grid = k >= 4;                          // 4 specimens: 2 x 2, legend beside each knot
+  const AX0 = 128, AX1 = 900;                   // text stays left of the action rail
+  const GUT = 28;                               // minimum gutter between neighbouring legends
+  const cellW = k ? (grid ? (AX1 - AX0) / 2 : (AX1 - AX0) / k) : 0;
+  const KWg = 140;                              // grid: knot drawing width
+  const cells = [];
+  for (let i = 0; i < k; i++) {
+    const it = items[i];
+    const el = document.createElement("div"); el.className = "cell";
+    el.innerHTML = '<div class="no">Gbr. ' + (i + 1) + '</div><div class="lb">' + esc(it.label) + '</div><div class="vl">' + esc(it.value) + "</div>";
+    labels.appendChild(el);
+    el.style.width = Math.floor(grid ? cellW - KWg - 16 - GUT : cellW - GUT) + "px";
+    el.style.textAlign = grid ? "left" : "center";
+    cells.push(el);
+  }
+  if (k) {
+    // labels: one size for all (32, down to 30 when any label needs more than 2 lines), one shared height
+    const lbs = cells.map(c => c.querySelector(".lb")), vls = cells.map(c => c.querySelector(".vl"));
+    let lfs = grid ? 30 : 32;
+    lbs.forEach(l => { l.style.fontSize = lfs + "px"; if (grid) { l.style.lineHeight = "1.08"; l.style.marginTop = "4px"; } });
+    while (lfs > 30 && lbs.some(l => l.offsetHeight > 2.4 * lfs)) { lfs -= 1; lbs.forEach(l => { l.style.fontSize = lfs + "px"; }); }
+    const LBH = lbs.reduce((m, l) => Math.max(m, l.offsetHeight), 0);
+    lbs.forEach(l => { l.style.height = LBH + "px"; });                       // every value sits on one shared baseline
+    // values: the smallest fitted size, used for the whole set
+    const vmax = grid ? 42 : 50;
+    let vfs = vmax;
+    vls.forEach(v => { let f = vmax; v.style.fontSize = f + "px"; while (f > 30 && v.scrollWidth > v.clientWidth) { f -= 1; v.style.fontSize = f + "px"; } vfs = Math.min(vfs, f); });
+    vls.forEach(v => { v.style.fontSize = vfs + "px"; });
+  }
+  const LH = cells.reduce((m, c) => Math.max(m, c.offsetHeight), 0);
+
+  // ---------- hero entry: a red tag (built now: its height sets the hero band's minimum) ----------
+  const tagEl = document.createElement("div"); tagEl.className = "tag";
+  tagEl.innerHTML = '<div class="tno">Gbr. ' + n + '</div><div class="tlb">' + esc(items[n - 1].label) + '</div><div class="tvl">' + esc(items[n - 1].value) + "</div>";
+  labels.appendChild(tagEl);
+  const tlb = tagEl.querySelector(".tlb"), tvl = tagEl.querySelector(".tvl");
+  const fitTag = (maxTW, bandH) => {
+    tagEl.style.maxWidth = maxTW + "px"; tagEl.style.paddingTop = ""; tagEl.style.paddingBottom = ""; tvl.style.whiteSpace = "";
+    let lf = 34, vf = 56;
+    const setF = () => { tlb.style.fontSize = lf + "px"; tvl.style.fontSize = vf + "px"; };
+    setF();
+    while (lf > 30 && tlb.offsetHeight > 2.3 * lf) { lf -= 2; setF(); }                    // label: at most 2 lines
+    while (vf > 40 && tvl.scrollWidth > tvl.clientWidth) { vf -= 2; setF(); }               // value keeps the 28 px right padding
+    if (tvl.scrollWidth > tvl.clientWidth) { tvl.style.whiteSpace = "normal"; }              // still too long: the value wraps
+    while (tagEl.offsetHeight > bandH && (vf > 40 || lf > 30)) { if (vf > 40) vf -= 2; else lf -= 2; setF(); }
+    if (tagEl.offsetHeight > bandH) { tagEl.style.paddingTop = "10px"; tagEl.style.paddingBottom = "12px"; }
+    return tagEl.offsetHeight;
+  };
+  const tagH0 = fitTag(326, 1e9);
+
+  // ---------- engraved title: fitted, then shrunk further only if the hero band would get too short ----------
+  const titleEl = $("title");
+  {
+    const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl" id="hl">' + esc(t.slice(at, at + hl.length)) + '<span class="bl" id="bl"></span></span>' + esc(t.slice(at + hl.length));
+  }
+  const TTOP = 398;
+  let tfs = 116;
+  for (; tfs > 72; tfs -= 2) {
+    titleEl.style.fontSize = tfs + "px";
+    const lines = Math.round(titleEl.offsetHeight / tfs);
+    if (titleEl.scrollWidth <= 842 && (lines <= 3 || tfs <= 84) && titleEl.offsetHeight <= 336) break;
+  }
+  const subEl = $("sub");
+  let showSub = !!(D.caption && D.sub && D.sub !== D.caption);
+  if (showSub) subEl.textContent = D.sub;
+  const GAP = 26, HMIN = Math.max(266, tagH0 + 114);
+  const KH0 = 124;                              // row mode: knot drawing height
+  const figH = kh => k ? (grid ? 2 * Math.max(LH, 112) + 18 : kh + 12 + LH) + GAP : 0;
+  const plan = () => {
+    titleEl.style.fontSize = tfs + "px";
+    let y = TTOP + titleEl.offsetHeight;
+    if (showSub) {                              // the sub takes the place of the ornament rule
+      subEl.style.display = ""; subEl.style.top = (y + 12) + "px";
+      return { ruleY: 0, C0: Math.round(y + 12 + subEl.offsetHeight + 22) };
+    }
+    subEl.style.display = "none";
+    const ruleY = Math.round(y + 26);
+    return { ruleY, C0: ruleY + 24 };
+  };
+  let P0 = plan();
+  while (C1 - P0.C0 - figH(KH0) < HMIN && tfs > 72) { tfs -= 2; P0 = plan(); }
+  if (C1 - P0.C0 - figH(KH0) < HMIN - 30 && showSub) { showSub = false; P0 = plan(); }   // a separate sub is dropped only when the plate cannot hold it
+  const { ruleY, C0 } = P0;
+
+  // ---------- vertical allocation: hero band, then the specimen band ----------
+  let KH = KH0;
+  let HBH = C1 - C0 - figH(KH);
+  if (k && !grid && HBH < HMIN) { const cut = Math.min(KH - 96, HMIN - HBH); KH -= cut; HBH += cut; }
+  let padTop = 0, gapX = 0;
+  if (HBH > 440) {
+    let extra = HBH - 440;
+    if (k && !grid) { const add = Math.min(30, extra * 0.4); KH += add; extra -= add; }
+    HBH = 440; padTop = extra * 0.4; gapX = extra * 0.6;
+  }
+  const HB0 = C0 + padTop, HB1 = HB0 + HBH;
+  const FB0 = HB1 + GAP + gapX;
+  const rowH = grid ? Math.max(LH, 112) : 0;
+
+  // ---------- knot geometry (unit space) ----------
+  const segHit = (a, b, c, d) => {
+    const rx = b[0] - a[0], ry = b[1] - a[1], sx = d[0] - c[0], sy = d[1] - c[1];
+    const den = rx * sy - ry * sx; if (Math.abs(den) < 1e-12) return null;
+    const qx = c[0] - a[0], qy = c[1] - a[1];
+    const u = (qx * sy - qy * sx) / den, v = (qx * ry - qy * rx) / den;
+    return u >= 0 && u < 1 && v >= 0 && v < 1 ? [u, v] : null;
+  };
+  // closed torus-knot centrelines (p,q): R = 2 + a cos(q t), angle p t
+  const torus = (p, q, a) => tt => { const R = 2 + a * Math.cos(q * tt); return [R * Math.cos(p * tt), R * Math.sin(p * tt)]; };
+  const KN = {
+    turn: { open: [-2.85, 2.85], f: tt => [tt - 3 * Math.sin(tt), -3 * Math.cos(tt)] },   // crossing turn (1 crossing)
+    over: torus(2, 3, 1.0),                    // overhand (3)
+    star5: torus(2, 5, 0.9),                   // five-lobed (5)
+    sept: torus(2, 7, 0.82),                   // seven-lobed (7)
+    turk: torus(3, 4, 0.62)                    // Turk's head (8): the hero
+  };
+  const unitCache = {};
+  // Cut the closed curve open at its outermost point and turn that point to face down:
+  // the two loose ends leave the bottom of the knot as legs.
+  function unitKnot(type) {
+    if (unitCache[type]) return unitCache[type];
+    const C0k = KN[type];
+    const box = open => { let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9; open.forEach(v => { x0 = Math.min(x0, v[0]); x1 = Math.max(x1, v[0]); y0 = Math.min(y0, v[1]); y1 = Math.max(y1, v[1]); }); return { x0, x1, y0, y1 }; };
+    if (C0k.open) {
+      const M = 600, open = [];
+      for (let j = 0; j <= M; j++) open.push(C0k.f(C0k.open[0] + (C0k.open[1] - C0k.open[0]) * j / M));
+      const d0 = nrm([open[3][0] - open[0][0], open[3][1] - open[0][1]]), d1 = nrm([open[M][0] - open[M - 3][0], open[M][1] - open[M - 3][1]]);
+      return (unitCache[type] = Object.assign({ open, d0, d1 }, box(open)));
+    }
+    const N = 1200, raw = []; for (let j = 0; j < N; j++) raw.push(C0k(j / N * TAU));
+    let mx = 0, my = 0; raw.forEach(v => { mx += v[0] / N; my += v[1] / N; });
+    let jBest = 0, dBest = -1; raw.forEach((v, j) => { const d = Math.hypot(v[0] - mx, v[1] - my); if (d > dBest + 1e-9) { dBest = d; jBest = j; } });
+    const t0 = jBest / N * TAU, tip = raw[jBest];
+    const ang = Math.atan2(tip[1] - my, tip[0] - mx), rA = Math.PI / 2 - ang, cs = Math.cos(rA), sn = Math.sin(rA);
+    const C = tt => { const v = C0k(tt + t0); const x = v[0] - mx, y = v[1] - my; return [x * cs - y * sn, x * sn + y * cs]; };
+    const pts = []; for (let j = 0; j < N; j++) pts.push(C(j / N * TAU));
+    const ts = [];
+    for (let i = 0; i < N; i++) for (let j = i + 2; j < N; j++) {
+      if (i === 0 && j === N - 1) continue;
+      const h = segHit(pts[i], pts[(i + 1) % N], pts[j], pts[(j + 1) % N]);
+      if (h) ts.push((i + h[0]) / N * TAU, (j + h[1]) / N * TAU);
+    }
+    let dmin = Math.PI; ts.forEach(v => { dmin = Math.min(dmin, v, TAU - v); });
+    const del = dmin * 0.6;
+    const M = 900; let open = [];
+    for (let j = 0; j <= M; j++) open.push(C(del + (TAU - 2 * del) * j / M));
+    if (open[0][0] > open[M][0]) open = open.reverse();         // enter on the left
+    const d0 = nrm([open[3][0] - open[0][0], open[3][1] - open[0][1]]);
+    const d1 = nrm([open[M][0] - open[M - 3][0], open[M][1] - open[M - 3][1]]);
+    return (unitCache[type] = Object.assign({ open, d0, d1 }, box(open)));
+  }
+  const cubic = (out, p0, p1, p2, p3, steps) => {
+    for (let i = 1; i <= steps; i++) { const s = i / steps, m = 1 - s;
+      out.push([m * m * m * p0[0] + 3 * m * m * s * p1[0] + 3 * m * s * s * p2[0] + s * s * s * p3[0], m * m * m * p0[1] + 3 * m * m * s * p1[1] + 3 * m * s * s * p2[1] + s * s * s * p3[1]]); }
+  };
+  const lineTo = (out, b) => { const a = out[out.length - 1]; const L = Math.hypot(b[0] - a[0], b[1] - a[1]); const st = Math.max(1, Math.ceil(L / 3)); for (let i = 1; i <= st; i++) out.push([a[0] + (b[0] - a[0]) * i / st, a[1] + (b[1] - a[1]) * i / st]); };
+  function placeBody(type, cx, bottomY, maxW, maxH) {
+    const u = unitKnot(type);
+    const bw = u.x1 - u.x0, bh = u.y1 - u.y0;
+    const s = Math.min(maxW / bw, maxH / bh);
+    const sx = Math.min(maxW / bw, s * 1.12), sy = Math.min(maxH / bh, s * 1.06);
+    const mx = (u.x0 + u.x1) / 2;
+    const body = u.open.map(v => [cx + sx * (v[0] - mx), bottomY - sy * (u.y1 - v[1])]);
+    return { body, S: body[0], E: body[body.length - 1], dS: nrm([u.d0[0] * sx, u.d0[1] * sy]), dE: nrm([u.d1[0] * sx, u.d1[1] * sy]),
+             x0: cx - sx * bw / 2, x1: cx + sx * bw / 2, top: bottomY - sy * bh };
+  }
+  // One specimen: a short length of line, left tail -> knot -> right tail, both ends whipped.
+  function figure(type, cx, yL, maxW, maxH, W, xL, xR) {
+    const lift = 1.4 * W;
+    const kb = placeBody(type, cx, yL - lift, maxW, maxH);
+    const A = [kb.S[0] - 2.1 * lift, yL], B = [kb.E[0] + 2.1 * lift, yL];
+    const P = [[Math.min(xL, A[0] - 6), yL]];
+    lineTo(P, A);
+    cubic(P, A, [A[0] + lift * 1.3, yL], [kb.S[0] - kb.dS[0] * lift * 1.1, kb.S[1] - kb.dS[1] * lift * 1.1], kb.S, 60);
+    for (let j = 1; j < kb.body.length; j++) P.push(kb.body[j]);
+    cubic(P, kb.E, [kb.E[0] + kb.dE[0] * lift * 1.1, kb.E[1] + kb.dE[1] * lift * 1.1], [B[0] - lift * 1.3, yL], B, 60);
+    lineTo(P, [Math.max(xR, B[0] + 6), yL]);
+    return { P, A, B, kb };
+  }
+
+  // ---------- rope drawing (engraved) ----------
+  const Ld = nrm([-0.55, -0.84]);
+  function ropeSvg(P, W) {
+    const STEP = 2;
+    const Q = [P[0]];
+    { let carry = 0;
+      for (let i = 1; i < P.length; i++) {
+        let a = P[i - 1]; const b = P[i]; let L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        while (carry + L >= STEP) { const f = (STEP - carry) / L; const q = [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]; Q.push(q); a = q; L = Math.hypot(b[0] - a[0], b[1] - a[1]); carry = 0; }
+        carry += L;
+      } }
+    const NQ = Q.length;
+    const T = Q.map((p, i) => nrm([Q[Math.min(NQ - 1, i + 2)][0] - Q[Math.max(0, i - 2)][0], Q[Math.min(NQ - 1, i + 2)][1] - Q[Math.max(0, i - 2)][1]]));
+    const Nn = T.map(v => [-v[1], v[0]]);
+    // self-crossings (grid hashed)
+    const CELL = 24, hash = new Map();
+    for (let i = 0; i < NQ - 1; i++) {
+      const gx0 = Math.floor(Math.min(Q[i][0], Q[i + 1][0]) / CELL), gx1 = Math.floor(Math.max(Q[i][0], Q[i + 1][0]) / CELL);
+      const gy0 = Math.floor(Math.min(Q[i][1], Q[i + 1][1]) / CELL), gy1 = Math.floor(Math.max(Q[i][1], Q[i + 1][1]) / CELL);
+      for (let gx = gx0; gx <= gx1; gx++) for (let gy = gy0; gy <= gy1; gy++) { const key = gx + "," + gy; (hash.get(key) || hash.set(key, []).get(key)).push(i); }
+    }
+    const crossings = [], seen = new Set();
+    for (const list of hash.values()) for (let a = 0; a < list.length; a++) for (let b = a + 1; b < list.length; b++) {
+      let i = list[a], j = list[b]; if (i > j) [i, j] = [j, i];
+      if (j - i < 4) continue;
+      const key = i + ":" + j; if (seen.has(key)) continue; seen.add(key);
+      const h = segHit(Q[i], Q[i + 1], Q[j], Q[j + 1]);
+      if (h) crossings.push({ s1: (i + h[0]) * STEP, s2: (j + h[1]) * STEP, i, j });
+    }
+    // alternate over / under along the line
+    const visits = [];
+    crossings.forEach((c, ci) => { visits.push({ s: c.s1, ci, i: c.i, other: c.j }); visits.push({ s: c.s2, ci, i: c.j, other: c.i }); });
+    visits.sort((a, b) => a.s - b.s);
+    visits.forEach((v, j) => { v.over = j % 2 === 0; });
+    crossings.forEach((c, ci) => { const vs = visits.filter(v => v.ci === ci); if (vs[0].over === vs[1].over) { vs[0].over = true; vs[1].over = false; } });
+    const unders = visits.filter(v => !v.over).map(v => v.s);
+    const patches = [], halos = [];
+    visits.filter(v => v.over).forEach(v => {
+      const t1 = T[v.i], t2 = T[v.other];
+      const sin = Math.max(0.3, Math.abs(t1[0] * t2[1] - t1[1] * t2[0]));
+      const reach = (0.5 * W + 7) / sin;
+      const pw = Math.min(3.2 * W, Math.max(1.25 * W, reach + 8));
+      let lo = v.s - pw, hi = v.s + pw;
+      unders.forEach(u => { if (u < v.s && u > lo - 0.85 * W) lo = Math.max(lo, u + 0.85 * W); if (u > v.s && u < hi + 0.85 * W) hi = Math.min(hi, u - 0.85 * W); });
+      const i0 = Math.max(0, Math.floor(lo / STEP)), i1 = Math.min(NQ - 1, Math.ceil(hi / STEP));
+      patches.push([i0, i1]);
+      halos.push([Math.max(i0, Math.floor((v.s - reach) / STEP)), Math.min(i1, Math.ceil((v.s + reach) / STEP))]);
+    });
+    patches.sort((a, b) => a[0] - b[0]);
+    const merged = [];
+    patches.forEach(p => { const m = merged[merged.length - 1]; if (m && p[0] <= m[1] + 2) m[1] = Math.max(m[1], p[1]); else merged.push(p.slice()); });
+
+    const off = (i, kk) => { const nn = Nn[i], d = (nn[0] * Ld[0] + nn[1] * Ld[1]) * kk; return [nn[0] * d, nn[1] * d]; };
+    const poly = (i0, i1, kk) => { let d = ""; for (let i = i0; i <= i1; i++) { const o = kk ? off(i, kk) : [0, 0]; d += (i === i0 ? "M" : "L") + f1(Q[i][0] + o[0]) + "," + f1(Q[i][1] + o[1]); } return d; };
+    const LAY = 0.62 * W;
+    const lays = (i0, i1) => {
+      let d = ""; const s0 = i0 * STEP, s1 = i1 * STEP;
+      for (let j = Math.ceil((s0 + 2) / LAY); j * LAY <= s1 - 2; j++) {
+        const i = Math.round(j * LAY / STEP); if (i < 1 || i > NQ - 2) continue;
+        const p = Q[i], tt = T[i], nn = Nn[i], a = 0.44 * W, b = 0.3 * W;
+        d += "M" + f1(p[0] + nn[0] * a - tt[0] * b) + "," + f1(p[1] + nn[1] * a - tt[1] * b) + "Q" + f1(p[0] + tt[0] * 0.14 * W) + "," + f1(p[1] + tt[1] * 0.14 * W) + " " + f1(p[0] - nn[0] * a + tt[0] * b) + "," + f1(p[1] - nn[1] * a + tt[1] * b);
+      }
+      return d;
+    };
+    const layers = (i0, i1) => {
+      const c = poly(i0, i1, 0);
+      return '<path d="' + c + '" stroke="' + INK + '" stroke-width="' + (W + 4) + '"/>' +
+        '<path d="' + c + '" stroke="' + ROPE + '" stroke-width="' + W + '"/>' +
+        '<path d="' + poly(i0, i1, -0.27 * W) + '" stroke="url(#hatchR)" stroke-width="' + f1(W * 0.42) + '"/>' +
+        '<path d="' + poly(i0, i1, 0.2 * W) + '" stroke="#EDBB82" stroke-opacity="0.85" stroke-width="' + f1(W * 0.22) + '"/>' +
+        '<path d="' + lays(i0, i1) + '" stroke="#5E3417" stroke-opacity="0.66" stroke-width="' + f1(Math.max(1.6, W * 0.11)) + '" stroke-linecap="round"/>';
+    };
+    let s = '<g fill="none" stroke-linejoin="round" stroke-linecap="butt">';
+    s += '<path d="' + poly(0, NQ - 1, 0) + '" transform="translate(5 7)" stroke="url(#hatch)" stroke-width="' + (W + 2) + '"/>';
+    s += layers(0, NQ - 1);
+    merged.forEach(([i0, i1]) => {
+      halos.filter(h => h[0] >= i0 && h[1] <= i1).forEach(([a, b]) => {
+        s += '<path d="' + poly(a, b, 0) + '" stroke="' + PAPER + '" stroke-width="' + (W + 10) + '"/>';
+        s += '<path d="' + poly(a, b, 0) + '" transform="translate(3 5)" stroke="url(#hatch)" stroke-width="' + (W + 2) + '"/>';
+      });
+      s += layers(i0, i1);
+    });
+    const whip = fromEnd => {
+      let d = "";
+      for (let ss = 0.45 * W; ss <= 1.75 * W; ss += Math.max(3, W * 0.2)) {
+        const i = fromEnd ? NQ - 1 - Math.round(ss / STEP) : Math.round(ss / STEP);
+        const p = Q[i], nn = Nn[i], h = W / 2 + 2;
+        d += "M" + f1(p[0] + nn[0] * h) + "," + f1(p[1] + nn[1] * h) + "L" + f1(p[0] - nn[0] * h) + "," + f1(p[1] - nn[1] * h);
+      }
+      const i = fromEnd ? NQ - 1 : 0, p = Q[i], nn = Nn[i], h = W / 2 + 2.5;
+      d += "M" + f1(p[0] + nn[0] * h) + "," + f1(p[1] + nn[1] * h) + "L" + f1(p[0] - nn[0] * h) + "," + f1(p[1] - nn[1] * h);
+      return '<path d="' + d + '" stroke="#2A1D12" stroke-width="' + f1(Math.max(2, W * 0.12)) + '"/>';
+    };
+    s += whip(false) + whip(true) + "</g>";
+    return s;
+  }
+
+  let art = '<defs>' +
+    '<pattern id="hatch" patternUnits="userSpaceOnUse" width="4.6" height="4.6" patternTransform="rotate(-38)"><rect width="1.4" height="4.6" fill="#3A2A18" fill-opacity="0.42"/></pattern>' +
+    '<pattern id="hatchR" patternUnits="userSpaceOnUse" width="3.3" height="3.3" patternTransform="rotate(52)"><rect width="1.15" height="3.3" fill="#5E3417" fill-opacity="0.62"/></pattern>' +
+    '</defs>';
+
+  // plate frame: engraved double rule over the whole safe area + heading rule
+  art += '<rect x="' + PX0 + '" y="' + PT + '" width="' + (PX1 - PX0) + '" height="' + (PB - PT) + '" fill="none" stroke="' + INK + '" stroke-width="3"/>';
+  art += '<rect x="' + (PX0 + 10) + '" y="' + (PT + 10) + '" width="' + (PX1 - PX0 - 20) + '" height="' + (PB - PT - 20) + '" fill="none" stroke="' + INK + '" stroke-width="1.2"/>';
+  if (ruleY) art += '<path d="M330,' + (ruleY - 3) + 'H522M558,' + (ruleY - 3) + 'H750M330,' + (ruleY + 3) + 'H522M558,' + (ruleY + 3) + 'H750" stroke="' + INK + '" stroke-width="1.2" fill="none"/>' +
+         '<path d="M540,' + (ruleY - 9) + 'L549,' + ruleY + 'L540,' + (ruleY + 9) + 'L531,' + ruleY + 'Z" fill="' + INK + '"/>';
+
+  // ---------- hero figure: the knot drawn tight, pulled from both ends ----------
+  const Wh = clamp(Math.round(HBH * 0.066), 18, 24);
+  const yL = Math.round(HB1 - Wh / 2 - 60);         // line level of the hero's standing parts
+  const heroMaxH = Math.max(110, yL - 1.4 * Wh - HB0 - 4);
+  // widest knot that still leaves the left pull arrow >= 96 px and the tag >= 320 px
+  let heroW = 360, heroCx = 0, bodyW = 0;
+  for (; heroW >= 220; heroW -= 10) {
+    const pr = placeBody("turk", 0, 0, heroW, heroMaxH);
+    bodyW = pr.x1 - pr.x0;
+    heroCx = Math.round(Math.max(168 + bodyW / 2, 146 + 96 + 8 - pr.S[0] + 2.1 * 1.4 * Wh));
+    if (heroCx + bodyW / 2 + 46 <= 580) break;
+  }
+  const TX = Math.round(clamp(heroCx + bodyW / 2 + 46, 540, 580));   // tag left edge, right of the knot
+  const hero = figure("turk", heroCx, yL, heroW, heroMaxH, Wh, 134, 946);
+  art += ropeSvg(hero.P, Wh);
+
+  // pull arrows hugging the standing parts, each with an engraved TARIK
+  const yA = yL + Wh / 2 + 11;
+  const arrow = (x0, x1) => {
+    const d = Math.sign(x1 - x0), hl2 = 22, hw = 8;
+    return '<path d="M' + f1(x0) + "," + f1(yA) + "H" + f1(x1 - d * hl2 * 0.5) + '" stroke="' + NAVY + '" stroke-width="3.5" fill="none"/>' +
+      '<path d="M' + f1(x1) + "," + f1(yA) + "L" + f1(x1 - d * hl2) + "," + f1(yA - hw) + "L" + f1(x1 - d * hl2 * 0.72) + "," + f1(yA) + "L" + f1(x1 - d * hl2) + "," + f1(yA + hw) + 'Z" fill="' + NAVY + '"/>';
+  };
+  const lA0 = hero.A[0] - 8, lA1 = Math.max(146, lA0 - 120);
+  const rA0 = hero.B[0] + 8, rA1 = Math.min(TX + 40, rA0 + 120);
+  art += arrow(lA0, lA1) + arrow(rA0, rA1);
+  const pullL = document.createElement("div"); pullL.className = "pull"; pullL.textContent = "TARIK";
+  const pullR = pullL.cloneNode(true);
+  labels.appendChild(pullL); labels.appendChild(pullR);
+  pullL.style.left = Math.round(Math.max(130, (lA0 + lA1) / 2 - 60)) + "px"; pullL.style.top = Math.round(yA + 10) + "px";
+  pullR.style.left = Math.round((rA0 + rA1) / 2 - 60) + "px"; pullR.style.top = Math.round(yA + 10) + "px";
+
+  // ---------- specimens ----------
+  if (k) {
+    const Wf = grid ? 12 : 15;
+    cells.forEach((el, i) => {
+      const type = LADDER[Math.min(LADDER.length - 1, level[i])];
+      if (grid) {
+        const r = Math.floor(i / 2), c = i % 2;
+        const x0 = AX0 + c * cellW, rowTop = FB0 + r * (rowH + 18);
+        const kh = Math.min(rowH, 120);
+        const yLf = Math.round(rowTop + (rowH + kh) / 2 - Wf / 2 - 4);
+        const f = figure(type, x0 + 4 + KWg / 2, yLf, KWg - 4 * 1.4 * Wf - 4, kh - Wf / 2 - 1.4 * Wf - 8, Wf, x0 + 4, x0 + 4 + KWg);
+        art += ropeSvg(f.P, Wf);
+        el.style.left = Math.round(x0 + KWg + 16) + "px";
+        el.style.top = Math.round(rowTop + (rowH - el.offsetHeight) / 2) + "px";
+      } else {
+        const cx = AX0 + cellW * (i + 0.5);
+        const dw = Math.min(cellW - GUT, 270);
+        const yLf = Math.round(FB0 + KH - Wf / 2 - 4);
+        const f = figure(type, cx, yLf, dw - 4 * 1.4 * Wf - 12, KH - Wf / 2 - 1.4 * Wf - 10, Wf, cx - dw / 2, cx + dw / 2);
+        art += ropeSvg(f.P, Wf);
+        el.style.left = Math.round(cx - el.offsetWidth / 2) + "px";
+        el.style.top = Math.round(FB0 + KH + 12) + "px";
+      }
+    });
+  }
+  svg.innerHTML = art;
+
+  // ---------- hero entry: the red tag tied to the standing part ----------
+  {
+    const el = tagEl;
+    el.style.left = TX + "px";
+    const bandTop = HB0 + 2;
+    let bandBot = yL - Wh / 2 - 30;
+    fitTag(900 - TX, bandBot - bandTop);
+    if (el.offsetHeight > bandBot - bandTop) bandBot = yA + 44;   // still too tall: the tag lies across the line
+    const th = el.offsetHeight;
+    const tTop = Math.round(bandTop + Math.max(0, (bandBot - bandTop - th) * 0.5));
+    el.style.top = tTop + "px"; el.style.transform = "rotate(-2.5deg)";
+    const hx = TX + 34, hy = tTop + th / 2 - 2;
+    const ax = TX + 70, ay = yL;
+    if (hy < ay - Wh / 2 - 20) svg.insertAdjacentHTML("beforeend",
+      '<path d="M' + hx + "," + hy + "C" + (hx - 40) + "," + (hy + 40) + " " + (ax - 20) + "," + (ay - 60) + " " + ax + "," + (ay - Wh / 2 - 1) + '" fill="none" stroke="#2A1D12" stroke-width="3"/>' +
+      '<path d="M' + (ax - 7) + "," + (ay - Wh / 2 - 3) + "L" + (ax - 3) + "," + (ay + Wh / 2 + 3) + "M" + (ax + 3) + "," + (ay - Wh / 2 - 3) + "L" + (ax + 7) + "," + (ay + Wh / 2 + 3) + '" stroke="#2A1D12" stroke-width="3" fill="none"/>');
+  }
+
+  // ---------- a short whipped line laid under a word (title hl, active caption word) ----------
+  const ropeUnder = (spanEl, blEl, fs, hw, dy) => {
+    if (!spanEl || !blEl) return;
+    const rects = Array.from(spanEl.getClientRects());
+    const lastR = rects[rects.length - 1], baseOff = blEl.getBoundingClientRect().top - lastR.top;
+    let d = "", wd = "";
+    rects.forEach(rc => {
+      if (rc.width < 4) return;
+      const y = rc.top + baseOff + fs * dy + hw / 2, x0 = rc.left + 2, x1 = rc.right - 2;
+      d += "M" + f1(x0) + "," + f1(y + 1) + "C" + f1(x0 + (x1 - x0) * 0.35) + "," + f1(y + 3) + " " + f1(x0 + (x1 - x0) * 0.68) + "," + f1(y - 2) + " " + f1(x1) + "," + f1(y);
+      [x0 + hw * 0.6, x0 + hw * 1.1, x1 - hw * 1.1, x1 - hw * 0.6].forEach(x => { wd += "M" + f1(x) + "," + f1(y - hw / 2 - 1.5) + "v" + f1(hw + 3); });
+    });
+    svg.insertAdjacentHTML("beforeend",
+      '<g fill="none" stroke-linecap="butt">' +
+      '<path d="' + d + '" stroke="' + INK + '" stroke-width="' + f1(hw + 3) + '"/>' +
+      '<path d="' + d + '" stroke="' + ROPE + '" stroke-width="' + f1(hw) + '"/>' +
+      '<path d="' + d + '" stroke="#5E3417" stroke-opacity="0.6" stroke-width="' + f1(hw) + '" stroke-dasharray="2.2 ' + f1(Math.max(3.4, hw * 0.55)) + '"/>' +
+      '<path d="' + wd + '" stroke="#2A1D12" stroke-width="' + f1(Math.max(1.6, hw * 0.24)) + '"/></g>');
+  };
+  ropeUnder($("hl"), $("bl"), tfs, Math.max(9, Math.round(tfs * 0.09)), 0.07);
+  ropeUnder($("on"), $("onbl"), capFs, 6, 0.12);
+  }
+</script>
+</body>
+</html>

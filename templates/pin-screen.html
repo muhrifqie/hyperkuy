@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Pin Screen</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@500;600;700&family=Geist+Mono:wght@500;600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Pin Screen (pin-screen): a tall white pinscreen board fills the frame, lit hard from the upper-left.
+    Pins sit on one 16 px grid. Most are flush (tiny bone dots); around the middle they are pushed out to
+    different depths and their raking shadows draw an eye. The depth comes from one analytic function,
+    so the pins, the loupe numbers and the swatches all read the same "image".
+    - Title: printed in graphite ink on the flush top band; the pin grid is punched through the letters
+      (CSS mask). The hl word is raised: its pins are pushed out and cast short shadows (ink stays as fallback).
+    - Brass maker's plate (kicker + date) screwed to the top of the board.
+    - Brass loupe on the iris: under the glass each 4x4 block of pins becomes its 0-255 grey value.
+      The pupil block reads 0, the catchlight block 255.
+    - Items: a step wedge -- pinned swatch cards, grey square (dark -> light in reading order) + label/value.
+    - Caption: a paper strip pinned at both ends to the lower margin; active word = grey cell + its value.
+    Projection: cabinet oblique, receding depth draws up-right (pushed-out heads lean down-left).
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #161618; }
+  body { position: relative; color: #1A1A1C; font-family: "Geist", sans-serif; }
+  svg.layer { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  #over { pointer-events: none; }
+
+  /* engraved brass maker's plate */
+  .platewrap { position: absolute; left: 90px; right: 90px; top: 287px; display: flex; justify-content: center; }
+  .plate { position: relative; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; column-gap: 20px;
+           padding: 14px 60px 11px; border-radius: 5px; background-color: #C9A45E;
+           background-image: linear-gradient(180deg, rgba(255,246,220,0.50) 0, rgba(255,246,220,0) 40%, rgba(70,48,10,0) 60%, rgba(70,48,10,0.20) 100%),
+                             linear-gradient(90deg, #D8BB7B 0, #C9A45E 55%, #BC944D 100%);
+           box-shadow: inset 0 0 0 1.5px rgba(84,60,18,0.6), inset 0 2.5px 0 rgba(255,244,214,0.55), 7px 5px 8px rgba(18,18,20,0.32);
+           font: 600 28px "Geist Mono", monospace; letter-spacing: 0.08em; line-height: 1.15; text-transform: uppercase; color: #2A200C;
+           text-shadow: 0 1.5px 0 rgba(255,238,196,0.55); }
+  .plate span { white-space: nowrap; }
+  .plate i { width: 8px; height: 8px; border-radius: 50%; background: #3B2D12; box-shadow: 0 1.5px 0 rgba(255,238,196,0.55); }
+  .plate::before, .plate::after { content: ""; position: absolute; top: 50%; width: 22px; height: 22px; margin-top: -11px; border-radius: 50%;
+           background: linear-gradient(32deg, transparent 43%, #4A3712 43% 57%, transparent 57%),
+                       radial-gradient(circle at 38% 32%, #F6E7BF 0 2px, #CFAE68 7px, #8A6A2E 11px);
+           box-shadow: 1.5px 1.5px 0 rgba(40,28,8,0.35), inset 0 0 0 1px rgba(70,50,14,0.5); }
+  .plate::before { left: 20px; }
+  .plate::after { right: 20px; }
+
+  /* title printed on the flush band; the pin grid is punched through the ink */
+  .title { position: absolute; left: 90px; width: 900px; font-family: "Geist", sans-serif; font-weight: 600;
+           letter-spacing: -0.025em; line-height: 1.03; color: #1A1A1C;
+           -webkit-mask-image: radial-gradient(circle at center, transparent 0 2.1px, #000 2.8px);
+           mask-image: radial-gradient(circle at center, transparent 0 2.1px, #000 2.8px);
+           -webkit-mask-size: 16px 16px; mask-size: 16px 16px; }
+  .title .hl { color: #0C0C0E; font-weight: 700;
+               text-shadow: 2px 1.1px 0 rgba(26,26,28,0.30), 4px 2.1px 0 rgba(26,26,28,0.26), 6px 3.2px 0 rgba(26,26,28,0.22),
+                            8px 4.3px 0 rgba(26,26,28,0.18), 10px 5.3px 0 rgba(26,26,28,0.14), 12px 6.4px 1px rgba(26,26,28,0.10); }
+
+  /* step-wedge swatch cards */
+  .card { position: absolute; display: flex; background: #F7F6F2; border-radius: 3px;
+          box-shadow: 7px 5px 9px rgba(18,18,20,0.30), 1px 1px 0 rgba(18,18,20,0.14); }
+  .card .sw { position: relative; flex: none; height: 100%; border-radius: 3px 0 0 3px; box-shadow: inset 0 0 0 1px rgba(26,26,28,0.14); }
+  .card .sw b { position: absolute; left: 10px; bottom: 6px; font: 600 26px "Geist Mono", monospace; line-height: 1.15; letter-spacing: -0.02em; }
+  .card .tx { flex: 1; min-width: 0; padding: 0 16px 0 18px; display: flex; flex-direction: column; justify-content: center; }
+  .card .lb { font: 500 32px "Geist", sans-serif; line-height: 1.12; color: #3A3935; white-space: nowrap; }
+  .card .vl { font: 700 44px "Geist Mono", monospace; line-height: 1.1; color: #141416; letter-spacing: -0.02em; white-space: nowrap; }
+
+  /* paper strip pinned at both ends: optional sub + karaoke caption */
+  .strip { position: absolute; left: 66px; width: 858px; padding: 14px 24px 15px; background: #F7F6F2; border-radius: 2px;
+           box-shadow: 7px 5px 9px rgba(18,18,20,0.30), 1px 1px 0 rgba(18,18,20,0.12); }
+  .sub2 { width: 810px; font: 500 40px "Geist", sans-serif; line-height: 1.2; color: #2E2D2A; margin-bottom: 8px; }
+  .cap { width: 810px; font-family: "Geist", sans-serif; font-weight: 500; line-height: 1.28; color: #6B6761; }
+  .cap .w { white-space: nowrap; }
+  .cap .w.said { color: #1A1A1C; }
+  .cap .w.on { color: #FFFFFF; background: rgb(64,64,64); border-radius: 3px; padding: 0 8px 0 10px; margin: 0 -2px;
+               -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  .cap .w.on .sv { font: 600 26px "Geist Mono", monospace; color: #DAD7D0; margin-left: 6px; vertical-align: 0.62em; line-height: 0; letter-spacing: 0; }
+
+  .src { width: 810px; margin-top: 10px; padding-top: 7px; border-top: 1.5px solid rgba(26,26,28,0.14);
+         font: 500 26px "Geist Mono", monospace; line-height: 1.3; color: #4A4843; letter-spacing: 0.01em; }
+
+  /* numbers under the loupe glass */
+  .num { position: absolute; display: flex; align-items: center; justify-content: center;
+         font: 600 30px "Geist Mono", monospace; letter-spacing: -0.02em; }
+</style>
+</head>
+<body>
+<svg id="stage" class="layer" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+<div class="platewrap" id="platewrap"><div class="plate" id="plate"></div></div>
+<div class="title" id="title"></div>
+<div id="cards"></div>
+<div class="strip" id="strip"><div class="sub2" id="sub2"></div><div class="cap" id="cap" data-slot="caption"></div><div class="src" id="src"></div></div>
+<div id="nums"></div>
+<svg id="over" class="layer" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+<script>
+  // Built-in sample so the file opens on its own.
+  const D = window.D || { series_id: "how-ai-works", series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const FONTS = ['600 100px "Geist"', '700 100px "Geist"', '500 32px "Geist"', '500 44px "Geist"', '700 44px "Geist Mono"', '600 30px "Geist Mono"', '600 28px "Geist Mono"', '500 26px "Geist Mono"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+  const NS = "http://www.w3.org/2000/svg";
+  const stage = $("stage"), over = $("over");
+  const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); (parent || stage).appendChild(e); return e; };
+  const f1 = v => v.toFixed(1);
+
+  // ---------- fixed geometry ----------
+  const BX0 = 62, BX1 = 1018, BY0 = 230, BY1 = 1700, BW = BX1 - BX0, BH = BY1 - BY0;   // board face
+  let P = 16, CELL = 64;                             // pin pitch; 4x4 pins = one number cell under the loupe (P 15 only when very tight)
+  const KX = 0.30, KY = -0.20;                       // receding depth -> screen (up-right)
+  const LA = 28 * Math.PI / 180, LC = Math.cos(LA), LS = Math.sin(LA), SHL = 1.38;   // light from the upper-left
+  const RIM = 20, ZL = 44, SF = 1;
+  let R, RO;                                         // glass radius: 5x5 numbers minus the corners (set per fit level)
+
+  // ---------- brass maker's plate: series · ep  •  date ----------
+  const ep = String(D.ep || "").trim(), ser = String(D.series || D.kicker || "").trim(), date = String(D.date || "").trim();
+  const plate = $("plate");
+  plate.innerHTML = `<span>${esc(ser)}${ep ? " · " + esc(ep) : ""}</span>` + (date ? `<i></i><span>${esc(date)}</span>` : "");
+  for (const [fs, ls] of [[28, 0.08], [27, 0.06], [26, 0.04]]) {
+    plate.style.fontSize = fs + "px"; plate.style.letterSpacing = ls + "em";
+    if (plate.offsetHeight <= 64) break;             // one line
+  }
+  const plateBottom = 287 + plate.offsetHeight;
+
+  // ---------- title (hl words wrapped so their glyphs can be found later) ----------
+  const t = String(D.title || ""), hl = String(D.hl || "").trim();
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  const wrapHl = s => s.split(/(\s+)/).map(p => !p || /^\s+$/.test(p) ? p : `<span class="hw">${esc(p)}</span>`).join("");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + `<span class="hl">${wrapHl(t.slice(at, at + hl.length))}</span>` + esc(t.slice(at + hl.length));
+  let titleTop;
+  const fitTitle = (maxFs, gap, lh) => {
+    titleTop = plateBottom + gap; titleEl.style.top = titleTop + "px"; titleEl.style.lineHeight = lh;
+    for (let fs = maxFs; fs >= 72; fs -= 2) {
+      titleEl.style.fontSize = fs + "px";
+      if (titleEl.scrollWidth <= 900 && titleEl.offsetHeight <= (fs >= 96 ? 2 : 3) * fs * lh + 6) return;
+    }
+  };
+
+  // ---------- caption strip (sub only when a separate caption is supplied) ----------
+  const capText = String(D.caption || D.sub || "").trim();
+  const showSub = !!(D.caption && D.sub && String(D.caption).trim() !== String(D.sub).trim());
+  const strip = $("strip"), capEl = $("cap"), sub2 = $("sub2"), srcEl = $("src");
+  const words = capText.split(/\s+/).filter(Boolean);
+  const strip1 = w => w.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+  const lw = words.map(strip1), hw = hl.split(/\s+/).map(strip1).filter(Boolean);
+  let a0 = -1, a1 = -1;                              // active = the hl phrase if it sits in the caption, else the first word
+  if (hw.length) for (let i = 0; i + hw.length <= lw.length && a0 < 0; i++) if (hw.every((h, k) => lw[i + k] === h)) { a0 = i; a1 = i + hw.length - 1; }
+  if (a0 < 0) { a0 = 0; a1 = 0; }
+  const ACTIVE_V = 64;                               // the active word's cell is grey 64 and says so
+  const phrase = words.slice(a0, a1 + 1).join(" ");
+  capEl.innerHTML = [...words.slice(0, a0).map(w => `<span class="w said">${esc(w)}</span>`),
+                     phrase ? `<span class="w on">${esc(phrase)}<span class="sv">${ACTIVE_V}</span></span>` : "",
+                     ...words.slice(a1 + 1).map(w => `<span class="w">${esc(w)}</span>`)].join(" ");
+  if (showSub) sub2.textContent = D.sub; else sub2.remove();
+  if (D.source) srcEl.textContent = "Sumber: " + D.source; else srcEl.remove();
+  const fitStrip = (subFs, capMax) => {
+    if (showSub) sub2.style.fontSize = subFs + "px";
+    for (let fs = capMax; fs >= 40; fs--) { capEl.style.fontSize = fs + "px"; if (capEl.offsetHeight <= fs * 1.28 * 2 + 4) break; }
+  };
+
+  // ---------- step-wedge swatch cards ----------
+  const items = (D.items || []).slice(0, 5), n = items.length;
+  const CW = 399, CGX = 12, colX = [90, 90 + CW + CGX];          // two columns, x 90-900
+  const tones = items.map((_, i) => n > 1 ? Math.round(20 + 215 * i / (n - 1)) : 20);
+  const lum = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  const cr = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+  const inkFor = v => cr(lum(v), lum(255)) >= cr(lum(v), lum(14)) ? "#FFFFFF" : "#0E0E10";
+  $("cards").innerHTML = items.map((it, i) => `<div class="card" id="cd${i}"><div class="sw" style="background:rgb(${tones[i]},${tones[i]},${tones[i]})"><b style="color:${inkFor(tones[i])}">${tones[i]}</b></div><div class="tx"><div class="lb">${esc(it.label)}</div><div class="vl">${esc(it.value)}</div></div></div>`).join("");
+  const cardEls = items.map((_, i) => $("cd" + i));
+  const fitCards = (S, gap, vMax, pad) => {
+    const room = CW - S - 34;
+    let vfs = vMax;
+    cardEls.forEach(c => { c.style.width = CW + "px"; c.querySelector(".sw").style.width = S + "px";
+      const v = c.querySelector(".vl"); for (let fs = vMax; fs >= 34; fs--) { v.style.fontSize = fs + "px"; if (v.scrollWidth <= room) break; } vfs = Math.min(vfs, parseFloat(v.style.fontSize)); });
+    let th = 0;
+    cardEls.forEach(c => {
+      c.querySelector(".vl").style.fontSize = vfs + "px";
+      const l = c.querySelector(".lb"); l.style.whiteSpace = "nowrap"; l.style.width = "auto";
+      for (let fs = 32; fs >= 30; fs--) { l.style.fontSize = fs + "px"; if (l.scrollWidth <= room) break; }
+      if (l.scrollWidth > room) { l.style.whiteSpace = "normal"; l.style.width = room + "px"; }
+      th = Math.max(th, l.offsetHeight + c.querySelector(".vl").offsetHeight);
+    });
+    const CH = Math.max(S, Math.ceil(th) + pad), rows = Math.ceil(n / 2);
+    cardEls.forEach(c => c.style.height = CH + "px");
+    return { CH, gap, h: n ? rows * CH + (rows - 1) * gap : 0 };
+  };
+
+  // ---------- fit: title on top, strip + source anchored at the bottom, eye + cards in between ----------
+  // each level gives up a little: card size, value size, title size, gaps; the last one also uses a 15 px pin pitch (smaller loupe)
+  const LEVELS = [
+    { S: 96, g: 12, v: 44, pad: 16, t: 116, tg: 26, lh: 1.03, sub: 40, cap: 46, gap: [18, 20, 18], P: 16 },
+    { S: 88, g: 12, v: 44, pad: 14, t: 108, tg: 24, lh: 1.03, sub: 40, cap: 46, gap: [16, 18, 16], P: 16 },
+    { S: 80, g: 10, v: 40, pad: 12, t: 100, tg: 22, lh: 1.02, sub: 38, cap: 44, gap: [14, 14, 14], P: 16 },
+    { S: 76, g: 10, v: 38, pad: 10, t: 88, tg: 20, lh: 1.0, sub: 36, cap: 42, gap: [10, 12, 12], P: 16 },
+    { S: 76, g: 8, v: 36, pad: 10, t: 80, tg: 18, lh: 1.0, sub: 36, cap: 40, gap: [8, 10, 10], P: 16 },
+    { S: 76, g: 8, v: 36, pad: 10, t: 74, tg: 18, lh: 0.98, sub: 36, cap: 40, gap: [8, 8, 10], P: 15 }];
+  let titleBottom, stripTop, C, midTop, midBottom, spare, GAP;
+  for (const lv of LEVELS) {
+    P = lv.P; CELL = 4 * P; R = Math.ceil(Math.hypot(2.5 * CELL, 1.5 * CELL)) + 4; RO = R + RIM; GAP = lv.gap;
+    fitTitle(lv.t, lv.tg, lv.lh); fitStrip(lv.sub, lv.cap); C = fitCards(lv.S, lv.g, lv.v, lv.pad);
+    titleBottom = titleTop + titleEl.offsetHeight;
+    stripTop = 1628 - strip.offsetHeight;             // last text line ends at y <= 1613
+    midTop = titleBottom + GAP[0]; midBottom = stripTop - GAP[2];
+    spare = (midBottom - midTop) - (2 * RO + (n ? GAP[1] + C.h : 0));
+    if (spare >= 0) break;
+  }
+  const sp = Math.max(0, spare);
+  document.body.dataset.fit = JSON.stringify({ spare: Math.round(spare), titleFs: titleEl.style.fontSize, titleH: titleEl.offsetHeight, CH: C.CH, cardsH: C.h, stripH: strip.offsetHeight, titleBottom, stripTop,
+    labels: cardEls.map(c => [c.querySelector(".lb").scrollWidth, c.querySelector(".lb").offsetHeight]) });
+  // loupe always clear of the title; when nothing fits, the cards may tuck under the loupe's lower rim rather than hit the strip
+  const IY = Math.round(Math.max(midTop + sp * 0.36 + RO, titleBottom + 8 + RO));
+  const LX = 548, LY = IY;                           // loupe centre
+  const IX = LX - CELL;                              // pupil block = the cell left of the loupe centre
+  const EX = LX - 8 * SF, EY = IY - 8 * SF;          // eye centre (the eye looks slightly left)
+  const HW = 400 * SF, HU = 150 * SF, HLo = 122 * SF, RI = 138 * SF, RP = 52 * SF;
+  const CLX = IX - CELL, CLY = IY - CELL, CLR = 2.35 * P;   // catchlight = one whole 4x4 block up-left of the pupil
+  const cardsTop = Math.round(Math.min(IY + RO + GAP[1] + sp * 0.34, midBottom - C.h));
+  strip.style.top = stripTop + "px";
+  const rowsY = [];
+  cardEls.forEach((c, i) => { const row = Math.floor(i / 2), y = cardsTop + row * (C.CH + C.gap); rowsY[i] = y;
+    c.style.left = colX[i % 2] + "px"; c.style.top = y + "px"; });
+
+  // pin grid phase: the pupil block centre sits between pins, so every loupe cell is exactly 4x4 pins
+  const x0 = IX + P / 2 - P * Math.floor((IX + P / 2 - (BX0 + 9)) / P);
+  const y0 = IY + P / 2 - P * Math.floor((IY + P / 2 - (BY0 + 9)) / P);
+  const mod = (a, m) => ((a % m) + m) % m;
+  titleEl.style.webkitMaskSize = titleEl.style.maskSize = `${P}px ${P}px`;
+  titleEl.style.webkitMaskPosition = titleEl.style.maskPosition = `${mod(x0 - 90 - P / 2, P)}px ${mod(y0 - titleTop - P / 2, P)}px`;
+  const flushEnd = titleBottom + 10;                 // pins above this line stay flush (the printed band)
+
+  // ---------- the image: one analytic depth field (0 = flush/light, 1 = pushed out/dark) ----------
+  function lids(x) {
+    const u = (x - EX) / HW; if (Math.abs(u) >= 1) return null;
+    const s = 1 - u * u, tilt = -0.04 * HW * u;      // outer (right) corner sits a little higher
+    return { u, s, up: EY + tilt - HU * Math.pow(s, 0.8) * (1 - 0.1 * u), lo: EY + tilt + HLo * Math.pow(s, 1.1) * (1 + 0.12 * u) };
+  }
+  function field(x, y) {
+    let d = 0.03;
+    const sx = (x - EX) / (HW * 1.2), sy = (y - (EY - 30 * SF)) / (HU * 1.7);
+    d += 0.14 * Math.exp(-(sx * sx + sy * sy) * 1.5);            // socket shading
+    const L = lids(x);
+    const uc = (x - (EX - 20 * SF)) / (HW * 0.9);
+    if (Math.abs(uc) < 1) {                                       // lid crease
+      const sc = 1 - uc * uc, yc = EY - 0.04 * HW * uc - (HU + 52 * SF) * Math.pow(sc, 0.6);
+      d += 0.40 * Math.exp(-Math.pow((y - yc) / 10, 2)) * Math.pow(sc, 0.5);
+      if (y > yc && L && y < L.up) d += 0.12 * Math.exp(-(y - yc) / 24) * sc;
+    }
+    if (L) {
+      const { u, s, up, lo } = L;
+      if (y > up && y < lo) {
+        d = 0.07 + 0.12 * Math.pow(Math.abs(u), 4) + 0.42 * Math.exp(-(y - up) / 26);   // sclera
+        const r = Math.hypot(x - IX, y - IY);
+        if (r < RI) {
+          const a = Math.atan2(y - IY, x - IX), q = r / RI;
+          d = 0.5 + (0.10 * Math.sin(a * 13 + 1.3) + 0.06 * Math.sin(a * 29 + 0.4)) * q + 0.16 * q * q * q - 0.14 * Math.max(0, (y - IY) / RI);
+          if (q > 0.86) d = 0.9;                                   // limbal ring
+          d += 0.22 * Math.exp(-(y - up) / 30);
+          if (r < RP) d = 1;                                       // pupil = 0
+        }
+        if (y - up < 12 * SF) d = Math.max(d, 0.96);               // lash line
+        if (lo - y < 8) d = Math.max(d, 0.5);                      // lower lid rim
+        if (Math.hypot(x - CLX, y - CLY) < CLR) d = 0;             // catchlight = 255
+      } else if (y <= up) {
+        const band = (12 + 26 * Math.max(0, (u + 0.35) / 1.35)) * SF;    // lashes, fuller toward the outer corner
+        if (up - y < band) d = Math.max(d, 0.82 + 0.1 * Math.sin(x * 0.23 + 0.6));
+      } else {
+        if (y - lo < 10) d = Math.max(d, 0.36);                    // lower lashes
+        d += 0.12 * Math.exp(-Math.pow((y - lo - 34 * SF) / (22 * SF), 2)) * s;   // under-eye shadow
+      }
+    } else {
+      const u = (x - EX) / HW;                                     // outer-corner flick
+      if (u > 1 && u < 1.13) { const yy = EY - 0.04 * HW - (u - 1) * 150 * SF; if (Math.abs(y - yy) < 9) d = Math.max(d, 0.72); }
+    }
+    return Math.min(1, Math.max(0, d));
+  }
+  const toV = d => Math.round(255 * (1 - d));
+
+  // ---------- hl glyphs -> which pins are raised (offscreen canvas hit test, deterministic) ----------
+  const raised = new Set();
+  const hwEls = [...titleEl.querySelectorAll(".hw")];
+  if (hwEls.length) {
+    const cv = document.createElement("canvas"); cv.width = 1080; cv.height = 1920;
+    const cx = cv.getContext("2d", { willReadFrequently: true });
+    const fsT = parseFloat(titleEl.style.fontSize);
+    cx.font = `700 ${fsT}px Geist`; cx.letterSpacing = (-0.025 * fsT).toFixed(2) + "px"; cx.textBaseline = "alphabetic"; cx.fillStyle = "#000";
+    hwEls.forEach(s => { const r = s.getBoundingClientRect(), m = cx.measureText(s.textContent);
+      cx.fillText(s.textContent, r.left, r.top + (r.height - m.fontBoundingBoxAscent - m.fontBoundingBoxDescent) / 2 + m.fontBoundingBoxAscent); });
+    const img = cx.getImageData(0, 0, 1080, Math.min(1920, Math.ceil(titleBottom + 20))).data;
+    const A = (x, y) => img[(Math.round(y) * 1080 + Math.round(x)) * 4 + 3] > 110 ? 1 : 0;
+    for (let y = y0; y < titleBottom + 10; y += P) for (let x = x0; x <= BX1 - 9; x += P) {
+      if (y < titleTop - 10) continue;
+      if (A(x, y) + A(x - 3, y) + A(x + 3, y) + A(x, y - 3) + A(x, y + 3) >= 3) raised.add(x + "," + y);
+    }
+  }
+
+  // ---------- backdrop + board slab ----------
+  const defs = el("defs", {});
+  defs.innerHTML = `
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="0.2"><stop offset="0" stop-color="#232326"/><stop offset="0.55" stop-color="#18181A"/><stop offset="1" stop-color="#121214"/></linearGradient>
+    <linearGradient id="face" x1="0" y1="0" x2="1" y2="0.6"><stop offset="0" stop-color="#F1EFEA"/><stop offset="0.55" stop-color="#E9E7E1"/><stop offset="1" stop-color="#DEDBD4"/></linearGradient>
+    <linearGradient id="brass" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#EDD59E"/><stop offset="0.38" stop-color="#C7A15A"/><stop offset="0.75" stop-color="#9C7A3A"/><stop offset="1" stop-color="#6E5426"/></linearGradient>
+    <linearGradient id="barrel" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#8E6E32"/><stop offset="0.5" stop-color="#B38D49"/><stop offset="1" stop-color="#5E471F"/></linearGradient>
+    <radialGradient id="dome" cx="0.38" cy="0.34" r="0.72"><stop offset="0" stop-color="#FFFFFF"/><stop offset="0.45" stop-color="#E6E3DC"/><stop offset="0.85" stop-color="#A29E96"/><stop offset="1" stop-color="#6E6B65"/></radialGradient>
+    <radialGradient id="psh"><stop offset="0" stop-color="#1A1A1C" stop-opacity="0.55"/><stop offset="0.6" stop-color="#1A1A1C" stop-opacity="0.25"/><stop offset="1" stop-color="#1A1A1C" stop-opacity="0"/></radialGradient>
+    <radialGradient id="caustic"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.85"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+    <clipPath id="bclip"><rect x="${BX0}" y="${BY0}" width="${BW}" height="${BH}"/></clipPath>
+    <clipPath id="glass"><circle cx="${LX}" cy="${LY}" r="${R}"/></clipPath>`;
+  el("rect", { x: 0, y: 0, width: 1080, height: 1920, fill: "url(#bg)" });
+  const T = 58, ox = T * KX, oy = T * KY;             // slab thickness, receding up-right
+  el("path", { d: `M${BX0 + 30},${BY1 + 2} L${BX1 + 2},${BY1 + 2} L${BX1 + ox + 40},${BY1 + oy + 34} L${BX0 + 70},${BY1 + 40} Z`, fill: "#09090A", opacity: 0.6 });
+  el("path", { d: `M${BX0},${BY0} L${BX0 + ox},${BY0 + oy} L${BX1 + ox},${BY0 + oy} L${BX1},${BY0} Z`, fill: "#F6F4EF" });
+  el("path", { d: `M${BX1},${BY0} L${BX1 + ox},${BY0 + oy} L${BX1 + ox},${BY1 + oy} L${BX1},${BY1} Z`, fill: "#8F8B83" });
+  el("rect", { x: BX0, y: BY0, width: BW, height: BH, fill: "url(#face)" });
+
+  // ---------- pins: shadows (clipped to the face), shafts, heads ----------
+  const ZMAX = 30, ZHL = 7;
+  const circ = (x, y, r) => `M${f1(x - r)},${f1(y)}a${r},${r} 0 1,0 ${2 * r},0a${r},${r} 0 1,0 ${-2 * r},0`;
+  const newAcc = () => ({ sh: Array.from({ length: 9 }, () => ""), shafts: "", lo: "", hi: "" });
+  const addPin = (acc, x, y, d) => {
+    const z = d * ZMAX, k = Math.min(8, Math.round(d * 8)), len = Math.max(1.6, z * SHL);
+    acc.sh[k] += `M${f1(x)},${f1(y)}l${f1(len * LC)},${f1(len * LS)}`;
+    const hx = x - z * KX, hy = y - z * KY;           // a pushed-out head leans down-left
+    if (z > 2) acc.shafts += `M${f1(x)},${f1(y)}L${f1(hx)},${f1(hy)}`;
+    if (d < 0.22) acc.lo += circ(hx, hy, 2.0); else acc.hi += circ(hx, hy, 2.4 + 0.9 * d);
+  };
+  const flushAcc = (acc, parent) => {
+    const g = el("g", { "clip-path": "url(#bclip)" }, parent);
+    acc.sh.forEach((dd, k) => { if (dd) el("path", { d: dd, stroke: "#1A1A1C", "stroke-opacity": 0.86, "stroke-width": f1(2.8 + 1.45 * k), "stroke-linecap": "round", fill: "none" }, g); });
+    if (acc.shafts) el("path", { d: acc.shafts, stroke: "#8E8A82", "stroke-width": 1.5, "stroke-linecap": "round", fill: "none" }, parent);
+    if (acc.lo) el("path", { d: acc.lo, fill: "#F3F1EC", stroke: "#ABA79F", "stroke-width": 0.9 }, parent);
+    if (acc.hi) el("path", { d: acc.hi, fill: "#FFFFFF", stroke: "#6E6B65", "stroke-width": 0.8 }, parent);
+  };
+  const board = newAcc();
+  let hlShadow = "", hlShafts = "", hlHeads = "";
+  for (let y = y0; y <= BY1 - 9; y += P) for (let x = x0; x <= BX1 - 9; x += P) {
+    if (Math.hypot(x - LX, y - LY) < R + 2) continue;   // under the glass
+    if (y < flushEnd) {
+      if (raised.has(x + "," + y)) {                     // hl letter: raised pin
+        const len = ZHL * SHL, hx = x - ZHL * KX, hy = y - ZHL * KY;   // short: the cast shadow is the hl text-shadow
+        hlShadow += `M${f1(x)},${f1(y)}l${f1(len * LC)},${f1(len * LS)}`;
+        hlShafts += `M${f1(x)},${f1(y)}L${f1(hx)},${f1(hy)}`;
+        hlHeads += circ(hx, hy, 4.3);
+      } else addPin(board, x, y, 0);
+      continue;
+    }
+    addPin(board, x, y, field(x, y));
+  }
+  flushAcc(board);
+  if (hlShadow) el("path", { d: hlShadow, stroke: "#1A1A1C", "stroke-opacity": 0.9, "stroke-width": 6, "stroke-linecap": "round", fill: "none", "clip-path": "url(#bclip)" });
+
+  // ---------- loupe: cast shadow (ring + caustic), barrel, glass with numbers, brass rim ----------
+  const BKX = LX + ZL * KX, BKY = LY + ZL * KY;      // where the barrel meets the board
+  const SX = BKX + ZL * SHL * LC, SY = BKY + ZL * SHL * LS;
+  el("path", { d: circ(SX, SY, RO) + circ(SX, SY, R - 12), fill: "#1A1A1C", "fill-opacity": 0.42, "fill-rule": "evenodd" });
+  el("circle", { cx: SX, cy: SY, r: R - 12, fill: "#1A1A1C", "fill-opacity": 0.10 });
+  el("ellipse", { cx: SX + 10, cy: SY + 8, rx: 40, ry: 32, fill: "url(#caustic)" });
+  const ang = Math.atan2(BKY - LY, BKX - LX), nx = -Math.sin(ang), ny = Math.cos(ang);
+  el("path", { d: `M${f1(LX + nx * RO)},${f1(LY + ny * RO)} L${f1(BKX + nx * RO)},${f1(BKY + ny * RO)} A${RO},${RO} 0 0,0 ${f1(BKX - nx * RO)},${f1(BKY - ny * RO)} L${f1(LX - nx * RO)},${f1(LY - ny * RO)} Z`, fill: "url(#barrel)" });
+  let knurl = "";
+  for (let i = 0; i < 84; i++) { const a = i / 84 * Math.PI * 2, cx = Math.cos(a), cy = Math.sin(a);
+    if (cx * Math.cos(ang) + cy * Math.sin(ang) < 0.05) continue;
+    knurl += `M${f1(LX + cx * (RO + 1))},${f1(LY + cy * (RO + 1))}L${f1(BKX + cx * (RO - 1))},${f1(BKY + cy * (RO - 1))}`; }
+  el("path", { d: knurl, stroke: "#4F3C19", "stroke-opacity": 0.5, "stroke-width": 1.6, fill: "none" });
+
+  const gl = el("g", { "clip-path": "url(#glass)" });
+  el("circle", { cx: LX, cy: LY, r: R, fill: "#E9E7E1" }, gl);
+  // numbered cells = whole 4x4 blocks inside the glass; the ring around them stays plain pins
+  const cells = [];
+  for (let j = -3; j <= 3; j++) for (let i = -3; i <= 3; i++) {
+    const cx = LX + i * CELL, cy = LY + j * CELL, h = CELL / 2;
+    if (Math.hypot(Math.abs(cx - LX) + h, Math.abs(cy - LY) + h) <= R - 2) cells.push({ cx, cy, h });
+  }
+  const inCell = (x, y) => cells.some(c => Math.abs(x - c.cx) < c.h && Math.abs(y - c.cy) < c.h);
+  const ring = newAcc();
+  for (let y = y0; y <= BY1 - 9; y += P) for (let x = x0; x <= BX1 - 9; x += P)
+    if (Math.hypot(x - LX, y - LY) < R + 6 && !inCell(x, y)) addPin(ring, x, y, field(x, y));
+  flushAcc(ring, gl);
+  let numsHTML = "";
+  const okInk = vv => Math.max(cr(lum(vv), lum(255)), cr(lum(vv), lum(14)));
+  cells.forEach(({ cx, cy, h }) => {
+    let sum = 0; for (let b = 0; b < 4; b++) for (let a = 0; a < 4; a++) sum += field(cx + (a - 1.5) * P, cy + (b - 1.5) * P);
+    let v = toV(sum / 16);
+    while (okInk(v) < 4.7) v += v < 118 ? -2 : 2;     // keep every printed value legible
+    el("rect", { x: f1(cx - h + 1.5), y: f1(cy - h + 1.5), width: CELL - 3, height: CELL - 3, fill: `rgb(${v},${v},${v})` }, gl);
+    numsHTML += `<div class="num" style="left:${f1(cx - h + 1.5)}px;top:${f1(cy - h + 1.5)}px;width:${CELL - 3}px;height:${CELL - 3}px;color:${inkFor(v)}${P < 16 ? ";letter-spacing:-0.04em" : ""}">${v}</div>`;
+  });
+  $("nums").innerHTML = numsHTML;
+  el("path", { d: `M${f1(LX - R * 0.93)},${f1(LY - R * 0.12)} A${R * 0.95},${R * 0.95} 0 0,1 ${f1(LX - R * 0.1)},${f1(LY - R * 0.94)} A${R * 1.05},${R * 1.05} 0 0,0 ${f1(LX - R * 0.93)},${f1(LY - R * 0.12)} Z`, fill: "#FFFFFF", opacity: 0.42 }, gl);
+  el("circle", { cx: LX, cy: LY, r: R - 1, fill: "none", stroke: "#1A1A1C", "stroke-opacity": 0.35, "stroke-width": 3 });
+  el("path", { d: circ(LX, LY, RO) + circ(LX, LY, R), fill: "url(#brass)", "fill-rule": "evenodd" });
+  el("circle", { cx: LX, cy: LY, r: RO - 0.8, fill: "none", stroke: "#5A4420", "stroke-width": 1.6 });
+  el("circle", { cx: LX, cy: LY, r: R + 6, fill: "none", stroke: "#F3E2B6", "stroke-opacity": 0.55, "stroke-width": 1.4 });
+
+  // ---------- overlay: raised hl pin heads, card pins, strip pins ----------
+  if (hlShafts) {
+    el("path", { d: hlShafts, stroke: "#8E8A82", "stroke-width": 1.6, "stroke-linecap": "round", fill: "none" }, over);
+    el("path", { d: hlHeads, fill: "url(#dome)", stroke: "#4E4B46", "stroke-width": 0.8 }, over);
+  }
+  const pin = (x, y, z) => {
+    el("ellipse", { cx: f1(x + z * SHL * LC * 0.7), cy: f1(y + z * SHL * LS * 0.7), rx: 10, ry: 8, fill: "url(#psh)" }, over);
+    el("circle", { cx: f1(x - z * KX), cy: f1(y - z * KY), r: 6.5, fill: "url(#dome)", stroke: "#4E4B46", "stroke-width": 1 }, over);
+  };
+  cardEls.forEach((c, i) => pin(colX[i % 2] + c.querySelector(".sw").offsetWidth / 2, rowsY[i] + 15, 6));
+  pin(77, stripTop + 11, 6); pin(913, stripTop + 11, 6);
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Schibsted+Grotesk:wght@500;600;700;800&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Seat Map: a cinema booking app's seat-selection screen.
+    The title is the film, projected on a lit curved screen; the caption is its subtitle.
+    Below it the house in plan view: rows A-L, 8 seats per row around a centre aisle.
+    Each item is a block of rows whose height is proportional to its value
+    (rows split by the parsed numbers; equal split only when values do not parse).
+    Token mode (values are token counts): the context window is the house. Row A has been
+    released through KELUAR (toast from the booking timer), the next token's seat waits
+    empty at the back with a tooltip.
+    Numbers mode (other values): a sold-out house in sections, no release, no exit.
+    Fully deterministic: release patterns are hard-coded strings.
+  */
+  :root { --bg: #101218; --line: #2A2F3A; --cream: #F2EEE6; --orange: #E4572E; --blue: #3D6FE0; --muted: #8E93A1; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--bg); }
+  body { position: relative; color: var(--cream); font-family: "Schibsted Grotesk", sans-serif; }
+
+  #hall { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  .top { position: absolute; left: 90px; right: 90px; top: 288px; height: 52px; display: flex; align-items: center; justify-content: space-between; }
+  .kick { display: flex; align-items: center; gap: 14px; font: 600 28px "Schibsted Grotesk", sans-serif; color: #C9C6BF; white-space: nowrap; }
+  .kick svg { flex: none; }
+  .kick .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--orange); flex: none; }
+  .kick b { font: 600 28px "IBM Plex Mono", monospace; color: var(--cream); letter-spacing: 0.02em; }
+  .timer { display: flex; align-items: center; gap: 12px; height: 52px; padding: 0 20px 0 16px; border: 2px solid var(--line); border-radius: 26px; font: 600 28px "IBM Plex Mono", monospace; color: var(--cream); }
+
+  /* Toast dropped from the booking timer: the release notice. */
+  .toast { position: absolute; right: 90px; top: 356px; height: 62px; display: none; align-items: center; gap: 14px; padding: 0 24px 0 16px;
+    background: #1A1D25; border: 2px solid var(--orange); border-radius: 14px; font: 700 30px "Schibsted Grotesk", sans-serif; color: var(--cream); white-space: nowrap; }
+  .toast::before { content: ""; position: absolute; top: -9px; right: 72px; width: 14px; height: 14px; background: #1A1D25;
+    border-left: 2px solid var(--orange); border-top: 2px solid var(--orange); transform: rotate(45deg); }
+  .toast svg { flex: none; }
+  .toast i { font-style: normal; font-weight: 500; color: #C9C6BF; }
+
+  /* The lit screen: a curved panel (barrel edges set by clip-path in JS); the title is the film. */
+  .screen { position: absolute; left: 90px; width: 900px;
+    background: radial-gradient(ellipse 560px 260px at 450px 46%, #F7F4EE 0%, #F2EEE6 52%, #EAE6DD 100%); }
+  .title { position: absolute; left: 40px; right: 40px; text-align: center; font-weight: 800; letter-spacing: -0.025em; line-height: 1.02; color: #101218; text-wrap: balance; }
+  .title .hl { color: #D2461F; }
+  .cap { position: absolute; left: 40px; right: 40px; text-align: center; font-weight: 600; line-height: 1.24; color: #101218; text-wrap: balance; }
+  .cap span { white-space: nowrap; }
+  .cap .w { color: #5C606B; }
+  .cap .said { color: #101218; }
+  .cap .on { color: #101218; background: var(--orange); border-radius: 8px; padding: 0 0.16em; margin: 0 -0.04em; }
+
+  .layar { position: absolute; left: 460px; width: 160px; text-align: center; font: 600 26px "IBM Plex Mono", monospace; letter-spacing: 0.32em; text-indent: 0.32em; color: var(--muted); line-height: 30px; }
+  .kel { position: absolute; left: 140px; font: 600 26px "IBM Plex Mono", monospace; letter-spacing: 0.06em; color: var(--orange); line-height: 30px; display: none; }
+
+  .row { position: absolute; width: 24px; font: 600 30px "IBM Plex Mono", monospace; color: var(--muted); line-height: 32px; text-align: left; }
+  .sign { position: absolute; left: 90px; width: 262px; text-align: right; }
+  .sign .lb { font-weight: 700; line-height: 1.06; color: var(--cream); letter-spacing: -0.01em; text-wrap: balance; }
+  .sign .vl { margin-top: 4px; display: flex; justify-content: flex-end; align-items: center; gap: 10px; font: 600 30px "IBM Plex Mono", monospace; line-height: 1.1; color: #C2C7D6; white-space: nowrap; }
+  .sign .vl svg { flex: none; }
+  .sign.old .lb { color: #B3B0A9; }
+  .sign.old .vl { color: #9296A2; }
+
+  .tip { position: absolute; height: 56px; display: none; align-items: center; gap: 10px; padding: 0 20px; background: var(--orange); border-radius: 12px; box-shadow: 0 0 0 6px var(--bg);
+    font: 700 30px "Schibsted Grotesk", sans-serif; color: #101218; white-space: nowrap; }
+  .tip b { font: 600 30px "IBM Plex Mono", monospace; }
+  .tip::after { content: ""; position: absolute; bottom: -9px; left: var(--caret, 50%); width: 18px; height: 18px; margin-left: -9px; background: var(--orange); transform: rotate(45deg); border-radius: 0 0 3px 0; }
+
+  .legend { position: absolute; left: 90px; width: 806px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; row-gap: 8px; column-gap: 24px; font: 600 28px "Schibsted Grotesk", sans-serif; color: #D6D3CC; }
+  .legend .keys { display: flex; align-items: center; gap: 26px; }
+  .legend .k { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+  .legend .eq { font: 600 26px "IBM Plex Mono", monospace; color: #B5B2AC; white-space: nowrap; }
+
+  .foot { position: absolute; left: 90px; width: 806px; top: 1584px; display: flex; justify-content: space-between; gap: 40px; font: 500 26px "Schibsted Grotesk", sans-serif; color: #9DA1AD; line-height: 1.3; }
+  .foot span:last-child { white-space: nowrap; font-family: "IBM Plex Mono", monospace; font-weight: 500; }
+</style>
+</head>
+<body>
+<svg id="hall" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+<div class="top">
+  <div class="kick" id="kick"></div>
+  <div class="timer"><svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="15" r="10.5" fill="none" stroke="#E4572E" stroke-width="2.6"/><path d="M14 9.5V15l3.6 2.4M11 2.6h6" fill="none" stroke="#E4572E" stroke-width="2.6" stroke-linecap="round"/></svg><span>04:59</span></div>
+</div>
+<div class="toast" id="toast"></div>
+<div class="screen" id="screen">
+  <div class="title" id="title"></div>
+  <div class="cap" id="cap" data-slot="caption"></div>
+</div>
+<div class="layar" id="layar">LAYAR</div>
+<div class="kel" id="kel">KELUAR</div>
+<div id="labels"></div>
+<div class="tip" id="tip"></div>
+<div class="legend" id="legend"></div>
+<div class="foot"><span id="src"></span><span id="date"></span></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series_id: "how-ai-works", series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const fontLoads = ['800 100px "Schibsted Grotesk"', '700 34px "Schibsted Grotesk"', '600 44px "Schibsted Grotesk"', '500 26px "Schibsted Grotesk"', '600 28px "IBM Plex Mono"', '500 26px "IBM Plex Mono"']
+    .map(f => document.fonts.load(f));
+  Promise.all(fontLoads).catch(() => {}).then(() => document.fonts.ready).then(render, render);
+
+  // "40.000 token" -> {v: 40000, unit: "token"}; "Rp 500 jt" -> {v: 5e8, pre: "Rp"}; "miliaran" -> null.
+  function parseVal(raw) {
+    const s = String(raw == null ? "" : raw).trim();
+    const m = s.match(/^([^0-9]*?)\s*(\d[\d.,]*)\s*(.*)$/);
+    if (!m) return null;
+    const pre = m[1].replace(/[±~≈<>+]/g, "").trim();
+    let num = m[2].replace(/[.,]$/, "");
+    if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(num)) num = num.replace(/\./g, "").replace(",", ".");
+    else if (/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(num)) num = num.replace(/,/g, "");
+    else num = num.replace(",", ".");
+    let v = parseFloat(num);
+    if (!isFinite(v)) return null;
+    let unit = m[3].trim();
+    const MULT = { rb: 1e3, ribu: 1e3, k: 1e3, jt: 1e6, juta: 1e6, m: 1e6, miliar: 1e9, b: 1e9, t: 1e12, triliun: 1e12 };
+    const mm = unit.match(/^([A-Za-z]+)\.?(?:\s+(.*))?$/);
+    if (mm && MULT[mm[1].toLowerCase()] !== undefined && (mm[2] || mm[1].length > 1 || /^[kKMBT]$/.test(mm[1]))) { v *= MULT[mm[1].toLowerCase()]; unit = (mm[2] || "").trim(); }
+    return { v, pre, unit, key: (pre + "|" + unit).toLowerCase() };
+  }
+  function fmtNum(x) {
+    const dec = (v, d) => { let s = v.toFixed(d); if (d) s = s.replace(/\.?0+$/, ""); return s.replace(".", ","); };
+    const grp = v => String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    if (x >= 1e9) return dec(x / 1e9, x < 1e10 ? 1 : 0) + " M";
+    if (x >= 1e6) return dec(x / 1e6, x < 1e7 ? 1 : 0) + " jt";
+    if (x >= 1000) { const e = Math.pow(10, Math.floor(Math.log10(x)) - 1); return grp(Math.round(x / e) * e); }
+    if (x >= 10) return grp(x);
+    return dec(x, x < 1 ? 2 : 1);
+  }
+  // Largest-remainder split of R rows by value, at least 1 row each.
+  function allocate(vals, R) {
+    const sum = vals.reduce((a, b) => a + b, 0), q = vals.map(v => v / sum * R);
+    const r = q.map(x => Math.max(1, Math.floor(x + 1e-9)));
+    let tot = r.reduce((a, b) => a + b, 0);
+    while (tot < R) { let bi = 0, bd = -Infinity; q.forEach((x, i) => { if (x - r[i] > bd + 1e-9) { bd = x - r[i]; bi = i; } }); r[bi]++; tot++; }
+    while (tot > R) { let bi = -1, bd = Infinity; q.forEach((x, i) => { if (r[i] > 1 && x - r[i] < bd - 1e-9) { bd = x - r[i]; bi = i; } }); r[bi]--; tot--; }
+    return { rows: r, exact: r.every((x, i) => Math.abs(x - q[i]) < 1e-6), sum };
+  }
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+  const CREAM = "#F2EEE6", ORANGE = "#E4572E", BLUE = "#3D6FE0", LINE = "#2A2F3A";
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(items.length, 1);
+  const ROWS = 12, LETTERS = "ABCDEFGHIJKL", PER_SIDE = 4;
+
+  // ---- Data → house ----------------------------------------------------------
+  const parsed = items.map(it => parseVal(it.value));
+  const scaled = items.length > 0 && parsed.every(p => p && p.v > 0) && parsed.every(p => p.key === parsed[0].key);
+  const tokenMode = scaled && !parsed[0].pre && /^(token|tokens|tok|kata)$/i.test(parsed[0].unit) && n > 1;
+  let sizes, exact = false, total = 0;
+  if (scaled) { const a = allocate(parsed.map(p => p.v), ROWS); sizes = a.rows; exact = a.exact; total = a.sum; }
+  else { sizes = []; const base = Math.floor(ROWS / n), rem = ROWS % n; for (let i = 0; i < n; i++) sizes.push(base + (i >= n - rem ? 1 : 0)); }
+
+  // Scale key: always true for the drawn house.
+  let scaleTxt;
+  if (scaled) {
+    const p0 = parsed[0], unitTxt = p0.unit ? " " + p0.unit : "", pre = p0.pre ? p0.pre + " " : "";
+    const per = total / ROWS, inv = ROWS / total;
+    if (per >= 1 || !tokenMode) scaleTxt = "1 baris " + (exact && Number.isInteger(per) ? "=" : "≈") + " " + pre + fmtNum(per) + unitTxt;
+    else scaleTxt = "1" + unitTxt + " " + (exact && Number.isInteger(inv) ? "=" : "≈") + " " + fmtNum(inv) + " baris";
+  } else scaleTxt = "1 blok = 1 angka (tak berskala)";
+
+  // Header: the episode number is the studio number.
+  const epNo = String(D.ep || "#01").replace(/^#/, "");
+  const chev = '<svg width="16" height="28" viewBox="0 0 16 28" aria-hidden="true"><path d="M12 4L3 14l9 10" fill="none" stroke="#F2EEE6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  $("kick").innerHTML = chev + "<b>Studio " + esc(epNo) + '</b><span class="dot"></span><span>' + esc(D.series || D.kicker || "") + "</span>";
+
+  const exitIcon = (sz, col) => '<svg width="' + sz + '" height="' + sz + '" viewBox="0 0 32 32" aria-hidden="true"><path d="M13 5H7.5A2.5 2.5 0 0 0 5 7.5v17A2.5 2.5 0 0 0 7.5 27H13" fill="none" stroke="' + col + '" stroke-width="2.8" stroke-linecap="round"/><path d="M14 18L26 6M18 5.5h8.5V14" fill="none" stroke="' + col + '" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  // Toast (token mode only): row A has been released.
+  const SEATS = PER_SIDE * 2;
+  const toast = $("toast");
+  let y = 360;
+  if (tokenMode) {
+    toast.style.display = "flex";
+    toast.innerHTML = exitIcon(32, ORANGE) + "<span>A1–A" + SEATS + " dilepas<i> · konteks penuh</i></span>";
+    y = 356 + toast.offsetHeight + 16;
+  }
+
+  // ---- Screen: title (the film) + caption (its subtitle) ----------------------
+  const screen = $("screen"), titleEl = $("title"), capEl = $("cap");
+  const t = D.title || "", hl = D.hl || "";
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  const lines = (el, fs, lh) => Math.round(el.offsetHeight / (fs * lh));
+  function fitTitle(max2, max3) {
+    let fs = max2;
+    for (; fs >= 80; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (lines(titleEl, fs, 1.02) <= 2) return; }
+    for (fs = max3; fs >= 72; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (lines(titleEl, fs, 1.02) <= 3) return; }
+  }
+
+  // Caption: karaoke, active = hl if it is in the caption, else the first word. Never more than 2 lines.
+  const capText = String(D.caption || D.sub || "");
+  const ci = hl ? capText.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const words = s => s.split(/\s+/).filter(Boolean);
+  const parts = []; let act = 0;
+  if (ci >= 0) {
+    words(capText.slice(0, ci)).forEach(w => parts.push({ w, c: "w said" }));
+    const rest = capText.slice(ci + hl.length), m = rest.match(/^\S+/);
+    act = parts.length; parts.push({ w: capText.slice(ci, ci + hl.length), c: "on", tail: m ? m[0] : "" });
+    words(m ? rest.slice(m[0].length) : rest).forEach(w => parts.push({ w, c: "w" }));
+  } else words(capText).forEach((w, i) => parts.push({ w, c: i === 0 ? "on" : "w" }));
+  const capHtml = (a, b) => parts.slice(a, b).map(p => '<span class="' + p.c + '">' + esc(p.w) + "</span>" + (p.tail ? '<span class="w">' + esc(p.tail) + "</span>" : "")).join(" ");
+  const fits = fs => capEl.offsetHeight <= Math.ceil(fs * 1.24 * 2) + 2;
+  function fitCap(maxFs) {
+    capEl.style.left = capEl.style.right = "40px";
+    capEl.innerHTML = capHtml(0, parts.length);
+    for (let fs = maxFs; fs >= 40; fs -= 2) { capEl.style.fontSize = fs + "px"; if (fits(fs)) return; }
+    capEl.style.left = capEl.style.right = "16px";                 // widen before windowing
+    if (fits(40)) return;
+    // Karaoke window: the phrase holding the active word, grown word by word while it stays on 2 lines.
+    let a = act; while (a > 0 && !/[,.;:!?]$/.test(parts[a - 1].tail || parts[a - 1].w)) a--;
+    let b = act + 1; capEl.innerHTML = capHtml(a, b);
+    while (!fits(40) && a < act) { a++; capEl.innerHTML = capHtml(a, b); }
+    while (b < parts.length) { capEl.innerHTML = capHtml(a, b + 1); if (!fits(40)) break; b++; }
+    // end the window on a phrase boundary when one is available after the active word
+    const end = p => /[,.;:!?]$/.test(p.tail || p.w);
+    let e = b; while (e > act + 1 && !end(parts[e - 1])) e--;
+    if (e > act + 1 || end(parts[act])) b = e;
+    capEl.innerHTML = capHtml(a, b);
+  }
+
+  // ---- Vertical budget: loosest pass whose house keeps a row pitch >= 40 ----------
+  const SAG = 14, GAP = 14, ROWS_END_MAX = 1474;
+  const need = P => ROWS * P + (n - 1) * GAP;
+  const PASSES = [ // title max (2 lines / 3 lines), caption max, inner pad, title-caption gap, throw
+    { t2: 104, t3: 84, c: 46, pad: 30, tg: 22, th: tokenMode ? 96 : 72 },
+    { t2: 96, t3: 78, c: 44, pad: 22, tg: 18, th: tokenMode ? 92 : 66 },
+    { t2: 88, t3: 74, c: 40, pad: 16, tg: 14, th: tokenMode ? 90 : 60 }];
+  let L;
+  for (const ps of PASSES) {
+    fitTitle(ps.t2, ps.t3); fitCap(ps.c);
+    L = { ps, titleH: titleEl.offsetHeight, capH: capEl.offsetHeight, pad: ps.pad };
+    L.rowsStart = y + 2 * SAG + 2 * L.pad + L.titleH + ps.tg + L.capH + ps.th;
+    L.P = Math.min(48, Math.floor((ROWS_END_MAX - L.rowsStart - (n - 1) * GAP) / ROWS));
+    if (L.P >= 40) break;
+  }
+  let P = Math.max(38, L.P), padIn = L.pad, rowsStart = L.rowsStart;
+  if (L.P >= 48) { const free = ROWS_END_MAX - rowsStart - need(48); const add = Math.min(36, Math.round(free * 0.25)); padIn += add; rowsStart = ROWS_END_MAX - need(48); }
+  const titleH = L.titleH, capH = L.capH;
+  const SH = P - 8, SW = 42, HP = 52;
+  const screenTop = y, screenH = 2 * SAG + 2 * padIn + titleH + L.ps.tg + capH, screenBot = screenTop + screenH;
+  screen.style.top = screenTop + "px"; screen.style.height = screenH + "px";
+  const W = 900;
+  screen.style.clipPath = "path('M0,0 Q" + W / 2 + "," + 2 * SAG + " " + W + ",0 L" + W + "," + screenH + " Q" + W / 2 + "," + (screenH - 2 * SAG) + " 0," + screenH + " Z')";
+  titleEl.style.top = (SAG + padIn) + "px";
+  capEl.style.top = (SAG + padIn + titleH + L.ps.tg) + "px";
+  const layarTop = screenBot + 12;
+  $("layar").style.top = layarTop + "px";
+
+  // ---- Seat geometry: 4 | aisle | 4, rows on gentle arcs (outer seats closer to the screen) ----
+  const X0 = 432, AISLE = 66, HC = X0 + PER_SIDE * HP - (HP - SW) + AISLE / 2;   // house centre
+  const seatX = s => s < PER_SIDE ? X0 + s * HP : X0 + PER_SIDE * HP - (HP - SW) + AISLE + (s - PER_SIDE) * HP;  // s = 0..7
+  const HALF = seatX(SEATS - 1) + SW / 2 - HC, LIFT = 12;
+  const lift = x => LIFT * Math.pow((x - HC) / HALF, 2);
+  const rowY = []; { let yy = rowsStart; sizes.forEach((s, b) => { for (let j = 0; j < s; j++) { rowY.push({ y: yy, b, j }); yy += P; } yy += GAP; }); }
+  const rowsEnd = rowY[ROWS - 1].y + SH;
+
+  const OLD = ["00000000", "10110010", "11011101"];                   // block 0, token mode: 0 = released
+  const NEW = { row: ROWS - 1, s: PER_SIDE + 1 };                       // the empty selected seat, row L seat 6
+  const tone = b => tokenMode ? 0.5 + 0.5 * (b / (n - 1)) : (b % 2 ? 0.62 : 1);
+
+  // Top-down armchair facing the screen: cushion in front, armrests either side, backrest behind.
+  const rr = (rx, ry, w, h, r) => 'M' + (rx + r) + ',' + ry + 'h' + (w - 2 * r) + 'a' + r + ',' + r + ' 0 0 1 ' + r + ',' + r + 'v' + (h - 2 * r) + 'a' + r + ',' + r + ' 0 0 1 ' + (-r) + ',' + r + 'h' + (-(w - 2 * r)) + 'a' + r + ',' + r + ' 0 0 1 ' + (-r) + ',' + (-r) + 'v' + (-(h - 2 * r)) + 'a' + r + ',' + r + ' 0 0 1 ' + r + ',' + (-r) + 'z';
+  const chair = (x, y, w, h) => { const A = Math.round(w * 0.15), B = Math.round(h * 0.2);
+    return rr(x + A + 2, y, w - 2 * A - 4, h - B - 2, 6) + rr(x, y + 7, A, h - 7, 2.5) + rr(x + w - A, y + 7, A, h - 7, 2.5) + rr(x + A + 1, y + h - B, w - 2 * A - 2, B, 3); };
+  const seatTop = (s, ry) => ry - lift(seatX(s) + SW / 2);
+
+  let svg = '<defs><linearGradient id="spill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + CREAM + '" stop-opacity="0.09"/><stop offset="1" stop-color="' + CREAM + '" stop-opacity="0"/></linearGradient></defs>';
+  // Light spilling off the screen onto the floor.
+  { const sb = Math.min(rowsStart + 30, 900);   // the spill never reaches the action-button strip (x > 900, y > 900)
+    svg += '<path d="M170,' + (screenBot - SAG) + 'L910,' + (screenBot - SAG) + 'L960,' + sb + 'L120,' + sb + 'Z" fill="url(#spill)"/>'; }
+
+  // Centre aisle runner with step lights.
+  { const ax = HC - AISLE / 2 + 8, aw = AISLE - 16, ay0 = rowsStart - 18, ay1 = rowsEnd + 10;
+    svg += '<rect x="' + ax + '" y="' + ay0 + '" width="' + aw + '" height="' + (ay1 - ay0) + '" rx="12" fill="' + LINE + '" fill-opacity="0.5"/>';
+    rowY.forEach(r => { svg += '<circle cx="' + HC + '" cy="' + (r.y + SH / 2).toFixed(1) + '" r="3" fill="' + CREAM + '" fill-opacity="0.3"/>'; }); }
+
+  // Seats.
+  let labels = "", tipSeat = null;
+  rowY.forEach((r, i) => {
+    for (let s = 0; s < SEATS; s++) {
+      const x = seatX(s), cy = seatTop(s, r.y), shape = chair(x, cy, SW, SH);
+      if (tokenMode && i === NEW.row && s === NEW.s) {
+        svg += '<rect x="' + (x - 6) + '" y="' + (cy - 6) + '" width="' + (SW + 12) + '" height="' + (SH + 12) + '" rx="12" fill="' + ORANGE + '" fill-opacity="0.14" stroke="' + ORANGE + '" stroke-width="3"/>'
+          + '<path d="' + shape + '" fill="none" stroke="' + ORANGE + '" stroke-width="2.4"/>';
+        tipSeat = { x: x + SW / 2, y: cy - 6, label: LETTERS[i] + (s + 1) };
+        continue;
+      }
+      let released = false;
+      if (tokenMode && r.b === 0 && r.j < OLD.length) released = OLD[r.j][s] === "0";
+      svg += released ? '<path d="' + shape + '" fill="none" stroke="' + CREAM + '" stroke-opacity="0.42" stroke-width="1.8"/>'
+                      : '<path d="' + shape + '" fill="' + BLUE + '" fill-opacity="' + tone(r.b).toFixed(2) + '"/>';
+    }
+    labels += '<div class="row" style="left:394px;top:' + (seatTop(0, r.y) + SH / 2 - 16).toFixed(1) + 'px">' + LETTERS[i] + "</div>";
+  });
+
+  // Block brackets (one per item), drawn in that block's tone.
+  const blocks = sizes.map((s, b) => { const rows = rowY.filter(r => r.b === b); return { y0: seatTop(0, rows[0].y) + 2, y1: seatTop(0, rows[rows.length - 1].y) + SH - 2 }; });
+  blocks.forEach((k, b) => {
+    const old = tokenMode && b === 0;
+    svg += '<path d="M374,' + k.y0.toFixed(1) + 'V' + k.y1.toFixed(1) + '" stroke="' + (old ? CREAM : BLUE) + '" stroke-opacity="' + (old ? 0.42 : tone(b).toFixed(2)) + '" stroke-width="4" stroke-linecap="round"' + (old ? ' stroke-dasharray="6 6"' : "") + '/>';
+  });
+
+  // Exit (token mode): row A has walked out; the dashed route runs above the front row to the KELUAR sign, front-left.
+  if (tokenMode) {
+    const kel = $("kel"); kel.style.display = "block"; kel.style.top = layarTop + "px";
+    const dy = layarTop - 2, yRun = rowsStart - LIFT - 18, sx = seatX(0) + SW / 2;
+    svg += exitIcon(36, ORANGE).replace("<svg ", '<svg x="92" y="' + dy + '" ');
+    svg += '<path d="M' + sx + ',' + (seatTop(0, rowsStart) - 6).toFixed(1) + 'V' + yRun.toFixed(1) + 'H112" fill="none" stroke="' + ORANGE + '" stroke-width="3.5" stroke-dasharray="9 8" stroke-linecap="round"/>';
+    svg += '<path d="M110,' + (yRun - 10).toFixed(1) + 'L98,' + yRun.toFixed(1) + 'L110,' + (yRun + 10).toFixed(1) + '" fill="none" stroke="' + ORANGE + '" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>';
+  }
+
+  // Signs: one per item, right-aligned to the bracket, relaxed so they never touch.
+  const swatch = (b, old) => '<svg width="24" height="26" viewBox="0 0 24 26" aria-hidden="true"><path d="' + chair(1, 1, 22, 24) + '" '
+    + (old ? 'fill="none" stroke="' + CREAM + '" stroke-opacity="0.6" stroke-width="1.6"' : 'fill="' + BLUE + '" fill-opacity="' + tone(b).toFixed(2) + '"') + '/></svg>';
+  sizes.forEach((s, b) => {
+    const it = items[b] || { label: "", value: "" }, old = tokenMode && b === 0;
+    labels += '<div class="sign' + (old ? " old" : "") + '" data-b="' + b + '"><div class="lb">' + esc(it.label) + '</div><div class="vl">' + swatch(b, old) + "<span>" + esc(it.value) + "</span></div></div>";
+  });
+  $("labels").innerHTML = labels;
+  $("hall").innerHTML = svg;
+
+  const signs = [...document.querySelectorAll(".sign")];
+  signs.forEach(el => {
+    const lb = el.querySelector(".lb"); lb.style.whiteSpace = "nowrap";
+    let fs = 34; lb.style.fontSize = fs + "px";
+    while (fs > 30 && lb.scrollWidth > 262) { fs -= 1; lb.style.fontSize = fs + "px"; }
+    if (lb.scrollWidth > 262) lb.style.whiteSpace = "normal";
+  });
+  const hs = signs.map(el => el.offsetHeight), MIN = rowsStart - LIFT, MAX = rowsEnd + 4;
+  const SP = Math.max(6, Math.min(18, Math.floor((MAX - MIN - hs.reduce((a, b) => a + b, 0)) / Math.max(1, hs.length - 1))));
+  const tops = signs.map((el, b) => (blocks[b].y0 + blocks[b].y1) / 2 - hs[b] / 2);
+  for (let i = 0; i < tops.length; i++) tops[i] = Math.max(tops[i], i ? tops[i - 1] + hs[i - 1] + SP : MIN);
+  for (let i = tops.length - 1; i >= 0; i--) { const lim = i === tops.length - 1 ? MAX : tops[i + 1] - SP; if (tops[i] + hs[i] > lim) tops[i] = lim - hs[i]; }
+  let lead = "";
+  signs.forEach((el, b) => {
+    el.style.top = Math.round(tops[b]) + "px";
+    const sy = tops[b] + hs[b] / 2, k = blocks[b], cy = Math.min(Math.max(sy, k.y0 + 6), k.y1 - 6);
+    // A sign pushed off its block gets an elbow leader back to the block's bracket.
+    if (Math.abs(cy - sy) > 1) lead += '<path d="M358,' + sy.toFixed(1) + 'H364V' + cy.toFixed(1) + 'H372" fill="none" stroke="' + CREAM + '" stroke-opacity="0.6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
+  });
+  $("hall").insertAdjacentHTML("beforeend", lead);
+
+  // Seat tooltip on the empty selected seat (token mode): the hook object.
+  if (tokenMode && tipSeat) {
+    const tip = $("tip"); tip.style.display = "flex";
+    tip.innerHTML = "<b>" + tipSeat.label + "</b><span>· token baru</span>";
+    const w = tip.offsetWidth, left = Math.round(Math.min(Math.max(tipSeat.x - w / 2, 420), 896 - w));
+    tip.style.left = left + "px"; tip.style.top = Math.round(tipSeat.y - 12 - tip.offsetHeight) + "px";
+    tip.style.setProperty("--caret", Math.round(tipSeat.x - left) + "px");
+  }
+
+  // Legend: the booking app's seat key + a scale that is true for this house.
+  const g = inner => '<svg width="28" height="30" viewBox="0 0 28 30" aria-hidden="true">' + inner + "</svg>";
+  const cushion = chair(1, 1, 26, 28);
+  const legendEl = $("legend");
+  legendEl.innerHTML = '<div class="keys">'
+    + '<span class="k">' + g('<path d="' + cushion + '" fill="' + BLUE + '"/>') + "Terisi</span>"
+    + (tokenMode ? '<span class="k">' + g('<path d="' + cushion + '" fill="none" stroke="' + CREAM + '" stroke-opacity="0.6" stroke-width="1.8"/>') + "Dilepas</span>"
+      + '<span class="k">' + g('<path d="' + cushion + '" fill="none" stroke="' + ORANGE + '" stroke-width="2.2"/>') + "Masuk</span>" : "")
+    + '</div><span class="eq">' + esc(scaleTxt) + "</span>";
+  legendEl.style.top = (rowsEnd + 28) + "px";
+
+  $("src").textContent = D.source || "";
+  $("date").textContent = D.date || "";
+  document.body.dataset.mode = tokenMode ? "token" : "numbers";
+  document.body.dataset.rows = sizes.join(",");
+  }
+</script>
+</body>
+</html>

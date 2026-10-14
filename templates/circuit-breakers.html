@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Circuit Breakers</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow+Semi+Condensed:wght@500;600&family=Permanent+Marker&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Circuit Breakers: a close phone photo of an open Indonesian MCB panel.
+    Dark powder-coated steel cover fills the frame edge to edge; nothing of
+    the wall shows. Every piece of text is something the panel itself carries:
+      - title + kicker: engraved black laminate nameplate (white letters cut
+        through), riveted across the top with two screws; hl = a red laminate
+        insert in the plate.
+      - caption: a white label-maker strip stuck under the plate (karaoke pill).
+      - items: white DIN-rail MCB modules seen through the cover slot, toggles
+        vertical, UP = ON, DOWN = OFF (red indicator). Label = masking tape in
+        marker above each module, value = printed on the module like a rating.
+      - source + date: the printed circuit directory card under the slot.
+    A lever is down ONLY when the item's value is OFF/mati/nonaktif/padam/0.
+    The red marker ring marks the one item that matches hl (label or value);
+    a tie or no match rings nothing. The fingertip rests under the lever of
+    the ringed item, else the first OFF item, else there is no finger.
+    Metaphor (ai-tools): each breaker is one tool an AI agent may touch;
+    switch it off and the agent physically cannot use it.
+    Deterministic: no randomness; irregular shapes are fixed numbers.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #24292E; }
+  body { position: relative; color: #F2F1EC; font-family: "Barlow Semi Condensed", sans-serif; }
+  #scene, #ink { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  #ink { pointer-events: none; }
+
+  /* engraved laminate nameplate: black surface, white core shows where cut */
+  .plate { position: absolute; left: 64px; width: 952px; top: 272px; padding: 24px 66px 32px; border-radius: 9px; text-align: center;
+    background: linear-gradient(180deg, #1D1E21 0%, #141517 46%, #0F1012 100%);
+    box-shadow: inset 0 0 0 2px #2C2E31, inset 0 2px 0 2px #3A3C40, 0 0 0 1.5px #8E9194, 0 3px 0 1.5px #0B0C0D, 0 16px 26px rgba(0, 0, 0, 0.5); }
+  .kick { font: 600 28px "Barlow Condensed", sans-serif; letter-spacing: 0.16em; text-transform: uppercase; color: #D2D4D7; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kick i { font-style: normal; color: #8E9196; padding: 0 0.35em; }
+  .title { margin-top: 10px; font-weight: 700; font-family: "Barlow Condensed", sans-serif; text-transform: uppercase; line-height: 0.95; letter-spacing: 0.005em; color: #F5F4EF; text-wrap: balance; }
+  .title .hl { display: inline-block; white-space: nowrap; line-height: 0.86; padding: 0.07em 0.1em 0.03em; margin: 0 0.02em; border-radius: 0.035em; color: #FFFFFF; background: linear-gradient(180deg, #CF4430 0%, #C63D29 55%, #B93723 100%); box-shadow: inset 0 0 0 2px #93291A, inset 0 3px 0 0 rgba(255, 255, 255, 0.12); }
+
+  /* label-maker strip = caption / voice-over slot */
+  .strip { position: absolute; left: 96px; width: max-content; max-width: 888px; padding: 14px 28px 15px; border-radius: 8px;
+    background: linear-gradient(180deg, #FBFAF6 0%, #F3F2EC 60%, #EBEAE3 100%); color: #17181A;
+    font: 600 44px "Barlow Semi Condensed", sans-serif; line-height: 1.2; letter-spacing: 0.005em; transform: rotate(-0.6deg); transform-origin: 0 50%;
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.22), 0 10px 16px rgba(0, 0, 0, 0.35); }
+  .strip span.next { color: #56585C; }
+  .strip span.on { color: #FFFFFF; background: #2F6BD8; border-radius: 7px; padding: 0 8px; margin: 0 -2px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+
+  /* masking-tape labels in marker */
+  .tapew { position: absolute; filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.4)); }
+  .tape { background: linear-gradient(180deg, #EEE2C6 0%, #E8D9B8 45%, #E0CFA9 100%); color: #202124; font: 400 40px "Permanent Marker", cursive; line-height: 1.05; text-transform: uppercase; letter-spacing: 0.02em; padding: 12px 18px 9px; text-align: center; white-space: nowrap;
+    clip-path: polygon(5px 0, calc(100% - 3px) 0, 100% 14%, calc(100% - 5px) 31%, calc(100% - 1px) 49%, calc(100% - 6px) 66%, calc(100% - 1px) 83%, calc(100% - 4px) 100%, 3px 100%, 0 85%, 5px 69%, 1px 52%, 6px 35%, 1px 18%); }
+
+  /* print on the white MCB modules */
+  .num { position: absolute; width: 40px; height: 40px; border-radius: 5px; background: #26292D; color: #FFFFFF; font: 700 30px "Barlow Condensed", sans-serif; line-height: 40px; text-align: center; }
+  .val { position: absolute; font: 600 34px "Barlow Condensed", sans-serif; color: #1B1D20; line-height: 1.02; text-align: center; }
+  .ind { position: absolute; height: 44px; border-radius: 5px; font: 700 30px "Barlow Condensed", sans-serif; letter-spacing: 0.08em; line-height: 44px; text-align: center; }
+  .ind.on { background: #3A3F46; color: #F2F2EE; box-shadow: inset 0 0 0 2px #24272B, inset 0 4px 0 2px rgba(0, 0, 0, 0.25); }
+  .ind.off { background: #C63D29; color: #FFFFFF; box-shadow: inset 0 0 0 2px #8E2A1B, inset 0 4px 0 2px rgba(0, 0, 0, 0.18); }
+
+  /* printed circuit directory card (source + date) */
+  .card { position: absolute; background: #F4F3EE; border: 2px solid #1F2124; border-radius: 4px; padding: 8px 16px 10px; color: #1F2124; font: 500 26px "Barlow Semi Condensed", sans-serif; line-height: 1.25;
+    box-shadow: 0 3px 0 rgba(0, 0, 0, 0.25), 0 10px 16px rgba(0, 0, 0, 0.3); }
+  .card .hd { display: flex; justify-content: space-between; font: 700 28px "Barlow Condensed", sans-serif; letter-spacing: 0.08em; border-bottom: 2px solid #1F2124; padding-bottom: 3px; margin-bottom: 5px; }
+  .card .rw { display: grid; grid-template-columns: 98px 1fr; }
+  .card .rw b { font: 700 26px "Barlow Condensed", sans-serif; letter-spacing: 0.06em; }
+</style>
+</head>
+<body>
+<svg id="scene" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="plate" id="plate"><div class="kick" id="kick"></div><div class="title" id="title"></div></div>
+<div class="strip" id="cap" data-slot="caption"></div>
+<div id="labels"></div>
+<div class="card" id="card"></div>
+<svg id="ink" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap="true"></svg>
+<script>
+  // Fallback sample so the file opens standalone in a browser.
+  const D = window.D || { series_id: "ai-tools", series: "Tools AI", ep: "#04", kicker: "Tools AI · #04",
+    title: "Nyalain akses bayar buat agen AI?", hl: "bayar",
+    sub: "Tebak dulu: tugasnya cuma cari tiket pesawat.",
+    items: [{ label: "Email", value: "baca saja" }, { label: "File", value: "1 folder" }, { label: "Browser", value: "cari info" }, { label: "Pembayaran", value: "mati" }],
+    source: "ilustrasi — izin agen beda tiap aplikasi", date: "per 14 Okt 2026" };
+
+  Promise.all(['700 100px "Barlow Condensed"', '600 34px "Barlow Condensed"', '600 44px "Barlow Semi Condensed"', '500 26px "Barlow Semi Condensed"', '400 34px "Permanent Marker"'].map(f => document.fonts.load(f)))
+    .catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const RED = "#C63D29";
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(1, items.length);
+
+  // ---------- nameplate: engraved kicker line + title, hl on a red insert ----------
+  const series = String(D.series || ""), ep = String(D.ep || "");
+  const tag = series || ep ? [series, ep].filter(Boolean).join(" ") : String(D.kicker || "");
+  $("kick").innerHTML = "Panel A<i>·</i>220 V" + (tag ? "<i>·</i>" + esc(tag) : "");
+  const t = String(D.title || ""), hl = String(D.hl || "").trim();
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  // largest size that fits; two lines preferred while they stay >= 96 px, else up to three (balanced, no orphan)
+  const fitTitle = (maxLines, minFs) => { for (let f = 150; f >= minFs; f -= 2) {
+    titleEl.style.fontSize = f + "px";
+    if (titleEl.scrollWidth <= 820 && titleEl.offsetHeight <= 300 && Math.round(titleEl.offsetHeight / (f * 0.95)) <= maxLines) return f; } return 0; };
+  const fs = fitTitle(2, 96) || fitTitle(3, 72) || 72;
+  titleEl.style.fontSize = fs + "px";
+  const plate = $("plate");
+  const plateTop = 272, plateBot = plateTop + plate.offsetHeight;
+
+  // ---------- label-maker strip under the plate (karaoke caption) ----------
+  const capTxt = String(D.caption || D.sub || "");
+  const words = capTxt.split(/\s+/).filter(Boolean);
+  const norm = s => String(s).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+  const hw = hl.split(/\s+/).map(norm).filter(Boolean);
+  let a0 = 0, a1 = 0, found = false;
+  for (let i = 0; hw.length && i + hw.length <= words.length && !found; i++)        // whole words first
+    if (hw.every((w, j) => norm(words[i + j]) === w)) { a0 = i; a1 = i + hw.length - 1; found = true; }
+  for (let i = 0; hw.length === 1 && hw[0].length >= 4 && i < words.length && !found; i++)  // then affixed form (bayar -> pembayaran)
+    if (norm(words[i]).includes(hw[0])) { a0 = a1 = i; found = true; }
+  const cap = $("cap");
+  cap.innerHTML = words.map((w, i) => i < a0 ? `<span>${esc(w)}</span>` : i > a1 ? `<span class="next">${esc(w)}</span>` : null)
+    .reduce((acc, s, i) => { if (s !== null) acc.push(s); else if (i === a0) acc.push(`<span class="on">${esc(words.slice(a0, a1 + 1).join(" "))}</span>`); return acc; }, []).join(" ");
+  const capTop = plateBot + 24;
+  cap.style.top = capTop + "px";
+  const fitCap = maxW => { cap.style.maxWidth = maxW + "px"; for (let f = 44; f >= 40; f -= 2) { cap.style.fontSize = f + "px"; if (cap.offsetHeight <= f * 1.2 * 2 + 32) break; } };
+  fitCap(888);
+  if (capTop + cap.offsetHeight > 900) fitCap(804);            // keep clear of the action-button band
+  const capBot = capTop + cap.offsetHeight;
+
+  // ---------- which item is marked (data-driven only) ----------
+  const STOP = new Set(["ke", "di", "dan", "yang", "per", "ini", "itu", "ya", "aja", "sih", "nya", "dari", "atau", "the", "of", "to", "an", "and", "or", "in"]);
+  const wordsOf = s => String(s || "").toLowerCase().replace(/·/g, "").split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  const digitsOf = s => String(s || "").match(/\d+(?:[.,]\d+)*/g) || [];
+  const hlWords = wordsOf(hl).filter(w => w.replace(/\P{L}/gu, "").length >= 2 && !STOP.has(w));
+  const hlDigits = digitsOf(hl);
+  const hits = s => { const ws = wordsOf(s), ds = digitsOf(s); let k = 0;
+    hlWords.forEach(h => { if (ws.some(w => h.length >= 4 ? w.includes(h) : w === h)) k++; });
+    hlDigits.forEach(d => { if (ds.includes(d)) k++; });
+    return k; };
+  const score = items.map(it => 2 * hits(it.label) + hits(it.value));
+  const best = Math.max(0, ...score);
+  const matched = best > 0 && score.filter(s => s === best).length === 1 ? score.indexOf(best) : -1;
+  const ringOn = matched < 0 ? "" : hits(items[matched].label) > 0 ? "label" : "value";
+  const isOff = it => /^(off|mati|nonaktif|padam|0)$/i.test(String(it.value == null ? "" : it.value).trim());
+  const isState = v => /^(on|off|mati|nonaktif|aktif|nyala|hidup|padam)$/i.test(String(v == null ? "" : v).trim());
+  const target = matched >= 0 ? matched : items.findIndex(isOff);
+
+  // ---------- columns: items live in x 90-900; blanking plates fill the rest of the slot ----------
+  const XL = 90, XR = 900, w = (XR - XL) / n;
+  const cxOf = i => XL + w * (i + 0.5);
+  const T = n >= 4 ? 2 : 1;                                     // tape tiers (staggered when columns are narrow)
+  const tierOf = i => (T === 2 ? i % 2 : 0);
+
+  // tapes: fit inside their own lane, never across a neighbour's arrow
+  const H = [];
+  items.forEach((it, i) => H.push(`<div class="tapew" data-i="${i}"><div class="tape">${esc(it.label)}</div></div>`));
+  $("labels").innerHTML = H.join("");
+  const rot = [-1.3, 0.9, -0.7, 1.2, -1.0];
+  const it_label = i => items[i].label == null ? "" : items[i].label;
+  const tapes = Array.from(document.querySelectorAll(".tapew")).map(el => {
+    const i = +el.dataset.i, tp = el.firstChild, c = cxOf(i);
+    const reach = T === 2 ? w - 15 : w / 2 - 10;
+    const lo = Math.max(XL, c - reach), hi = Math.min(XR, c + reach), maxW = hi - lo;
+    for (let f = 40; f >= 30; f--) { tp.style.fontSize = f + "px"; if (tp.scrollWidth <= maxW) break; }
+    if (tp.scrollWidth > maxW) {
+      // wrap inside the lane; a word longer than the lane is split with a hyphen (as people do on tape)
+      tp.style.whiteSpace = "normal"; tp.style.width = maxW + "px"; tp.style.paddingLeft = tp.style.paddingRight = "12px";
+      const probe = document.createElement("span");
+      probe.style.cssText = 'position:absolute;left:0;top:0;visibility:hidden;white-space:nowrap;font:400 30px "Permanent Marker";text-transform:uppercase;letter-spacing:0.02em';
+      document.body.appendChild(probe);
+      const wordFits = s => { probe.textContent = s; return probe.offsetWidth <= maxW - 26; };
+      const V = ch => /[aiueo]/i.test(ch || ""), C = ch => /\p{L}/u.test(ch || "") && !V(ch);
+      tp.innerHTML = String(it_label(i)).split(/\s+/).filter(Boolean).map(wd => {
+        if (wordFits(wd)) return esc(wd);
+        const m = Math.round(wd.length / 2); let k = m;
+        search: for (let d = 0; d <= 4; d++) for (const q of [m + d, m - d]) if (q >= 2 && q <= wd.length - 2 && C(wd[q]) && V(wd[q + 1])) { k = q; break search; }
+        return esc(wd.slice(0, k)) + "-<br>" + esc(wd.slice(k));
+      }).join(" ");
+      probe.remove();
+      tp.style.fontSize = "32px";
+      if (tp.offsetHeight > 32 * 1.05 * 2 + 24 || tp.scrollWidth > maxW) tp.style.fontSize = "30px";
+    }
+    const tw = Math.min(maxW, tp.offsetWidth), th = tp.offsetHeight;
+    const left = clamp(c - tw / 2, lo, hi - tw);
+    el.style.left = left + "px";
+    el.style.transform = `rotate(${rot[i % rot.length]}deg)`;
+    return { el, i, c, tier: tierOf(i), w: tw, h: th, left };
+  });
+  const tierH = [0, 0];
+  tapes.forEach(tp => { tierH[tp.tier] = Math.max(tierH[tp.tier], tp.h); });
+  const tapesH = tierH[0] + (T === 2 ? 16 + tierH[1] : 0);
+
+  // directory card: side away from the finger
+  const card = $("card");
+  card.innerHTML = '<div class="hd"><span>DAFTAR MCB</span><span>1–' + n + '</span></div>' +
+    '<div class="rw"><b>SUMBER</b><span>' + esc(D.source || "") + '</span></div>' +
+    '<div class="rw"><b>TGL</b><span>' + esc(D.date || "") + '</span></div>';
+  let cardL = XL, cardR = XL + 640, handDir = 1;               // handDir +1: hand reaches in from bottom-right
+  if (target >= 0) {
+    const fx = cxOf(target);
+    const leftRoom = (fx - 78) - XL, rightRoom = XR - (fx + 78);   // the finger drifts away from the card as it goes down
+    if (leftRoom >= rightRoom) { cardL = XL; cardR = XL + Math.min(640, leftRoom); handDir = 1; }
+    else { cardR = XR; cardL = XR - Math.min(640, rightRoom); handDir = -1; }
+  }
+  card.style.left = cardL + "px"; card.style.width = (cardR - cardL) + "px";
+  const cardH = card.offsetHeight;
+
+  // vertical budget: tapes -> slot -> card, all above y 1606
+  let Z0 = capBot + 30;
+  let S0 = Z0 + tapesH + 30;
+  const room = 1606 - 28 - cardH - S0;
+  if (room > 470) { const extra = Math.min(70, (room - 470) / 2); Z0 += extra; S0 += extra; }
+  const Hs = clamp(1606 - 28 - cardH - S0, 330, 470);
+  const S1 = S0 + Hs;
+  tapes.forEach(tp => {
+    const top = tp.tier === 0 ? Z0 + (tierH[0] - tp.h) / 2 : Z0 + tierH[0] + 16 + (tierH[1] - tp.h) / 2;
+    tp.el.style.top = top + "px"; tp.top = top;
+  });
+  const cardTop = S1 + 28;
+  card.style.top = cardTop + "px";
+
+  // ---------- SVG scene ----------
+  const svg = [];
+  svg.push(`<defs>
+    <filter id="peel" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.09 0"/></filter>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="9"/></filter>
+    <linearGradient id="gCover" x1="0" y1="0" x2="0.35" y2="1"><stop offset="0" stop-color="#454C54"/><stop offset="0.5" stop-color="#3B4148"/><stop offset="1" stop-color="#31363C"/></linearGradient>
+    <radialGradient id="gVig" cx="0.42" cy="0.4" r="0.78"><stop offset="0.55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.32"/></radialGradient>
+    <linearGradient id="gMod" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F7F6F1"/><stop offset="0.6" stop-color="#EDECE6"/><stop offset="1" stop-color="#E2E1DA"/></linearGradient>
+    <linearGradient id="gBlank" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E6E5DF"/><stop offset="1" stop-color="#D6D5CE"/></linearGradient>
+    <linearGradient id="gLever" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#4A4F56"/><stop offset="0.5" stop-color="#383C42"/><stop offset="1" stop-color="#2A2D32"/></linearGradient>
+    <linearGradient id="gTopShade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0.42"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient>
+    <linearGradient id="gCable" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#0E0F10"/><stop offset="0.4" stop-color="#3A3D41"/><stop offset="1" stop-color="#121315"/></linearGradient>
+    <linearGradient id="gCableG" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#6E737A"/><stop offset="0.4" stop-color="#A3A8AE"/><stop offset="1" stop-color="#5F646B"/></linearGradient>
+  </defs>`);
+  // enclosure body (walls) behind the cover
+  svg.push(`<rect width="1080" height="1920" fill="#1B1F23"/>`);
+  svg.push(`<rect x="0" y="0" width="40" height="1920" fill="#22272C"/><rect x="1040" y="0" width="40" height="1920" fill="#171A1E"/>`);
+  // top wall with cable glands (outside the safe zone: grounds it as a real box)
+  svg.push(`<rect x="0" y="0" width="1080" height="190" fill="#1F2327"/>`);
+  [[262, "gCable", 34], [540, "gCableG", 28], [812, "gCable", 34]].forEach(([x, g, cw]) => {
+    svg.push(`<rect x="${x - cw / 2}" y="0" width="${cw}" height="186" fill="url(#${g})"/>`);
+    svg.push(`<path d="M${x - 34},70 L${x - 28},52 L${x + 28},52 L${x + 34},70 L${x + 28},88 L${x - 28},88 Z" fill="#6A7077" stroke="#4C5157" stroke-width="2"/><rect x="${x - 24}" y="88" width="48" height="20" rx="3" fill="#565C63"/>`);
+  });
+  // cover plate (dead-front), powder coat, edge to edge
+  svg.push(`<rect x="34" y="186" width="1012" height="1630" rx="14" fill="#101214"/>`);
+  svg.push(`<rect x="40" y="190" width="1000" height="1620" rx="12" fill="url(#gCover)"/>`);
+  svg.push(`<rect x="40" y="190" width="1000" height="1620" rx="12" filter="url(#peel)"/>`);
+  svg.push(`<line x1="52" y1="191.5" x2="1028" y2="191.5" stroke="#6A727B" stroke-width="2"/>`);
+  svg.push(`<rect x="40" y="190" width="1000" height="1620" rx="12" fill="url(#gVig)"/>`);
+  // cover screws
+  const screw = (x, y, a, r = 12) => `<circle cx="${x}" cy="${y + 1.5}" r="${r + 1}" fill="#0E1012" opacity="0.55"/><circle cx="${x}" cy="${y}" r="${r}" fill="#9EA3A8" stroke="#5F646A" stroke-width="2"/><circle cx="${x - r * 0.25}" cy="${y - r * 0.3}" r="${r * 0.55}" fill="#C3C7CB" opacity="0.6"/><line x1="${(x - r * 0.62 * Math.cos(a)).toFixed(1)}" y1="${(y - r * 0.62 * Math.sin(a)).toFixed(1)}" x2="${(x + r * 0.62 * Math.cos(a)).toFixed(1)}" y2="${(y + r * 0.62 * Math.sin(a)).toFixed(1)}" stroke="#4A4F55" stroke-width="3" stroke-linecap="round"/>`;
+  svg.push(screw(70, 226, 0.6), screw(1010, 226, -0.4), screw(70, 1776, 1.2), screw(1010, 1776, 0.2));
+
+  // slot cut in the cover, with the module row behind it
+  const WX0 = 76, WX1 = 1004;
+  svg.push(`<rect x="${WX0 - 3}" y="${S0 - 13}" width="${WX1 - WX0 + 6}" height="${Hs + 26}" rx="8" fill="#5A6169"/>`);
+  svg.push(`<rect x="${WX0}" y="${S0 - 10}" width="${WX1 - WX0}" height="${Hs + 20}" rx="6" fill="#0D0F11"/>`);
+  // blanking plates right of the items (unused ways)
+  for (let x = XR + 2; x < WX1; x += w) {
+    const bw = Math.min(w - 4, WX1 - 2 - x);
+    svg.push(`<rect x="${x}" y="${S0}" width="${bw}" height="${Hs}" rx="5" fill="url(#gBlank)"/>`);
+    for (let k = 1; k <= 3; k++) { const yy = S0 + Hs * (0.3 + 0.2 * k); svg.push(`<line x1="${x + 10}" y1="${yy}" x2="${x + bw - 10}" y2="${yy}" stroke="#C4C3BC" stroke-width="3"/>`); }
+  }
+  // modules
+  const geo = [];
+  items.forEach((it, i) => {
+    const x0 = XL + w * i + 2, mw = w - 4, c = cxOf(i);
+    const off = isOff(it);
+    svg.push(`<rect x="${x0}" y="${S0}" width="${mw}" height="${Hs}" rx="6" fill="url(#gMod)"/>`);
+    // moulded sides: lit left chamfer, shaded right chamfer, a groove each side
+    svg.push(`<rect x="${x0}" y="${S0}" width="9" height="${Hs}" rx="4" fill="#FFFFFF" opacity="0.55"/><rect x="${x0 + mw - 10}" y="${S0}" width="10" height="${Hs}" rx="4" fill="#B9B8B0" opacity="0.7"/>`);
+    svg.push(`<line x1="${x0 + 14}" y1="${S0 + 196}" x2="${x0 + mw - 14}" y2="${S0 + 196}" stroke="#CFCEC7" stroke-width="2"/>`);
+    // fine print beside the circuit number (drawn as bars, not text)
+    if (mw > 120) { const fw = mw - 78; svg.push(`<rect x="${x0 + 62}" y="${S0 + 21}" width="${(fw * 0.62).toFixed(1)}" height="6" rx="3" fill="#B5B4AD"/><rect x="${x0 + 62}" y="${S0 + 34}" width="${(fw * 0.4).toFixed(1)}" height="6" rx="3" fill="#C6C5BE"/>`); }
+    // toggle recess + lever
+    const slotTop = S0 + 206, slotBot = S1 - 22, sh = slotBot - slotTop;
+    const LW = Math.min(84, mw * 0.46), SWd = LW + 18, sx = c - SWd / 2;
+    svg.push(`<rect x="${sx}" y="${slotTop}" width="${SWd}" height="${sh}" rx="9" fill="#23262A"/><rect x="${sx + 3}" y="${slotTop + 3}" width="${SWd - 6}" height="14" rx="6" fill="#0F1113" opacity="0.7"/>`);
+    // I / O marks printed beside the recess (drawn, not text)
+    const mx = sx + SWd + 12;
+    if (mx + 10 < x0 + mw - 6) {
+      svg.push(`<rect x="${mx}" y="${slotTop + 8}" width="5" height="26" rx="1.5" fill="#7D8086"/>`);
+      svg.push(`<circle cx="${mx + 9}" cy="${slotBot - 22}" r="10" fill="none" stroke="#7D8086" stroke-width="4.5"/>`);
+    }
+    const lh = Math.max(46, sh * 0.5), ly = off ? slotBot - 6 - lh : slotTop + 6, lx = c - LW / 2;
+    // flank: the lever tilts toward the pivot, its side face shows on the pivot side
+    if (off) svg.push(`<polygon points="${lx + 4},${ly} ${lx + LW - 4},${ly} ${lx + LW - 10},${ly - 16} ${lx + 10},${ly - 16}" fill="#15171A"/>`);
+    else svg.push(`<polygon points="${lx + 4},${ly + lh} ${lx + LW - 4},${ly + lh} ${lx + LW - 10},${ly + lh + 16} ${lx + 10},${ly + lh + 16}" fill="#15171A"/>`);
+    svg.push(`<rect x="${lx + 3}" y="${ly + 5}" width="${LW}" height="${lh}" rx="7" fill="#000" opacity="0.35"/>`);
+    svg.push(`<rect x="${lx}" y="${ly}" width="${LW}" height="${lh}" rx="7" fill="url(#gLever)"/>`);
+    svg.push(`<line x1="${lx + 6}" y1="${ly + 2}" x2="${lx + LW - 6}" y2="${ly + 2}" stroke="#7A7F86" stroke-width="2"/>`);
+    [0.3, 0.5, 0.7].forEach(p => svg.push(`<line x1="${lx + 10}" y1="${ly + lh * p}" x2="${lx + LW - 10}" y2="${ly + lh * p}" stroke="#25282C" stroke-width="3" stroke-linecap="round"/>`));
+    geo.push({ i, x0, mw, c, off, lx, ly, LW, lh, slotTop, slotBot });
+  });
+  // shade cast by the cover onto the modules
+  svg.push(`<rect x="${WX0}" y="${S0 - 10}" width="${WX1 - WX0}" height="34" fill="url(#gTopShade)"/>`);
+  svg.push(`<line x1="${WX0 + 4}" y1="${S1 + 12}" x2="${WX1 - 4}" y2="${S1 + 12}" stroke="#7D858E" stroke-width="2"/>`);
+  $("scene").innerHTML = svg.join("");
+
+  // module print: number, value (rating spot), indicator window
+  const M = [];
+  geo.forEach(g => {
+    const it = items[g.i];
+    const shown = isState(it.value) ? "—" : String(it.value == null ? "" : it.value);
+    M.push(`<div class="num" style="left:${g.x0 + 12}px;top:${S0 + 14}px">${g.i + 1}</div>`);
+    M.push(`<div class="val" data-i="${g.i}" style="left:${g.x0 + 11}px;width:${g.mw - 22}px;top:${S0 + 62}px">${esc(shown)}</div>`);
+    const iw = Math.min(g.mw - 36, 104);
+    M.push(`<div class="ind ${g.off ? "off" : "on"}" style="left:${g.c - iw / 2}px;width:${iw}px;top:${S0 + 146}px">${g.off ? "OFF" : "ON"}</div>`);
+  });
+  $("labels").insertAdjacentHTML("beforeend", M.join(""));
+  // values: one line at 34 -> 30 px, else two lines; centred in the 76 px rating band
+  document.querySelectorAll(".val").forEach(el => {
+    const g = geo[+el.dataset.i], maxW = g.mw - 22;
+    el.style.whiteSpace = "nowrap";
+    // one line at full size, else two lines at >= 32 px, else one line at 30-31 px, else two lines at 30 px
+    const vmax = clamp(Math.round(w * 0.2), 34, 44);
+    const tryNo = f => { el.style.whiteSpace = "nowrap"; el.style.fontSize = f + "px"; return el.scrollWidth <= maxW; };
+    const tryWrap = f => { el.style.whiteSpace = "normal"; el.style.fontSize = f + "px"; return el.scrollWidth <= maxW && el.offsetHeight <= f * 1.02 * 2 + 1; };
+    let ok = false;
+    for (let f = vmax; f >= 32 && !ok; f--) ok = tryNo(f);
+    if (!ok && /\s/.test(el.textContent.trim())) for (let f = Math.min(vmax, 36); f >= 32 && !ok; f--) ok = tryWrap(f);
+    for (let f = 31; f >= 30 && !ok; f--) ok = tryNo(f);
+    if (!ok) { el.style.overflowWrap = "anywhere"; tryWrap(30); }
+    el.style.top = (S0 + 60 + (78 - el.offsetHeight) / 2) + "px";
+  });
+
+  // ---------- ink: plate screws, marker arrows, red ring, fingertip ----------
+  const ink = [];
+  const pm = plateTop + plate.offsetHeight / 2;
+  ink.push(screw(96, pm, 0.35, 13), screw(984, pm, -0.9, 13));
+  // white paint-marker arrows from each tape down to its module
+  tapes.forEach(tp => {
+    if (T !== 2 || tp.tier !== 0) return;
+    const y1 = tp.top + tp.h + 6, y2 = S0 - 16, x = tp.c;
+    const k = tp.i % 2 ? 1 : -1;
+    ink.push(`<path d="M${x + 2 * k},${y1} C${x - 3 * k},${(y1 * 2 + y2) / 3} ${x + 3 * k},${(y1 + y2 * 2) / 3} ${x},${y2}" fill="none" stroke="#ECE8DD" stroke-width="4" stroke-linecap="round"/>`);
+    ink.push(`<path d="M${x - 9},${y2 - 11} L${x},${y2 + 1} L${x + 9},${y2 - 12}" fill="none" stroke="#ECE8DD" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`);
+  });
+  function ring(cx, cy, rx, ry, k, tilt) {
+    const N = 96, st = -2.5 + 0.35 * k, sweep = Math.PI * 2 * 1.1, ca = Math.cos(tilt), sa = Math.sin(tilt), p = [];
+    for (let j = 0; j <= N; j++) {
+      const u = j / N, a = st + sweep * u;
+      const m = 1 + 0.03 * Math.sin(3 * a + 0.7 + k) + 0.02 * Math.sin(5 * a + 1.9) - 0.04 + 0.08 * u;
+      const x = rx * m * Math.cos(a), y = ry * m * Math.sin(a) + (u - 0.5) * ry * 0.08;
+      p.push((cx + x * ca - y * sa).toFixed(1) + "," + (cy + x * sa + y * ca).toFixed(1));
+    }
+    return `<path d="M${p.join("L")}" fill="none" stroke="${RED}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/>`;
+  }
+  if (matched >= 0) {
+    if (ringOn === "label") {
+      const r = tapes[matched].el.getBoundingClientRect();
+      const L = Math.max(84, r.left - 12), R = Math.min(996, r.right + 12);
+      ink.push(ring((L + R) / 2, r.top + r.height / 2, (R - L) / 2, r.height / 2 + 11, 1, -0.02));
+    } else {
+      const r = Array.from(document.querySelectorAll(".val")).find(e => +e.dataset.i === matched).getBoundingClientRect(), g = geo[matched];
+      const rx = Math.min(r.width / 2 + 20, (g.mw / 2 - 4) / 1.06);
+      ink.push(ring(g.c, r.top + r.height / 2, rx, r.height / 2 + 11, 2, -0.03));
+    }
+  }
+  // flat fingertip from below, resting under the target lever (hand reaches away from the card)
+  if (target >= 0) {
+    const g = geo[target], fx = g.c, fy = g.ly + g.lh - 12, d = handDir;
+    const tf = `translate(${fx} ${fy.toFixed(1)}) rotate(${(-d * 5.5).toFixed(2)}) scale(${d} 1)`;
+    const FINGER = "M-56,56 A56,56 0 0 1 56,56 C58,140 61,200 63,250 C65,300 63,370 64,450 C65,520 66,570 67,630 L-67,630 C-66,570 -65,520 -64,450 C-63,370 -65,300 -63,250 C-61,200 -58,140 -56,56 Z";
+    const HAND = "M-66,600 C-20,592 30,590 62,594 C92,578 128,574 156,588 C182,582 206,592 222,610 C246,606 272,622 284,650 C306,700 320,820 328,980 L336,1300 L-122,1300 C-120,1080 -110,880 -98,772 C-90,712 -78,652 -66,600 Z";
+    const shade = `<path d="${HAND}"/><path d="${FINGER}"/>`;
+    ink.push(`<g transform="translate(16,20) ${tf}" fill="#000" opacity="0.45" filter="url(#soft2)">${shade}</g>`);
+    ink.push(`<g transform="${tf}">` +
+      `<path d="${HAND}" fill="url(#gHand)"/>` +
+      [[108, 584], [190, 598], [258, 632]].map(([u, v]) => `<path d="M${u - 26},${v + 12} Q${u},${v} ${u + 26},${v + 14}" fill="none" stroke="#DCA685" stroke-width="5" stroke-linecap="round" opacity="0.4"/>`).join("") +
+      `<path d="M60,600 C72,650 76,700 72,780" fill="none" stroke="#8F5A3E" stroke-width="4" stroke-linecap="round" opacity="0.35"/>` +
+      `<path d="${FINGER}" fill="url(#gSkin)"/>` +
+      `<path d="M-35,40 C-35,16 -18,7 0,7 C18,7 35,16 35,40 L34,110 C22,120 -22,120 -34,110 Z" fill="#E6BCA2" stroke="#C99577" stroke-width="2"/>` +
+      `<path d="M-27,17 C-12,10 12,10 27,17" fill="none" stroke="#F6E0D2" stroke-width="4" stroke-linecap="round" opacity="0.85"/>` +
+      [244, 262, 278].map((v, k) => `<path d="M${-34 + k * 4},${v} Q0,${v + 8} ${34 - k * 4},${v}" fill="none" stroke="#8F5A3E" stroke-width="3" stroke-linecap="round" opacity="${k === 1 ? 0.6 : 0.4}"/>`).join("") +
+      `</g>`);
+  }
+  $("ink").innerHTML = `<defs><filter id="soft2" x="-30%" y="-10%" width="160%" height="120%"><feGaussianBlur stdDeviation="10"/></filter><linearGradient id="gSkin" gradientUnits="userSpaceOnUse" x1="-64" y1="0" x2="64" y2="0"><stop offset="0" stop-color="#B07756"/><stop offset="0.28" stop-color="#D49C79"/><stop offset="0.7" stop-color="#CB916D"/><stop offset="1" stop-color="#A26A4B"/></linearGradient><linearGradient id="gHand" gradientUnits="userSpaceOnUse" x1="-122" y1="0" x2="336" y2="0"><stop offset="0" stop-color="#A86F4F"/><stop offset="0.3" stop-color="#C98F6C"/><stop offset="0.75" stop-color="#BF8461"/><stop offset="1" stop-color="#9A6345"/></linearGradient></defs>` + ink.join("");
+  }
+</script>
+</body>
+</html>

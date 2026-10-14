@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;700&family=Doto:wght@900&family=Share+Tech+Mono&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Prepaid Meter: close-up of the prepaid electricity meter ("token listrik") on an Indonesian
+    terrace wall: rough cement plaster above, glossy ceramic tile strip below, the black twisted
+    service cable dropping in from the top edge into the gland, house cables leaving the bottom.
+    The casing fills the frame (x 44-1036, y 190-1660). The title IS the meter's message: a tall
+    dot-matrix LCD window (Doto 900, 72-110 px), hl in reverse video. Under it the big 7-segment
+    readout of the reading being spoken ("SISA" + warning when credit is low), the keyed readings
+    01#.. (two-line when long, never ellipsized), a vertical credit gauge on the right rail, the
+    keypad + MCB window, a rating plate (source + date) and a printed sticker carrying the caption.
+    Alarm state is data-driven: D.level (0-10, alarm at <= 2) or a sisa/kuota/habis/saldo last
+    item; otherwise the meter is calm (LED off, gauge 6/10). No branding, no logos. Deterministic.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #CFC6B6; }
+  body { position: relative; color: #18202A; font-family: "Barlow Semi Condensed", sans-serif; }
+  #wall { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  .abs { position: absolute; }
+
+  /* casing */
+  .depth { position: absolute; left: 56px; top: 204px; width: 992px; height: 1470px; border-radius: 46px; background: linear-gradient(90deg, #C9C2B4, #B3AB9C); }
+  .case { position: absolute; left: 44px; top: 190px; width: 992px; height: 1470px; border-radius: 46px;
+    background: linear-gradient(180deg, #F9F8F4 0%, #F2F1EC 40%, #E9E6DE 100%);
+    box-shadow: inset 0 3px 0 #FFFFFF, inset 0 -5px 0 #D8D2C5, inset 3px 0 0 #FCFBF8, inset -4px 0 0 #DFD9CD; }
+  .groove { position: absolute; left: 64px; top: 286px; width: 952px; height: 1354px; border-radius: 30px;
+    box-shadow: inset 0 2px 0 #D9D3C6, inset 0 -2px 0 #FFFFFF, 0 2px 0 #FFFFFF, 0 -1px 0 #DCD6CA; }
+  .screw { position: absolute; width: 26px; height: 26px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #F4F2EC, #B9B2A4 70%); box-shadow: 0 1px 0 #FFFFFF, inset 0 -1px 2px rgba(24,32,42,.25); }
+  .screw::after { content: ""; position: absolute; left: 5px; right: 5px; top: 11px; height: 4px; border-radius: 2px; background: #8F887B; transform: rotate(-28deg); }
+
+  /* printed nameplate band: series · ep + alarm LED */
+  .band { position: absolute; left: 84px; top: 300px; width: 912px; height: 56px; border-radius: 12px; background: #E8E5DC;
+    box-shadow: inset 0 0 0 2px #D6D0C3; display: flex; align-items: center; justify-content: space-between; padding: 0 22px;
+    font: 30px "Share Tech Mono", monospace; letter-spacing: 0.08em; text-transform: uppercase; color: #2F3642; white-space: nowrap; }
+  .band b { font-weight: 400; color: #18202A; }
+  .led { display: flex; align-items: center; gap: 14px; }
+  .led i { width: 30px; height: 30px; border-radius: 50%; display: block;
+    background: radial-gradient(circle at 38% 34%, #B8776F 0%, #7E2E27 55%, #5A1E19 100%); box-shadow: 0 0 0 3px #D6D0C3, 0 0 0 5px #C3BCAE; }
+  .alarm .led i { background: radial-gradient(circle at 38% 34%, #FFB3A8 0%, #EE4A3C 38%, #B5271E 100%);
+    box-shadow: 0 0 0 3px #D6D0C3, 0 0 0 5px #C3BCAE, 0 0 20px 6px rgba(211,55,44,.42); }
+
+  /* LCD */
+  .bezel { position: absolute; left: 84px; top: 370px; width: 912px; border-radius: 26px; background: linear-gradient(180deg, #2B3340, #1B222C);
+    box-shadow: inset 0 2px 0 #3B4452, 0 2px 0 #FFFFFF, 0 -2px 0 #CFC8BA; }
+  .lcd { position: absolute; left: 14px; top: 14px; right: 14px; bottom: 14px; border-radius: 12px; overflow: hidden;
+    background: radial-gradient(120% 80% at 40% 30%, #BCD4EC 0%, #A7C3E0 55%, #98B5D3 100%);
+    box-shadow: inset 0 8px 12px rgba(24,32,42,.30), inset 0 -2px 0 rgba(255,255,255,.25); }
+  .lcd svg.fx { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+  .msg { position: absolute; left: 120px; width: 840px; font: 900 96px "Doto", monospace; line-height: 1.1; color: #18202A; letter-spacing: 0; }
+  .msg .rv { background: linear-gradient(#18202A, #18202A) no-repeat; color: #BCD4EC; padding: 0 0.06em; margin: 0 -0.06em;
+    -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  .msg .pd { display: inline-block; width: 0.6em; height: 0.2em; vertical-align: 0; background: linear-gradient(currentColor, currentColor) 0.1em 0 / 0.2em 0.2em no-repeat; }
+  .lrule { position: absolute; left: 120px; width: 840px; height: 3px; background: #18202A; opacity: .78; }
+
+  .seg { position: absolute; left: 120px; width: 766px; display: flex; align-items: flex-end; gap: 14px; font-family: "Share Tech Mono", monospace; color: #18202A; white-space: nowrap; }
+  .seg .tag { align-self: center; display: flex; align-items: center; gap: 12px; font-size: 36px; letter-spacing: 0.06em; margin-right: auto; }
+  .seg .tag span { padding: 2px 12px; border-radius: 4px; }
+  .seg .tag.low span { background: #18202A; color: #BCD4EC; }
+  .seg .tag svg { width: 46px; height: 42px; }
+  .seg .pre, .seg .unit { font-size: 44px; line-height: 1; padding-bottom: 2px; }
+  .seg .pre { align-self: center; }
+  .seg svg.d7 { display: block; }
+
+  .rows { position: absolute; left: 120px; width: 766px; font-family: "Share Tech Mono", monospace; color: #18202A; }
+  .row { position: relative; border-radius: 6px; padding: 0 12px; white-space: nowrap; }
+  .row .l1, .row .l2 { display: flex; align-items: center; gap: 16px; }
+  .row .k { flex: none; font-size: 30px; letter-spacing: 0.04em; color: #26303D; }
+  .row .lb, .row .vl { flex: none; }
+  .row .ld { flex: 1 1 auto; min-width: 40px; height: 0; border-bottom: 4px dotted rgba(24,32,42,.42); transform: translateY(8px); }
+  .row.two .l2 { padding-left: 64px; }
+  .row.hot { background: #18202A; color: #BCD4EC; }
+  .row.hot .k { color: #BCD4EC; }
+  .row.hot .ld { border-bottom-color: rgba(188,212,236,.5); }
+
+  /* keypad + MCB window */
+  .keys { position: absolute; left: 84px; width: 802px; display: grid; gap: 14px; }
+  .key { border-radius: 14px; display: flex; align-items: center; justify-content: center;
+    font: 42px "Share Tech Mono", monospace; color: #18202A;
+    background: linear-gradient(180deg, #FFFFFF 0%, #F3F1EB 70%, #E8E4DB 100%);
+    box-shadow: 0 7px 0 #CBC4B6, 0 10px 14px rgba(24,32,42,.20), inset 0 2px 0 #FFFFFF; }
+  .key svg { width: 46px; height: 40px; }
+  .key.ent { background: linear-gradient(180deg, #2B3340, #18202A); box-shadow: 0 7px 0 #0B0F14, 0 10px 14px rgba(24,32,42,.28), inset 0 2px 0 #3B4452; }
+
+  /* rating plate: source + date */
+  .plate { position: absolute; left: 84px; width: 802px; border-radius: 8px; padding: 10px 40px 10px 40px;
+    background: linear-gradient(180deg, #E6E4DE, #D9D6CE); box-shadow: inset 0 0 0 2px #C9C4B8, inset 0 2px 0 #F4F3EF;
+    font: 26px "Share Tech Mono", monospace; color: #2B323D; line-height: 1.26; }
+  .plate em { font-style: normal; letter-spacing: 0.08em; color: #18202A; background: #C9C4B8; border-radius: 4px; padding: 0 6px; margin-right: 0.45em; }
+  .plate em + span + em { margin-left: 0.3em; }
+  .plate .rv2 { position: absolute; top: calc(50% - 8px); width: 16px; height: 16px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #F2F1EC, #A9A397); }
+
+  /* printed instruction sticker = caption (karaoke voice-over line) */
+  .sticker { position: absolute; left: 84px; width: 912px; border-radius: 14px; background: #FCFBF8;
+    box-shadow: 0 2px 0 #D7D1C4, 0 6px 12px rgba(24,32,42,.10), inset 0 0 0 2px #E4DFD4; }
+  .cap { position: absolute; left: 108px; width: 864px; font-weight: 500; font-size: 46px; line-height: 1.24; color: #4A505A; letter-spacing: 0; }
+  .cap .w { display: inline; }
+  .cap .on { color: #18202A; background: #A7C3E0; border-radius: 8px; padding: 0 0.16em; margin: 0 -0.04em; box-shadow: inset 0 0 0 3px #18202A;
+    -webkit-box-decoration-break: clone; box-decoration-break: clone; font-weight: 700; }
+  .cap .done { color: #18202A; }
+
+  /* token slip taped over the casing's top corner */
+  .slip { position: absolute; left: 70px; top: 124px; width: 470px; padding: 16px 24px 16px; background: #FBFAF6; transform: rotate(-2.4deg); transform-origin: 0 0;
+    box-shadow: 0 10px 18px rgba(24,32,42,.18), 0 1px 0 #FFFFFF inset; font-family: "Share Tech Mono", monospace; color: #18202A; }
+  .slip .h { font-size: 30px; letter-spacing: 0.12em; color: #2F3642; }
+  .slip .c { font-size: 32px; letter-spacing: 0.01em; margin-top: 4px; white-space: nowrap; }
+  .tape { position: absolute; left: 318px; top: -26px; width: 136px; height: 54px; background: rgba(246,240,222,.74);
+    clip-path: polygon(3% 8%, 12% 0, 22% 9%, 35% 1%, 48% 7%, 61% 0, 75% 8%, 88% 2%, 100% 10%, 97% 92%, 86% 100%, 72% 93%, 58% 100%, 44% 92%, 30% 99%, 17% 91%, 5% 100%, 0 90%); }
+</style>
+</head>
+<body>
+<svg id="wall" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="depth"></div>
+<div class="case"></div>
+<div class="groove"></div>
+<div id="parts"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser (quota topic -> alarm preset).
+  const D = window.D || { series_id: "ai-in-numbers", series: "AI dalam angka", ep: "#01", kicker: "AI dalam angka · #01",
+    title: "Token AI kamu juga bisa habis", hl: "habis",
+    sub: "Tiap prompt dan dokumen panjang menyedot kuota token.",
+    items: [{ label: "Sapaan singkat", value: "-40" }, { label: "Ringkas PDF", value: "-9.200" }, { label: "Chat panjang", value: "-31.000" }, { label: "Sisa kuota", value: "1.760" }],
+    source: "ilustrasi — angka token beda tiap model", date: "per 14 Okt 2026" };
+
+  const fontsIn = Promise.all(['900 96px Doto', '500 44px "Barlow Semi Condensed"', '700 44px "Barlow Semi Condensed"', '400 40px "Share Tech Mono"'].map(f => document.fonts.load(f)))
+    .then(() => document.fonts.ready).catch(() => {});
+  fontsIn.then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const parts = document.getElementById("parts");
+  const add = (cls, style, html, attrs) => { const e = document.createElement("div"); e.className = cls; if (style) e.style.cssText = style; if (html != null) e.innerHTML = html; if (attrs) for (const k in attrs) e.setAttribute(k, attrs[k]); parts.appendChild(e); return e; };
+  const items = (D.items || []).slice(0, 5).map(it => ({ label: String(it.label == null ? "" : it.label), value: String(it.value == null ? "" : it.value) }));
+  const n = Math.max(items.length, 1);
+  const t = String(D.title || ""), hl = String(D.hl || "");
+
+  // ---------- meter state (data-driven) ----------
+  const QUOTA = /(^|[^\p{L}])(sisa|kuota|habis|tersisa|saldo)([^\p{L}]|$)/iu;
+  const lastI = items.length - 1;
+  const quotaLast = lastI >= 0 && QUOTA.test(items[lastI].label);
+  const lvRaw = D.level == null || D.level === "" ? NaN : Number(D.level);
+  const alarm = Number.isFinite(lvRaw) ? lvRaw <= 2 : quotaLast;
+  const level = Number.isFinite(lvRaw) ? clamp(Math.round(lvRaw), 0, 10) : (alarm ? 2 : 6);
+  const digitsOf = s => (String(s).match(/\d+(?:[.,]\d+)*/) || [""])[0].replace(/[.,]/g, "");
+  const hasDigit = s => /\d/.test(s);
+  // featured reading = the one being spoken: quota row in alarm, else the row matching hl
+  let f = -1;
+  if (alarm && quotaLast) f = lastI;
+  const hlL = hl.toLowerCase().trim();
+  if (f < 0 && hlL) f = items.findIndex(it => it.label.toLowerCase().includes(hlL) || (it.label.length > 2 && hlL.includes(it.label.toLowerCase())));
+  if (f < 0 && hasDigit(hl)) f = items.findIndex(it => digitsOf(it.value) && digitsOf(it.value) === digitsOf(hl));
+  if (f < 0 && hlL) { const m = items.map((it, i) => it.value.toLowerCase().includes(hlL) ? i : -1).filter(i => i >= 0); if (m.length === 1) f = m[0]; }
+  if (f < 0) for (let i = lastI; i >= 0; i--) if (hasDigit(items[i].value)) { f = i; break; }
+  if (f < 0) f = lastI;
+  document.body.classList.toggle("alarm", alarm);
+
+  // ---------- caption sticker (karaoke). Active word = hl if in the caption, else the first word ----------
+  const capText = String(D.caption || D.sub || "");
+  const words = capText.split(/\s+/).filter(Boolean);
+  const normW = w => w.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+  let a0 = 0, a1 = 0;
+  if (hl) {
+    const hw = hl.toLowerCase().split(/\s+/).filter(Boolean), key = hw.map(normW).join(" ");
+    for (let i = 0; key && i + hw.length <= words.length; i++) {
+      if (words.slice(i, i + hw.length).map(normW).join(" ").includes(key)) { a0 = i; a1 = i + hw.length - 1; break; }
+    }
+  }
+  let capHTML = "";
+  for (let i = 0; i < words.length; i++) {
+    if (i === a0) { capHTML += '<span class="w on">' + esc(words.slice(a0, a1 + 1).join(" ")) + "</span> "; i = a1; continue; }
+    capHTML += '<span class="w' + (i < a0 ? " done" : "") + '">' + esc(words[i]) + "</span> ";
+  }
+  const sticker = add("sticker", "");
+  const capEl = add("cap", "", capHTML.trim(), { "data-slot": "caption" });
+  for (let fs = 46; fs >= 40; fs -= 2) { capEl.style.fontSize = fs + "px"; if (capEl.offsetHeight <= Math.ceil(fs * 1.24 * 2) + 2) break; }
+  const capTop = 1612 - capEl.offsetHeight;
+  capEl.style.top = capTop + "px";
+  const stTop = capTop - 18;
+  sticker.style.top = stTop + "px"; sticker.style.height = (1630 - stTop) + "px";
+
+  // ---------- rating plate: source + date ----------
+  const plate = add("plate", "visibility:hidden;top:0",
+    (D.source ? "<em>SUMBER</em><span>" + esc(D.source) + "</span> " : "") +
+    (D.date ? '<em>TGL</em><span style="white-space:nowrap">' + esc(D.date) + "</span>" : "") +
+    '<i class="rv2" style="left:14px"></i><i class="rv2" style="right:14px"></i>');
+  const plateH = plate.offsetHeight;
+  const plateTop = stTop - 18 - plateH;
+  plate.style.top = plateTop + "px"; plate.style.visibility = "";
+
+  // ---------- title = the LCD message (dot-matrix), hl in reverse video ----------
+  const at = hlL ? t.toLowerCase().indexOf(hlL) : -1;
+  const dots = s => esc(s).replace(/[.,]/g, m => '<span class="pd" aria-hidden="true"></span>');
+  const msg = add("msg", "top:0", at < 0 ? dots(t) : dots(t.slice(0, at)) + '<span class="rv">' + dots(t.slice(at, at + hl.length)) + "</span>" + dots(t.slice(at + hl.length)));
+  const lineH = fs => Math.round(fs * 1.1);
+  const titleLines = fs => { msg.style.fontSize = fs + "px"; return Math.round(msg.offsetHeight / lineH(fs)); };
+
+  // ---------- readings: measure each row on one line at size F ----------
+  const meas = document.createElement("div");
+  meas.style.cssText = "position:absolute;left:-4000px;top:0;white-space:nowrap;font-family:'Share Tech Mono',monospace";
+  document.body.appendChild(meas);
+  const textW = (s, fs) => { meas.style.fontSize = fs + "px"; meas.textContent = s; return meas.offsetWidth; };
+  const codeW = textW("00#", 30);
+  const COLW = 766, ROWPAD = 24;
+  const fitsOne = (it, F) => codeW + 16 + textW(it.label, F) + 16 + 40 + 16 + textW(it.value, F) <= COLW - ROWPAD;
+  // a row that does not fit on one line becomes a two-line LCD reading (label / leader + value): never ellipsized
+  const rowsPlan = (F, tight) => {
+    const two = items.map(it => !fitsOne(it, F));
+    const h1 = Math.round(F * (tight ? 1.24 : 1.42)), h2 = Math.round(F * (tight ? 1.04 : 1.12)) * 2 + (tight ? 4 : 8);
+    return { F, two, h1, h2, H: two.reduce((s, x) => s + (x ? h2 : h1) + 8, 0) - 8 };
+  };
+  // preferred rows: largest of 44..38 with every row on one line, else 40 with two-line rows where needed
+  let RP0 = null;
+  for (let F = 44; F >= 38; F -= 2) { const p = rowsPlan(F); if (!p.two.some(Boolean)) { RP0 = p; break; } }
+  if (!RP0) RP0 = rowsPlan(40);
+
+  // ---------- 7-segment readout of the featured reading ----------
+  const fv = items[f] ? items[f].value : "";
+  const di = fv.search(/\d/);
+  let pre = "", core = "", unit = "";
+  if (di >= 0) {
+    let s0 = di;
+    if (di > 0 && /[-−]/.test(fv[di - 1]) && (di === 1 || /\s/.test(fv[di - 2]))) s0 = di - 1;
+    const m = fv.slice(di).match(/^\d+(?:[.,]\d+)*/)[0];
+    pre = fv.slice(0, s0).trim(); core = fv.slice(s0, di + m.length); unit = fv.slice(di + m.length).trim();
+  }
+  const cells = [];
+  for (const ch of core) { if (/[.,]/.test(ch)) { if (cells.length) cells[cells.length - 1].dp = true; } else cells.push({ ch: /[−]/.test(ch) ? "-" : ch, dp: false }); }
+  if (!cells.length) for (let i = 0; i < 4; i++) cells.push({ ch: "-", dp: false });
+  while (cells.length < 4) cells.unshift({ ch: " ", dp: false });
+  const SEGS = { "0": "abcdef", "1": "bc", "2": "abged", "3": "abgcd", "4": "fgbc", "5": "afgcd", "6": "afgedc", "7": "abc", "8": "abcdefg", "9": "abcdfg", "-": "g", " ": "" };
+  const seg7 = h => {
+    const w = h * 0.54, th = h * 0.13, gap = h * 0.2, k = Math.tan(7 * Math.PI / 180), g = th * 0.14, sk = h * k;
+    const W = cells.length * w + (cells.length - 1) * gap + sk + th;
+    const P = (pts, ox) => "M" + pts.map(p => (ox + p[0] + (h - p[1]) * k).toFixed(1) + " " + p[1].toFixed(1)).join("L") + "Z";
+    const Hs = (yc, x1, x2) => [[x1, yc], [x1 + th / 2, yc - th / 2], [x2 - th / 2, yc - th / 2], [x2, yc], [x2 - th / 2, yc + th / 2], [x1 + th / 2, yc + th / 2]];
+    const Vs = (xc, y1, y2) => [[xc, y1], [xc + th / 2, y1 + th / 2], [xc + th / 2, y2 - th / 2], [xc, y2], [xc - th / 2, y2 - th / 2], [xc - th / 2, y1 + th / 2]];
+    const L = th / 2, R = w - th / 2, T = th / 2, M = h / 2, B = h - th / 2;
+    const geo = { a: Hs(T, L + g, R - g), b: Vs(R, T + g, M - g), c: Vs(R, M + g, B - g), d: Hs(B, L + g, R - g), e: Vs(L, M + g, B - g), f: Vs(L, T + g, M - g), g: Hs(M, L + g, R - g) };
+    let ghost = "", lit = "";
+    cells.forEach((c, i) => {
+      const ox = i * (w + gap);
+      for (const s in geo) (SEGS[c.ch] || "").includes(s) ? lit += P(geo[s], ox) : ghost += P(geo[s], ox);
+      const dp = 'M' + (ox + w + gap * 0.18).toFixed(1) + ' ' + (h - th).toFixed(1) + 'h' + th.toFixed(1) + 'v' + th.toFixed(1) + 'h-' + th.toFixed(1) + 'Z';
+      c.dp ? lit += dp : ghost += dp;
+    });
+    return { W: Math.ceil(W), svg: '<svg class="d7" width="' + Math.ceil(W) + '" height="' + h + '" viewBox="0 0 ' + Math.ceil(W) + " " + h + '"><path d="' + ghost + '" fill="#18202A" opacity=".08"/><path d="' + lit + '" fill="#18202A"/></svg>' };
+  };
+  const tagLow = alarm && items[f] && QUOTA.test(items[f].label);
+  const warnSvg = '<svg viewBox="0 0 46 42"><path d="M23 3 L43 39 L3 39 Z" fill="#18202A"/><path d="M21 15h4l-.6 13h-2.8z M21 31h4v4h-4z" fill="#BCD4EC"/></svg>';
+  const tagHTML = '<div class="tag' + (tagLow ? " low" : "") + '">' + (alarm ? warnSvg : "") + "<span>" + (tagLow ? "SISA" : String(f + 1).padStart(2, "0") + "#") + "</span></div>";
+  const sideW = textW(tagLow ? "SISA" : "00#", 36) + 24 + (alarm ? 58 : 0) + (pre ? textW(pre, 44) + 14 : 0) + (unit ? textW(unit, 44) + 14 : 0) + 34;
+  const fit7 = want => { let h = want; while (h > 56 && seg7(h).W > COLW - sideW) h -= 2; return h; };
+
+  // ---------- vertical budget: LCD top 370 .. keypad .. plate ----------
+  const LT = 370;
+  // order: biggest title first; at each title size tighten the keypad (74 -> 68 px keys, then one key row
+  // once the title would drop under 90 px); then smaller rows (38/36 px, two-line where needed); last a
+  // tighter row pitch and a smaller readout. LCD text never goes under 36 px and is never ellipsized.
+  const modes = [{ rows: 2, kh: 74 }, { rows: 2, kh: 68 }, { rows: 1, kh: 70 }];
+  const tries = [];
+  for (let fs = 110; fs >= 72; fs -= 2) for (const km of modes) if (km.rows === 2 || fs <= 84) tries.push({ km, fs, RP: RP0, h7: clamp(Math.round(fs * 1.04), 80, 116) });
+  for (const F of [38, 36]) if (F < RP0.F) tries.push({ km: modes[2], fs: 72, RP: rowsPlan(F), h7: 72 });
+  tries.push({ km: modes[2], fs: 72, RP: rowsPlan(36, true), h7: 60 });
+  let plan = null;
+  for (const tr of tries) {
+    const keysH = tr.km.rows * tr.km.kh + (tr.km.rows - 1) * 14;
+    const lcdBottom = plateTop - 18 - keysH - 24;
+    const avail = lcdBottom - LT - 28 - 38;
+    const lines = titleLines(tr.fs);
+    if (lines > 4 && tr.fs > 72) continue;
+    const h7 = fit7(tr.h7);
+    const need = lines * lineH(tr.fs) + 30 + (h7 + 22) + 14 + tr.RP.H;
+    plan = { km: tr.km, keysH, lcdBottom, avail, fs: tr.fs, lines, h7, need, RP: tr.RP };
+    if (need <= avail) break;
+  }
+  const RP = plan.RP;
+  // spare height: taller reading rows first, then breathing room around the readout
+  let spare = Math.max(0, plan.avail - plan.need);
+  const lineCount = RP.two.reduce((c, x) => c + (x ? 2 : 1), 0) || 1;
+  const grow = Math.min(Math.floor(spare / lineCount), Math.round(RP.F * 0.4));
+  spare -= grow * lineCount;
+  const pad7 = Math.min(Math.floor(spare / 2), 40);
+
+  // ---------- place LCD ----------
+  titleLines(plan.fs);
+  // reverse-video block sized to the glyphs (Doto's content box is taller than the line pitch)
+  const rvEl = msg.querySelector(".rv");
+  if (rvEl) {
+    const cx = document.createElement("canvas").getContext("2d");
+    cx.font = "900 " + plan.fs + "px Doto";
+    const mt = cx.measureText("Hhbdklgjpqy");
+    rvEl.style.backgroundSize = "100% " + Math.round(mt.actualBoundingBoxAscent + mt.actualBoundingBoxDescent + 0.16 * plan.fs) + "px";
+    rvEl.style.backgroundPosition = "0 " + Math.round(mt.fontBoundingBoxAscent - mt.actualBoundingBoxAscent - 0.08 * plan.fs) + "px";
+  }
+  const contentTop = LT + 14 + 22;
+  msg.style.top = contentTop + "px";
+  const titleBottom = contentTop + plan.lines * lineH(plan.fs);
+  const ruleY = titleBottom + 14;
+  const segTop = ruleY + 16 + pad7;
+  const rowsTop = segTop + plan.h7 + 22 + 14 + pad7;
+  const bezH = plan.lcdBottom - LT;
+  const bez = document.createElement("div");
+  bez.className = "bezel"; bez.style.height = bezH + "px";
+  const fxGrid = '<svg class="fx" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="pg" width="5" height="5" patternUnits="userSpaceOnUse"><path d="M0 0H5M0 0V5" stroke="#5E7FA3" stroke-width="1" opacity=".2"/></pattern></defs><rect width="100%" height="100%" fill="url(#pg)"/></svg>';
+  const fxSheen = '<svg class="fx" viewBox="0 0 884 800" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"><path d="M560 0 H690 L470 800 H340 Z" fill="#FFFFFF" opacity=".10"/><path d="M720 0 H752 L532 800 H500 Z" fill="#FFFFFF" opacity=".08"/></svg>';
+  // vertical credit gauge on the right rail of the LCD (keeps x > 900 free of text in the action-button band)
+  const gTop = ruleY + 16 - LT - 14, gBot = bezH - 28 - 18;
+  const icon = 56, segGap = 7, segH = Math.max(10, Math.floor((gBot - gTop - icon - 10 - 9 * segGap) / 10));
+  let gauge = '<svg class="fx" xmlns="http://www.w3.org/2000/svg">' +
+    '<path transform="translate(' + (908 - 98) + ' ' + gTop + ')" d="M30 2 L12 30 H24 L18 52 L40 20 H27 L34 2 Z" fill="#18202A"/>';
+  for (let s = 0; s < 10; s++) {
+    const y = gTop + icon + 10 + (9 - s) * (segH + segGap);
+    gauge += s < level ? '<rect x="' + (908 - 98) + '" y="' + y + '" width="48" height="' + segH + '" rx="3" fill="#18202A"/>'
+      : '<rect x="' + (909 - 98) + '" y="' + (y + 1) + '" width="46" height="' + (segH - 2) + '" rx="3" fill="none" stroke="#18202A" stroke-opacity=".3" stroke-width="2"/>';
+  }
+  gauge += "</svg>";
+  bez.innerHTML = '<div class="lcd">' + fxGrid + fxSheen + gauge + "</div>";
+  parts.insertBefore(bez, msg);
+  const rule = add("lrule", "top:" + ruleY + "px");
+  parts.insertBefore(rule, msg.nextSibling);
+
+  const sg = seg7(plan.h7);
+  add("seg", "top:" + segTop + "px;height:" + (plan.h7 + 22) + "px", tagHTML + (pre ? '<span class="pre">' + esc(pre) + "</span>" : "") + sg.svg + (unit ? '<span class="unit">' + esc(unit) + "</span>" : ""));
+
+  let rowsHTML = "";
+  items.forEach((it, i) => {
+    const two = RP.two[i], h = (two ? RP.h2 : RP.h1) + (two ? 2 : 1) * grow;
+    const code = '<span class="k">' + String(i + 1).padStart(2, "0") + "#</span>";
+    const lb = '<span class="lb" style="font-size:' + RP.F + 'px">' + esc(it.label) + "</span>", vl = '<span class="vl" style="font-size:' + RP.F + 'px">' + esc(it.value) + "</span>";
+    rowsHTML += '<div class="row' + (two ? " two" : "") + (i === f ? " hot" : "") + '" style="height:' + h + "px;margin-bottom:8px;display:flex;flex-direction:column;justify-content:center" + '">' +
+      (two ? '<div class="l1">' + code + lb + '</div><div class="l2"><span class="ld"></span>' + vl + "</div>"
+           : '<div class="l1">' + code + lb + '<span class="ld"></span>' + vl + "</div>") + "</div>";
+  });
+  add("rows", "top:" + rowsTop + "px", rowsHTML);
+
+  // ---------- nameplate band: series · ep (left), alarm LED (right) ----------
+  const series = D.series || (D.kicker ? String(D.kicker).split("·")[0].trim() : "");
+  add("band", "", "<span>" + esc(series) + (D.ep ? " · <b>" + esc(D.ep) + "</b>" : "") + '</span><span class="led">ALARM<i></i></span>');
+
+  // ---------- keypad (2 x 6, or one row when the LCD needs the room) + MCB window ----------
+  const keysTop = plan.lcdBottom + 24;
+  const back = '<svg viewBox="0 0 46 40"><path d="M15 8 H40 a3 3 0 0 1 3 3 V29 a3 3 0 0 1 -3 3 H15 L4 20 Z" fill="none" stroke="#18202A" stroke-width="3.5" stroke-linejoin="round"/><path d="M22 14 L34 26 M34 14 L22 26" stroke="#18202A" stroke-width="3.5" stroke-linecap="round"/></svg>';
+  const ent = '<svg viewBox="0 0 46 40"><path d="M38 6 V22 a4 4 0 0 1 -4 4 H10" fill="none" stroke="#F2F1EC" stroke-width="4" stroke-linecap="round"/><path d="M17 17 L8 26 L17 35" fill="none" stroke="#F2F1EC" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const one = plan.km.rows === 1;
+  let keys = "";
+  ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "B", "E"].forEach(k => {
+    const st = 'style="height:' + plan.km.kh + 'px' + (one ? ";font-size:38px" : "") + '"';
+    keys += k === "B" ? '<div class="key" ' + st + ">" + back + "</div>" : k === "E" ? '<div class="key ent" ' + st + ">" + ent + "</div>" : '<div class="key" ' + st + ">" + k + "</div>";
+  });
+  add("keys", "top:" + keysTop + "px;grid-template-columns:repeat(" + (one ? 12 : 6) + ",1fr);gap:14px " + (one ? 8 : 14) + "px", keys);
+
+  // MCB window beside the keypad (decoration, no text) + lead seal wire down to the plate rail
+  const mH = plan.keysH, mT = keysTop;
+  const lever = Math.min(70, mH - 40), sealY = plateTop - mT + Math.round(plateH / 2);
+  add("abs", "left:908px;top:" + mT + "px;width:88px;height:" + (plateTop + plateH - mT) + "px",
+    '<svg width="88" height="' + (plateTop + plateH - mT) + '" xmlns="http://www.w3.org/2000/svg">' +
+      '<rect x="1" y="1" width="86" height="' + (mH - 2) + '" rx="12" fill="#2A313B"/>' +
+      '<rect x="14" y="10" width="60" height="' + (mH - 20) + '" rx="6" fill="#ECEAE4"/>' +
+      '<rect x="31" y="' + (mH / 2 - lever / 2) + '" width="26" height="' + lever + '" rx="6" fill="#C9C4B8"/>' +
+      '<rect x="33" y="' + (mH / 2 - lever / 2 + 2) + '" width="22" height="' + Math.round(lever * 0.52) + '" rx="5" fill="#1E242C"/>' +
+      '<rect x="20" y="' + (mH / 2 - lever / 2) + '" width="7" height="' + Math.round(lever * 0.5) + '" rx="2" fill="#D3372C"/>' +
+      '<path d="M6 6 H60 L40 ' + (mH - 6) + ' H6 Z" fill="#FFFFFF" opacity=".10"/>' +
+      '<path d="M44 ' + (mH - 2) + ' C 44 ' + (mH + 22) + ', 62 ' + (sealY - 34) + ', 44 ' + (sealY - 16) + '" fill="none" stroke="#6E6A62" stroke-width="2.5"/>' +
+      '<circle cx="44" cy="' + sealY + '" r="16" fill="#A3A099"/><circle cx="44" cy="' + sealY + '" r="11" fill="none" stroke="#7D7A73" stroke-width="2"/>' +
+      '<path d="M38 ' + sealY + ' h12 M44 ' + (sealY - 6) + ' v12" stroke="#6E6A62" stroke-width="2.5"/>' +
+    "</svg>", { "data-layout-allow-overlap": "" });
+
+  // ---------- casing screws, token slip ----------
+  [[50, 204], [1004, 204], [50, 1620], [1004, 1620]].forEach(p => add("screw", "left:" + p[0] + "px;top:" + p[1] + "px"));
+  // 20-digit code derived from the title, so every episode's slip differs (keyed digits match it)
+  let hsh = 2166136261 >>> 0;
+  for (const ch of t) { hsh ^= ch.codePointAt(0); hsh = Math.imul(hsh, 16777619) >>> 0; }
+  let code = "";
+  while (code.length < 20) { hsh ^= hsh << 13; hsh >>>= 0; hsh ^= hsh >>> 17; hsh ^= hsh << 5; hsh >>>= 0; code += String(hsh % 10); }
+  add("slip", "", '<div class="tape"></div><div class="h">TOKEN 20 DIGIT</div><div class="c">' + code.replace(/(\d{4})(?=\d)/g, "$1 ") + "</div>", { "data-layout-allow-overlap": "" });
+  meas.remove();
+
+  // ---------- wall: rough cement plaster, ceramic tile strip, cables, cast shadow ----------
+  const TY = 1560;
+  const bez3 = (p0, p1, p2, p3, u) => { const v = 1 - u; return [v*v*v*p0[0] + 3*v*v*u*p1[0] + 3*v*u*u*p2[0] + u*u*u*p3[0], v*v*v*p0[1] + 3*v*v*u*p1[1] + 3*v*u*u*p2[1] + u*u*u*p3[1]]; };
+  // black twisted service cable: two conductors wound around a bezier centre line
+  const twisted = (p0, p1, p2, p3, amp, wd, period) => {
+    const N = 260, pts = [];
+    let s = 0, prev = null;
+    for (let i = 0; i <= N; i++) {
+      const u = i / N, p = bez3(p0, p1, p2, p3, u), q = bez3(p0, p1, p2, p3, Math.min(1, u + 0.002)), r = bez3(p0, p1, p2, p3, Math.max(0, u - 0.002));
+      const dx = q[0] - r[0], dy = q[1] - r[1], L = Math.hypot(dx, dy) || 1;
+      if (prev) s += Math.hypot(p[0] - prev[0], p[1] - prev[1]);
+      prev = p; pts.push({ p, nx: -dy / L, ny: dx / L, ph: 2 * Math.PI * s / period });
+    }
+    const runs = sign => { const out = []; let cur = null;
+      pts.forEach(o => { const off = sign * amp * Math.sin(o.ph), front = sign * Math.cos(o.ph) > 0, xy = [o.p[0] + o.nx * off, o.p[1] + o.ny * off];
+        if (!cur || cur.front !== front) { if (cur) cur.pts.push(xy); cur = { front, pts: [xy] }; out.push(cur); } else cur.pts.push(xy); });
+      return out; };
+    const all = runs(1).concat(runs(-1));
+    const d = r => "M" + r.pts.map(q => q[0].toFixed(1) + " " + q[1].toFixed(1)).join("L");
+    let back = "", front = "";
+    all.forEach(r => { const seg = '<path d="' + d(r) + '" fill="none" stroke="#141619" stroke-width="' + wd + '" stroke-linecap="round"/>';
+      if (r.front) front += seg + '<path d="' + d(r) + '" fill="none" stroke="#5A6069" stroke-width="3" stroke-linecap="round" opacity=".55" transform="translate(-' + (wd * 0.22).toFixed(1) + ' -2)"/>'; else back += seg; });
+    const c = [p0, p1, p2, p3];
+    return '<path d="M' + c[0].map(v => v + 0).join(" ") + "C" + c.slice(1).map(q => (q[0] + 16) + " " + (q[1] + 12)).join(" ") + '" fill="none" stroke="#18202A" stroke-opacity=".22" stroke-width="' + (2 * amp + wd + 6) + '" filter="url(#soft)"/>' + back + front;
+  };
+  const roundCable = (d, wd, col, hi) => '<path d="' + d + '" fill="none" stroke="#18202A" stroke-opacity=".2" stroke-width="' + (wd + 8) + '" filter="url(#soft)" transform="translate(12 8)"/>' +
+    '<path d="' + d + '" fill="none" stroke="' + col + '" stroke-width="' + wd + '" stroke-linecap="round"/>' +
+    '<path d="' + d + '" fill="none" stroke="' + hi + '" stroke-width="4" stroke-linecap="round" opacity=".6" transform="translate(-' + Math.round(wd * 0.22) + ' 0)"/>';
+  // tile courses: glossy wall tiles with grout lines
+  let tiles = "";
+  for (let r = 0; TY + 18 + r * 150 < 1920; r++) for (let c = 0; c * 150 < 1080; c++) {
+    const x = c * 150, y = TY + 18 + r * 150, tw = Math.min(146, 1080 - x - 2), th = Math.min(146, 1920 - y - 2);
+    tiles += '<rect x="' + (x + 2) + '" y="' + (y + 2) + '" width="' + tw + '" height="' + th + '" rx="3" fill="url(#tileG)"/>' +
+      (tw === 146 && th === 146 ? '<path d="M' + (x + 20) + " " + (y + 146) + " L" + (x + 96) + " " + (y + 2) + " H" + (x + 118) + " L" + (x + 42) + " " + (y + 146) + 'Z" fill="#FFFFFF" opacity=".22"/>' : "");
+  }
+  document.getElementById("wall").innerHTML =
+    "<defs>" +
+      '<filter id="rough" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.62" numOctaves="4" seed="11" result="n"/>' +
+        '<feDiffuseLighting in="n" surfaceScale="2.6" lighting-color="#FFFFFF"><feDistantLight azimuth="235" elevation="50"/></feDiffuseLighting>' +
+        '<feColorMatrix values="0 0 0 0 0.27  0 0 0 0 0.24  0 0 0 0 0.2  -1.15 0 0 0 1.02"/></filter>' +
+      '<filter id="blotch" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.006 0.012" numOctaves="2" seed="5"/><feColorMatrix values="0 0 0 0 0.42  0 0 0 0 0.38  0 0 0 0 0.32  0 0 0 0.16 -0.03"/></filter>' +
+      '<filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="16"/></filter>' +
+      '<linearGradient id="tileG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F1EDE5"/><stop offset=".6" stop-color="#E6E0D5"/><stop offset="1" stop-color="#DCD5C8"/></linearGradient>' +
+      '<linearGradient id="trim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F6F3EE"/><stop offset=".5" stop-color="#E3DDD2"/><stop offset="1" stop-color="#C9C1B3"/></linearGradient>' +
+      '<radialGradient id="fall" cx=".25" cy=".1" r="1.1"><stop offset="0" stop-color="#FFFFFF" stop-opacity=".22"/><stop offset=".55" stop-color="#FFFFFF" stop-opacity="0"/><stop offset="1" stop-color="#4E4636" stop-opacity=".18"/></radialGradient>' +
+    "</defs>" +
+    '<rect width="1080" height="1920" fill="#CFC6B6"/>' +
+    '<rect width="1080" height="1920" filter="url(#blotch)"/>' +
+    '<rect width="1080" height="1920" filter="url(#rough)"/>' +
+    '<rect y="' + TY + '" width="1080" height="' + (1920 - TY) + '" fill="#BDB4A5"/>' + tiles +
+    '<rect y="' + TY + '" width="1080" height="20" fill="url(#trim)"/>' +
+    '<rect width="1080" height="1920" fill="url(#fall)"/>' +
+    // cast shadow of the casing on the wall
+    '<rect x="70" y="214" width="992" height="1470" rx="48" fill="#18202A" opacity=".30" filter="url(#soft)"/>' +
+    // house cables leaving the bottom glands, clipped to the tile, out of the frame
+    roundCable("M318 1640 C 318 1760, 300 1820, 300 1940", 30, "#8E8A82", "#C9C5BC") +
+    roundCable("M404 1640 C 404 1740, 420 1830, 430 1940", 26, "#1C1F24", "#59606A") +
+    '<rect x="282" y="1774" width="52" height="22" rx="6" fill="#F4F2EC" stroke="#B3AB9C" stroke-width="2"/><circle cx="308" cy="1785" r="4" fill="#8F887B"/>' +
+    // service cable from the pole, dropping in from the top edge
+    twisted([856, -40], [858, 70], [800, 70], [800, 148], 11, 20, 66);
+  // glands (decoration on top of the casing)
+  add("abs", "left:0;top:0;width:1080px;height:1920px;pointer-events:none",
+    '<svg width="1080" height="1920" xmlns="http://www.w3.org/2000/svg">' +
+      '<path d="M778 140 H822 L830 176 H770 Z" fill="#202429"/><path d="M780 146 H800 L798 170 H776 Z" fill="#3A4048"/>' +
+      '<rect x="756" y="172" width="88" height="26" rx="5" fill="#16191D"/><rect x="760" y="175" width="40" height="6" rx="3" fill="#3E444C"/>' +
+      '<rect x="290" y="1652" width="56" height="20" rx="5" fill="#16191D"/><rect x="380" y="1652" width="50" height="20" rx="5" fill="#16191D"/>' +
+    "</svg>", { "data-layout-allow-overlap": "" });
+  }
+</script>
+</body>
+</html>

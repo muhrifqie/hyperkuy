@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Manrope:wght@600;700;800&family=Noto+Sans+Mono:wght@500;600&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Test Screening, seen from seat F-12 of a dark preview screening.
+    Top band: the projected title card (D.title, cream on near-black) inside black
+    masking and side curtains, with the seat backs of row E cutting across the
+    screen's lower edge. Below: the audience comment cards on the plum velvet seat,
+    the armrest with a popcorn cup and the brass seat plate.
+    Items = the comment cards. Back cards are strips (red editor's tally = card
+    number, label, value). The front card is the one being filled in: header with
+    series/ep/date, label + its value hidden under masking tape ("tebak dulu"),
+    an UNTICKED rating row with the pencil hovering over "Buruk", and the viewer's
+    pencil comment on the ruled "Komentar" lines = the caption slot.
+    Deterministic: every irregular shape (rays, popcorn, tallies, loops) is hard-coded.
+  */
+  :root {
+    --aud: #0E0C11; --cream: #F4ECDC; --card: #FFFDF8; --ink: #1F2233; --red: #C9452F; --red2: #E2533B;
+    --blue: #3F63B6; --plum: #D8C5D6; --mute: #4F4B63; --graph: #575569;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--plum); }
+  body { position: relative; color: var(--ink); font-family: "Manrope", sans-serif; }
+
+  #bg, #fx { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  #fx { pointer-events: none; z-index: 40; }
+
+  /* projected title card */
+  .title { position: absolute; left: 100px; width: 880px; text-align: center; font-weight: 800; line-height: 1.12;
+           letter-spacing: -0.02em; color: var(--cream); text-wrap: balance; z-index: 2;
+           text-shadow: 0 0 22px rgba(244, 236, 220, 0.10); }
+  /* the dark outline cuts the grease-pencil tally where descenders cross it (like skip-ink) */
+  .title .hl { color: var(--red2); white-space: nowrap; -webkit-text-stroke: 10px #2F2834; paint-order: stroke fill; }
+  .title .bl { display: inline-block; width: 0; height: 0; vertical-align: baseline; }
+
+  /* brass row plates on the seat backs (row E) and the viewer's own seat plate */
+  .rp { position: absolute; width: 98px; height: 40px; border-radius: 5px; background: #B88F45; z-index: 3;
+        box-shadow: inset 0 0 0 2px #7C5B24, inset 0 2px 0 2px #D9B66E, 0 2px 4px rgba(0,0,0,0.6);
+        font: 600 26px/40px "Noto Sans Mono", monospace; text-align: center; color: #2A1D08; letter-spacing: 0.02em; }
+  .seat { position: absolute; left: 914px; top: 1518px; width: 154px; height: 92px; border-radius: 50%; background: #C49B50; z-index: 3;
+          box-shadow: inset 0 0 0 3px #84612A, inset 0 0 0 6px #DDBE78, inset 0 -8px 12px rgba(90,60,20,0.35), 0 4px 8px rgba(20,10,20,0.55);
+          text-align: center; color: #2E2009; padding-top: 12px; }
+  .seat .k { display: block; font: 600 26px/28px "Noto Sans Mono", monospace; letter-spacing: 0.14em; padding-left: 0.14em; text-transform: uppercase; }
+  .seat .f { display: block; font: 800 34px/38px "Manrope", sans-serif; letter-spacing: 0.01em; }
+
+  /* comment cards */
+  .card { position: absolute; width: 790px; background: var(--card); border-radius: 10px; padding: 16px 40px 0 40px;
+          box-shadow: 0 1px 0 rgba(40,22,44,0.10), 0 2px 3px rgba(40,22,44,0.12), 0 22px 34px -16px rgba(40,22,44,0.50); }
+  .card::before { content: ""; position: absolute; inset: 11px; border: 2px solid #9FB1DD; border-radius: 5px; pointer-events: none; }
+  .strip { display: flex; align-items: center; gap: 18px; height: 66px; }
+  .strip .tl { flex: none; display: block; }
+  .strip .lb { flex: 1 1 auto; min-width: 0; font-weight: 700; font-size: 42px; letter-spacing: -0.01em; white-space: nowrap; color: var(--ink); }
+  .strip .vl { flex: none; font-weight: 800; font-size: 48px; letter-spacing: -0.02em; white-space: nowrap; color: var(--ink); }
+
+  .card.front { display: flex; flex-direction: column; padding: 20px 40px 0 40px;
+                box-shadow: 0 1px 0 rgba(40,22,44,0.10), 0 3px 4px rgba(40,22,44,0.14), 0 34px 46px -18px rgba(40,22,44,0.60); }
+  .hd1 { display: flex; justify-content: space-between; gap: 20px; font: 600 30px/38px "Noto Sans Mono", monospace;
+         letter-spacing: 0.04em; text-transform: uppercase; color: var(--blue); white-space: nowrap; }
+  .hd2 { display: flex; justify-content: space-between; gap: 20px; margin-top: 2px; font: 500 26px/34px "Noto Sans Mono", monospace; color: var(--mute); }
+  .hd2 span:last-child { flex: none; white-space: nowrap; }
+  .front .strip { margin-top: 10px; position: relative; }
+  .rule { margin-top: 10px; border-top: 3px solid var(--blue); }
+  .rate { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; }
+  .opt { display: flex; align-items: center; gap: 12px; font-weight: 600; font-size: 30px; white-space: nowrap; color: var(--ink); }
+  .bx { width: 38px; height: 38px; border: 3px solid var(--blue); border-radius: 4px; flex: none; }
+  .kom { margin-top: 22px; font: 600 30px/36px "Noto Sans Mono", monospace; letter-spacing: 0.04em; text-transform: uppercase; color: var(--blue); }
+  .com { position: relative; margin-top: 0; flex: none; }
+  .com .ln { position: absolute; left: 0; right: 0; border-top: 2px solid #B7C3E3; }
+  .com svg { position: absolute; left: 0; top: 0; overflow: visible; z-index: 0; }
+  .cap { position: relative; z-index: 1; font-family: "Kalam", cursive; font-weight: 400; font-size: 46px; line-height: 64px; color: var(--graph); }
+  .cap .w { white-space: nowrap; }
+  .cap .w.done { color: var(--ink); }
+  .cap .w.on { color: var(--ink); font-weight: 700; }
+  .cap .bl { display: inline-block; width: 0; height: 0; vertical-align: baseline; }
+  .src { margin-top: auto; padding: 10px 0 22px; font: 600 26px/34px "Manrope", sans-serif; letter-spacing: 0.01em; color: var(--mute); }
+  .tape { position: absolute; z-index: 2; }
+  .tape svg { display: block; overflow: visible; }
+</style>
+</head>
+<body>
+<svg id="bg" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap data-layout-allow-overflow></svg>
+<div class="title" id="title"></div>
+<div id="plates"></div>
+<div class="seat" id="seat"><span class="k">Kursi</span><span class="f">F-12</span></div>
+<div id="stack"></div>
+<svg id="fx" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap data-layout-allow-overflow></svg>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "Kenapa AI gampang setuju sama kamu?", hl: "setuju",
+    sub: "Karena AI dilatih dari nilai yang dikasih manusia, dan kita suka dipuji.",
+    items: [{ label: "Jawaban memuji", value: "82%" }, { label: "Jawaban kritik", value: "18%" }, { label: "Versi dipakai", value: "A" }],
+    source: "ilustrasi — angka contoh, bukan data riset", date: "per 14 Okt 2026" };
+
+  Promise.all(['800 110px Manrope', '700 42px Manrope', '600 30px Manrope', '600 30px "Noto Sans Mono"', '500 26px "Noto Sans Mono"', '600 26px Manrope',
+               '400 46px Kalam', '700 46px Kalam'].map(f => document.fonts.load(f)))
+    .catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const RED = "#C9452F", RED2 = "#E2533B", BLUE = "#3F63B6", CREAM = "#F4ECDC";
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(1, items.length);
+
+  // ===== 1. the projected title card =====================================================
+  const t = D.title || "", hl = D.hl || "";
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = document.getElementById("title");
+  const hlHtml = s => s.split(/(\s+)/).map(p => /^\s+$/.test(p) || !p ? p : '<span class="hl"><i class="bl"></i>' + esc(p) + "</span>").join("");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + hlHtml(t.slice(at, at + hl.length)) + esc(t.slice(at + hl.length));
+  const TZ0 = 290, TZ1 = 584;                       // title zone on the screen, above the seat backs
+  let tfs = 110;
+  for (; tfs >= 72; tfs -= 2) {
+    titleEl.style.fontSize = tfs + "px";
+    const lines = Math.round(titleEl.offsetHeight / (tfs * 1.12));
+    if (lines > 3 || (lines === 3 && tfs > 92)) continue;
+    if (titleEl.offsetHeight <= TZ1 - TZ0) break;
+  }
+  if (tfs < 72) { tfs = 72; titleEl.style.fontSize = "72px"; }
+  titleEl.style.top = Math.round(TZ0 + Math.max(0, (TZ1 - TZ0 - titleEl.offsetHeight) / 2)) + "px";
+
+  // ===== 2. the auditorium, the seat and the armrest =========================================
+  const seats = [{ cx: 168, yt: 600, no: "E-11" }, { cx: 522, yt: 592, no: "E-12" }, { cx: 876, yt: 600, no: "E-13" }];
+  const seatPath = (x0, x1, yt) => "M" + x0 + ",790 L" + x0 + "," + (yt + 66) + " C" + x0 + "," + (yt + 16) + " " + (x0 + 26) + "," + yt + " " + (x0 + 88) + "," + yt +
+    " L" + (x1 - 88) + "," + yt + " C" + (x1 - 26) + "," + yt + " " + x1 + "," + (yt + 16) + " " + x1 + "," + (yt + 66) + " L" + x1 + ",790 Z";
+  const rimPath = (x0, x1, yt) => "M" + x0 + "," + (yt + 70) + " L" + x0 + "," + (yt + 66) + " C" + x0 + "," + (yt + 16) + " " + (x0 + 26) + "," + yt + " " + (x0 + 88) + "," + yt +
+    " L" + (x1 - 88) + "," + yt + " C" + (x1 - 26) + "," + yt + " " + x1 + "," + (yt + 16) + " " + x1 + "," + (yt + 66) + " L" + x1 + "," + (yt + 70);
+  let seatSvg = "";
+  seats.forEach(s => {
+    const x0 = s.cx - 170, x1 = s.cx + 170, yt = s.yt;
+    seatSvg +=
+      '<path d="' + seatPath(x0, x1, yt) + '" fill="url(#seatG)"/>' +
+      '<path d="' + seatPath(x0 + 10, x1 - 10, yt + 8) + '" fill="url(#seatHi)"/>' +
+      // headrest fold seam: a dark crease with a lit lip under it
+      '<path d="M' + (x0 + 6) + ',' + (yt + 104) + ' C' + (x0 + 110) + ',' + (yt + 114) + ' ' + (x1 - 110) + ',' + (yt + 114) + ' ' + (x1 - 6) + ',' + (yt + 104) + '" fill="none" stroke="#0B080D" stroke-width="5"/>' +
+      '<path d="M' + (x0 + 8) + ',' + (yt + 109) + ' C' + (x0 + 110) + ',' + (yt + 119) + ' ' + (x1 - 110) + ',' + (yt + 119) + ' ' + (x1 - 8) + ',' + (yt + 109) + '" fill="none" stroke="#5A4560" stroke-width="2" opacity="0.8"/>' +
+      '<path d="' + rimPath(x0 + 14, x1 - 14, yt + 14) + '" fill="none" stroke="#5A4560" stroke-width="2" stroke-dasharray="9 7" opacity="0.7"/>' +
+      // warm screen light catching the top of the seat back
+      '<path d="' + rimPath(x0, x1, yt) + '" fill="none" stroke="#F2C9A0" stroke-width="3.5" opacity="0.75"/>';
+  });
+
+  // popcorn: kernels are clusters of puffs, all hard-coded (dx, dy, r)
+  const kernels = [[-38, -6, 13], [-14, -16, 14], [12, -12, 13], [36, -4, 12], [-24, 12, 12], [2, 8, 14], [28, 14, 12], [-44, 14, 10],
+                   [-26, -30, 12], [0, -34, 13], [24, -30, 12], [44, -18, 10], [-6, -50, 11], [16, -48, 10], [46, 6, 9]];
+  const puff = [[0, 0, 1], [0.62, -0.38, 0.72], [-0.58, -0.34, 0.7], [0.1, -0.7, 0.62]];
+  const popcorn = (cx, cy) => {
+    let s = '<g>';
+    // cup holder ring and its shadow
+    s += '<ellipse cx="' + cx + '" cy="' + (cy + 14) + '" rx="84" ry="70" fill="#120C14" opacity="0.55" filter="url(#soft2)"/>';
+    s += '<ellipse cx="' + cx + '" cy="' + (cy + 6) + '" rx="78" ry="64" fill="#2A1E2D" stroke="#6B5672" stroke-width="2.5"/>';
+    // striped paper cup: the near wall shows under the rim
+    s += '<clipPath id="cupw"><path d="M' + (cx - 62) + ',' + cy + ' L' + (cx - 56) + ',' + (cy + 40) + ' Q' + cx + ',' + (cy + 62) + ' ' + (cx + 56) + ',' + (cy + 40) + ' L' + (cx + 62) + ',' + cy + ' Z"/></clipPath>';
+    s += '<g clip-path="url(#cupw)"><rect x="' + (cx - 70) + '" y="' + (cy - 10) + '" width="140" height="80" fill="#F6EEDD"/>';
+    for (let k = -3; k <= 3; k++) s += '<path d="M' + (cx + k * 21 - 6) + ',' + (cy - 10) + ' L' + (cx + k * 19 - 5) + ',' + (cy + 70) + ' L' + (cx + k * 19 + 5) + ',' + (cy + 70) + ' L' + (cx + k * 21 + 6) + ',' + (cy - 10) + ' Z" fill="' + RED + '"/>';
+    s += '<rect x="' + (cx - 70) + '" y="' + (cy - 10) + '" width="140" height="80" fill="url(#cupShade)"/></g>';
+    s += '<ellipse cx="' + cx + '" cy="' + cy + '" rx="62" ry="44" fill="#E9D7AE"/>';
+    s += '<ellipse cx="' + cx + '" cy="' + cy + '" rx="62" ry="44" fill="none" stroke="#FBF5E8" stroke-width="4"/>';
+    kernels.forEach(([dx, dy, r], i) => {
+      const x = cx + dx, y = cy + dy;
+      s += '<g transform="translate(' + x + ',' + y + ') rotate(' + (i * 47 % 360) + ')">';
+      puff.forEach(([px, py, pr]) => { s += '<circle cx="' + (px * r).toFixed(1) + '" cy="' + (py * r).toFixed(1) + '" r="' + (pr * r).toFixed(1) + '" fill="#F8EDCF" stroke="#C9A867" stroke-width="1.6"/>'; });
+      s += '<circle cx="' + (-0.25 * r).toFixed(1) + '" cy="' + (0.3 * r).toFixed(1) + '" r="' + (0.22 * r).toFixed(1) + '" fill="#D9B676"/></g>';
+    });
+    return s + '</g>';
+  };
+
+  const bg = document.getElementById("bg");
+  bg.innerHTML =
+    '<defs>' +
+      '<pattern id="pile" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(28)"><rect width="9" height="9" fill="#D8C5D6"/><line x1="0" y1="0" x2="0" y2="9" stroke="#CDB7CB" stroke-width="2"/></pattern>' +
+      '<radialGradient id="spill" cx="0.48" cy="0" r="0.75"><stop offset="0" stop-color="#FBE6D2" stop-opacity="0.75"/><stop offset="0.55" stop-color="#F5DCCC" stop-opacity="0.22"/><stop offset="1" stop-color="#F5DCCC" stop-opacity="0"/></radialGradient>' +
+      '<radialGradient id="picG" cx="0.5" cy="0.5" r="0.62"><stop offset="0" stop-color="#312A36"/><stop offset="0.8" stop-color="#2F2834"/><stop offset="0.93" stop-color="#231E28"/><stop offset="1" stop-color="#19151D"/></radialGradient>' +
+      '<linearGradient id="beam" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#FFF1DA" stop-opacity="0.015"/><stop offset="1" stop-color="#FFF1DA" stop-opacity="0.075"/></linearGradient>' +
+      '<linearGradient id="seatG" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#47344A"/><stop offset="0.35" stop-color="#2E2131"/><stop offset="1" stop-color="#1A121C"/></linearGradient>' +
+      '<linearGradient id="seatHi" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#F2C9A0" stop-opacity="0.10"/><stop offset="0.25" stop-color="#F2C9A0" stop-opacity="0"/></linearGradient>' +
+      '<linearGradient id="fold" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#150E17"/><stop offset="0.45" stop-color="#2F2033"/><stop offset="1" stop-color="#150E17"/></linearGradient>' +
+      '<pattern id="curtain" width="27" height="40" patternUnits="userSpaceOnUse"><rect width="27" height="40" fill="url(#fold)"/></pattern>' +
+      '<linearGradient id="armG" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#241926"/><stop offset="0.22" stop-color="#4A374F"/><stop offset="0.55" stop-color="#3B2B40"/><stop offset="1" stop-color="#271B2A"/></linearGradient>' +
+      '<linearGradient id="cupShade" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#1A1018" stop-opacity="0.35"/><stop offset="0.4" stop-color="#1A1018" stop-opacity="0"/><stop offset="1" stop-color="#1A1018" stop-opacity="0.4"/></linearGradient>' +
+      '<filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="16"/></filter>' +
+      '<filter id="soft2" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="6"/></filter>' +
+      '<filter id="glow" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="14"/></filter>' +
+    '</defs>' +
+    // --- the auditorium ---
+    '<rect width="1080" height="800" fill="#09080B"/>' +
+    // projector beam from the booth behind the viewer, with dust
+    '<path d="M-40,0 L1120,0 L900,214 L180,214 Z" fill="url(#beam)"/>' +
+    '<path d="M300,0 L700,0 L640,220 L430,220 Z" fill="url(#beam)" opacity="0.9"/>' +
+    '<path d="M60,0 L170,0 L330,214 L250,214 Z" fill="url(#beam)" opacity="0.7"/>' +
+    '<path d="M880,0 L1000,0 L830,214 L760,214 Z" fill="url(#beam)" opacity="0.7"/>' +
+    [[212, 96, 2.2], [318, 150, 1.6], [604, 60, 2.0], [702, 132, 1.8], [826, 176, 2.4], [455, 188, 1.5], [912, 120, 1.7], [160, 186, 1.6]]
+      .map(([x, y, r]) => '<circle cx="' + x + '" cy="' + y + '" r="' + r + '" fill="#FFF1DA" opacity="0.45"/>').join("") +
+    // side curtains
+    '<rect x="0" y="120" width="60" height="680" fill="url(#curtain)"/>' +
+    '<rect x="1020" y="120" width="60" height="680" fill="url(#curtain)"/>' +
+    // the lit screen: curved picture inside black masking
+    '<path d="M54,210 Q540,232 1026,210 L1026,656 Q540,638 54,656 Z" fill="#F4ECDC" opacity="0.10" filter="url(#glow)"/>' +
+    '<path d="M54,210 Q540,232 1026,210 L1026,656 Q540,638 54,656 Z" fill="url(#picG)"/>' +
+    '<path d="M54,210 Q540,232 1026,210" fill="none" stroke="#3A333F" stroke-width="2"/>' +
+    // changeover cue mark and one hairline scratch on the print
+    '<circle cx="978" cy="262" r="11" fill="none" stroke="#F4ECDC" stroke-width="3" opacity="0.45"/>' +
+    '<path d="M236,236 L233,628" stroke="#F4ECDC" stroke-width="1.5" opacity="0.07"/>' +
+    // row E seat backs cutting across the bottom of the screen
+    seatSvg +
+    // --- the viewer's own seat: plum velvet cushion lit by the screen ---
+    '<path d="M-10,732 C300,712 780,712 1090,732 L1090,1940 L-10,1940 Z" fill="url(#pile)"/>' +
+    '<path d="M-10,732 C300,712 780,712 1090,732 L1090,1940 L-10,1940 Z" fill="url(#spill)"/>' +
+    '<path d="M-10,732 C300,712 780,712 1090,732" fill="none" stroke="#F8E4D4" stroke-width="5" opacity="0.9"/>' +
+    '<path d="M-10,752 C300,733 780,733 1090,752" fill="none" stroke="#B9A0B8" stroke-width="2.5" stroke-dasharray="12 9"/>' +
+    '<path d="M-20,1700 C260,1678 560,1678 846,1694" fill="none" stroke="#C3ACC1" stroke-width="3" stroke-dasharray="12 9"/>' +
+    // armrest (plum leather) with stitched seam, cup holder and popcorn
+    '<path d="M890,1960 L890,850 Q890,742 986,742 L1120,742 L1120,1960 Z" fill="#2A1A2C" opacity="0.32" filter="url(#soft)"/>' +
+    '<path d="M904,1960 L904,836 Q904,728 996,728 L1120,728 L1120,1960 Z" fill="url(#armG)"/>' +
+    '<path d="M924,1960 L924,842 Q924,750 1000,750 L1100,750" fill="none" stroke="#6E5875" stroke-width="2.5" stroke-dasharray="11 8"/>' +
+    popcorn(994, 838);
+
+  // brass row plates on the seat backs
+  document.getElementById("plates").innerHTML = seats.map(s => '<div class="rp" style="left:' + (s.cx - 49) + 'px;top:' + (s.yt + 30) + 'px">' + esc(s.no) + "</div>").join("");
+
+  // ===== 3. the comment cards =============================================================
+  const TJ = [0.8, -0.6, 0.4, -0.9, 0.6, -0.3, 0.9, -0.5, 0.2, -0.7];
+  // editor's tally: count strokes, closed into groups of five
+  const tallySvg = (count, color, h) => {
+    const sp = 12, gap = 18, top = 4, bot = h - 4;
+    let x = 8, d = "", j = 0;
+    for (let k = 0; k < count; k++) {
+      if (k % 5 === 4) {
+        const g0 = x - 4 * sp;
+        d += "M" + (g0 - 7) + "," + (bot - 7) + " L" + (g0 + 3 * sp + 7) + "," + (top + 7) + " ";
+        x += gap - sp;
+      } else {
+        const jj = TJ[j++ % TJ.length];
+        d += "M" + (x + jj).toFixed(1) + "," + (top + Math.abs(jj) * 2).toFixed(1) + " L" + (x - jj * 0.7).toFixed(1) + "," + (bot - Math.abs(jj)).toFixed(1) + " ";
+        x += sp;
+      }
+    }
+    const w = Math.ceil(x - sp + 12);
+    return '<svg class="tl" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + " " + h + '" aria-hidden="true"><path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="4.5" stroke-linecap="round"/></svg>';
+  };
+
+  const stack = document.getElementById("stack");
+  const Y0 = 744, Y1 = 1614;                       // stack band on the seat cushion
+  const ROT = [-0.6, 0.5, -0.45, 0.55], FROT = -0.3;
+  const cards = items.map((it, i) => {
+    const front = i === n - 1;
+    const c = document.createElement("div");
+    c.className = "card" + (front ? " front" : "");
+    c.style.zIndex = 10 + i;
+    const strip = '<div class="strip">' + tallySvg(i + 1, RED, 50) + '<span class="lb">' + esc(it.label) + '</span><span class="vl">' + esc(it.value) + "</span></div>";
+    if (!front) { c.innerHTML = strip; }
+    else {
+      const ep = String(D.ep || "").trim();
+      const meta = D.series ? esc(D.series) : esc(D.kicker || "");
+      c.innerHTML =
+        '<div class="hd1"><span>Kartu penonton</span><span>Pemutaran uji' + (ep ? " " + esc(ep) : "") + "</span></div>" +
+        '<div class="hd2"><span>' + meta + "</span><span>" + esc(D.date || "") + "</span></div>" +
+        strip + '<div class="rule"></div>' +
+        '<div class="rate">' + ["Buruk", "Biasa", "Bagus", "Sangat bagus"].map(o => '<span class="opt"><i class="bx"></i>' + o + "</span>").join("") + "</div>" +
+        '<div class="kom">Komentar</div>' +
+        '<div class="com" id="com"><div class="cap" id="cap" data-slot="caption"></div></div>' +
+        '<div class="src" id="src"></div>';
+    }
+    stack.appendChild(c);
+    // fit a long label/value pair inside the strip
+    const lb = c.querySelector(".lb"), vl = c.querySelector(".vl"), row = c.querySelector(".strip");
+    for (let fs = 42; fs >= 34 && lb.scrollWidth > lb.clientWidth; fs -= 2) lb.style.fontSize = fs + "px";
+    for (let fs = 48; fs >= 40 && lb.scrollWidth > lb.clientWidth; fs -= 2) vl.style.fontSize = fs + "px";
+    return c;
+  });
+  const fc = cards[n - 1];
+  const srcEl = document.getElementById("src");
+  if (D.source) {
+    srcEl.textContent = "Sumber: " + D.source;
+    const h1 = srcEl.offsetHeight;
+    srcEl.textContent = D.source;
+    if (srcEl.offsetHeight >= h1) srcEl.textContent = "Sumber: " + D.source;
+  }
+
+  // ---- the viewer's pencil comment = caption slot (karaoke; active = D.hl if in it, else word 1)
+  const capEl = document.getElementById("cap"), com = document.getElementById("com");
+  const words = String(D.caption || D.sub || "").split(/\s+/).filter(Boolean);
+  const nw = s => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+  const hw = hl.split(/\s+/).map(nw).filter(Boolean);
+  let act = 0, actLen = 1;
+  for (let i = 0; hw.length && i + hw.length <= words.length; i++) {
+    if (hw.every((h, k) => nw(words[i + k]) === h)) { act = i; actLen = hw.length; break; }
+  }
+  const units = [];
+  words.forEach((w, i) => {
+    if (i > act && i < act + actLen) { units[units.length - 1].text += " " + w; return; }
+    units.push({ text: w, cls: i === act ? " on" : i < act ? " done" : "" });
+  });
+  const ai = Math.max(0, units.findIndex(u => u.cls === " on"));
+  const LH = 64;
+  const paint = (lo, hi) => {
+    capEl.innerHTML = '<i class="bl"></i>' + units.slice(lo, hi).map((u, k) => '<span class="w' + u.cls + '">' + (k === 0 && lo > 0 ? "… " : "") + esc(u.text) + (k === hi - lo - 1 && hi < units.length ? " …" : "") + "</span>").join(" ");
+  };
+  let cfs = 46, lo = 0, hi = units.length;
+  paint(lo, hi);
+  const capLines = () => Math.round(capEl.offsetHeight / LH);
+  for (; cfs >= 44; cfs -= 2) { capEl.style.fontSize = cfs + "px"; if (capLines() <= 2) break; }
+  if (cfs < 44) { cfs = 44; capEl.style.fontSize = "44px"; }
+  while (capLines() > 2 && hi - lo > 1) { if (hi - 1 > ai) hi--; else lo++; paint(lo, hi); }
+
+  // ---- stack geometry: the front card keeps its natural height, the back strips share the rest
+  let nLines = Math.max(2, capLines());
+  com.style.height = nLines * LH + "px";
+  fc.style.width = "790px";
+  const Hmin = fc.offsetHeight;
+  const AV = Y1 - Y0;
+  const S = n > 1 ? Math.max(92, Math.min(132, Math.floor((AV - Hmin) / (n - 1)))) : 0;
+  const extra = Math.max(0, Math.min(4 - nLines, 1, Math.floor((AV - (n - 1) * S - Hmin) / LH)));
+  if (extra > 0) { nLines += extra; com.style.height = nLines * LH + "px"; }
+  const frontH = fc.offsetHeight;
+  const top0 = Y1 - frontH - (n - 1) * S;
+  cards.forEach((c, i) => {
+    const front = i === n - 1;
+    const dx = front ? 0 : -6 - (n - 2 - i) * 6;
+    c.style.left = (100 + dx) + "px";
+    c.style.top = (top0 + i * S) + "px";
+    c.style.height = frontH + "px";
+    c.style.transform = "rotate(" + (front ? FROT : ROT[i % 4]) + "deg)";
+  });
+
+  // ruled lines under the handwriting (first baseline measured from the font)
+  const base0 = capEl.querySelector(".bl").offsetTop;
+  for (let k = 0; k < nLines; k++) {
+    const ln = document.createElement("div"); ln.className = "ln"; ln.style.top = (base0 + 10 + k * LH) + "px"; com.insertBefore(ln, capEl);
+  }
+  // red-pencil loop around the active word
+  const on = capEl.querySelector(".w.on");
+  if (on) {
+    const lineIx = Math.max(0, Math.round((on.offsetTop - capEl.querySelector(".w").offsetTop) / LH));
+    const yb = base0 + lineIx * LH, cx = on.offsetLeft + on.offsetWidth / 2, cy = yb - 0.30 * cfs;
+    const rx = on.offsetWidth / 2 + 12, ry = 0.54 * cfs;
+    // one quick pencil loop: starts top-right, goes round once and overshoots; smooth (Catmull-Rom)
+    const RJ = [1.0, 0.985, 1.02, 0.99, 1.015, 0.98, 1.01, 1.0, 0.99, 1.02, 1.0, 0.985, 1.03, 1.01, 1.04, 1.06, 1.08];
+    const P = [];
+    for (let k = 0; k <= 16; k++) {
+      const a = Math.PI * (-0.30 - k * 2.2 / 16);
+      P.push([cx + Math.cos(a) * rx * RJ[k], cy + Math.sin(a) * ry * RJ[k] + k * 0.35]);
+    }
+    let d = "M" + P[0][0].toFixed(1) + "," + P[0][1].toFixed(1);
+    for (let k = 0; k < P.length - 1; k++) {
+      const p0 = P[Math.max(0, k - 1)], p1 = P[k], p2 = P[k + 1], p3 = P[Math.min(P.length - 1, k + 2)];
+      d += " C" + (p1[0] + (p2[0] - p0[0]) / 6).toFixed(1) + "," + (p1[1] + (p2[1] - p0[1]) / 6).toFixed(1) + " " +
+           (p2[0] - (p3[0] - p1[0]) / 6).toFixed(1) + "," + (p2[1] - (p3[1] - p1[1]) / 6).toFixed(1) + " " + p2[0].toFixed(1) + "," + p2[1].toFixed(1);
+    }
+    const lp = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    lp.setAttribute("width", com.offsetWidth); lp.setAttribute("height", com.offsetHeight);
+    lp.setAttribute("aria-hidden", "true");
+    lp.innerHTML = '<path d="' + d + '" fill="none" stroke="' + RED + '" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.92"/>';
+    com.insertBefore(lp, capEl);
+  }
+
+  // ---- masking tape over the front card's value: the answer is guessed first
+  const fv = fc.querySelector(".vl");
+  fv.style.visibility = "hidden";
+  {
+    const tw = Math.max(170, fv.offsetWidth + 40), th = fv.offsetHeight + 18;
+    const tx = fv.offsetLeft + fv.offsetWidth - tw + 20, ty = fv.offsetTop - 9;
+    const tp = document.createElement("div"); tp.className = "tape";
+    tp.style.left = tx + "px"; tp.style.top = ty + "px"; tp.style.transform = "rotate(-3deg)";
+    const zl = [0, 6, 2, 8, 3, 7, 1, 6, 2], zr = [4, 0, 7, 2, 6, 1, 8, 3, 5];
+    let p = "M" + zl[0] + ",0";
+    for (let k = 1; k < 9; k++) p += " L" + zl[k] + "," + (th * k / 8).toFixed(1);
+    p += " L" + (tw - zr[8]) + "," + th;
+    for (let k = 7; k >= 0; k--) p += " L" + (tw - zr[k]) + "," + (th * k / 8).toFixed(1);
+    p += " Z";
+    const qx = tw / 2, qy = th / 2;
+    tp.innerHTML = '<svg width="' + tw + '" height="' + th + '" viewBox="0 0 ' + tw + " " + th + '" aria-hidden="true">' +
+      '<path d="' + p + '" fill="#E9DDBF" opacity="0.97"/>' +
+      '<path d="' + p + '" fill="none" stroke="#CDBE98" stroke-width="1.5"/>' +
+      '<path d="M8,' + (th * 0.3).toFixed(1) + ' L' + (tw - 8) + ',' + (th * 0.27).toFixed(1) + ' M8,' + (th * 0.74).toFixed(1) + ' L' + (tw - 8) + ',' + (th * 0.77).toFixed(1) + '" stroke="#F4ECD6" stroke-width="2" opacity="0.8"/>' +
+      // a pencilled question mark on the tape
+      '<path d="M' + (qx - 12) + ',' + (qy - 12) + ' C' + (qx - 12) + ',' + (qy - 26) + ' ' + (qx + 13) + ',' + (qy - 27) + ' ' + (qx + 13) + ',' + (qy - 12) + ' C' + (qx + 13) + ',' + (qy - 2) + ' ' + (qx + 1) + ',' + (qy - 1) + ' ' + (qx + 1) + ',' + (qy + 9) +
+        ' M' + (qx + 1) + ',' + (qy + 18) + ' L' + (qx + 1.5) + ',' + (qy + 20) + '" fill="none" stroke="#3B3A4A" stroke-width="4.5" stroke-linecap="round"/>' +
+      "</svg>";
+    fv.parentNode.appendChild(tp);
+  }
+
+  // ===== 4. the hovering golf pencil over "Buruk" (frame 0 of the hook) =====================
+  const bur = fc.querySelectorAll(".bx")[0].getBoundingClientRect();
+  // tip just off the box's lower-left corner: the box itself must read empty in frame 0
+  const tipX = bur.left - 6, tipY = bur.bottom + 8;
+  const ang = -50, rad = ang * Math.PI / 180;
+  const pcx = tipX - 163 * Math.cos(rad), pcy = tipY - 163 * Math.sin(rad);
+  const body =
+    '<rect x="-150" y="-16" width="250" height="32" rx="3" fill="' + BLUE + '"/>' +
+    '<rect x="-150" y="-16" width="250" height="10" fill="#5B7DCC"/>' +
+    '<rect x="-150" y="6" width="250" height="10" fill="#2E4C93"/>' +
+    '<rect x="-153" y="-16" width="8" height="32" rx="3" fill="#E7D2AE"/>' +
+    '<path d="M100,-16 C118,-12 132,-7 146,-3 L146,3 C132,7 118,12 100,16 Z" fill="#EBD7B4"/>' +
+    '<path d="M100,-16 C106,-10 104,-4 108,0 C104,4 106,10 100,16" fill="none" stroke="#C9AE84" stroke-width="2"/>' +
+    '<path d="M140,-4.5 L163,0 L140,4.5 Z" fill="#2A2C38"/>';
+  const fx = document.getElementById("fx");
+  fx.innerHTML = '<defs><filter id="psh" x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="5"/></filter></defs>' +
+    // shadow lands lower-right of the pencil: it is lifted off the card
+    '<g transform="translate(' + (pcx + 22).toFixed(1) + ',' + (pcy + 26).toFixed(1) + ') rotate(' + ang + ')" opacity="0.45" filter="url(#psh)"><rect x="-150" y="-15" width="250" height="30" rx="4" fill="#24122A"/><path d="M100,-15 L163,0 L100,15 Z" fill="#24122A"/></g>' +
+    '<g transform="translate(' + pcx.toFixed(1) + ',' + pcy.toFixed(1) + ') rotate(' + ang + ')">' + body + "</g>";
+
+  // ===== 5. tally under the highlighted title word(s): the editor's grease pencil on the print
+  const marks = titleEl.querySelectorAll(".hl");
+  let tally = "";
+  const J = [0.6, -0.9, 0.4, -0.5, 1.0, -0.3, 0.7, -0.8, 0.2, -0.6, 0.9, -0.2];
+  let jk = 0;
+  marks.forEach(sp => {
+    const bl = sp.querySelector(".bl").getBoundingClientRect();
+    const r = sp.getBoundingClientRect();
+    const em = tfs;
+    const x0 = r.left + 0.03 * em, x1 = r.right - 0.03 * em;
+    const yT = bl.top + 0.08 * em, yB = bl.top + 0.27 * em;
+    const sp_ = 0.1 * em, gap = 0.2 * em, gw = 3 * sp_;
+    let x = x0, strokes = "";
+    while (x + gw <= x1 + 0.5) {
+      const g0 = x;
+      for (let k = 0; k < 4; k++) {
+        const j = J[jk++ % J.length];
+        strokes += "M" + (g0 + k * sp_ + j).toFixed(1) + "," + (yT + Math.abs(j) * 1.5).toFixed(1) + " L" + (g0 + k * sp_ - j * 0.6).toFixed(1) + "," + (yB - Math.abs(j)).toFixed(1) + " ";
+      }
+      strokes += "M" + (g0 - 0.05 * em).toFixed(1) + "," + (yB - 0.03 * em).toFixed(1) + " L" + (g0 + gw + 0.05 * em).toFixed(1) + "," + (yT + 0.03 * em).toFixed(1) + " ";
+      x += gw + gap;
+    }
+    for (let k = 0; k < 4 && x + k * sp_ <= x1; k++) {
+      const j = J[jk++ % J.length];
+      strokes += "M" + (x + k * sp_ + j).toFixed(1) + "," + (yT + 1).toFixed(1) + " L" + (x + k * sp_ - j * 0.6).toFixed(1) + "," + (yB - 1).toFixed(1) + " ";
+    }
+    tally += '<path d="' + strokes + '" fill="none" stroke="' + RED2 + '" stroke-width="' + (0.034 * em).toFixed(1) + '" stroke-linecap="round" opacity="0.95"/>';
+  });
+  bg.insertAdjacentHTML("beforeend", tally);
+  }
+</script>
+</body>
+</html>

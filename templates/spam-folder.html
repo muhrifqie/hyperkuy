@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;0,7..72,700;1,7..72,500;1,7..72,600&family=Red+Hat+Mono:wght@500;600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Spam Folder (spam-folder): a calm, light email client set in an editorial serif.
+    The open message sits in the Spam folder. Its subject is the title (the hl word carries a red
+    "flagged" squiggle), the sender row carries series / ep / date and the filter's GUESS ".91 SPAM?",
+    the body opens with the voice-over caption, then every item is an EVIDENCE WORD tinted by its
+    spam weight with its value as a chip, set mid-line inside greeked body text (grey = neutral
+    words the filter ignores, faint blue = "innocent" words, faint red = mildly spammy words).
+    A combined-score bar (labelled "ilustrasi") is filled past the threshold.
+    Metaphor: classic AI = classification. Words are evidence, their probabilities are combined,
+    and the call is made above a threshold. Score/threshold are illustrative (D.score, D.threshold).
+    Safe zone: everything below y 900 stays at x <= 900 (action buttons).
+    Deterministic: greeked word widths are hard-coded.
+  */
+  :root {
+    --paper: #FBF9F4; --ink: #222222; --red: #C8402F; --hi: #F3D27A; --blue: #3B5BA9;
+    --back: #ECE7DD; --mute: #5A5650; --rule: rgba(34,34,34,.13);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--back); }
+  body { position: relative; color: var(--ink); font-family: "Literata", Georgia, serif; font-optical-sizing: auto; }
+
+  .sheet { position: absolute; border-radius: 34px; }
+  #under { left: 74px; width: 932px; top: 250px; height: 1418px; background: #F4F0E7; border: 2px solid rgba(34,34,34,.08); }
+  #card { left: 40px; width: 1000px; top: 206px; height: 1428px; background: var(--paper); border: 2px solid rgba(34,34,34,.10);
+          box-shadow: 0 2px 0 rgba(34,34,34,.05), 0 34px 70px -34px rgba(34,34,34,.30); }
+
+  /* search field (decoration, no text) */
+  #search { position: absolute; left: 90px; width: 900px; top: 226px; height: 54px; border-radius: 27px; background: rgba(34,34,34,.05); }
+
+  /* folder rail: UI tabs in the text serif, pager chevrons on the right (no data text here) */
+  #rail { position: absolute; left: 90px; width: 900px; top: 300px; height: 56px; display: flex; align-items: center; gap: 36px;
+          font: 600 32px "Literata", serif; white-space: nowrap; }
+  .tab { display: flex; align-items: center; gap: 12px; height: 56px; position: relative; color: var(--mute); }
+  .tab svg { width: 32px; height: 32px; flex: none; }
+  .tab.sel { color: var(--red); }
+  .tab.sel::after { content: ""; position: absolute; left: 0; right: 0; bottom: -8px; height: 5px; border-radius: 3px; background: var(--red); }
+  .tab.inb.sel { color: var(--blue); }
+  .tab.inb.sel::after { background: var(--blue); }
+  .count { font: 700 30px "Red Hat Mono", monospace; line-height: 1; color: var(--paper); background: var(--red); border-radius: 17px; padding: 3px 11px 4px; }
+  #pager { margin-left: auto; display: flex; gap: 18px; flex: none; }
+  #pager svg { width: 40px; height: 40px; }
+  .hair { position: absolute; left: 40px; width: 1000px; height: 2px; background: var(--rule); }
+
+  /* subject = title */
+  #title { position: absolute; left: 90px; width: 900px; top: 400px; font-weight: 600; line-height: 1.1; letter-spacing: -0.018em; }
+  #title .hl { color: var(--red); font-style: italic; font-weight: 600; text-decoration: underline wavy var(--red);
+               text-decoration-thickness: 4px; text-underline-offset: 0.13em; text-decoration-skip-ink: none; }
+
+  /* sender row: series = sender, ep + date = timestamp line, the filter's guess on the right */
+  #from { position: absolute; left: 90px; width: 900px; height: 78px; display: flex; align-items: center; gap: 22px; }
+  #avatar { width: 72px; height: 72px; border-radius: 50%; background: var(--blue); color: var(--paper); flex: none;
+            display: flex; align-items: center; justify-content: center; font: 600 38px "Literata", serif; }
+  #who { flex: 1; display: flex; flex-direction: column; gap: 0; min-width: 0; }
+  #who .nm { font: 600 34px "Literata", serif; line-height: 1.2; padding-bottom: 7px; margin-bottom: -3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #who .dt { font: 500 26px "Red Hat Mono", monospace; line-height: 1.25; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #badge { flex: none; display: flex; align-items: center; gap: 12px; background: var(--red); color: var(--paper);
+           border-radius: 14px; padding: 10px 20px 11px 16px; }
+  #badge.ham { background: var(--blue); }
+  #badge svg { width: 34px; height: 34px; }
+  #badge .p { font: 700 40px "Red Hat Mono", monospace; letter-spacing: -0.02em; line-height: 1; }
+  #badge .w { font: 700 30px "Red Hat Mono", monospace; letter-spacing: 0.06em; line-height: 1; }
+
+  /* caption = first lines of the message body, read as a karaoke voice-over */
+  #cap { position: absolute; left: 90px; width: 900px; font-size: 44px; font-weight: 400; line-height: 1.34; color: var(--mute); }
+  #cap .w { white-space: nowrap; }
+  #cap .said { color: var(--ink); }
+  #cap .on { color: var(--ink); font-weight: 600; background: linear-gradient(to bottom, transparent 12%, var(--hi) 12%, var(--hi) 94%, transparent 94%);
+             border-radius: 4px 10px 6px 12px; padding: 0 6px; margin: 0 -6px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+
+  /* evidence lines: [greeked words] EVIDENCE WORD [p-chip] [greeked words], x 90-900 */
+  .row { position: absolute; left: 90px; width: 810px; display: flex; align-items: center; white-space: nowrap; }
+  .ev { flex: none; font-weight: 600; letter-spacing: -0.012em; line-height: 1.12; padding: 0 0.16em; margin-left: -0.16em;
+        background: linear-gradient(to bottom, transparent 16%, var(--tint) 16%, var(--tint) 93%, transparent 93%);
+        border-radius: 0.08em 0.34em 0.14em 0.4em / 0.3em 0.12em 0.36em 0.1em; }
+  .chip { flex: none; margin-left: 20px; font: 600 32px "Red Hat Mono", monospace; letter-spacing: -0.01em; color: var(--ink); line-height: 1;
+          border: 2.5px solid var(--ink); border-radius: 30px; padding: 9px 18px 10px; background: var(--paper); }
+  .pre, .gk { display: flex; gap: 14px; align-items: center; flex: none; }
+  .pre { margin-right: 22px; }
+  .pre:empty { display: none; }
+  .gk { margin-left: 22px; }
+  .pre i, .gk i, .gl i { display: block; height: 15px; border-radius: 8px; background: rgba(34,34,34,.11); }
+  .pre i.b, .gk i.b, .gl i.b { background: rgba(59,91,169,.20); }
+  .pre i.r, .gk i.r, .gl i.r { background: rgba(200,64,47,.16); }
+  .gl { position: absolute; left: 90px; width: 810px; display: flex; gap: 14px; }
+
+  /* combined score (illustrative), bar x 90-900 */
+  #score { position: absolute; left: 90px; width: 810px; height: 140px; }
+  #score .labrow { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 16px; white-space: nowrap; }
+  #score .lab { font: 600 30px "Red Hat Mono", monospace; color: var(--mute); }
+  #score .ill { font: 600 30px "Red Hat Mono", monospace; color: var(--mute); line-height: 1; border: 2.5px dashed var(--mute); border-radius: 10px; padding: 5px 12px 6px; }
+  #score .thr { position: absolute; top: 100px; font: 700 30px "Red Hat Mono", monospace; color: var(--red); white-space: nowrap; line-height: 1.2; }
+  #score .thr.ham { color: var(--blue); }
+
+  #foot { position: absolute; left: 90px; width: 900px; display: flex; align-items: center; gap: 30px; }
+  #src { font: 500 26px "Red Hat Mono", monospace; color: var(--mute); line-height: 1.35; flex: 1; min-width: 0; }
+  #notspam { flex: none; display: flex; align-items: center; gap: 10px; font: 600 30px "Red Hat Mono", monospace; color: var(--blue);
+             border: 2.5px solid var(--blue); border-radius: 30px; padding: 9px 20px 10px 16px; white-space: nowrap; }
+  #notspam svg { width: 30px; height: 30px; }
+</style>
+</head>
+<body>
+<div class="sheet" id="under"></div>
+<div class="sheet" id="card"></div>
+<div id="search" data-layout-allow-overlap>
+  <svg viewBox="0 0 30 30" width="30" height="30" style="position:absolute;left:22px;top:12px" fill="none" stroke="#5A5650" stroke-width="2.6" stroke-linecap="round"><circle cx="13" cy="13" r="8"/><path d="M19 19 L26 26"/></svg>
+  <i style="position:absolute;left:70px;top:20px;width:210px;height:14px;border-radius:7px;background:rgba(34,34,34,.10)"></i>
+</div>
+
+<div id="rail">
+  <div class="tab inb" id="tabIn">
+    <svg viewBox="0 0 32 32" fill="none" stroke="#3B5BA9" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"><path d="M4 18 L8 6 H24 L28 18 V26 H4 Z"/><path d="M4 18 H11 L13 21.5 H19 L21 18 H28"/></svg>
+    <span>Kotak Masuk</span>
+  </div>
+  <div class="tab sel" id="tabSpam">
+    <svg viewBox="0 0 32 32" fill="none" stroke="#C8402F" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"><path d="M11 3.5 H21 L28.5 11 V21 L21 28.5 H11 L3.5 21 V11 Z"/><path d="M16 9.5 V17.5"/><path d="M16 22.3 V22.6"/></svg>
+    <span>Spam</span><span class="count" id="count">1</span>
+  </div>
+  <div id="pager">
+    <svg viewBox="0 0 40 40" fill="none" stroke="#5A5650" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M24 11 L15 20 L24 29"/></svg>
+    <svg viewBox="0 0 40 40" fill="none" stroke="#5A5650" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 11 L25 20 L16 29"/></svg>
+  </div>
+</div>
+<div class="hair" id="hair1" style="top:374px"></div>
+
+<div id="title"></div>
+
+<div id="from">
+  <div id="avatar"></div>
+  <div id="who"><span class="nm" id="nm"></span><span class="dt" id="dt"></span></div>
+  <div id="badge">
+    <svg viewBox="0 0 34 34" fill="none" stroke="#FBF9F4" stroke-width="2.8" stroke-linejoin="round" stroke-linecap="round"><path d="M12 3.5 H22 L30.5 12 V22 L22 30.5 H12 L3.5 22 V12 Z"/><path d="M17 10 V18.5"/><path d="M17 23.5 V23.8"/></svg>
+    <span class="p" id="pscore">.91</span><span class="w" id="verdict">SPAM?</span>
+  </div>
+</div>
+<div class="hair" id="hair2"></div>
+
+<div id="cap" data-slot="caption"></div>
+<svg id="pipe" width="1080" height="1920" viewBox="0 0 1080 1920" style="position:absolute;left:0;top:0" data-layout-allow-overlap></svg>
+<div id="rows"></div>
+
+<div id="score">
+  <div class="labrow"><span class="lab">skor spam gabungan</span><span class="ill">ilustrasi</span></div>
+  <svg id="bar" width="810" height="56" viewBox="0 0 810 56" style="position:absolute;left:0;top:46px" data-layout-allow-overlap></svg>
+  <span class="thr" id="thr">ambang .90</span>
+</div>
+
+<div id="foot">
+  <div id="src"></div>
+  <div id="notspam">
+    <svg viewBox="0 0 28 28" fill="none" stroke="#3B5BA9" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M23 14 H6"/><path d="M12 7 L5 14 L12 21"/></svg>
+    <span id="nsTxt">Bukan spam</span>
+  </div>
+</div>
+
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "Kenapa email ibu masuk spam?", hl: "spam",
+    sub: "Filter nggak baca maksud. Dia cuma menimbang kata.",
+    items: [{ label: "gratis", value: "p .99", p: 0.99 }, { label: "transfer", value: "p .93", p: 0.93 }, { label: "segera", value: "p .88", p: 0.88 }, { label: "rapat", value: "p .04", p: 0.04 }],
+    source: "ilustrasi — angka dibuat untuk contoh", date: "per 14 Okt 2026" };
+
+  const FONTS = ['600 100px Literata', 'italic 600 100px Literata', '400 44px Literata', '600 44px Literata', '600 32px Literata', '600 30px "Red Hat Mono"', '700 30px "Red Hat Mono"', '500 26px "Red Hat Mono"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render, render);
+
+  // 0..1 from a number, ".91", "0,91" or "91%"; fallback when missing or invalid.
+  function prob(v, dflt) {
+    if (v == null || v === "") return dflt;
+    let x = typeof v === "number" ? v : parseFloat(String(v).replace(",", ".").replace(/[^0-9.\-]/g, ""));
+    if (!isFinite(x)) return dflt;
+    if (x > 1 && x <= 100) x /= 100;
+    return Math.min(1, Math.max(0, x));
+  }
+  const fmt = x => x >= 1 ? "1.00" : x.toFixed(2).replace(/^0/, "");
+
+  function render() {
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const items = (D.items || []).slice(0, 5);
+    const n = Math.max(1, items.length);
+    const RX = 900;                                  // right edge for everything below y 900 (TikTok action buttons)
+
+    // Verdict (illustrative): optional D.score / D.threshold, defaults .91 / .90. Shown as a GUESS ("SPAM?").
+    const S = prob(D.score, 0.91), T = prob(D.threshold, 0.90), spam = S >= T;
+    $("pscore").textContent = fmt(S);
+    $("verdict").textContent = spam ? "SPAM?" : "AMAN?";
+    if (!spam) {
+      $("badge").classList.add("ham");
+      $("tabSpam").classList.remove("sel"); $("tabIn").classList.add("sel"); $("count").textContent = "0";
+      $("nsTxt").textContent = "Tandai spam";
+    }
+
+    // Subject = title; hl gets the red "flagged" squiggle.
+    const t = D.title || "", hl = D.hl || "";
+    const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    const tEl = $("title");
+    tEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+    const lines = () => Math.round(tEl.offsetHeight / (parseFloat(tEl.style.fontSize) * 1.1));
+    for (let fs = 108; fs >= 70; fs -= 2) { tEl.style.fontSize = fs + "px"; if (tEl.offsetHeight <= 270 && lines() <= 3) break; }
+    let y = 400 + tEl.offsetHeight + 34;
+
+    // Sender row: series as the sender, ep + date as the timestamp line (both clip with an ellipsis).
+    const ser = String(D.series || D.kicker || "").trim();
+    const ep = String(D.ep || "").trim();
+    $("avatar").textContent = (ser[0] || "A").toUpperCase();
+    $("nm").textContent = ser;
+    $("dt").textContent = [ep, D.date || ""].filter(Boolean).join(" · ");
+    $("from").style.top = y + "px";
+    y += 78 + 22;
+    $("hair2").style.top = y + "px";
+    y += 30;
+
+    // Caption: D.caption || D.sub, words in spans, one active word (D.hl if present, else the first word).
+    const cap = String(D.caption || D.sub || "").trim();
+    const words = cap.split(/\s+/).filter(Boolean);
+    let pos = 0; const spans = words.map(w => { const s = cap.indexOf(w, pos); pos = s + w.length; return { w, s, e: pos }; });
+    const ci = hl ? cap.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    let act = ci >= 0 ? spans.map((o, i) => (o.e > ci && o.s < ci + hl.length ? i : -1)).filter(i => i >= 0) : [0];
+    if (!act.length) act = [0];
+    const a0 = act[0], a1 = act[act.length - 1];
+    let capHTML = "";
+    spans.forEach((o, i) => {
+      if (i < a0 || i > a1) { capHTML += '<span class="w' + (i < a0 ? " said" : "") + '">' + esc(o.w) + "</span> "; return; }
+      if (i === a0) capHTML += '<span class="w on">';
+      capHTML += esc(o.w) + (i < a1 ? " " : "</span> ");
+    });
+    const cEl = $("cap");
+    cEl.innerHTML = capHTML.trim();
+    cEl.style.top = y + "px";
+    // full width while the caption stays above y 900; narrowed to x 90-900 if it reaches the action-button band
+    for (const w of [900, 810]) {
+      cEl.style.width = w + "px";
+      for (let fs = 44; fs >= 40; fs -= 1) { cEl.style.fontSize = fs + "px"; if (cEl.offsetHeight <= fs * 1.34 * 2 + 4) break; }
+      if (y + cEl.offsetHeight <= 900) break;
+    }
+    y += cEl.offsetHeight + 34;
+
+    // Bottom block: combined score + footer.
+    const FOOT = 1522, SCORE = 1360;
+    $("score").style.top = SCORE + "px";
+    $("foot").style.top = FOOT + "px";
+    $("src").textContent = D.source ? "sumber: " + D.source : "";
+
+    // Evidence tint: by item.p when given (red above .5, blue below), else by rank (items listed strongest first).
+    const RANK = [0.46, 0.33, 0.24, 0.17, 0.12];
+    const tint = items.map((it, i) => {
+      const p = prob(it.p, NaN);
+      if (!isFinite(p)) return { c: "200,64,47", a: RANK[i] };
+      return p >= 0.5 ? { c: "200,64,47", a: +(0.10 + 0.38 * (p - 0.5) / 0.5).toFixed(3) } : { c: "59,91,169", a: +(0.12 + 0.26 * (0.5 - p) / 0.5).toFixed(3) };
+    });
+
+    // Evidence lines between the caption and the score: each evidence word sits inside a line of greeked body text.
+    const top = y, bot = SCORE - 30, H = bot - top, P = H / n;
+    const PRE = [[], [118], [84, 152], [136], [72, 110]];
+    const GK = [[96, 150, 70, 124, 88], [132, 64, 110, 150, 72], [78, 122, 146, 60, 104], [140, 90, 66, 118, 96], [70, 136, 98, 84, 130]];
+    const GL = [[150, 88, 196, 72, 120, 104, 64], [104, 168, 70, 132, 92, 180, 58], [188, 76, 120, 96, 150, 64, 110], [92, 140, 64, 176, 84, 118, 102], [120, 70, 158, 92, 136, 66, 150]];
+    const CLS = { "1:1": "b", "3:3": "r", "2:0": "b", "4:2": "r" };          // a few hammy (blue) / mildly spammy (red) filler words
+    const CLS2 = { 2: "b", 5: "r" };
+    const bar = (w, cls) => '<i style="width:' + w + 'px"' + (cls ? ' class="' + cls + '"' : "") + "></i>";
+    const rows = $("rows");
+    let html = "";
+    items.forEach((it, i) => { html += '<div class="row" id="r' + i + '"><span class="pre"></span><span class="ev" style="--tint:rgba(' + tint[i].c + ',' + tint[i].a + ')">' + esc(it.label) + '</span><span class="chip">' + esc(it.value) + '</span><span class="gk"></span></div>'; });
+    rows.innerHTML = html;
+    const two = P >= 128;                       // room for a greeked line under each evidence line
+    const fs0 = Math.max(44, Math.min(72, Math.round(two ? P * 0.46 : P * 0.62)));
+    items.forEach((it, i) => {
+      const r = $("r" + i), ev = r.querySelector(".ev"), chip = r.querySelector(".chip"), pre = r.querySelector(".pre"), gk = r.querySelector(".gk");
+      const R = () => chip.getBoundingClientRect().right;
+      // fit: shrink the evidence word first (to 40 px), then the chip (to 30 px), then the word to the 34 px label floor, then clip the chip
+      let fs = fs0; ev.style.fontSize = fs + "px";
+      while (R() > RX && fs > 40) { fs -= 2; ev.style.fontSize = fs + "px"; }
+      let cf = 32; while (R() > RX && cf > 30) { cf -= 1; chip.style.fontSize = cf + "px"; }
+      while (R() > RX && fs > 34) { fs -= 2; ev.style.fontSize = fs + "px"; }
+      if (R() > RX) { chip.style.maxWidth = Math.max(80, RX - chip.getBoundingClientRect().left) + "px"; chip.style.overflow = "hidden"; chip.style.textOverflow = "ellipsis"; }
+      // greeked words before the evidence word, only while a suffix word still fits after the chip
+      PRE[i % 5].forEach((w, k) => {
+        pre.insertAdjacentHTML("beforeend", bar(w, k === 0 && i === 2 ? "b" : ""));
+        if (R() > RX - 86) pre.lastChild.remove();
+      });
+      // greeked words after the chip, as many as fit before x 900
+      let room = RX - R() - 22, g = "";
+      GK[i % 5].forEach((w, k) => { if (room >= w) { g += bar(w, CLS[i + ":" + k] || ""); room -= w + 14; } });
+      gk.innerHTML = g;
+      const lineH = r.offsetHeight;
+      const cy = top + P * i + (two ? P * 0.40 : P * 0.5);
+      r.style.top = Math.round(cy - lineH / 2) + "px";
+      if (two) {
+        let gl = '<div class="gl" style="top:' + Math.round(cy + lineH / 2 + 14) + 'px">', left = 810;
+        GL[i % 5].forEach((w, k) => { if (left >= w) { gl += bar(w, CLS2[k] || ""); left -= w + 14; } });
+        rows.insertAdjacentHTML("beforeend", gl + "</div>");
+      }
+    });
+
+    // Margin heat strip: one segment per evidence word (same tint, stronger), piped down into the score bar.
+    const BX = 62, barY = SCORE + 46 + 19;
+    const firstR = $("r0");
+    let pp = firstR ? '<line x1="' + BX + '" y1="' + (firstR.offsetTop + 8) + '" x2="' + BX + '" y2="' + (barY - 20) + '" stroke="rgba(200,64,47,.40)" stroke-width="3"/>' : "";
+    items.forEach((it, i) => {
+      const r = $("r" + i), y0 = r.offsetTop + 8, y1 = r.offsetTop + r.offsetHeight - 8;
+      pp += '<line x1="' + BX + '" y1="' + y0 + '" x2="' + BX + '" y2="' + y1 + '" stroke="rgba(' + tint[i].c + ',' + Math.min(1, tint[i].a * 2) + ')" stroke-width="8" stroke-linecap="round"/>';
+    });
+    const lastR = $("r" + (items.length - 1)), yL = lastR ? lastR.offsetTop + lastR.offsetHeight + 4 : top;
+    pp += '<path d="M' + BX + ' ' + yL + ' V' + (barY - 22) + ' Q' + BX + ' ' + barY + ' ' + (BX + 22) + ' ' + barY + ' H100" fill="none" stroke="rgba(200,64,47,.45)" stroke-width="3" stroke-linecap="round"/>';
+    $("pipe").innerHTML = pp;
+
+    // Score bar (x 90-900): filled to S, threshold line at T, "ambang" label right-aligned under the threshold.
+    const W = 810, X = v => Math.round(v * W), col = spam ? "#C8402F" : "#3B5BA9";
+    let svg = '<rect x="0" y="8" width="' + W + '" height="22" rx="11" fill="rgba(34,34,34,.08)"/>';
+    for (let k = 1; k < 10; k++) svg += '<rect x="' + (X(k / 10) - 1) + '" y="34" width="2" height="10" fill="rgba(34,34,34,.30)"/>';
+    if (S > 0) svg += '<rect x="0" y="8" width="' + Math.max(22, X(S)) + '" height="22" rx="11" fill="' + col + '"/>';
+    svg += '<rect x="' + (Math.min(W - 4, X(T)) - 2) + '" y="0" width="4" height="56" rx="2" fill="#222222"/>';
+    $("bar").innerHTML = svg;
+    const thr = $("thr");
+    thr.textContent = "ambang " + fmt(T);
+    if (!spam) thr.classList.add("ham");
+    thr.style.left = Math.max(0, Math.min(W, X(T) - 2) - thr.offsetWidth - 12) + "px";
+  }
+</script>
+</body>
+</html>

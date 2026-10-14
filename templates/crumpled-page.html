@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400..800;1,8..60,400..800&family=IBM+Plex+Mono:wght@400;500;600&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Crumpled Page (crumpled-page): a printed encyclopedia page that was balled up, then pressed
+    flat again on a black desk. The page is turned hard (-8 deg) and runs off the left of the
+    frame; a crease network splits it into large facets, each lit on its own plane.
+    Data: title = the article heading (the strongest fold runs just before hl, which sits on the
+    far facet, knocked out of line and re-inked in red); items = recovered fragments, one facet
+    each: headword on one plane, the value re-inked in red on the next plane across a crease;
+    series/ep = running head, source/date = page foot; caption (or sub) = the voice-over line,
+    printed on a torn strip of the same page lying across the bottom.
+    Metaphor: an LLM is a lossy compression of the internet; unfolding an answer shows the
+    creases where details were lost or guessed.
+  */
+  :root { --desk: #141414; --paper: #EDEAE4; --ink: #1C1C1C; --red: #9C2E1F; --blue: #3156A6; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--desk); }
+  body { position: relative; color: var(--ink); font-family: "Source Serif 4", Georgia, serif; }
+
+  #desk { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  /* the sheet: local 1180 x 1120, turned -8 deg about its top-left corner; it runs off the frame on purpose */
+  #page { position: absolute; left: -157px; top: 410px; width: 1180px; height: 1120px; transform-origin: 0 0; transform: rotate(-8deg); }
+  #sheet { position: absolute; left: 0; top: 0; width: 1180px; height: 1120px; overflow: visible; }
+
+  #rh { position: absolute; top: 26px; display: flex; gap: 38px; align-items: baseline; white-space: nowrap; color: #24221F; }
+  #series { font: 600 30px "Source Serif 4", serif; font-variant: small-caps; letter-spacing: 0.1em; }
+  #ep { font: italic 500 30px "Source Serif 4", serif; letter-spacing: 0.02em; }
+
+  #title { position: absolute; top: 128px; font-weight: 700; font-optical-sizing: auto; line-height: 1.03; letter-spacing: -0.012em; color: var(--ink); text-wrap: balance; }
+  #title .hl { display: inline-block; margin-right: 0.14em; color: var(--red); font-style: italic; font-weight: 700; transform-origin: 0 60%; }
+
+  .lbl { position: absolute; font: 600 54px "Source Serif 4", serif; line-height: 1.04; color: var(--ink); white-space: nowrap; transform-origin: 0 50%; }
+  .val { position: absolute; font: 500 50px "IBM Plex Mono", monospace; line-height: 1.1; color: var(--red); white-space: nowrap; letter-spacing: -0.01em; transform-origin: 100% 50%; }
+  .lost { position: absolute; font: 500 31px "IBM Plex Mono", monospace; line-height: 1; color: var(--red); white-space: nowrap; }
+
+  #foot { position: absolute; display: flex; flex-wrap: wrap; justify-content: space-between; column-gap: 28px; font: 400 26px "IBM Plex Mono", monospace; line-height: 1.3; color: #2B2926; }
+  #foot span:last-child { white-space: nowrap; }
+
+  #strip { position: absolute; left: 70px; width: 940px; transform-origin: 50% 50%; transform: rotate(1.4deg); }
+  #stripbg { position: absolute; left: 0; top: 0; width: 940px; overflow: visible; }
+  #cap { position: relative; padding: 16px 46px 18px; font: 400 44px "Source Serif 4", serif; line-height: 1.2; color: var(--ink); }
+  #cap .w.on { color: var(--red); font-weight: 650; font-style: italic; text-decoration: underline; text-decoration-thickness: 3px; text-underline-offset: 8px; text-decoration-color: var(--red); }
+</style>
+</head>
+<body>
+<svg id="desk" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <radialGradient id="lamp" cx="0.4" cy="0.42" r="0.8">
+      <stop offset="0" stop-color="#272522" />
+      <stop offset="0.55" stop-color="#181817" />
+      <stop offset="1" stop-color="#0C0C0C" />
+    </radialGradient>
+    <filter id="deskgrain" x="0" y="0" width="1" height="1">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="11" />
+      <feColorMatrix type="saturate" values="0" />
+    </filter>
+  </defs>
+  <rect width="1080" height="1920" fill="url(#lamp)" />
+  <rect width="1080" height="1920" filter="url(#deskgrain)" opacity="0.05" />
+  <g id="corner" data-layout-allow-overflow></g>
+</svg>
+
+<div id="page" data-layout-allow-overflow>
+  <svg id="sheet" viewBox="0 0 1180 1120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+  <div id="rh"><span id="series"></span><span id="ep"></span></div>
+  <div id="title"></div>
+  <div id="entries"></div>
+  <div id="foot"></div>
+</div>
+
+<div id="strip"><svg id="stripbg" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg><div id="cap" data-slot="caption"></div></div>
+
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  // ---------- hard-coded crumple ----------
+  // sheet outline (local coords): top edge, torn top-right corner, right edge, bottom edge, left edge
+  const OUTLINE = [[0,4],[96,1],[210,6],[330,0],[452,3],[575,-2],[690,4],[800,0],[905,3],[985,-1],[1035,1],
+    [1041,10],[1052,20],[1060,33],[1074,46],[1083,62],[1096,70],[1107,85],[1120,96],[1128,108],[1141,124],[1150,128],[1160,141],[1168,150],[1179,166],
+    [1182,260],[1177,380],[1183,505],[1179,640],[1184,760],[1178,880],[1182,1000],[1179,1118],
+    [1060,1122],[930,1116],[800,1123],[670,1117],[540,1122],[410,1116],[280,1121],[150,1117],[0,1120],[-3,900],[2,640],[-2,380],[3,140]];
+  // the torn-off corner, same tear reversed
+  const CORNER = [[1035,1],[1110,-2],[1183,2],[1179,166],[1168,150],[1160,141],[1150,128],[1141,124],[1128,108],[1120,96],[1107,85],[1096,70],[1083,62],[1074,46],[1060,33],[1052,20],[1041,10]];
+  // band creases: [dy left, dy kink, dy right, kink position]
+  const BO = [[10,-8,12,0.42],[-9,10,-6,0.58],[12,-6,9,0.36],[-8,12,-10,0.62],[9,-10,7,0.47],[-11,8,12,0.55],[7,-9,-8,0.4]];
+  // per entry: label plane, value plane, crease slant, jog, left jitter
+  const LK = [1.02, 0.93, 0.99, 0.91, 1.03], VK = [0.92, 1.01, 0.9, 1.0, 0.94];
+  const LRY = [6, -5, 7, -4, 5], LRZ = [0.8, -0.7, 0.5, -0.9, 0.7];
+  const VRY = [-9, 8, -7, 9, -8], VRZ = [-1.6, 1.5, -1.2, 1.8, -1.4], JOG = [-7, 6, -8, 7, -6];
+  const CD = [[-24,18],[20,-16],[-14,24],[18,-22],[-22,14]], XJ = [8, 0, 16, 4, 12];
+  const MX = [[60,118],[126,52],[84,140],[134,70],[54,122],[104,62],[72,132]], KX = [[46,92],[88,40],[60,104],[96,52],[40,86],[78,48],[58,100]];
+  // shade + light angle tables for the margin facets, fine wrinkles [x, y, len, angle, bend]
+  const MK = [1.01,0.8,0.97,0.91,0.87,0.99,0.75,0.87,0.88,0.78,0.99,0.75,0.73,0.91,0.94,0.83,0.84,0.89,0.84,0.99,0.77,0.98,0.8,0.97,0.87,0.97,0.74,0.73,1.02,0.85,0.93,0.76,0.88,0.95,0.91,0.82,1.02,0.88,1.04,1.04,0.8,0.95,0.82,0.85,0.98,0.75,0.87,1.03];
+  const GA = [51,56,55,16,17,64,30,68,47,64,16,71,71,10,19,65,40,15,28,50,17,22,14,58,31,49,64,66,49,10,8,39,42,34,45,56,54,38,64,56,40,25,42,22,33,19,37,38];
+  const WR = [[445,919,44,-38,-2],[1143,935,71,-42,4],[655,240,51,-14,-7],[318,561,120,43,-1],[500,242,74,0,-2],[399,93,30,50,4],[331,405,100,-41,-2],[1082,335,53,-32,5],[705,527,44,9,-7],[825,703,47,40,7],[642,787,84,-7,0],[583,619,66,57,2],[252,88,104,-45,-3],[1019,654,110,-72,-7],[1020,1001,76,-3,-8],[343,540,109,33,8],[995,356,76,-36,3],[853,114,65,-18,5],[747,384,49,-11,-1],[910,513,35,-15,6],[599,229,41,-71,-5],[831,372,28,-40,0],[53,941,34,-29,3],[73,736,50,-13,5],[812,1027,34,85,1],[42,987,119,30,-7],[590,1042,62,-84,-5],[945,265,36,35,4],[791,698,84,60,5],[155,635,111,-65,-9],[86,444,114,-35,-8],[462,989,73,-18,1],[230,153,82,-18,6],[18,86,50,-2,-6],[832,902,94,-10,-5],[111,986,29,53,6],[426,816,113,-40,8],[927,970,97,-69,-2],[483,618,74,44,6],[602,413,50,22,-5],[539,591,115,-58,-4],[366,814,78,-68,5],[1023,1021,62,-65,-4],[119,396,86,31,8],[760,712,88,-50,9],[303,167,107,76,0],[850,47,61,14,-4],[120,516,77,-84,-4],[862,765,65,-41,-2],[1025,679,82,-77,7],[1080,879,55,45,1],[15,591,36,42,-1],[653,739,108,-46,-8],[854,467,100,43,-3],[186,235,59,-15,5],[805,926,104,49,4],[524,531,110,12,2],[608,685,43,-82,8],[488,513,100,42,2],[639,192,70,-76,-1],[467,570,84,3,-6],[281,283,79,-15,2],[951,1007,82,45,-3],[1012,306,32,-58,9]];
+
+  const fontsIn = Promise.all(['700 100px "Source Serif 4"', 'italic 700 100px "Source Serif 4"', '600 54px "Source Serif 4"', '400 44px "Source Serif 4"',
+    'italic 650 44px "Source Serif 4"', 'italic 500 30px "Source Serif 4"', '500 50px "IBM Plex Mono"', '400 26px "IBM Plex Mono"'].map(f => document.fonts.load(f))).catch(() => {});
+  fontsIn.then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+  const f1 = v => (+v).toFixed(1);
+  const W = 1180, H = 1120, X0 = -157, Y0 = 410;
+  const RC = Math.cos(8 * Math.PI / 180), RS = Math.sin(8 * Math.PI / 180);
+  const toF = (x, y) => [X0 + RC * x + RS * y, Y0 - RS * x + RC * y];   // sheet -> frame
+  const xAtFX = (fx, y) => (fx - X0 - RS * y) / RC;                     // local x that lands on frame x fx
+  const PAPER = [237, 234, 228];
+  const shade = k => "rgb(" + [PAPER[0] * k, PAPER[1] * Math.pow(k, 1.04), PAPER[2] * Math.pow(k, 1.14)].map(v => Math.min(255, Math.round(v))).join(",") + ")";
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(items.length, 1);
+  const XL = 250;
+
+  // ---------- running head ----------
+  $("series").textContent = D.series || D.kicker || "";
+  $("ep").textContent = "No. " + String(D.ep || "01").replace(/^#/, "");
+  const rh = $("rh");
+  rh.style.left = f1(966 - rh.offsetWidth) + "px"; // running head on the outer edge, like a recto page
+
+  // ---------- title ----------
+  const t = D.title || "", hl = D.hl || "";
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  titleEl.style.left = XL + "px"; titleEl.style.width = (1096 - XL) + "px";
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl" id="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  const TMAX = n >= 5 ? 262 : n === 4 ? 300 : 330;
+  for (let fs = 116; fs >= 72; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (titleEl.offsetHeight <= TMAX) break; }
+  const titleBottom = titleEl.offsetTop + titleEl.offsetHeight;
+
+  // the strongest fold: from the top edge, through the gap just before hl, then on down the page
+  const hlEl = $("hl");
+  let F;
+  if (hlEl) {
+    const gx = XL + hlEl.offsetLeft - 12, gy = 128 + hlEl.offsetTop + hlEl.offsetHeight * 0.92;
+    F = { gx, gy, tx: gx - 0.12 * (gy + 90) };
+    hlEl.style.transform = "perspective(700px) rotateY(-14deg) translate(5px, 14px) rotate(-2deg)";
+  } else F = { gx: XL + 540, gy: 300, tx: XL + 540 - 0.12 * 390 };
+
+  // ---------- foot first: its height sets where the entries must end ----------
+  const foot = $("foot");
+  foot.innerHTML = "<span>Sumber: " + esc(D.source || "") + "</span>" + (D.date ? "<span>" + esc(D.date) + "</span>" : "");
+  const footX0 = xAtFX(104 + XJ[(n - 1) % 5], 940);
+  foot.style.width = f1(Math.min(780, xAtFX(872, 1090) - footX0)) + "px";
+  const footH = foot.offsetHeight;
+  const footBottom = (1462 - Y0 + RS * footX0) / RC; // clear of the caption strip
+
+  // ---------- entries: one facet each ----------
+  const E1 = Math.min(1000, footBottom - footH - 22);
+  const E0 = titleBottom + 74;
+  const rowH = Math.min(176, (E1 - E0) / n);
+  const bandTop = E0 + ((E1 - E0) - rowH * n) / 2;
+  let html = "";
+  items.forEach((it, i) => {
+    html += '<div class="lbl" id="l' + i + '">' + esc(it.label) + '</div><div class="val" id="v' + i + '">' + esc(it.value) + '</div>';
+  });
+  $("entries").innerHTML = html;
+  const GAP = 96;
+  const rows = items.map((it, i) => {
+    const y0 = bandTop + i * rowH, y1 = y0 + rowH, yc = (y0 + y1) / 2;
+    const xs = xAtFX(104 + XJ[i % 5], y0);
+    // right limit: clear of the action column (frame x > 900, y 900-1500)
+    let vr = Math.min(W - 110, xAtFX(975, yc + 34));
+    if (toF(vr, yc + 34)[1] > 880) vr = Math.min(W - 110, xAtFX(872, yc + 34));
+    return { i, y0, y1, yc, xs, vr, l: $("l" + i), v: $("v" + i) };
+  });
+  // set the size on EVERY entry first, then test them all; shrink together
+  let ls = 54, vs = 50;
+  const setSizes = () => rows.forEach(r => { r.l.style.fontSize = ls + "px"; r.v.style.fontSize = vs + "px"; });
+  const fits = r => r.l.offsetWidth + GAP + r.v.offsetWidth <= r.vr - r.xs;
+  setSizes();
+  while (!rows.every(fits) && ls > 40) { ls -= 2; vs = Math.max(40, vs - 2); setSizes(); }
+  rows.forEach(r => {
+    // still too long at 40 px: the headword wraps to two lines on its own facet
+    if (!fits(r)) { r.l.style.whiteSpace = "normal"; r.l.style.lineHeight = "1.0"; r.l.style.width = Math.max(160, r.vr - r.xs - GAP - r.v.offsetWidth) + "px"; }
+    const lw = r.l.offsetWidth, lh = r.l.offsetHeight, vw = r.v.offsetWidth, vh = r.v.offsetHeight;
+    const i = r.i % 5;
+    const jm = Math.max(0, (rowH - vh) / 2 - 8);
+    r.jog = Math.max(-jm, Math.min(jm, JOG[i]));
+    r.l.style.left = f1(r.xs) + "px"; r.l.style.top = f1(r.yc - lh / 2) + "px";
+    r.l.style.transform = "perspective(1100px) rotateY(" + LRY[i] + "deg) rotate(" + LRZ[i] + "deg)";
+    r.v.style.left = f1(r.vr - vw) + "px"; r.v.style.top = f1(r.yc - vh / 2 + r.jog) + "px";
+    r.v.style.transform = "perspective(1100px) rotateY(" + VRY[i] + "deg) rotate(" + VRZ[i] + "deg)";
+    r.lEnd = r.xs + lw; r.vStart = r.vr - vw; r.th = Math.max(lh, vh + Math.abs(r.jog) * 2);
+  });
+  // the fold continues through every entry, zigzagging between headword and value
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+  const I = rows.map(r => [r.lEnd + 26, r.vStart - 26]);
+  let p = rows.length ? clamp(F.gx + (bandTop - F.gy) * 0.1, I[0][0], I[0][1]) : F.gx;
+  rows.forEach((r, j) => {
+    r.ft = p;
+    let lo = I[j][0], hi = I[j][1];
+    if (j + 1 < rows.length) { const a = Math.max(lo, I[j + 1][0]), b = Math.min(hi, I[j + 1][1]); if (a <= b) { lo = a; hi = b; } }
+    r.fb = clamp(p + (j % 2 ? -78 : 78), lo, hi);
+    if (j + 1 < rows.length) p = clamp(r.fb, I[j + 1][0], I[j + 1][1]);
+  });
+
+  // ---------- foot: source + date, under the last entry ----------
+  const lastXs = rows.length ? rows[rows.length - 1].xs : XL;
+  foot.style.left = f1(lastXs) + "px"; foot.style.top = f1(E1 + 22) + "px";
+
+  // ---------- crease network -> facets ----------
+  const amp = Math.max(0.35, Math.min(1, ((rowH - Math.max(...rows.map(r => r.th), 56)) / 2 - 8) / 12));
+  const yAt = (pl, x) => { for (let k = 0; k < pl.length - 1; k++) { const [xa, ya] = pl[k], [xb, yb] = pl[k + 1]; if (x >= xa && x <= xb) return xb === xa ? ya : ya + (yb - ya) * (x - xa) / (xb - xa); } return pl[pl.length - 1][1]; };
+  const TOP = [[-90, -90], [W + 90, -90]], BOT = [[-90, H + 90], [W + 90, H + 90]];
+  const KQ = [52, 88, 46, 96, 60, 80, 50], MQ = [70, 130, 60, 140, 84, 120, 66];
+  const BO2 = [[-30, 10, -9, 11, 26], [28, -9, 12, -8, -32], [-24, 12, -10, 9, 30], [34, -8, 9, -12, -24], [-28, 11, -12, 8, 34], [22, -12, 10, -9, -28], [-32, 9, -8, 12, 22]];
+  const nb = rows.length;
+  const q = [], m = [], B = [];
+  for (let j = 0; j <= nb; j++) {
+    const up = j > 0 ? rows[j - 1] : null, dn = j < nb ? rows[j] : null;
+    q.push(Math.min(up ? up.xs : XL, dn ? dn.xs : lastXs) - KQ[j % 7]);
+    m.push(Math.min(W - 34, Math.max(up ? up.vr : 1030, dn ? dn.vr : 900, 900) + MQ[j % 7]));
+    const juncs = [];
+    if (up) juncs.push(up.fb);
+    if (dn) juncs.push(dn.ft);
+    const [a, b, c, d, e] = BO2[j % 7], y = bandTop + j * rowH;
+    const pts = [[-90, y + a], [q[j], y + b * amp]];
+    [...new Set(juncs.map(v => Math.round(v * 10) / 10))].sort((u, w) => u - w).forEach(x => pts.push([x, y + c * amp]));
+    pts.push([m[j], y + d * amp], [W + 90, y + e]);
+    B.push(pts);
+  }
+  const seg = (T, Bt, xt, xb) => [[xt, yAt(T, xt)], [xb, yAt(Bt, xb)]];
+  let mi = 0;
+  const nextMK = () => MK[(mi++) % MK.length];
+  // bands: top / bottom crease polylines, split creases (polylines, left to right), facet shade per cell (null = margin, fan-split)
+  const bands = [];
+  {
+    const T = TOP, Bt = B[0], p0 = nb ? rows[0].ft : F.gx;
+    const fold = [[F.tx, -90], [F.gx, F.gy], [p0, yAt(Bt, p0)]];
+    bands.push({ T, B: Bt, splits: [seg(T, Bt, 150, q[0]), fold, seg(T, Bt, 1110, m[0])], k: [null, 1.0, 0.875, null], main: 1 });
+  }
+  const LK = [1.02, 0.97, 1.03, 0.96, 1.01], VK = [0.92, 0.95, 0.9, 0.94, 0.91];
+  rows.forEach((r, j) => {
+    const T = B[j], Bt = B[j + 1];
+    const fold = seg(T, Bt, r.ft, r.fb);
+    const sp = [seg(T, Bt, q[j], q[j + 1])], k = [null, LK[j % 5]];
+    // a facet pinched off the fold: from its top junction on the headword side, or its bottom junction on the value side
+    const lx = r.lEnd + 34, vx = r.vStart - 34;
+    const pinchL = Math.min(r.ft, r.fb) - lx > 60, pinchR = vx - Math.max(r.ft, r.fb) > 60;
+    if (pinchL && (j % 2 === 0 || !pinchR)) { sp.push([fold[0], [lx, yAt(Bt, lx)]], fold); k.push(0.86, VK[j % 5]); }
+    else if (pinchR) { sp.push(fold, [[vx, yAt(T, vx)], fold[1]]); k.push(VK[j % 5], 1.0); }
+    else { sp.push(fold); k.push(VK[j % 5]); }
+    sp.push(seg(T, Bt, m[j], m[j + 1])); k.push(null);
+    bands.push({ T, B: Bt, splits: sp, k, main: sp.indexOf(fold) });
+  });
+  {
+    const T = B[nb];
+    bands.push({ T, B: BOT, splits: [seg(T, BOT, q[nb], lastXs - 110), seg(T, BOT, m[nb], Math.min(W - 20, m[nb] + 40))], k: [null, 0.98, null], main: -1 });
+  }
+
+  let defs = "", cells = "", gi = 0, ai = 0;
+  const grad = (pts, k, spread) => {
+    const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+    const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+    const R = Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) / 2;
+    const a = GA[(ai++) % GA.length] * Math.PI / 180, dx = Math.cos(a) * R, dy = Math.sin(a) * R;
+    const id = "fg" + (gi++);
+    defs += '<linearGradient id="' + id + '" gradientUnits="userSpaceOnUse" x1="' + f1(cx - dx) + '" y1="' + f1(cy - dy) + '" x2="' + f1(cx + dx) + '" y2="' + f1(cy + dy) + '">' +
+      '<stop offset="0" stop-color="' + shade(k + spread) + '"/><stop offset="1" stop-color="' + shade(k - spread) + '"/></linearGradient>';
+    return "url(#" + id + ")";
+  };
+  const poly = (pts, fill) => '<polygon points="' + pts.map(p => f1(p[0]) + "," + f1(p[1])).join(" ") + '" fill="' + fill + '" stroke="' + fill + '" stroke-width="1.2" stroke-linejoin="round"/>';
+  const creaseLines = []; // [points, a point on the lighter side, weight]
+  const mid = pts => [(pts[0][0] + pts[pts.length - 1][0]) / 2, (pts[0][1] + pts[pts.length - 1][1]) / 2];
+  const same = (u, w) => Math.abs(u[0] - w[0]) < 0.05 && Math.abs(u[1] - w[1]) < 0.05;
+  bands.forEach(bd => {
+    const L0 = [[-90, yAt(bd.T, -90)], [-90, yAt(bd.B, -90)]], R0 = [[W + 90, yAt(bd.T, W + 90)], [W + 90, yAt(bd.B, W + 90)]];
+    const sp = [L0, ...bd.splits, R0];
+    for (let c = 0; c < sp.length - 1; c++) {
+      const A = sp[c], Z = sp[c + 1];
+      const a0 = A[0], z0 = Z[0], a1 = A[A.length - 1], z1 = Z[Z.length - 1];
+      const pts = [a0];
+      bd.T.forEach(p => { if (p[0] > a0[0] && p[0] < z0[0]) pts.push(p); });
+      if (!same(z0, a0)) pts.push(z0);
+      Z.slice(1).forEach(p => pts.push(p));
+      bd.B.slice().reverse().forEach(p => { if (p[0] < z1[0] && p[0] > a1[0]) pts.push(p); });
+      if (!same(z1, a1)) pts.push(a1);
+      A.slice(1, -1).reverse().forEach(p => pts.push(p));
+      const k = bd.k[c];
+      if (k != null) cells += poly(pts, grad(pts, k, 0.026));
+      else for (let t = 1; t < pts.length - 1; t++) { const tri = [pts[0], pts[t], pts[t + 1]]; cells += poly(tri, grad(tri, nextMK(), 0.05)); }
+    }
+    bd.splits.forEach((pl, c) => {
+      const kl = bd.k[c] == null ? 0.9 : bd.k[c], kr = bd.k[c + 1] == null ? 0.9 : bd.k[c + 1], md = mid(pl);
+      creaseLines.push([pl, [md[0] + (kl >= kr ? -60 : 60), md[1]], c === bd.main ? 1.35 : 1]);
+    });
+  });
+  // band creases right across the sheet
+  B.forEach((pl, j) => { const up = bands[j].k[1], dn = bands[j + 1].k[1]; creaseLines.push([pl, [W / 2, yAt(pl, W / 2) + (up >= dn ? -60 : 60)], 1]); });
+  let s = "";
+  const outlineD = "M" + OUTLINE.map(p => p.join(",")).join("L") + "Z";
+  s += '<defs><clipPath id="pg"><path d="' + outlineD + '"/></clipPath>' +
+    '<filter id="soft" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="16"/></filter>' +
+    '<filter id="ao" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="3.2"/></filter>' +
+    '<filter id="grain" x="0" y="0" width="1" height="1"><feTurbulence type="fractalNoise" baseFrequency="0.75" numOctaves="3" seed="4"/><feColorMatrix type="saturate" values="0"/></filter>' +
+    '<linearGradient id="lampfall" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.14"/><stop offset="0.5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#1c140c" stop-opacity="0.12"/></linearGradient>' +
+    defs + '</defs>';
+  // cast shadow on the desk
+  s += '<path d="' + outlineD + '" transform="translate(14,22)" fill="#000" opacity="0.78" filter="url(#soft)"/>';
+  s += '<g clip-path="url(#pg)">' + cells;
+  // ambient occlusion in the valleys, then the crease itself: dark valley + lit ridge toward the lighter facet
+  const dk = ["", ""], lt = ["", ""];
+  let aoD = "";
+  creaseLines.forEach(([pts, lp, wgt]) => {
+    const h = wgt > 1 ? 1 : 0;
+    for (let k = 0; k < pts.length - 1; k++) {
+      const [ax, ay] = pts[k], [bx, by] = pts[k + 1], L = Math.hypot(bx - ax, by - ay) || 1;
+      let nx = -(by - ay) / L, ny = (bx - ax) / L;
+      if ((lp[0] - (ax + bx) / 2) * nx + (lp[1] - (ay + by) / 2) * ny < 0) { nx = -nx; ny = -ny; }
+      const o = h ? 2.8 : 2.2;
+      dk[h] += "M" + f1(ax) + "," + f1(ay) + "L" + f1(bx) + "," + f1(by);
+      lt[h] += "M" + f1(ax + nx * o) + "," + f1(ay + ny * o) + "L" + f1(bx + nx * o) + "," + f1(by + ny * o);
+      aoD += "M" + f1(ax - nx * 4) + "," + f1(ay - ny * 4) + "L" + f1(bx - nx * 4) + "," + f1(by - ny * 4);
+    }
+  });
+  s += '<path d="' + aoD + '" stroke="rgba(40,28,16,0.24)" stroke-width="8" fill="none" filter="url(#ao)"/>';
+  // fine secondary wrinkles the press could not take out
+  let wd = "", wl = "";
+  WR.forEach(([x, y, len, ang, bend]) => {
+    const a = ang * Math.PI / 180, dx = Math.cos(a) * len / 2, dy = Math.sin(a) * len / 2, nx = -Math.sin(a), ny = Math.cos(a);
+    wd += "M" + f1(x - dx) + "," + f1(y - dy) + "Q" + f1(x + nx * bend) + "," + f1(y + ny * bend) + " " + f1(x + dx) + "," + f1(y + dy);
+    wl += "M" + f1(x - dx + nx * 1.3) + "," + f1(y - dy + ny * 1.3) + "Q" + f1(x + nx * (bend + 1.3)) + "," + f1(y + ny * (bend + 1.3)) + " " + f1(x + dx + nx * 1.3) + "," + f1(y + dy + ny * 1.3);
+  });
+  s += '<path d="' + wd + '" stroke="rgba(52,40,28,0.25)" stroke-width="1" fill="none" stroke-linecap="round"/>';
+  s += '<path d="' + wl + '" stroke="rgba(255,255,255,0.42)" stroke-width="1" fill="none" stroke-linecap="round"/>';
+  s += '<path d="' + dk[0] + '" stroke="rgba(34,26,18,0.5)" stroke-width="1.7" fill="none" stroke-linecap="round"/>';
+  s += '<path d="' + lt[0] + '" stroke="rgba(255,255,255,0.88)" stroke-width="1.6" fill="none" stroke-linecap="round"/>';
+  s += '<path d="' + dk[1] + '" stroke="rgba(30,22,14,0.62)" stroke-width="2.4" fill="none" stroke-linecap="round"/>';
+  s += '<path d="' + lt[1] + '" stroke="rgba(255,255,255,0.95)" stroke-width="2.2" fill="none" stroke-linecap="round"/>';
+  // the lamp: brighter toward the upper left; paper grain
+  s += '<rect x="-20" y="-20" width="' + (W + 40) + '" height="' + (H + 40) + '" fill="url(#lampfall)"/>';
+  s += '<rect width="' + W + '" height="' + H + '" filter="url(#grain)" opacity="0.07" style="mix-blend-mode:multiply"/>';
+
+  // printed running-head rule, broken and jogged wherever a crease crosses it
+  const RY = 86;
+  const crossX = pl => { for (let k = 0; k < pl.length - 1; k++) { const [ax, ay] = pl[k], [bx, by] = pl[k + 1]; if ((ay - RY) * (by - RY) <= 0 && ay !== by) return ax + (bx - ax) * (RY - ay) / (by - ay); } return null; };
+  const cuts = bands[0].splits.map(crossX).filter(x => x != null && x > XL + 20 && x < 1060).sort((a, b) => a - b);
+  let rx = XL, ry = RY, rd = "";
+  cuts.forEach((x, k) => { rd += "M" + f1(rx) + "," + ry + "H" + f1(x - 4); rx = x + 4; ry = RY + (k % 2 ? -3 : 4); });
+  rd += "M" + f1(rx) + "," + ry + "H1070";
+  s += '<path d="' + rd + '" stroke="#24221F" stroke-width="2.4" fill="none"/>';
+
+  // the tuck where the strongest fold swallowed a line: "[hilang]" sits after the gap, never on a fact
+  let lostHtml = "";
+  const tf = bands[0].splits[1], fA = tf[1], fB = tf[2];
+  const foldAt = y => fA[0] + (fB[0] - fA[0]) * (y - fA[1]) / ((fB[1] - fA[1]) || 1);
+  const yH = titleBottom + 30, gx = foldAt(yH);
+  if (hlEl && fB[1] - yH > 34 && yH - 26 > fA[1]) {
+    // the pinch: paper folded under itself, a dark sliver along the fold
+    s += '<path d="M' + f1(foldAt(yH - 28)) + ',' + f1(yH - 28) + 'Q' + f1(gx + 9) + ',' + f1(yH) + ' ' + f1(foldAt(yH + 28)) + ',' + f1(yH + 28) + 'Q' + f1(gx - 4) + ',' + f1(yH) + ' ' + f1(foldAt(yH - 28)) + ',' + f1(yH - 28) + 'Z" fill="rgba(36,24,14,0.6)"/>';
+    s += '<path d="M' + f1(foldAt(yH - 26) + 2) + ',' + f1(yH - 24) + 'Q' + f1(gx + 11) + ',' + f1(yH) + ' ' + f1(foldAt(yH + 26) + 2) + ',' + f1(yH + 24) + '" stroke="rgba(255,255,255,0.9)" stroke-width="1.4" fill="none"/>';
+    // the editor's red pencil ring round the pinch, the note right after it
+    const RING = "M4,-31C15,-30 21,-16 20,0C19,17 11,30 -2,30C-14,29 -21,15 -20,-1C-19,-17 -11,-29 7,-33";
+    s += '<path d="' + RING + '" transform="translate(' + f1(gx + 2) + ',' + f1(yH) + ') rotate(-6)" stroke="#9C2E1F" stroke-width="2.6" fill="none" stroke-linecap="round"/>';
+    const right = gx + 32 + 150 < 1060;
+    const lx = right ? gx + 32 : gx - 32 - 150;
+    lostHtml = '<div class="lost" style="left:' + f1(lx) + 'px;top:' + f1(yH - 15) + 'px">[hilang]</div>';
+  }
+  s += '</g>';
+  // the paper edge catches the lamp; the tear shows its fibres
+  s += '<path d="' + outlineD + '" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="1.6"/>';
+  s += '<path d="M' + OUTLINE.slice(10, 25).map(p => p.join(",")).join("L") + '" fill="none" stroke="rgba(255,252,244,0.95)" stroke-width="3"/>';
+  $("sheet").innerHTML = s;
+  $("entries").insertAdjacentHTML("beforeend", lostHtml);
+
+  // ---------- the torn-off corner, lying on the desk ----------
+  {
+    const cf = CORNER.map(p => toF(p[0], p[1]));
+    const ccx = cf.reduce((a, p) => a + p[0], 0) / cf.length, ccy = cf.reduce((a, p) => a + p[1], 0) / cf.length;
+    const cd = "M" + cf.map(p => f1(p[0]) + "," + f1(p[1])).join("L") + "Z";
+    const split = [cf[1], cf[9]];
+    const triA = [cf[0], cf[1], ...cf.slice(9)], triB = cf.slice(1, 10);
+    let c = '<defs><filter id="csh" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="9"/></filter>' +
+      '<linearGradient id="cgA" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + shade(1.03) + '"/><stop offset="1" stop-color="' + shade(0.94) + '"/></linearGradient>' +
+      '<linearGradient id="cgB" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + shade(0.86) + '"/><stop offset="1" stop-color="' + shade(0.74) + '"/></linearGradient></defs>';
+    c += '<g transform="translate(-84,-176) rotate(17,' + f1(ccx) + ',' + f1(ccy) + ')">';
+    c += '<path d="' + cd + '" transform="translate(12,18)" fill="#000" opacity="0.8" filter="url(#csh)"/>';
+    c += '<path d="M' + triA.map(p => f1(p[0]) + "," + f1(p[1])).join("L") + 'Z" fill="url(#cgA)"/>';
+    c += '<path d="M' + triB.map(p => f1(p[0]) + "," + f1(p[1])).join("L") + 'Z" fill="url(#cgB)"/>';
+    c += '<path d="M' + f1(split[0][0]) + ',' + f1(split[0][1]) + 'L' + f1(split[1][0]) + ',' + f1(split[1][1]) + '" stroke="rgba(34,26,18,0.5)" stroke-width="1.6"/>';
+    c += '<path d="M' + f1(split[0][0] - 2) + ',' + f1(split[0][1] + 2) + 'L' + f1(split[1][0] - 2) + ',' + f1(split[1][1] + 2) + '" stroke="rgba(255,255,255,0.8)" stroke-width="1.4"/>';
+    c += '<path d="' + cd + '" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="1.6"/>';
+    c += '<path d="M' + cf.slice(4).map(p => f1(p[0]) + "," + f1(p[1])).join("L") + '" fill="none" stroke="rgba(255,252,244,0.95)" stroke-width="3"/>';
+    c += '</g>';
+    $("corner").innerHTML = c;
+  }
+
+  // ---------- caption: the voice-over line, printed on a torn strip of the same page ----------
+  const capText = D.caption || D.sub || "";
+  const words = capText.split(/\s+/).filter(Boolean);
+  const norm = w => w.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+  const hlWords = hl.split(/\s+/).map(norm).filter(Boolean);
+  let active = 0;
+  if (hlWords.length) {
+    const nw = words.map(norm);
+    for (let i = 0; i + hlWords.length <= nw.length; i++) if (hlWords.every((h, j) => nw[i + j] === h)) { active = i; break; }
+  }
+  const cap = $("cap");
+  const fill = (k, tail) => { cap.innerHTML = words.slice(0, k).map((w, i) => '<span class="w' + (i === active ? " on" : "") + '">' + esc(w) + "</span>").join(" ") + (tail ? " …" : ""); };
+  fill(words.length, false);
+  const PAD = 34;
+  const twoLines = fs => cap.offsetHeight - PAD <= Math.round(fs * 1.2 * 2) + 2;
+  let fs = 44;
+  for (; fs >= 40; fs -= 2) { cap.style.fontSize = fs + "px"; if (twoLines(fs)) break; }
+  if (fs < 40) {
+    fs = 40; cap.style.fontSize = "40px";
+    let keep = words.length;
+    while (keep > Math.max(active + 1, 1) && !twoLines(fs)) { keep--; fill(keep, true); }
+  }
+  const sh = cap.offsetHeight;
+  const strip = $("strip");
+  strip.style.top = f1(1550 - sh / 2) + "px";
+  {
+    const Wd = 940, h = sh;
+    // torn ends, slightly wavy long edges (hard-coded)
+    const top = [[14,6],[120,2],[260,7],[400,1],[540,6],[680,0],[820,5],[930,2]];
+    const right = [[938,0.18],[926,0.32],[940,0.47],[929,0.62],[941,0.8],[927,1]];
+    const bot = [[900,3],[760,-2],[610,4],[470,-1],[330,3],[190,-2],[40,4],[6,0]];
+    const left = [[18,0.84],[2,0.66],[14,0.5],[0,0.33],[12,0.16]];
+    const P = [...top.map(([x, y]) => [x, y]), ...right.map(([x, f]) => [x, f * h]), ...bot.map(([x, y]) => [x, h + y]), ...left.map(([x, f]) => [x, f * h])];
+    const pd2 = "M" + P.map(p => f1(p[0]) + "," + f1(p[1])).join("L") + "Z";
+    const cr = [[316, 296], [652, 676]]; // two creases across the strip
+    const facet = (x0t, x0b, x1t, x1b, k, id) => '<linearGradient id="' + id + '" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + shade(k + 0.025) + '"/><stop offset="1" stop-color="' + shade(k - 0.025) + '"/></linearGradient>';
+    let b = '<defs><clipPath id="stc"><path d="' + pd2 + '"/></clipPath><filter id="stsh" x="-10%" y="-40%" width="120%" height="180%"><feGaussianBlur stdDeviation="10"/></filter>' +
+      facet(0, 0, 0, 0, 1.0, "sg0") + facet(0, 0, 0, 0, 0.94, "sg1") + facet(0, 0, 0, 0, 0.99, "sg2") + '</defs>';
+    b += '<path d="' + pd2 + '" transform="translate(10,16)" fill="#000" opacity="0.75" filter="url(#stsh)"/>';
+    b += '<g clip-path="url(#stc)">';
+    const xs2 = [[-10, -10], cr[0], cr[1], [Wd + 10, Wd + 10]];
+    for (let q = 0; q < 3; q++) b += '<path d="M' + xs2[q][0] + ',-10L' + xs2[q + 1][0] + ',-10L' + xs2[q + 1][1] + ',' + (h + 10) + 'L' + xs2[q][1] + ',' + (h + 10) + 'Z" fill="url(#sg' + q + ')"/>';
+    cr.forEach(([a, c2]) => {
+      b += '<path d="M' + a + ',-10L' + c2 + ',' + (h + 10) + '" stroke="rgba(34,26,18,0.45)" stroke-width="1.6"/>';
+      b += '<path d="M' + (a - 2.2) + ',-10L' + (c2 - 2.2) + ',' + (h + 10) + '" stroke="rgba(255,255,255,0.85)" stroke-width="1.4"/>';
+    });
+    b += '<path d="M60,' + f1(h * 0.3) + 'Q140,' + f1(h * 0.36) + ' 210,' + f1(h * 0.22) + 'M720,' + f1(h * 0.7) + 'Q800,' + f1(h * 0.62) + ' 880,' + f1(h * 0.74) + '" stroke="rgba(52,40,28,0.22)" stroke-width="1" fill="none"/>';
+    b += '<rect width="' + Wd + '" height="' + h + '" filter="url(#grain)" opacity="0.06" style="mix-blend-mode:multiply"/>';
+    b += '</g><path d="' + pd2 + '" fill="none" stroke="rgba(255,252,244,0.9)" stroke-width="1.6"/>';
+    const bg = $("stripbg");
+    bg.setAttribute("viewBox", "0 0 " + Wd + " " + h); bg.style.height = h + "px";
+    bg.innerHTML = b;
+  }
+  }
+</script>
+</body>
+</html>

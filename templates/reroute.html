@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Reroute</title>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600;700;800&family=Geist+Mono:wght@500;600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Reroute: a night-mode navigation app seen in its tilted 2.5D driving view.
+    A real perspective camera projects a dark street grid with low extruded
+    blocks; the blue route ribbon leaves the position puck, meets an amber
+    "road closed" barrier, and bends one block around it. The old plan stays
+    behind as a grey dashed line running into the barrier. Top: the turn
+    instruction card (= title) with the recalculating banner. Each item is a
+    numbered stop on the new route with a callout card. Bottom: the voice
+    guidance sheet (= karaoke caption) with the steps pill and source.
+    Metaphor: an AI agent plans, acts, observes and re-plans (ReAct): when a
+    tool call fails it recalculates instead of giving up.
+    Everything is computed from fixed numbers: no randomness, no clock.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #0F1420; }
+  body { position: relative; color: #EEF1F6; font-family: "Schibsted Grotesk", sans-serif; }
+
+  #map { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  .meta { position: absolute; left: 90px; right: 90px; top: 298px; display: flex; justify-content: space-between; align-items: center;
+    font: 600 27px "Geist Mono", monospace; letter-spacing: 0.06em; color: #AEB8C9; text-transform: uppercase; }
+  .meta .k { display: flex; align-items: center; gap: 14px; }
+  .meta .k i { width: 16px; height: 16px; border-radius: 50%; background: #3D7CFF; box-shadow: 0 0 0 6px rgba(61,124,255,0.22); }
+
+  #head { position: absolute; left: 90px; top: 346px; width: 900px; filter: drop-shadow(0 22px 40px rgba(3,6,12,0.6)); }
+  .card { background: #1E2738; border-radius: 30px 30px 0 0; padding: 28px 34px 28px; border: 2px solid rgba(238,241,246,0.10); border-bottom: 0; }
+  .card::after { content: ""; display: block; clear: both; }
+  #tile { float: left; margin: 0.06em 24px 0 -4px; }
+  #tile svg { display: block; width: 100%; height: 100%; }
+  #title { font-weight: 800; line-height: 1.02; letter-spacing: -0.025em; color: #EEF1F6; }
+  #title .tx { position: relative; z-index: 1; }
+  #title .hl.nw { white-space: nowrap; }
+  #title .hl { background: #3D7CFF; color: #FFFFFF; border-radius: 0.14em; padding: 0 0.12em; margin: 0 -0.02em;
+    -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  .banner { display: flex; align-items: center; gap: 18px; background: #F4B23E; color: #0F1420; border-radius: 0 0 30px 30px;
+    padding: 14px 34px 15px; font: 700 32px "Schibsted Grotesk", sans-serif; letter-spacing: -0.005em; }
+  .banner svg { width: 38px; height: 38px; flex: none; }
+  .banner .r { margin-left: auto; font: 700 28px "Geist Mono", monospace; letter-spacing: 0.02em; }
+
+  #stops { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  .stop { position: absolute; background: #1E2738; border: 2px solid rgba(238,241,246,0.14); border-radius: 20px;
+    padding: 10px 24px 12px; box-shadow: 0 16px 34px rgba(3,6,12,0.55); }
+  .stop::after { content: ""; position: absolute; right: -12px; top: 50%; width: 20px; height: 20px; margin-top: -10px;
+    background: #1E2738; border-top: 2px solid rgba(238,241,246,0.14); border-right: 2px solid rgba(238,241,246,0.14); transform: rotate(45deg); }
+  .stop .lb { font: 600 30px/1.12 "Schibsted Grotesk", sans-serif; color: #AEB8C9; }
+  .stop .vl { font: 700 42px/1.08 "Geist Mono", monospace; color: #EEF1F6; letter-spacing: -0.02em; white-space: nowrap; }
+  .tight .stop { padding: 6px 20px 8px; }
+  .tight .stop .lb { line-height: 1.05; }
+  .tight .stop .vl { font-size: 36px; line-height: 1.02; }
+  .stop.dest { border-color: #3D7CFF; }
+  .stop.dest::after { border-color: #3D7CFF; }
+  .pin { position: absolute; width: 58px; height: 58px; margin: -29px 0 0 -29px; border-radius: 50%; background: #EEF1F6;
+    border: 5px solid #3D7CFF; display: flex; align-items: center; justify-content: center;
+    font: 700 30px "Geist Mono", monospace; color: #0F1420; box-shadow: 0 8px 18px rgba(3,6,12,0.6); }
+  .pin.dest { background: #3D7CFF; border-color: #EEF1F6; color: #0F1420; }
+
+  #sheet { position: absolute; left: 60px; width: 960px; bottom: 306px; background: #1E2738; border-radius: 32px;
+    border: 2px solid rgba(238,241,246,0.10); padding: 22px 30px 18px; box-shadow: 0 -10px 40px rgba(3,6,12,0.55); }
+  .voice { display: flex; gap: 22px; align-items: flex-start; }
+  .voice .spk { flex: none; width: 56px; height: 56px; border-radius: 50%; background: #3D7CFF; display: flex; align-items: center; justify-content: center; margin-top: 2px; }
+  .voice .spk svg { width: 32px; height: 32px; }
+  #cap { flex: 1; font-weight: 600; line-height: 1.2; letter-spacing: -0.01em; }
+  #cap span { color: #9DA8BA; }
+  #cap span.done { color: #EEF1F6; }
+  #cap span.on { background: #F4B23E; color: #0F1420; border-radius: 10px; padding: 0 10px; margin: 0 -2px;
+    -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  .row { display: flex; align-items: center; gap: 22px; margin-top: 16px; padding-top: 14px; border-top: 2px solid rgba(238,241,246,0.10); }
+  .eta { flex: none; display: flex; align-items: center; gap: 12px; border: 2px solid #3D7CFF; border-radius: 999px; padding: 5px 20px 6px 14px;
+    font: 600 30px "Geist Mono", monospace; color: #EEF1F6; letter-spacing: -0.01em; }
+  .eta svg { width: 30px; height: 30px; }
+  #src { flex: 1; text-align: right; font: 500 26px/1.25 "Schibsted Grotesk", sans-serif; color: #AEB8C9; }
+</style>
+</head>
+<body>
+<svg id="map" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap data-layout-allow-overflow></svg>
+
+<div class="meta"><span class="k"><i></i><span id="kick"></span></span><span id="date"></span></div>
+
+<div id="head">
+  <div class="card">
+    <div id="tile"><svg viewBox="0 0 100 100" aria-hidden="true">
+      <path d="M78 96 V60 Q78 46 64 46 H38 Q24 46 24 32 V18" fill="none" stroke="#EEF1F6" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M8 26 L24 6 L40 26 Z" fill="#EEF1F6" stroke="#EEF1F6" stroke-width="4" stroke-linejoin="round"/>
+      <rect x="62" y="16" width="32" height="12" rx="3" fill="#F4B23E"/>
+      <path d="M78 28 V40" stroke="#F4B23E" stroke-width="5" stroke-linecap="round" stroke-dasharray="0.1 7"/>
+    </svg></div>
+    <div id="title"></div>
+  </div>
+  <div class="banner">
+    <svg viewBox="0 0 40 40" aria-hidden="true"><path d="M33 20a13 13 0 0 1-22.5 8.9" fill="none" stroke="#0F1420" stroke-width="5" stroke-linecap="round"/><path d="M7 20A13 13 0 0 1 29.5 11.1" fill="none" stroke="#0F1420" stroke-width="5" stroke-linecap="round"/><path d="M30 3v9h-9" fill="none" stroke="#0F1420" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>Menghitung ulang rute…</span>
+  </div>
+</div>
+
+<div id="stops"></div>
+
+<div id="sheet">
+  <div class="voice">
+    <div class="spk"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 12h6l8-7v22l-8-7H4z" fill="#FFFFFF"/><path d="M22 11a7 7 0 0 1 0 10M25.5 7.5a12 12 0 0 1 0 17" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/></svg></div>
+    <div id="cap" data-slot="caption"></div>
+  </div>
+  <div class="row">
+    <span class="eta"><svg viewBox="0 0 30 30" aria-hidden="true"><circle cx="15" cy="15" r="11.5" fill="none" stroke="#3D7CFF" stroke-width="3"/><path d="M15 8.5V15l4.5 3" fill="none" stroke="#3D7CFF" stroke-width="3" stroke-linecap="round"/></svg><span id="eta"></span></span>
+    <span id="src"></span>
+  </div>
+</div>
+
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const FONTS = ['800 100px "Schibsted Grotesk"', '700 32px "Schibsted Grotesk"', '600 44px "Schibsted Grotesk"', '500 26px "Schibsted Grotesk"', '700 42px "Geist Mono"', '600 30px "Geist Mono"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+
+  // ---------- meta ----------
+  $("kick").textContent = D.kicker || [D.series, D.ep].filter(Boolean).join(" · ");
+  $("date").textContent = D.date || "";
+  $("src").textContent = D.source || "";
+  $("eta").textContent = n + " langkah";
+
+  // ---------- caption (voice guidance, karaoke) ----------
+  const t = String(D.title || ""), hl = String(D.hl || "");
+  const capTxt = String(D.caption || D.sub || "");
+  const lowCap = capTxt.toLowerCase();
+  const hs = hl ? lowCap.indexOf(hl.toLowerCase()) : -1, he = hs >= 0 ? hs + hl.length : -1;
+  const words = []; let pos = 0;
+  capTxt.split(/\s+/).filter(Boolean).forEach((w, i) => {
+    const a = capTxt.indexOf(w, pos), b = a + w.length; pos = b;
+    words.push({ w, on: hs >= 0 ? (a < he && b > hs) : i === 0 });
+  });
+  // karaoke window: the whole line when it fits in 2 lines, else a window of words around the active one
+  const cap = $("cap");
+  let aS = words.findIndex(x => x.on); if (aS < 0) aS = 0;
+  let aE = aS; while (aE + 1 < words.length && words[aE + 1].on) aE++;
+  const capHTML = (lo, hi) => {
+    let h = lo > 0 ? '<span class="done">…</span> ' : "", i = lo;
+    while (i < hi) {
+      if (words[i].on) { const grp = []; while (i < hi && words[i].on) grp.push(esc(words[i++].w)); h += '<span class="on">' + grp.join(" ") + "</span> "; }
+      else { h += '<span class="' + (i < aS ? "done" : "next") + '">' + esc(words[i].w) + "</span> "; i++; }
+    }
+    return h.trim() + (hi < words.length ? ' <span class="next">…</span>' : "");
+  };
+  const fits = fs => cap.offsetHeight <= fs * 1.2 * 2 + 4;
+  let lo = 0, hi = words.length, ok = false;
+  cap.innerHTML = capHTML(lo, hi);
+  for (let fs = 46; fs >= 40 && !ok; fs -= 1) { cap.style.fontSize = fs + "px"; ok = fits(fs); }
+  while (!ok && hi - lo > 1) {
+    if (hi - 1 > aE + 2) hi--; else if (lo < aS - 1) lo++; else if (hi - 1 > aE) hi--; else lo++;
+    cap.innerHTML = capHTML(lo, hi); ok = fits(40);
+  }
+
+  // ---------- stop cards: build now, measure, place later ----------
+  const nLow = Math.floor(n / 2), nUp = n - nLow;   // stops before / after the detour
+  const stopsEl = $("stops");
+  stopsEl.innerHTML = items.map((it, k) => '<div class="stop' + (k === n - 1 ? " dest" : "") + '" data-k="' + k + '"><div class="lb">' + esc(it.label) + '</div><div class="vl">' + esc(it.value) + "</div></div>").join("");
+  const cards = [...stopsEl.querySelectorAll(".stop")];
+  cards.forEach((el, k) => { el.style.maxWidth = (k < nLow ? 540 : 440) + "px"; });
+  let ch = cards.map(el => el.offsetHeight);
+
+  // ---------- vertical plan (screen space first, world follows) ----------
+  const sheetTop = $("sheet").offsetTop;
+  const STEM = 42;                       // pin head sits STEM px above its ground point
+  const yPuck = sheetTop - 62;           // ground y of the position puck
+  const lowHead = yPuck - 76;            // stop 1 pin head
+  const GAP = 12; let RUN = 32, FIL = 72;    // card gap, half-width of the detour run, pin clearance above the corner
+  const minSp = k => ch[k] / 2 + ch[k + 1] / 2 + GAP;
+  const needOf = () => { let v = 0; for (let k = 0; k < n - 1; k++) v += (nLow && k === nLow - 1) ? ch[k] / 2 + RUN + FIL : minSp(k); return v; };
+  let need = needOf();
+  const TOPGAP = 66;                     // head bottom -> destination pin head
+  const maxHeadBottom = lowHead - need - TOPGAP;
+
+  // ---------- title (turn instruction), sized to leave room for the stops ----------
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title"), tile = $("tile"), head = $("head");
+  const tx = v => v ? '<span class="tx">' + esc(v) + "</span>" : "";
+  titleEl.innerHTML = at < 0 ? tx(t) : tx(t.slice(0, at)) + '<span class="hl' + (hl.length <= 18 ? " nw" : "") + '">' + esc(t.slice(at, at + hl.length)) + "</span>" + tx(t.slice(at + hl.length));
+  const setT = fs => { titleEl.style.fontSize = fs + "px"; tile.style.width = tile.style.height = Math.round(fs * 0.9) + "px";
+    return { lines: Math.round(titleEl.offsetHeight / (fs * 1.02)), hb: head.offsetTop + head.offsetHeight }; };
+  let chosen = 0;
+  for (let fs = 104; fs >= 78 && !chosen; fs -= 2) { const r = setT(fs); if (r.lines <= 2 && r.hb <= maxHeadBottom) chosen = fs; }
+  for (let fs = 90; fs >= 68 && !chosen; fs -= 2) { const r = setT(fs); if (r.lines <= 3 && r.hb <= maxHeadBottom) chosen = fs; }
+  if (!chosen) setT(68);
+  const headBottom = head.offsetTop + head.offsetHeight;
+  // still short of room (long title + 5 stops): compact cards, then a tighter detour corner
+  if (lowHead - (headBottom + TOPGAP) < need) { stopsEl.classList.add("tight"); ch = cards.map(el => el.offsetHeight); need = needOf(); }
+  if (lowHead - (headBottom + TOPGAP) < need) { RUN = 26; FIL = 58; need = needOf(); }
+
+  // distribute the spare height: widen gaps up to a comfortable step, rest goes to the detour zone
+  const topHead = headBottom + TOPGAP;
+  let spare = Math.max(0, (lowHead - topHead) - need);
+  const sp = []; for (let k = 0; k < n - 1; k++) sp.push((nLow && k === nLow - 1) ? ch[k] / 2 + RUN + FIL : minSp(k));
+  const normal = sp.map((v, k) => !(nLow && k === nLow - 1));
+  const cnt = normal.filter(Boolean).length;
+  const add = cnt ? Math.min(52, spare * 0.6 / cnt) : 0;
+  sp.forEach((v, k) => { if (normal[k]) { sp[k] += add; spare -= add; } });
+  const jx = nLow ? Math.max(0, spare) * 0.75 : 0;          // extra space for the barrier zone
+  if (nLow) sp[nLow - 1] += jx;
+  const heads = [lowHead];
+  for (let k = 1; k < n; k++) heads.push(heads[k - 1] - sp[k - 1]);
+  const yC1 = nLow ? Math.round(heads[nLow - 1] - ch[nLow - 1] / 2 - RUN - jx * 0.35) : lowHead + 60;
+
+  // ---------- camera ----------
+  const TH = 50 * Math.PI / 180, SN = Math.sin(TH), CS = Math.cos(TH), F = 1150, HC = 100, CX = 600, CY = 1050;
+  const P = (u, y, z) => { const yc = (y - HC) * CS + z * SN, zc = -(y - HC) * SN + z * CS; return [CX + F * u / zc, CY - F * yc / zc]; };
+  const zAt = sy => { const Y = -(sy - CY) / F; return HC * (Y * SN + CS) / (SN - Y * CS); };
+  const zcG = z => HC * SN + z * CS;
+  const uAt = (sx, z) => (sx - CX) * zcG(z) / F;
+
+  const zP = zAt(yPuck), z1 = zAt(yC1), zT = zAt(heads[n - 1] + STEM);
+  const U0 = uAt(826, zP);               // lower leg avenue
+  const U1 = uAt(nLow ? 578 : 826, z1);  // upper leg avenue (after the detour)
+  const B = Math.max(8, U0 - U1);        // block width
+  const BZ = B * 1.12;                   // block depth
+  const wMaj = B * 0.085, wMin = B * 0.05, wR = B * 0.062;
+
+  const f2 = v => Math.round(v * 10) / 10;
+  const pts = a => a.map(p => f2(p[0]) + "," + f2(p[1])).join(" ");
+  const poly = (a, attrs) => '<polygon points="' + pts(a) + '" ' + attrs + "/>";
+  const quad = (u0, u1, z0, z1_, y) => [P(u0, y || 0, z0), P(u1, y || 0, z0), P(u1, y || 0, z1_), P(u0, y || 0, z1_)];
+  const hsh = (a, b) => { let x = Math.imul(a + 101, 73856093) ^ Math.imul(b + 307, 19349663); x = Math.imul(x ^ (x >>> 13), 1274126177); x ^= x >>> 16; return (x >>> 0) % 10000 / 10000; };
+
+  const zMin = zAt(1990), zMax = zAt(20);
+  // avenues (constant u) and cross streets (constant z), slightly irregular
+  const AV = [], CR = [];
+  const avJ = [0, 0.06, -0.08, 0.05, -0.04, 0.09, -0.06, 0.03, -0.07, 0.05, 0.02, -0.05, 0.07, -0.03];
+  for (let k = -11; k <= 8; k++) AV.push({ u: U0 + k * B + (k === 0 || k === -1 ? 0 : avJ[(k + 11) % avJ.length] * B), major: k === 0 || k === -1 || k === -4 || k === 3 });
+  const crJ = [0, -0.07, 0.08, -0.04, 0.06, -0.09, 0.05, 0.03, -0.06, 0.07, -0.02, 0.04];
+  for (let j = -6; j <= 30; j++) { const z = z1 + j * BZ + (j === 0 ? 0 : crJ[(j + 6) % crJ.length] * BZ); if (z > zMin - BZ && z < zMax + BZ) CR.push({ z, major: j === 0 || j === 3 }); }
+  CR.sort((a, b) => a.z - b.z); AV.sort((a, b) => a.u - b.u);
+
+  let svg = "";
+  svg += '<defs>' +
+    '<linearGradient id="fog" x1="0" y1="0" x2="0" y2="1920" gradientUnits="userSpaceOnUse">' +
+      '<stop offset="0" stop-color="#0F1420" stop-opacity="0.92"/>' +
+      '<stop offset="0.15" stop-color="#0F1420" stop-opacity="0.8"/>' +
+      '<stop offset="' + (headBottom / 1920).toFixed(3) + '" stop-color="#0F1420" stop-opacity="0.5"/>' +
+      '<stop offset="' + ((headBottom + 240) / 1920).toFixed(3) + '" stop-color="#0F1420" stop-opacity="0"/>' +
+      '<stop offset="1" stop-color="#0F1420" stop-opacity="0"/></linearGradient>' +
+    '<radialGradient id="vig" cx="540" cy="1050" r="1150" gradientUnits="userSpaceOnUse">' +
+      '<stop offset="0.55" stop-color="#05080E" stop-opacity="0"/><stop offset="1" stop-color="#05080E" stop-opacity="0.75"/></radialGradient>' +
+    '</defs>';
+
+  // ground = road colour; blocks are drawn on top of it
+  svg += '<rect width="1080" height="1920" fill="#2A3448"/>';
+  const halfW = a => a.major ? wMaj : wMin;
+  const blocks = [];
+  for (let a = 0; a < AV.length - 1; a++) for (let c = 0; c < CR.length - 1; c++) {
+    const u0 = AV[a].u + halfW(AV[a]), u1 = AV[a + 1].u - halfW(AV[a + 1]);
+    const z0 = CR[c].z + halfW(CR[c]), z1b = CR[c + 1].z - halfW(CR[c + 1]);
+    if (z0 < 1 || z1b <= z0) continue;
+    blocks.push({ a, c, u0, u1, z0, z1: z1b });
+  }
+  blocks.sort((p, q) => q.z0 - p.z0);
+  const visible = q => { const xs = q.map(p => p[0]), ys = q.map(p => p[1]); return Math.max(...xs) > -60 && Math.min(...xs) < 1140 && Math.max(...ys) > -60 && Math.min(...ys) < 1980; };
+  // pass 1: block ground plates
+  for (const b of blocks) {
+    const q = quad(b.u0, b.u1, b.z0, b.z1); if (!visible(q)) continue;
+    const plaza = hsh(b.a, b.c) < 0.12;
+    svg += poly(q, 'fill="' + (plaza ? "#192131" : "#121926") + '"');
+    if (plaza) { const m = B * 0.16; svg += poly(quad(b.u0 + m, b.u1 - m, b.z0 + m, b.z1 - m), 'fill="none" stroke="#2A3448" stroke-width="2"'); }
+  }
+  // lane dashes on the major roads
+  for (const av of AV) if (av.major) for (let z = zMin; z < zMax; z += B * 0.32) svg += poly(quad(av.u - B * 0.006, av.u + B * 0.006, z, z + B * 0.14), 'fill="#EEF1F6" fill-opacity="0.13"');
+  // pass 2: extruded buildings, far to near
+  const bld = [];
+  for (const b of blocks) {
+    if (hsh(b.a, b.c) < 0.12) continue;
+    const gap = B * 0.05, cols = hsh(b.c, b.a) < 0.5 ? 2 : 1, rows = 2;
+    const lw = (b.u1 - b.u0 - gap * (cols + 1)) / cols, ld = (b.z1 - b.z0 - gap * (rows + 1)) / rows;
+    for (let i2 = 0; i2 < cols; i2++) for (let j2 = 0; j2 < rows; j2++) {
+      const r = hsh(b.a * 7 + i2, b.c * 5 + j2); if (r < 0.18) continue;
+      const u0 = b.u0 + gap + i2 * (lw + gap), z0 = b.z0 + gap + j2 * (ld + gap);
+      bld.push({ u0, u1: u0 + lw, z0, z1: z0 + ld, h: B * (0.06 + 0.36 * hsh(b.a + i2 * 3, b.c + j2 * 11)) });
+    }
+  }
+  bld.sort((p, q) => q.z0 - p.z0);
+  for (const k of bld) {
+    const top = quad(k.u0, k.u1, k.z0, k.z1, k.h); if (!visible(top) && !visible(quad(k.u0, k.u1, k.z0, k.z1))) continue;
+    const front = [P(k.u0, 0, k.z0), P(k.u1, 0, k.z0), P(k.u1, k.h, k.z0), P(k.u0, k.h, k.z0)];
+    if (k.u0 > 0) svg += poly([P(k.u0, 0, k.z0), P(k.u0, 0, k.z1), P(k.u0, k.h, k.z1), P(k.u0, k.h, k.z0)], 'fill="#141B28"');
+    else if (k.u1 < 0) svg += poly([P(k.u1, 0, k.z0), P(k.u1, 0, k.z1), P(k.u1, k.h, k.z1), P(k.u1, k.h, k.z0)], 'fill="#141B28"');
+    svg += poly(front, 'fill="#171F2E"');
+    svg += poly(top, 'fill="#222C3F" stroke="#303B52" stroke-width="1.5" stroke-linejoin="round"');
+  }
+  svg += '<rect width="1080" height="1920" fill="url(#fog)"/>';
+
+  // ---------- routes ----------
+  function sample(nodes, r, step) {
+    const out = [];
+    for (let s = 0; s < nodes.length - 1; s++) {
+      const a = nodes[s], b = nodes[s + 1];
+      const len = Math.hypot(b.u - a.u, b.z - a.z), du = (b.u - a.u) / len, dz = (b.z - a.z) / len;
+      const s0 = s > 0 ? r : 0, s1 = s < nodes.length - 2 ? r : 0;
+      const N = Math.max(2, Math.ceil((len - s0 - s1) / step));
+      for (let k = 0; k <= N; k++) { const tt = s0 + (len - s0 - s1) * k / N; out.push({ u: a.u + du * tt, z: a.z + dz * tt }); }
+      if (s < nodes.length - 2) {
+        const c = nodes[s + 2], l2 = Math.hypot(c.u - b.u, c.z - b.z), eu = (c.u - b.u) / l2, ez = (c.z - b.z) / l2;
+        const A = { u: b.u - du * r, z: b.z - dz * r }, E = { u: b.u + eu * r, z: b.z + ez * r };
+        for (let k = 1; k < 14; k++) { const tt = k / 14, m = 1 - tt; out.push({ u: m * m * A.u + 2 * m * tt * b.u + tt * tt * E.u, z: m * m * A.z + 2 * m * tt * b.z + tt * tt * E.z }); }
+      }
+    }
+    return out;
+  }
+  function frame(path, i) {
+    const p = path[i], q = path[Math.min(i + 1, path.length - 1)], o = path[Math.max(i - 1, 0)];
+    let tu = q.u - o.u, tz = q.z - o.z; const l = Math.hypot(tu, tz) || 1; tu /= l; tz /= l;
+    return { p, tu, tz, nu: tz, nz: -tu };
+  }
+  function ribbon(path, w) {
+    const L = [], R = [];
+    for (let i2 = 0; i2 < path.length; i2++) { const f = frame(path, i2); L.push(P(f.p.u - f.nu * w, 0, f.p.z - f.nz * w)); R.push(P(f.p.u + f.nu * w, 0, f.p.z + f.nz * w)); }
+    return L.concat(R.reverse());
+  }
+  const disc = (u, z, r, y) => { const a = []; for (let k = 0; k < 40; k++) { const t2 = k / 40 * Math.PI * 2; a.push(P(u + r * Math.cos(t2), y || 0, z + r * Math.sin(t2))); } return a; };
+
+  const C1 = { u: U0, z: z1 }, C2 = { u: U1, z: z1 };
+  const zb = zAt(yC1 - 46);              // barrier just past the corner
+  const travelled = [{ u: U0, z: zMin }, { u: U0, z: zP }];
+  const live = nLow ? [{ u: U0, z: zP }, C1, C2, { u: U1, z: zT }] : [{ u: U0, z: zP }, { u: U0, z: zT }];
+  const livePath = sample(live, B * 0.3, B * 0.05);
+
+  // travelled part (grey)
+  svg += poly(ribbon(sample(travelled, 0, B * 0.2), wR * 1.35), 'fill="#0F1420" fill-opacity="0.85"');
+  svg += poly(ribbon(sample(travelled, 0, B * 0.2), wR), 'fill="#566176"');
+
+  if (nLow) {
+    // the old plan: straight on through the closed road, then left to the same destination (grey, dashed)
+    const closed = sg => sg.some(q => q.u === U0 && q.z > zb - B * 0.08 && q.z < zb + B * 0.62);
+    const oldPath = sample([C1, { u: U0, z: zT }, { u: U1 + wR * 2.2, z: zT }], B * 0.3, B * 0.05);
+    { let acc = 0, on = true, seg = [];
+      const DASH = B * 0.11, GAPL = B * 0.085;
+      for (let i2 = 1; i2 < oldPath.length; i2++) {
+        acc += Math.hypot(oldPath[i2].u - oldPath[i2 - 1].u, oldPath[i2].z - oldPath[i2 - 1].z);
+        if (on) seg.push(oldPath[i2]);
+        if (acc >= (on ? DASH : GAPL)) { if (on && seg.length > 1 && !closed(seg)) svg += poly(ribbon(seg, wR * 0.6), 'fill="#8A95AA"'); acc = 0; on = !on; seg = on ? [oldPath[i2]] : []; }
+      }
+      if (on && seg.length > 1 && !closed(seg)) svg += poly(ribbon(seg, wR * 0.6), 'fill="#8A95AA"'); }
+    // closed stretch: amber hatching on the road beyond the barrier
+    svg += poly(quad(U0 - wMaj, U0 + wMaj, zb, zb + B * 0.62), 'fill="#F4B23E" fill-opacity="0.10"');
+    for (let k = 0; k < 7; k++) {
+      const za = zb + B * 0.03 + k * B * 0.085;
+      svg += poly([P(U0 - wMaj, 0, za), P(U0 + wMaj, 0, za + B * 0.06), P(U0 + wMaj, 0, za + B * 0.095), P(U0 - wMaj, 0, za + B * 0.035)], 'fill="#F4B23E" fill-opacity="' + (0.6 - k * 0.07).toFixed(2) + '"');
+    }
+  }
+  // live route: casing, fill, light core, direction chevrons
+  svg += poly(ribbon(livePath, wR * 1.42), 'fill="#0F1420" fill-opacity="0.9"');
+  svg += poly(ribbon(livePath, wR), 'fill="#3D7CFF"');
+  svg += poly(ribbon(livePath, wR * 0.34), 'fill="#9BBBFF" fill-opacity="0.35"');
+  { // chevrons
+    let acc = 0; const every = B * 0.34;
+    for (let i2 = 1; i2 < livePath.length - 1; i2++) {
+      acc += Math.hypot(livePath[i2].u - livePath[i2 - 1].u, livePath[i2].z - livePath[i2 - 1].z);
+      if (acc < every) continue; acc = 0;
+      const f = frame(livePath, i2), a = wR * 0.55, s2 = wR * 0.62;
+      const tip = P(f.p.u + f.tu * a, 0, f.p.z + f.tz * a);
+      const l1 = P(f.p.u - f.tu * a * 0.3 + f.nu * s2, 0, f.p.z - f.tz * a * 0.3 + f.nz * s2);
+      const r1 = P(f.p.u - f.tu * a * 0.3 - f.nu * s2, 0, f.p.z - f.tz * a * 0.3 - f.nz * s2);
+      const sc = Math.hypot(P(f.p.u + wR, 0, f.p.z)[0] - P(f.p.u, 0, f.p.z)[0], 0);
+      svg += '<polyline points="' + pts([l1, tip, r1]) + '" fill="none" stroke="#FFFFFF" stroke-opacity="0.8" stroke-width="' + f2(sc * 0.3) + '" stroke-linecap="round" stroke-linejoin="round"/>';
+    }
+  }
+  // destination: ground rings
+  svg += poly(disc(live[live.length - 1].u, zT, wR * 2.6), 'fill="#3D7CFF" fill-opacity="0.18"');
+  svg += poly(disc(live[live.length - 1].u, zT, wR * 1.5), 'fill="none" stroke="#3D7CFF" stroke-width="3"');
+
+  // ---------- barrier: a road-closed barricade standing across the old road (upright billboard, like a nav POI) ----------
+  if (nLow) {
+    const hb = B * 0.34, bl = P(U0 - hb, 0, zb), br = P(U0 + hb, 0, zb), W = br[0] - bl[0], by = bl[1], x0 = bl[0];
+    const R = (x, y, w, h, a) => '<rect x="' + f2(x) + '" y="' + f2(y) + '" width="' + f2(w) + '" height="' + f2(h) + '" ' + a + "/>";
+    svg += poly([P(U0 - hb, 0, zb - B * 0.01), P(U0 + hb, 0, zb - B * 0.01), P(U0 + hb * 1.08, 0, zb + B * 0.09), P(U0 - hb * 0.92, 0, zb + B * 0.09)], 'fill="#05080E" fill-opacity="0.55"');
+    // legs (A-frame feet)
+    for (const fx of [0.16, 0.84]) {
+      const lx = x0 + W * fx;
+      svg += '<path d="M' + f2(lx - W * 0.07) + " " + f2(by) + " L" + f2(lx) + " " + f2(by - W * 0.5) + " L" + f2(lx + W * 0.07) + " " + f2(by) + '" fill="none" stroke="#C9D0DC" stroke-width="' + f2(Math.max(4, W * 0.028)) + '" stroke-linecap="round" stroke-linejoin="round"/>';
+    }
+    // two striped rails
+    [[0.26, 0.15], [0.5, 0.15]].forEach(([top, hgt], ri) => {
+      const ry = by - W * top - W * hgt, rh = W * hgt;
+      svg += '<clipPath id="bclip' + ri + '">' + R(x0, ry, W, rh, 'rx="' + f2(rh * 0.18) + '"') + "</clipPath>";
+      svg += R(x0, ry, W, rh, 'rx="' + f2(rh * 0.18) + '" fill="#F4B23E"');
+      let st = '<g clip-path="url(#bclip' + ri + ')">';
+      for (let k = -1; k < 12; k++) { const sx = x0 + k * W * 0.11; st += '<polygon points="' + pts([[sx, ry + rh], [sx + W * 0.055, ry + rh], [sx + W * 0.055 + rh * 0.9, ry], [sx + rh * 0.9, ry]]) + '" fill="#0F1420"/>'; }
+      svg += st + "</g>" + R(x0, ry, W, rh, 'rx="' + f2(rh * 0.18) + '" fill="none" stroke="#0F1420" stroke-width="3"');
+    });
+    // warning lamps on top
+    for (const fx of [0.1, 0.9]) {
+      const cx = x0 + W * fx, cy = by - W * 0.65 - W * 0.045, r = Math.max(7, W * 0.045);
+      svg += '<circle cx="' + f2(cx) + '" cy="' + f2(cy) + '" r="' + f2(r * 2.3) + '" fill="#F4B23E" fill-opacity="0.14"/>';
+      svg += '<circle cx="' + f2(cx) + '" cy="' + f2(cy) + '" r="' + f2(r) + '" fill="#F4B23E" stroke="#0F1420" stroke-width="2.5"/>';
+    }
+    // cones in front
+    for (const fx of [-0.06, 1.06]) {
+      const cx = x0 + W * fx, cb = by + W * 0.06, cw = W * 0.075, chh = W * 0.24;
+      svg += '<ellipse cx="' + f2(cx) + '" cy="' + f2(cb) + '" rx="' + f2(cw * 1.5) + '" ry="' + f2(cw * 0.45) + '" fill="#05080E" fill-opacity="0.5"/>';
+      svg += '<polygon points="' + pts([[cx - cw, cb], [cx + cw, cb], [cx, cb - chh]]) + '" fill="#F4B23E" stroke="#0F1420" stroke-width="2.5" stroke-linejoin="round"/>';
+      svg += '<polygon points="' + pts([[cx - cw * 0.6, cb - chh * 0.4], [cx + cw * 0.6, cb - chh * 0.4], [cx + cw * 0.45, cb - chh * 0.55], [cx - cw * 0.45, cb - chh * 0.55]]) + '" fill="#EEF1F6"/>';
+    }
+    // round "road closed" sign on a post at the left end
+    { const sx = x0 - W * 0.02, top = by - W * 0.92, r = Math.max(26, W * 0.17);
+      svg += '<line x1="' + f2(sx) + '" y1="' + f2(by + W * 0.02) + '" x2="' + f2(sx) + '" y2="' + f2(top) + '" stroke="#C9D0DC" stroke-width="' + f2(Math.max(4, W * 0.026)) + '" stroke-linecap="round"/>';
+      svg += '<circle cx="' + f2(sx) + '" cy="' + f2(top) + '" r="' + f2(r) + '" fill="#F4B23E" stroke="#0F1420" stroke-width="4"/>';
+      svg += R(sx - r * 0.62, top - r * 0.17, r * 1.24, r * 0.34, 'rx="3" fill="#0F1420"'); }
+  }
+
+  // ---------- position puck ----------
+  svg += poly(disc(U0, zP, B * 0.2), 'fill="#3D7CFF" fill-opacity="0.18"');
+  svg += poly(disc(U0, zP, B * 0.105), 'fill="#EEF1F6"');
+  svg += poly(disc(U0, zP, B * 0.082), 'fill="#3D7CFF"');
+  { const r = B * 0.06; svg += poly([P(U0, 0, zP + r), P(U0 + r * 0.72, 0, zP - r * 0.7), P(U0, 0, zP - r * 0.3), P(U0 - r * 0.72, 0, zP - r * 0.7)], 'fill="#FFFFFF"'); }
+
+  // ---------- stops: pins on the live route + callout cards ----------
+  const pinXY = [];
+  for (let k = 0; k < n; k++) {
+    const hy = heads[k], gy = hy + STEM, z = zAt(gy);
+    const u = k < nLow ? U0 : U1;
+    const g2 = P(u, 0, z);
+    pinXY.push({ x: g2[0], hy, gx: g2[0], gy: g2[1] });
+    svg += '<ellipse cx="' + f2(g2[0]) + '" cy="' + f2(g2[1]) + '" rx="16" ry="6" fill="#05080E" fill-opacity="0.6"/>';
+    svg += '<line x1="' + f2(g2[0]) + '" y1="' + f2(g2[1]) + '" x2="' + f2(g2[0]) + '" y2="' + f2(hy) + '" stroke="#EEF1F6" stroke-width="4" stroke-linecap="round"/>';
+  }
+  svg += '<rect width="1080" height="1920" fill="url(#vig)"/>';
+  $("map").innerHTML = svg;
+
+  stopsEl.insertAdjacentHTML("beforeend", pinXY.map((p, k) => '<div class="pin' + (k === n - 1 ? " dest" : "") + '" style="left:' + f2(p.x) + 'px;top:' + f2(p.hy) + 'px">' + (k + 1) + "</div>").join(""));
+  cards.forEach((el, k) => {
+    const p = pinXY[k];
+    const right = p.x - 29 - 20;          // card edge; the tail reaches toward the pin
+    const lim = (p.hy + ch[k] / 2 > 900 && p.hy - ch[k] / 2 < 1500) ? 890 : 990;
+    el.style.maxWidth = Math.min(k < nLow ? 540 : 470, right - 90, lim - 90) + "px";
+    const w = el.offsetWidth, h = el.offsetHeight;
+    el.style.left = f2(right - w) + "px";
+    el.style.top = f2(p.hy - h / 2) + "px";
+  });
+  }
+</script>
+</body>
+</html>

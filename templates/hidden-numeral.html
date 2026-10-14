@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Hidden Numeral</title>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600;800&family=IBM+Plex+Mono:wght@500;600&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Hidden Numeral (hidden-numeral): one page of a colour-vision test-plate book,
+    printed on matte grey card and composed on a single centre axis: running
+    head, the plate's printed instruction (title), the plate, the answer key,
+    the footnote (caption).
+    A loose strip of pale-blue acetate ("detector filter") lies across the page:
+    it runs from the plate up over the title. Outside the strip the plate is
+    taupe noise; under it the same dots are re-inked by what the detector reads
+    (background blue, figure orange), cut crisply at the strip's edge. The hl
+    word is printed in the figure ink and sits under the same strip.
+    Metaphor: an AI detector / invisible watermark reads a pattern in pixels
+    that looks like noise to us.
+    The hidden figure comes from the content: D.numeral, else the first number
+    in hl, title, then items[].value (skipping one that equals the episode, so
+    the running head never prints the answer). Items = the book's answer key:
+    Pelat | Kamu lihat (label) | AI lihat (value).
+    Deterministic: dot packing uses a fixed integer hash (no Math.random).
+  */
+  :root { --page: #D5D4CE; --ink: #1B1C20; --ink2: #3D3C38; --mute: #4D4C47; --rust: #87300A; --blue: #284F88; --orange: #E2672A; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--page); }
+  body { position: relative; color: var(--ink); font-family: "Hanken Grotesk", sans-serif; }
+
+  #art { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* running head, set like the book */
+  .rh { position: absolute; left: 90px; width: 900px; top: 292px; z-index: 2; text-align: center; white-space: nowrap;
+        font: 500 26px/1.25 "IBM Plex Mono", monospace; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink2); }
+  .rh b { font-weight: 600; color: var(--ink); }
+  .rule { position: absolute; left: 180px; width: 720px; top: 340px; height: 0; border-top: 2px solid rgba(27,28,32,0.5); z-index: 2; }
+
+  /* the plate's printed instruction */
+  .title { position: absolute; left: 90px; width: 900px; top: 366px; z-index: 2; text-align: center; text-wrap: balance;
+           font-weight: 800; letter-spacing: -0.02em; line-height: 1.02; color: var(--ink); }
+  .title .hl { color: var(--rust); }
+
+  /* answer key */
+  .key { position: absolute; left: 180px; width: 720px; z-index: 2; }
+  .kh, .kr { display: grid; grid-template-columns: 92px minmax(0, 1fr) minmax(0, 1fr); column-gap: 16px; }
+  .kh { align-items: center; padding-bottom: 10px; border-bottom: 2px solid var(--ink);
+        font: 600 30px/1.12 "IBM Plex Mono", monospace; letter-spacing: 0.02em; text-transform: uppercase; color: var(--ink2); }
+  .kh span { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+  .kh svg { flex: none; display: block; }
+  .kh .c3 { color: var(--blue); }
+  .kr { align-items: baseline; padding: 7px 0 6px; border-bottom: 1.5px solid rgba(27,28,32,0.24); }
+  .kr .c1 { font: 600 30px/1.15 "IBM Plex Mono", monospace; color: var(--ink2); font-variant-numeric: tabular-nums; }
+  .kr .c2 { font: 500 30px/1.15 "Hanken Grotesk", sans-serif; color: var(--ink2); overflow-wrap: break-word; min-width: 0; }
+  .kr .c3 { font: 800 40px/1.1 "Hanken Grotesk", sans-serif; color: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+            white-space: nowrap; min-width: 0; }
+  .kr .c3.wrap { white-space: normal; overflow-wrap: break-word; line-height: 1.04; }
+  .ks { padding-top: 9px; font: 500 26px/1.25 "Hanken Grotesk", sans-serif; color: var(--ink2); text-align: center; }
+
+  /* footnote = caption slot (karaoke) */
+  .cap { position: absolute; left: 180px; width: 720px; z-index: 2; text-align: center; text-wrap: balance; font-weight: 500; line-height: 1.28; color: var(--mute); }
+  .cap span { white-space: nowrap; }
+  .cap .said { color: var(--ink); }
+  .cap .on { color: var(--rust); font-weight: 600; padding-bottom: 7px;
+             background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='9'><circle cx='5' cy='4.5' r='3.6' fill='%23E2672A'/><circle cx='16' cy='4.5' r='2.6' fill='%232F5C9C'/></svg>") left bottom / 22px 9px repeat-x; }
+</style>
+</head>
+<body>
+<svg id="art" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="rh" id="rh"></div>
+<div class="rule"></div>
+<div class="title" id="title"></div>
+<div class="key" id="key"></div>
+<div class="cap" id="cap" data-slot="caption"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series_id: "how-ai-works", series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const FONTS = ['800 96px "Hanken Grotesk"', '600 30px "Hanken Grotesk"', '500 30px "Hanken Grotesk"', '500 26px "IBM Plex Mono"', '600 30px "IBM Plex Mono"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).then(() => document.fonts.ready).catch(() => {}).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+
+  // ---------- deterministic hash + dot packing ----------
+  function h32(a, b) {
+    let x = Math.imul(a ^ 0x9E3779B9, 0x85EBCA6B) ^ Math.imul((b + 0x7F4A7C15) | 0, 0xC2B2AE35);
+    x ^= x >>> 15; x = Math.imul(x, 0x2C1B3C6D); x ^= x >>> 12; x = Math.imul(x, 0x297A2D39); x ^= x >>> 15;
+    return (x >>> 0) / 4294967296;
+  }
+  // Pseudo-isochromatic packing: big dots first, smaller dots fill the gaps. Coordinates relative to centre.
+  function pack(R, seed, rMax, rMin, gap, base) {
+    const dots = [], cell = rMax * 2 + gap, grid = new Map();
+    const key = (i, j) => i * 8191 + j;
+    let k = 0;
+    for (let s = 0; s < 7; s++) {
+      const hi = rMax - (rMax - rMin) * (s / 7), lo = rMax - (rMax - rMin) * ((s + 1) / 7);
+      const tries = Math.round(base * Math.pow(1.5, s));
+      for (let t = 0; t < tries; t++, k++) {
+        const r = lo + (hi - lo) * h32(seed, k * 3);
+        const ang = h32(seed, k * 3 + 1) * Math.PI * 2;
+        const rad = Math.sqrt(h32(seed, k * 3 + 2)) * (R - r - 1);
+        const x = Math.cos(ang) * rad, y = Math.sin(ang) * rad;
+        const ci = Math.floor(x / cell), cj = Math.floor(y / cell);
+        let ok = true;
+        for (let di = -1; di <= 1 && ok; di++) for (let dj = -1; dj <= 1 && ok; dj++) {
+          const list = grid.get(key(ci + di, cj + dj)); if (!list) continue;
+          for (const d of list) { const dx = d.x - x, dy = d.y - y, m = d.r + r + gap; if (dx * dx + dy * dy < m * m) { ok = false; break; } }
+        }
+        if (!ok) continue;
+        const dot = { x, y, r, i: dots.length };
+        dots.push(dot);
+        const kk = key(ci, cj); if (!grid.has(kk)) grid.set(kk, []); grid.get(kk).push(dot);
+      }
+    }
+    return dots;
+  }
+  // Numerals as round-capped strokes (the way test-plate figures are drawn), centre-lines in a 100-unit-tall box.
+  const DIG = {
+    "0": [60, "M30 4C47 4 56 22 56 50C56 78 47 96 30 96C13 96 4 78 4 50C4 22 13 4 30 4Z"],
+    "1": [34, "M4 24L24 4V96"],
+    "2": [60, "M6 26C6 12 16 4 30 4C45 4 54 13 54 27C54 42 42 52 6 96H56"],
+    "3": [60, "M7 15C13 8 21 4 31 4C45 4 53 13 53 26C53 39 43 48 27 48C45 48 56 57 56 72C56 87 45 96 30 96C19 96 10 91 5 83"],
+    "4": [62, "M44 96V4L4 68H60"],
+    "5": [60, "M52 4H13L8 47C15 41 23 38 32 38C47 38 56 50 56 66C56 84 45 96 30 96C19 96 10 91 5 83"],
+    "6": [60, "M49 11C44 6 37 4 31 4C14 4 5 22 5 52C5 80 15 96 31 96C46 96 55 85 55 68C55 52 45 42 31 42C18 42 9 51 6 60"],
+    "7": [60, "M4 4H56L24 96"],
+    "8": [60, "M30 48C17 48 9 40 9 27C9 13 18 4 30 4C42 4 51 13 51 27C51 40 43 48 30 48C15 48 5 58 5 72C5 87 16 96 30 96C44 96 55 87 55 72C55 58 45 48 30 48Z"],
+    "9": [60, "M11 89C16 94 23 96 29 96C46 96 55 78 55 48C55 20 46 4 29 4C14 4 5 15 5 31C5 48 15 58 29 58C42 58 51 50 54 40"]
+  };
+  // Rasterise the numeral to an offscreen mask; returns inside() test, per-digit x extents and half height (px, relative to centre).
+  function glyph(text, R, hMax, wMax, sw) {
+    const ds = String(text).split("").filter(c => DIG[c]);
+    const GAP = 24, Wu = ds.reduce((a, c) => a + DIG[c][0], 0) + GAP * Math.max(0, ds.length - 1);
+    const k = Math.min(hMax * R / (100 + sw), wMax * R / (Wu + sw));
+    const S = Math.ceil(2 * R);
+    const c = document.createElement("canvas"); c.width = S; c.height = S;
+    const g = c.getContext("2d");
+    g.lineCap = "round"; g.lineJoin = "round"; g.lineWidth = sw; g.strokeStyle = "#000";
+    let u = 0; const ext = [];
+    ds.forEach(ch => {
+      g.setTransform(k, 0, 0, k, R + (u - Wu / 2) * k, R - 50 * k); g.stroke(new Path2D(DIG[ch][1]));
+      ext.push([(u - Wu / 2 - sw / 2) * k, (u + DIG[ch][0] - Wu / 2 + sw / 2) * k]); u += DIG[ch][0] + GAP;
+    });
+    const px = g.getImageData(0, 0, S, S).data;
+    return {
+      inside: (x, y) => { const X = Math.round(x + R), Y = Math.round(y + R); return X >= 0 && Y >= 0 && X < S && Y < S && px[(Y * S + X) * 4 + 3] > 127; },
+      ext, halfH: (50 + sw / 2) * k
+    };
+  }
+  const pick = (arr, a, b) => arr[Math.floor(h32(a, b) * arr.length)];
+
+  // ---------- the hidden figure, taken from the content ----------
+  const epNo = String(D.ep || "").replace(/^#/, "").trim();
+  const epInt = epNo.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+  const norm = tok => { const s = String(tok).replace(/\D/g, "").replace(/^0+/, ""); return s ? s.slice(0, 2) : ""; };
+  let fig = "";
+  if (D.numeral != null && /\d/.test(String(D.numeral))) fig = norm(D.numeral) || "0";
+  else {
+    let first = "";
+    for (const s of [D.hl, D.title, ...items.map(it => it.value)])
+      for (const m of String(s || "").matchAll(/\d[\d.,]*/g)) { const v = norm(m[0]); if (!v) continue; if (!first) first = v; if (!fig && v !== epInt) fig = v; }
+    fig = fig || first || String(Math.max(1, n));
+  }
+  // never print the answer beside the plate: if the figure is the episode number, the plate number waits for the payoff
+  const plateNo = epNo && fig !== epInt ? epNo : "?";
+
+  // ---------- running head ----------
+  const rh = $("rh");
+  const series = D.series || D.kicker || "";
+  const dateTxt = D.date || "";
+  const setHead = withDate => { rh.innerHTML = esc(series) + (series ? " · " : "") + "<b>Pelat " + esc(plateNo) + "</b>" + (withDate && dateTxt ? " · " + esc(dateTxt) : ""); };
+  setHead(true);
+  let dateInHead = true;
+  if (rh.scrollWidth > 900) { rh.style.letterSpacing = "0.03em"; if (rh.scrollWidth > 900) { rh.style.letterSpacing = ""; setHead(false); dateInHead = false; } }
+
+  // ---------- title (printed instruction) ----------
+  const t = D.title || "", hl = D.hl || "";
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl" id="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  // set the instruction on a centred measure, largest size that fits 2-3 lines; returns its bottom edge
+  function setTitle(wrap, tw) {
+    titleEl.style.textWrap = wrap; titleEl.style.width = tw + "px"; titleEl.style.left = (540 - tw / 2) + "px";
+    for (let fs = 96; fs >= 72; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (titleEl.offsetHeight <= 222 && titleEl.scrollWidth <= tw + 2) break; }
+    return 366 + titleEl.offsetHeight;
+  }
+
+  // ---------- caption (footnote, karaoke line) ----------
+  const capText = String(D.caption || D.sub || "").trim();
+  const words = capText.split(/\s+/).filter(Boolean);
+  let a0 = 0, a1 = 0;
+  if (hl) {
+    const low = capText.toLowerCase(), idx = low.indexOf(hl.toLowerCase());
+    if (idx >= 0) {
+      let pos = 0, first = -1, last = -1;
+      words.forEach((w, i) => { const s = low.indexOf(w.toLowerCase(), pos), e = s + w.length; pos = e;
+        if (e > idx && s < idx + hl.length) { if (first < 0) first = i; last = i; } });
+      if (first >= 0) { a0 = first; a1 = last; }
+    }
+  }
+  const capEl = $("cap");
+  const capRender = (from, to) => {
+    let h = "";
+    for (let i = from; i < to; i++) {
+      if (i > a0 && i <= a1) continue;
+      if (i === a0) { h += '<span class="on">' + esc(words.slice(a0, Math.min(a1 + 1, to)).join(" ")) + "</span> "; continue; }
+      h += '<span class="' + (i < a0 ? "said" : "next") + '">' + esc(words[i]) + "</span> ";
+    }
+    capEl.innerHTML = h.trim();
+  };
+  const twoLines = fs => capEl.offsetHeight <= fs * 1.28 * 2 + 10;
+  let capFs = 44;
+  for (; capFs >= 40; capFs -= 2) { capEl.style.fontSize = capFs + "px"; capRender(0, words.length); if (twoLines(capFs)) break; }
+  if (capFs < 40) {
+    // too long for two lines: page it like a karaoke caption and show the page that holds the active word
+    capFs = 42; capEl.style.fontSize = capFs + "px";
+    const pages = []; let start = 0;
+    for (let i = 1; i <= words.length; i++) { capRender(start, i); if (!twoLines(capFs)) { pages.push([start, i - 1]); start = i - 1; } }
+    pages.push([start, words.length]);
+    const [from, to] = pages.find(p => a0 >= p[0] && a0 < p[1]) || pages[0];
+    capRender(from, to);
+  }
+  const capTop = 1606 - capEl.offsetHeight;
+  capEl.style.top = capTop + "px";
+
+  // ---------- answer key (items) ----------
+  const eye = ai => '<svg width="44" height="28" viewBox="0 0 44 28" aria-hidden="true">' +
+    (ai ? '<path d="M2 8V2h7M35 2h7v6M42 20v6h-7M9 26H2v-6" fill="none" stroke="#E2672A" stroke-width="2.6"/>' : "") +
+    '<path d="M7 14C12 7 17 5 22 5s10 2 15 9c-5 7-10 9-15 9S12 21 7 14Z" fill="none" stroke="' + (ai ? "#284F88" : "#3D3C38") + '" stroke-width="2.6"/>' +
+    '<circle cx="22" cy="14" r="4.6" fill="' + (ai ? "#E2672A" : "#3D3C38") + '"/></svg>';
+  const keyEl = $("key");
+  keyEl.innerHTML = '<div class="kh"><span class="c1">Pelat</span><span class="c2">' + eye(false) + 'Kamu lihat</span><span class="c3">' + eye(true) + "AI lihat</span></div>" +
+    items.map((it, i) => '<div class="kr"><span class="c1">' + (i + 1) + '</span><span class="c2">' + esc(it.label) + '</span><span class="c3">' + esc(it.value) + "</span></div>").join("") +
+    '<div class="ks" id="src"></div>';
+  // values: one size across the key; shrink to 34 px, then wrap
+  const vals = [...keyEl.querySelectorAll(".kr .c3")];
+  let vFs = 40;
+  const over = () => vals.some(v => v.scrollWidth > v.clientWidth + 1);
+  while (over() && vFs > 34) { vFs -= 1; vals.forEach(v => { v.style.fontSize = vFs + "px"; }); }
+  vals.forEach(v => { if (v.scrollWidth > v.clientWidth + 1) v.classList.add("wrap"); });
+  $("src").textContent = (D.source ? "Sumber: " + D.source : "") + (!dateInHead && dateTxt ? (D.source ? " · " : "") + dateTxt : "");
+  const keyTop = capTop - 26 - keyEl.offsetHeight;
+  keyEl.style.top = keyTop + "px";
+
+  // ---------- the plate + the acetate strip ----------
+  const BG_N = ["#A39684", "#8E8273", "#B5A893", "#7F8793", "#969FA9", "#AC9D88", "#877C71"];
+  const FG_N = ["#A6937F", "#938371", "#B3A38D", "#9A8D82", "#A99883"];
+  const BG_D = ["#3D6FB6", "#2F5C9C", "#4C80C2", "#2A5089", "#5A8BC6"];
+  const FG_D = ["#E2672A", "#EE7C38", "#D45A20", "#F28C48", "#E6722F"];
+  const cx = 540, TOP = 186;
+  // plate centred on the axis between the instruction and the key; figure cut where the strip's edge should fall
+  function plateFor(titleBottom) {
+    const bandTop = titleBottom + 28, bandBot = keyTop - 30;
+    const d = Math.max(400, Math.min(700, bandBot - bandTop));
+    const R = d / 2, cy = bandTop + Math.max(0, (bandBot - bandTop - d) / 2) + R;
+    const G = glyph(fig, R, 1.14, 1.5, 21), ext = G.ext;
+    const cuts = [];
+    if (ext.length >= 2) {
+      const gap = cx + (ext[0][1] + ext[1][0]) / 2;   // between the digits: one digit fully read, the other fully hidden
+      cuts.push({ x: gap, side: "L", far: cx + ext[ext.length - 1][1] }, { x: gap, side: "R", far: cx + ext[0][0] });
+    } else {
+      const [a, b] = ext[0] || [-40, 40];
+      cuts.push({ x: cx + a + (b - a) * (fig === "1" ? 0.3 : 0.32), side: "L", far: cx + b });
+      cuts.push({ x: cx + a + (b - a) * (fig === "1" ? 1.04 : 0.68), side: "R", far: cx + a });
+    }
+    return { d, R, cy, G, cuts, hh: G.halfH, BOT: cy + R + 16 };
+  }
+  function hlRect() {
+    const hlEl = $("hl"); if (!hlEl) return null;
+    const rs = [...hlEl.getClientRects()];
+    return { l: Math.min(...rs.map(r => r.left)) - 10, r: Math.max(...rs.map(r => r.right)) + 10, t: Math.min(...rs.map(r => r.top)) - 6, b: Math.max(...rs.map(r => r.bottom)) + 6 };
+  }
+  // one rounded sheet, rotated deg about its centre; its edge (left for side L, right for side R) passes through the cut at the plate's centre line
+  function sheet(P, deg, cut, w) {
+    const th = deg * Math.PI / 180, s = Math.sin(th), c = Math.cos(th);
+    const h = (P.BOT - TOP - w * Math.abs(s)) / c, fy = (TOP + P.BOT) / 2;
+    const fx = cut.x + (s * (P.cy - fy) + (cut.side === "L" ? w / 2 : -w / 2)) / c;
+    const F = { deg, s, c, w, h, fx, fy, cut };
+    F.loc = (x, y) => [c * (x - fx) + s * (y - fy), -s * (x - fx) + c * (y - fy)];
+    F.inside = (x, y, m) => { const [lx, ly] = F.loc(x, y); return Math.abs(lx) <= w / 2 - m && Math.abs(ly) <= h / 2 - m; };
+    F.corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => [fx + c * a * w / 2 - s * b * h / 2, fy + s * a * w / 2 + c * b * h / 2]);
+    // x of the right long edge at height y
+    F.edgeAt = y => { const [x1, y1] = F.corners[1], [x2, y2] = F.corners[2]; return y < Math.min(y1, y2) || y > Math.max(y1, y2) ? -1 : x1 + (x2 - x1) * (y - y1) / (y2 - y1); };
+    return F;
+  }
+  // the strip stays clear of the action-button band (x <= 886 for y 880-1520, edge < 900 at y 900), covers the revealed digit(s) and, if asked, the hl word
+  function choose(P, hlBox, useFar) {
+    let best = null;
+    for (const cut of P.cuts) for (let a = 3; a <= 7; a += 0.5) for (const sg of [1, -1]) for (let w = 300; w <= 460; w += 10) {
+      const F = sheet(P, a * sg, cut, w);
+      if (F.corners.some(([x, y]) => x < 96 || x > (y < 880 ? 960 : 886)) || F.edgeAt(900) > 898) continue;
+      if (useFar) { const fx2 = cut.far + (cut.side === "L" ? 10 : -10); if (!F.inside(fx2, P.cy - P.hh, 4) || !F.inside(fx2, P.cy + P.hh, 4)) continue; }
+      if (hlBox && ![[hlBox.l, hlBox.t], [hlBox.r, hlBox.t], [hlBox.r, hlBox.b], [hlBox.l, hlBox.b]].every(([x, y]) => F.inside(x, y, 0))) continue;
+      const score = Math.abs(a - 5) * 1.2 + (w - 300) / 50 + (cut.side === "R" ? 0.6 : 0) + (sg > 0 ? 0.2 : 0);
+      if (!best || score < best.score) { best = F; best.score = score; }
+    }
+    return best;
+  }
+  // try title measures until the strip can lie over the hl word (a hl at the far right of a wide line cannot be reached)
+  const VARIANTS = [["balance", 900], ["wrap", 900], ["balance", 800], ["wrap", 800], ["balance", 700], ["wrap", 700]];
+  let P = null, F = null, how = "";
+  for (const [wrap, tw] of VARIANTS) {
+    P = plateFor(setTitle(wrap, tw));
+    F = choose(P, hlRect(), true);
+    if (F) { how = at < 0 ? "far" : "hl+far " + wrap + " " + tw; break; }
+  }
+  if (!F) {
+    P = plateFor(setTitle(VARIANTS[0][0], VARIANTS[0][1]));
+    F = choose(P, null, true) || choose(P, null, false) || sheet(P, -5, P.cuts[0], 300);
+    how = "fallback";
+  }
+  const { d, R, cy, G } = P;
+  const dots = pack(R, 1307, R * 0.038, R * 0.010, 1.9, 2600);
+  const tf = 'translate(' + F.fx.toFixed(1) + ' ' + F.fy.toFixed(1) + ') rotate(' + F.deg + ')';
+  const filmRect = (extra) => '<rect x="' + (-F.w / 2).toFixed(1) + '" y="' + (-F.h / 2).toFixed(1) + '" width="' + F.w + '" height="' + F.h.toFixed(1) + '" rx="18" ' + (extra || "") + '/>';
+
+  let normal = "", detect = "";
+  for (const p of dots) {
+    const on = G.inside(p.x, p.y);
+    const c = '<circle cx="' + (cx + p.x).toFixed(1) + '" cy="' + (cy + p.y).toFixed(1) + '" r="' + p.r.toFixed(2) + '" fill="';
+    normal += c + (on ? pick(FG_N, 11, p.i) : pick(BG_N, 13, p.i)) + '"/>';
+    if (F.inside(cx + p.x, cy + p.y, -p.r - 2)) detect += c + (on ? pick(FG_D, 17, p.i) : pick(BG_D, 19, p.i)) + '"/>';
+  }
+  // the strip's own small print, along its top edge
+  const mctx = document.createElement("canvas").getContext("2d");
+  mctx.font = '600 26px "IBM Plex Mono"';
+  const printW = s => mctx.measureText(s).width + s.length * 2;
+  const print = ["FILTER DETEKTOR · 47B", "DETEKTOR · 47B", "47B"].find(s => printW(s) <= F.w - 52);
+  // set from the higher top corner so the print stays clear of the running head
+  const px0 = F.deg > 0 ? -F.w / 2 + 26 : F.w / 2 - 26 - printW(print);
+  let ticks = "";
+  const tx0 = F.deg > 0 ? px0 + printW(print) + 16 : -F.w / 2 + 24, tx1 = F.deg > 0 ? F.w / 2 - 24 : px0 - 16;
+  if (tx1 - tx0 >= 48) for (let x = tx0, j = 0; x < tx1; x += 12, j++) ticks += '<line x1="' + x.toFixed(1) + '" y1="' + (-F.h / 2 + 4) + '" x2="' + x.toFixed(1) + '" y2="' + (-F.h / 2 + (j % 5 === 0 ? 24 : 14)) + '" stroke="#1F3F73" stroke-opacity="' + (j % 5 === 0 ? 0.55 : 0.32) + '" stroke-width="2"/>';
+
+  $("art").innerHTML =
+    '<defs>' +
+      '<filter id="grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="7"/><feColorMatrix values="0 0 0 0 0.2  0 0 0 0 0.2  0 0 0 0 0.18  0 0 0 0.07 0"/></filter>' +
+      '<filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="9"/></filter>' +
+      '<radialGradient id="light" cx="0.42" cy="0.36" r="0.8"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.14"/><stop offset="1" stop-color="#000000" stop-opacity="0.045"/></radialGradient>' +
+      '<linearGradient id="sheen" x1="0" y1="0" x2="1" y2="0.35"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.22"/><stop offset="0.4" stop-color="#FFFFFF" stop-opacity="0.04"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0.12"/></linearGradient>' +
+      '<mask id="off"><rect width="1080" height="1920" fill="#fff"/><g transform="' + tf + '">' + filmRect('fill="#000"') + '</g></mask>' +
+      '<clipPath id="on">' + filmRect('transform="' + tf + '"') + '</clipPath>' +
+    '</defs>' +
+    '<rect width="1080" height="1920" fill="#D5D4CE"/>' +
+    '<rect width="1080" height="1920" fill="url(#light)"/>' +
+    '<rect width="1080" height="1920" filter="url(#grain)"/>' +
+    // soft shadow of the lifted sheet, only where it falls on the page
+    '<g mask="url(#off)"><g transform="translate(9 13)"><g transform="' + tf + '">' + filmRect('fill="#000" fill-opacity="0.2" filter="url(#soft)"') + '</g></g></g>' +
+    '<g mask="url(#off)">' + normal + '</g>' +
+    // the translucent tint: page grain and paper tone show through
+    '<g transform="' + tf + '">' + filmRect('fill="#C8DAF3" style="mix-blend-mode:multiply"') + '</g>' +
+    '<g clip-path="url(#on)">' + detect + '</g>' +
+    '<g transform="' + tf + '">' + filmRect('fill="url(#sheen)"') +
+      '<text x="' + px0.toFixed(1) + '" y="' + (-F.h / 2 + 42) + '" font-family="IBM Plex Mono, monospace" font-weight="600" font-size="26" letter-spacing="2" fill="#1F3F73">' + esc(print) + '</text>' + ticks +
+      // rim: dark hairline outside, light bevel inside
+      filmRect('fill="none" stroke="#1F3F73" stroke-opacity="0.4" stroke-width="1.5"') +
+      '<rect x="' + (-F.w / 2 + 2).toFixed(1) + '" y="' + (-F.h / 2 + 2).toFixed(1) + '" width="' + (F.w - 4) + '" height="' + (F.h - 4).toFixed(1) + '" rx="16" fill="none" stroke="#FFFFFF" stroke-opacity="0.7" stroke-width="2.2"/>' +
+    '</g>';
+  window.__hn = { fig, plateNo, d, cx, cy, deg: F.deg, w: F.w, corners: F.corners.map(p => p.map(Math.round)), print, how: how };
+  }
+</script>
+</body>
+</html>

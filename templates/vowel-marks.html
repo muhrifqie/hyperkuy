@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Vowel Marks</title>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600;700;800&family=Noto+Sans+Javanese:wght@600&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Vowel Marks (vowel-marks): a type-specimen sheet for ONE aksara Jawa base
+    letter, ꦧ (ba), on a single plum colour field. The letter sits on hairline
+    metric guides; its vowel marks (sandhangan) are parked as separate pieces
+    in rings on an orbit arc below it. One mark (wulu, "i") has snapped onto
+    the letter and turned it into "bi" — same letter, different syllable.
+    Metaphor: context changes meaning. "bisa" = can / venom; the AI reads a
+    word through what sits around it.
+
+    items -> one ring (a mark = a different context) tied by a hairline to a
+    slip (label + value). The active item (matched to D.hl, else the first)
+    owns the coral wulu that is on the big letter; its slip is lit coral.
+
+    Every Javanese shape is the real font (Noto Sans Javanese) rasterised to
+    canvas; marks are isolated by subtracting the bare letter from letter+mark,
+    so each mark is its own piece (for the video, the wulu can fly in).
+  */
+  :root { --plum: #4A1E3F; --cream: #F2E7D0; --coral: #F08A5D; --mauve: #C9B9C4; --ink: #1A1020; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--plum); }
+  body { position: relative; color: var(--cream); font-family: "Hanken Grotesk", sans-serif; }
+
+  .top { position: absolute; left: 90px; right: 90px; top: 298px; display: flex; justify-content: space-between; align-items: baseline;
+         font: 600 27px "Hanken Grotesk", sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: var(--mauve); }
+  .top b { color: var(--cream); font-weight: 700; }
+  .title { position: absolute; left: 90px; width: 900px; top: 356px; font-weight: 800; line-height: 1.06; letter-spacing: -0.025em; color: var(--cream); }
+  .title .hl { color: var(--coral); white-space: nowrap; position: relative; display: inline-block; }
+  .title .hl canvas { display: inline-block; vertical-align: baseline; margin-left: 0.05em; }
+
+  #guides, #orbit { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; overflow: visible; }
+  .glyph, .piece { position: absolute; display: block; }
+  .gl { position: absolute; font: 600 27px "Hanken Grotesk", sans-serif; letter-spacing: 0.1em; text-transform: uppercase; color: var(--mauve); white-space: nowrap; line-height: 1; }
+  .formula { position: absolute; left: 90px; font: 700 34px "Hanken Grotesk", sans-serif; line-height: 1.16; color: var(--cream); white-space: nowrap; }
+  .formula .c { color: var(--coral); }
+  .formula .m { color: var(--mauve); font-weight: 600; }
+
+  .ring { position: absolute; width: 100px; height: 100px; border-radius: 50%; background: var(--plum); border: 2px solid var(--mauve); }
+  .ring.on { background: var(--coral); border-color: var(--coral); }
+  .ring canvas { position: absolute; }
+  .syl { position: absolute; width: 140px; text-align: center; font: 700 32px "Hanken Grotesk", sans-serif; line-height: 1; color: var(--cream); }
+  .syl.on { color: var(--coral); }
+
+  .card { position: absolute; border: 2px solid var(--mauve); background: rgba(26, 16, 32, 0.38); padding: 16px 14px 16px; hyphens: manual; display: flex; flex-direction: column; }
+  .card .no { font: 600 27px "Hanken Grotesk", sans-serif; letter-spacing: 0.08em; color: var(--mauve); line-height: 1; font-variant-numeric: tabular-nums; }
+  .card .lb { margin-top: 14px; font-weight: 600; line-height: 1.12; color: var(--cream); overflow-wrap: break-word; }
+  .card .vl { margin-top: auto; padding-top: 10px; font-weight: 800; line-height: 1.02; letter-spacing: -0.015em; color: var(--cream); }
+  .card.on { background: var(--coral); border-color: var(--coral); }
+  .card.on .no, .card.on .lb, .card.on .vl { color: var(--ink); }
+
+  .src { position: absolute; left: 90px; width: 900px; font: 500 27px "Hanken Grotesk", sans-serif; line-height: 1.3; color: var(--mauve); }
+  .src b { color: var(--cream); font-weight: 600; }
+
+  /* karaoke voice-over caption */
+  .cap { position: absolute; left: 90px; width: 900px; font: 600 44px "Hanken Grotesk", sans-serif; line-height: 1.24; color: var(--mauve); }
+  .cap span { display: inline; }
+  .cap .said { color: var(--cream); }
+  .cap .on { color: var(--ink); background: var(--coral); border-radius: 6px; padding: 0 0.14em; margin: 0 -0.02em; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+</style>
+</head>
+<body>
+<div class="top"><span id="kick"></span><span id="spec"></span></div>
+<div class="title" id="title"></div>
+<svg id="guides" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+<div id="plate"></div>
+<svg id="orbit" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+<div id="slots"></div>
+<div id="cards"></div>
+<div class="src" id="src"></div>
+<div class="cap" id="cap" data-slot="caption"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const JV = '"Noto Sans Javanese"', JW = 600;
+  const BASE = "ꦧ"; // ꦧ ba
+  // The mark the active item owns is always wulu (ba + wulu = bi, as in "bisa"); the others take the rest in order.
+  const WULU = { ch: "ꦶ", name: "wulu", syl: "bi" };
+  const OTHERS = [ { ch: "ꦸ", name: "suku", syl: "bu" }, { ch: "ꦼ", name: "pepet", syl: "bê" },
+                   { ch: "ꦂ", name: "layar", syl: "bar" }, { ch: "ꦁ", name: "cecak", syl: "bang" } ];
+  const RGB = { cream: [242, 231, 208], coral: [240, 138, 93], ink: [26, 16, 32] };
+
+  const fontsIn = ['800 100px "Hanken Grotesk"', '700 40px "Hanken Grotesk"', '600 40px "Hanken Grotesk"', '500 30px "Hanken Grotesk"']
+    .map(f => document.fonts.load(f)).concat([document.fonts.load(JW + ' 100px ' + JV, BASE + WULU.ch + OTHERS.map(o => o.ch).join(""))]);
+  Promise.all(fontsIn).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  // ---- canvas helpers: real font -> alpha mask -> separate pieces ----
+  function raster(text, fs) {
+    const W = Math.ceil(fs * 2.4), H = Math.ceil(fs * 2.6), ox = Math.round(fs * 0.5), oy = Math.round(fs * 1.3);
+    const c = document.createElement("canvas"); c.width = W; c.height = H;
+    const x = c.getContext("2d"); x.font = JW + " " + fs + "px " + JV; x.fillStyle = "#fff"; x.textBaseline = "alphabetic";
+    x.fillText(text, ox, oy);
+    const d = x.getImageData(0, 0, W, H).data, a = new Uint8ClampedArray(W * H);
+    for (let i = 0; i < W * H; i++) a[i] = d[i * 4 + 3];
+    return { a, W, H, ox, oy };
+  }
+  function bbox(a, W, H) {
+    let x0 = W, y0 = H, x1 = -1, y1 = -1;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (a[y * W + x] > 10) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    return x1 < 0 ? null : { x0, y0, x1, y1, w: x1 - x0 + 1, h: y1 - y0 + 1 };
+  }
+  // mark alone = (letter + mark) minus (letter)
+  function markMask(ch, fs) {
+    const A = raster(BASE + ch, fs), B = raster(BASE, fs), a = new Uint8ClampedArray(A.W * A.H);
+    for (let i = 0; i < a.length; i++) { const v = A.a[i] - B.a[i]; a[i] = v > 12 ? v : 0; }
+    return { a, W: A.W, H: A.H, ox: A.ox, oy: A.oy };
+  }
+  function toCanvas(m, b, rgb, scale) {
+    const c = document.createElement("canvas"); c.width = b.w; c.height = b.h;
+    const x = c.getContext("2d"), img = x.createImageData(b.w, b.h);
+    for (let y = 0; y < b.h; y++) for (let xx = 0; xx < b.w; xx++) {
+      const s = (b.y0 + y) * m.W + (b.x0 + xx), t = (y * b.w + xx) * 4;
+      img.data[t] = rgb[0]; img.data[t + 1] = rgb[1]; img.data[t + 2] = rgb[2]; img.data[t + 3] = m.a[s];
+    }
+    x.putImageData(img, 0, 0);
+    c.style.width = (b.w * (scale || 1)) + "px"; c.style.height = (b.h * (scale || 1)) + "px";
+    return c;
+  }
+
+  function render() {
+    const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const $ = id => document.getElementById(id);
+    const items = (D.items || []).slice(0, 5), n = items.length;
+    const SVGNS = "http://www.w3.org/2000/svg";
+    const svgEl = (tag, attrs, parent) => { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent.appendChild(e); return e; };
+
+    // ---- active item: the one whose text contains hl, else one sharing a word with hl, else the first ----
+    const hl = String(D.hl || "").trim(), hlL = hl.toLowerCase();
+    let act = hlL ? items.findIndex(it => (it.label + " " + it.value).toLowerCase().includes(hlL)) : -1;
+    if (act < 0 && hlL) {
+      const toks = hlL.split(/\s+/).filter(t => t.length > 1 || /\d/.test(t));
+      act = items.findIndex(it => { const w = (it.label + " " + it.value).toLowerCase().split(/[\s±·:,()]+/); return toks.some(t => w.includes(t)); });
+    }
+    if (act < 0) act = 0;
+    const marks = []; let k = 0;
+    for (let i = 0; i < n; i++) marks.push(i === act ? WULU : OTHERS[k++]);
+
+    // ---- top row + title ----
+    $("kick").innerHTML = "<b>" + esc(D.series || D.kicker || "") + "</b>" + (D.ep ? " · " + esc(D.ep) : "");
+    $("spec").textContent = "Spesimen aksara";
+    const t = D.title || "", at = hlL ? t.toLowerCase().indexOf(hlL) : -1;
+    const titleEl = $("title");
+    titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl" id="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+    // wulu sits on the shoulder of the highlighted word, like the mark on the letter (sized in em, so it scales with the fit)
+    const hlEl = $("hl");
+    if (hlEl) {
+      const m = markMask(WULU.ch, 200), b = bbox(m.a, m.W, m.H);
+      if (b) {
+        const cv = toCanvas(m, b, RGB.coral, 1);
+        cv.style.height = "0.36em"; cv.style.width = (0.36 * b.w / b.h).toFixed(3) + "em"; cv.style.marginBottom = "0.44em";
+        hlEl.appendChild(cv);
+      }
+    }
+    for (let fs = 116; fs >= 72; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (titleEl.offsetHeight <= 3 * fs * 1.06 + 2 && titleEl.offsetHeight <= 300) break; }
+    const titleBottom = 356 + titleEl.offsetHeight;
+
+    // ---- bottom block, laid out bottom-up: caption, source ----
+    const capEl = $("cap");
+    const ct = String(D.caption || D.sub || "").trim();
+    const words = ct.split(/\s+/).filter(Boolean);
+    // active caption word(s): the words covering hl inside the caption, else the first word
+    let a0 = 0, a1 = 0;
+    { const low = ct.toLowerCase(), pos = hlL ? low.indexOf(hlL) : -1;
+      if (pos >= 0) { let c = 0, first = -1, last = -1; words.forEach((w, i) => { const s = low.indexOf(w.toLowerCase(), c); const e = s + w.length; c = e; if (e > pos && s < pos + hlL.length) { if (first < 0) first = i; last = i; } }); if (first >= 0) { a0 = first; a1 = last; } } }
+    capEl.innerHTML = words.map((w, i) => '<span class="' + (i < a0 ? "said" : i <= a1 ? "on" : "") + '">' + esc(w) + "</span>").join(" ");
+    for (let fs = 44; fs >= 40; fs -= 2) { capEl.style.fontSize = fs + "px"; if (capEl.offsetHeight <= fs * 1.24 * 2 + 4) break; }
+    const capTop = 1612 - capEl.offsetHeight; capEl.style.top = capTop + "px";
+    const srcEl = $("src");
+    srcEl.innerHTML = "<b>Sumber:</b> " + esc(D.source || "") + (D.date ? " · " + esc(D.date) : "");
+    const srcTop = capTop - 22 - srcEl.offsetHeight; srcEl.style.top = srcTop + "px";
+
+    // ---- slips (items), one column each, x 90..900 (clear of the action buttons) ----
+    const X0 = 90, X1 = 900, GAP = n >= 5 ? 14 : 18, cw = (X1 - X0 - GAP * (n - 1)) / n;
+    const cardsEl = $("cards"), cards = [];
+    items.forEach((it, i) => {
+      const c = document.createElement("div"); c.className = "card" + (i === act ? " on" : "");
+      c.style.left = (X0 + i * (cw + GAP)) + "px"; c.style.width = cw + "px";
+      c.innerHTML = '<div class="no">' + String(i + 1).padStart(2, "0") + '</div><div class="lb">' + esc(it.label) + '</div><div class="vl">' + esc(it.value) + "</div>";
+      cardsEl.appendChild(c); cards.push(c);
+    });
+    // fit text: label words must fit the column; value on one line if possible.
+    // A word that still does not fit at the minimum size gets Indonesian soft hyphens (V-CV, VC-CV, ng/ny = one consonant).
+    const PAD = n >= 5 ? 12 : 14, inner = cw - 2 * PAD - 4;
+    cards.forEach(c => { c.style.paddingLeft = c.style.paddingRight = PAD + "px"; });
+    const meas = document.createElement("canvas").getContext("2d");
+    const widest = (el, fs) => { meas.font = getComputedStyle(el).fontWeight + " " + fs + "px \"Hanken Grotesk\"";
+      return Math.max(...el.textContent.replace(/\u00AD/g, "").split(/\s+/).map(w => meas.measureText(w).width)); };
+    function syllabify(w) {
+      const isV = ch => /[aiueoéêèAIUEOÉÊ]/.test(ch), u = [];
+      for (let i = 0; i < w.length; i++) { const two = w.slice(i, i + 2).toLowerCase(); if ((two === "ng" || two === "ny") && !isV(w[i])) { u.push(w.slice(i, i + 2)); i++; } else u.push(w[i]); }
+      const out = []; let last = -1, cut = 0;
+      for (let i = 0; i < u.length; i++) {
+        if (!isV(u[i][0])) continue;
+        if (last >= 0 && i - last > 1) { const at = i - 1; const left = u.slice(cut, at).join(""), right = u.slice(at).join("");
+          if (left.length >= 2 && right.length >= 2 && /^[A-Za-z]+$/.test(u.slice(last, i).join(""))) { out.push(left); cut = at; } }
+        last = i;
+      }
+      out.push(u.slice(cut).join(""));
+      return out.join("\u00AD");
+    }
+    const fitText = (el, max, min, oneLine) => {
+      el.style.whiteSpace = "nowrap";
+      let fs = max;
+      for (; fs > min; fs -= 1) { el.style.fontSize = fs + "px"; if (oneLine ? el.scrollWidth <= inner : widest(el, fs) <= inner) break; }
+      el.style.fontSize = fs + "px";
+      return fs;
+    };
+    const lbMax = n >= 5 ? 32 : n === 4 ? 36 : 40, vlMax = n >= 5 ? 40 : n === 4 ? 46 : 54;
+    let lbFs = 99, vlFs = 99;
+    cards.forEach(c => { lbFs = Math.min(lbFs, fitText(c.querySelector(".lb"), lbMax, 30, false)); vlFs = Math.min(vlFs, fitText(c.querySelector(".vl"), vlMax, 30, true)); });
+    cards.forEach(c => {
+      const lb = c.querySelector(".lb"), vl = c.querySelector(".vl");
+      lb.style.fontSize = lbFs + "px"; vl.style.fontSize = vlFs + "px";
+      [lb, vl].forEach((el, j) => {
+        el.style.whiteSpace = "nowrap";
+        const fits = j === 1 ? el.scrollWidth <= inner : widest(el, j ? vlFs : lbFs) <= inner;
+        if (!fits) el.textContent = el.textContent.split(/(\s+)/).map(w => /\s/.test(w) ? w : syllabify(w)).join("");
+        el.style.whiteSpace = j === 1 && fits ? "nowrap" : "normal";
+      });
+    });
+    // equal height = tallest content, kept between 200 and 300
+    let need = 0;
+    cards.forEach(c => { c.style.height = "auto"; need = Math.max(need, c.querySelector(".no").offsetHeight + c.querySelector(".lb").offsetHeight + c.querySelector(".vl").offsetHeight + 14 + 10 + 34 + 18); });
+    const ch = Math.max(210, Math.min(300, need));
+    const cardsBottom = srcTop - 26, cardsTop = cardsBottom - ch;
+    cards.forEach(c => { c.style.top = cardsTop + "px"; c.style.height = ch + "px"; });
+
+    // ---- rings on an orbit arc above the slips ----
+    const CX = (X0 + X1) / 2, R = 50, ARC = 46, rowY = cardsTop - 26 - 34 - 10 - R;
+    const ringX = i => X0 + i * (cw + GAP) + cw / 2;
+    const lift = x => ARC * Math.pow((x - CX) / 405, 2);
+    const ringY = i => rowY - lift(ringX(i));
+
+    const orbit = $("orbit");
+    { let d = ""; for (let x = 40; x <= 1040; x += 10) d += (x === 40 ? "M" : "L") + x + "," + (rowY - lift(x)).toFixed(1);
+      svgEl("path", { d, fill: "none", stroke: "#C9B9C4", "stroke-width": 2, "stroke-dasharray": "2 9", "stroke-linecap": "round", opacity: 0.85 }, orbit); }
+
+    const slots = $("slots");
+    const fsRing = 150;
+    items.forEach((it, i) => {
+      const x = ringX(i), y = ringY(i), on = i === act;
+      // tie: ring -> syllable -> slip
+      svgEl("line", { x1: x, y1: y + R + 46, x2: x, y2: cardsTop, stroke: on ? "#F08A5D" : "#C9B9C4", "stroke-width": on ? 3 : 2 }, orbit);
+      svgEl("circle", { cx: x, cy: cardsTop, r: on ? 6 : 5, fill: on ? "#F08A5D" : "#C9B9C4" }, orbit);
+      const ring = document.createElement("div"); ring.className = "ring" + (on ? " on" : "");
+      ring.style.left = (x - R) + "px"; ring.style.top = (y - R) + "px";
+      const m = markMask(marks[i].ch, fsRing), b = bbox(m.a, m.W, m.H);
+      if (b) {
+        const sc = Math.min(62 / b.w, 62 / b.h, 1);
+        const cv = toCanvas(m, b, on ? RGB.ink : RGB.cream, sc);
+        cv.style.left = (R - 2 - b.w * sc / 2) + "px"; cv.style.top = (R - 2 - b.h * sc / 2) + "px";
+        ring.appendChild(cv);
+      }
+      slots.appendChild(ring);
+      const syl = document.createElement("div"); syl.className = "syl" + (on ? " on" : "");
+      syl.textContent = marks[i].syl; syl.style.left = (x - 70) + "px"; syl.style.top = (y + R + 10) + "px";
+      slots.appendChild(syl);
+    });
+
+    // ---- the big letter: fit between the title and the ring row ----
+    const REF = 200, rb = raster(BASE, REF), bb = bbox(rb.a, rb.W, rb.H);
+    const wm = markMask(WULU.ch, REF), wb = bbox(wm.a, wm.W, wm.H);
+    const topEm = Math.min(bb.y0, wb.y0) - rb.oy, wEm = bb.w;            // in REF px
+    const plateTop = titleBottom + 52;
+    let fs = 560, gx = 0, base = 0;
+    for (; fs >= 260; fs -= 4) {
+      const s = fs / REF, w = wEm * s, left = CX - w / 2, right = CX + w / 2;
+      base = plateTop - topEm * s;                                         // baseline when the wulu top touches plateTop
+      // lowest allowed baseline: 30 px above every ring that sits under the letter
+      let lim = 1e9; items.forEach((it, i) => { const x = ringX(i), under = x + R > left - 10 && x - R < right + 10; lim = Math.min(lim, ringY(i) - R - (under ? 30 : 16)); });
+      if (w <= 560 && base <= lim) { base = Math.round((base + lim) / 2 - 0); base = Math.min(base, lim); gx = left; break; }
+    }
+    const s = fs / REF;
+    const B = raster(BASE, fs), b0 = bbox(B.a, B.W, B.H);
+    const plate = $("plate");
+    const gCv = toCanvas(B, b0, RGB.cream, 1); gCv.className = "glyph";
+    const originX = CX - b0.w / 2 - (b0.x0 - B.ox);
+    gCv.style.left = (originX + b0.x0 - B.ox) + "px"; gCv.style.top = (base + b0.y0 - B.oy) + "px";
+    plate.appendChild(gCv);
+    const W2 = markMask(WULU.ch, fs), w0 = bbox(W2.a, W2.W, W2.H);
+    const wCv = toCanvas(W2, w0, RGB.coral, 1); wCv.className = "piece"; wCv.setAttribute("data-layout-allow-overlap", "");
+    const wl = originX + w0.x0 - W2.ox, wt = base + w0.y0 - W2.oy;
+    wCv.style.left = wl + "px"; wCv.style.top = wt + "px";
+    plate.appendChild(wCv);
+
+    // ---- metric guides + proof labels ----
+    const gs = $("guides");
+    const yMark = wt, yBody = base + b0.y0 - B.oy, yBase = base;
+    const gL = originX + b0.x0 - B.ox, gR = gL + b0.w;
+    [[yMark, 0.55], [yBody, 0.55], [yBase, 0.9]].forEach(([y, o]) => svgEl("line", { x1: 60, y1: y, x2: 1020, y2: y, stroke: "#C9B9C4", "stroke-width": 2, opacity: o }, gs));
+    [gL, gR].forEach(x => svgEl("line", { x1: x, y1: yMark - 26, x2: x, y2: yBase + 26, stroke: "#C9B9C4", "stroke-width": 2, opacity: 0.55 }, gs));
+    const label = (txt, y, right) => { const e = document.createElement("div"); e.className = "gl"; e.textContent = txt; plate.appendChild(e); e.style.left = (right - e.offsetWidth) + "px"; e.style.top = (y - 8 - e.offsetHeight) + "px"; return e; };
+    label("sandhangan", yMark, 990); label("aksara", yBody, 990); label("dasar", yBase, 900);
+    // the formula, left of the letter, centred on its body; shrinks (min 28 px) or steps aside if the letter is too wide
+    const f = document.createElement("div"); f.className = "formula";
+    f.innerHTML = '<span class="m">ba</span><br><span class="c">+ wulu</span><br>= bi';
+    plate.appendChild(f);
+    for (let ffs = 34; ffs >= 28; ffs -= 2) { f.style.fontSize = ffs + "px"; if (90 + f.offsetWidth <= gL - 18) break; }
+    if (90 + f.offsetWidth > gL - 18) f.style.display = "none";
+    f.style.top = Math.round((yBody + yBase) / 2 - f.offsetHeight / 2) + "px";
+  }
+</script>
+</body>
+</html>

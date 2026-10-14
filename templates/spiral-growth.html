@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=Literata:ital,opsz,wght@0,7..72,400..600;1,7..72,400&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Spiral Growth: a hand-inked statistical plate on beige presentation cardboard,
+    in the spirit of the 1900 exposition data drawings. Every item is a flat
+    gouache bar (gold, slate, rose, umber) growing from one ruled axis; the
+    straight bars are ordered by their real values (ties equal, smaller shorter).
+    The LAST bar is drawn in crimson: it runs to the chart's ruled inner margin
+    (x 890, left of the app's action column), presses against it and curls
+    inward. How far it coils depends on how much bigger the last value is than
+    the largest straight one (3/4 turn on a tie, +1 turn per x10, max 2 3/4).
+    If the last value is SMALLER it fits, so it is drawn straight on the same
+    scale (no coil). Values without a readable number fall back to ordered
+    illustrative steps with the note "= ilustrasi".
+    Its value is lettered in crimson in the free corner under its label,
+    always smaller than the title. The caption is the plate's centred legend,
+    the active word marked by a gold gouache stroke beneath it.
+    Fully deterministic: fixed-seed SVG turbulence, analytic spiral, no randomness.
+  */
+  :root {
+    --board: #E6D7BE; --ink: #1B1B1B; --crimson: #B8232F; --gold: #E2A93B; --slate: #6B83A8;
+    --brown: #4A3F33;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--board); }
+  body { position: relative; color: var(--ink); font-family: "Saira Condensed", sans-serif; }
+  #plate { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  .kick { position: absolute; left: 90px; width: 900px; top: 302px; text-align: center; font: 600 30px "Saira Condensed", sans-serif; letter-spacing: 0.24em; text-transform: uppercase; color: var(--brown); line-height: 1.1; }
+  .kick b { color: var(--crimson); font-weight: 700; }
+  .title { position: absolute; left: 90px; width: 900px; top: 358px; text-align: center; font-family: "Saira Condensed", sans-serif; font-weight: 600; text-transform: uppercase; letter-spacing: 0.035em; line-height: 1.08; color: var(--ink); }
+  .title .hl { color: var(--crimson); }
+
+  .lab { position: absolute; width: 236px; text-align: right; font: 600 32px "Saira Condensed", sans-serif; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1.0; color: var(--ink); }
+  .val { position: absolute; white-space: nowrap; font: 700 40px "Saira Condensed", sans-serif; letter-spacing: 0.01em; line-height: 1; color: var(--ink); }
+  .big { position: absolute; font-family: "Saira Condensed", sans-serif; font-weight: 700; text-transform: uppercase; line-height: 0.94; letter-spacing: 0.02em; color: var(--crimson); white-space: nowrap; }
+
+  .cap { position: absolute; left: 90px; width: 900px; text-align: center; text-wrap: balance; font: 400 44px/1.24 "Literata", serif; color: #3A3128; }
+  .cap .on { color: var(--ink); font-weight: 600; }
+  .note { position: absolute; left: 90px; font: italic 400 30px/1.25 "Literata", serif; color: var(--brown); white-space: nowrap; }
+  .meta { position: absolute; left: 180px; width: 720px; text-align: center; text-wrap: balance; font: 500 28px/1.22 "Saira Condensed", sans-serif; letter-spacing: 0.05em; color: var(--brown); }
+</style>
+</head>
+<body>
+<svg id="plate" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap aria-hidden="true">
+  <defs>
+    <!-- cardboard: fine fibre grain + broad mottling, fixed seeds -->
+    <filter id="fibre" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85 0.55" numOctaves="2" seed="11" result="n" />
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.29  0 0 0 0 0.22  0 0 0 0 0.14  0 0 0 -1.6 1.02" />
+    </filter>
+    <filter id="mottle" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.0045 0.006" numOctaves="3" seed="4" result="m" />
+      <feColorMatrix in="m" type="matrix" values="0 0 0 0 0.42  0 0 0 0 0.31  0 0 0 0 0.18  0 0 0 -2.2 1.18" />
+    </filter>
+    <!-- gouache: wobbly brushed edges + streaky pigment -->
+    <filter id="paint" filterUnits="userSpaceOnUse" x="0" y="0" width="1080" height="1920">
+      <feTurbulence type="fractalNoise" baseFrequency="0.045 0.09" numOctaves="2" seed="7" result="w" />
+      <feDisplacementMap in="SourceGraphic" in2="w" scale="5" xChannelSelector="R" yChannelSelector="G" result="d" />
+      <feTurbulence type="fractalNoise" baseFrequency="0.012 0.32" numOctaves="2" seed="21" result="s" />
+      <feColorMatrix in="s" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -0.55 0.36" result="sa" />
+      <feComposite in="sa" in2="d" operator="in" result="streak" />
+      <feMerge><feMergeNode in="d" /><feMergeNode in="streak" /></feMerge>
+    </filter>
+    <filter id="pen" filterUnits="userSpaceOnUse" x="0" y="0" width="1080" height="1920">
+      <feTurbulence type="fractalNoise" baseFrequency="0.06" numOctaves="1" seed="3" result="w" />
+      <feDisplacementMap in="SourceGraphic" in2="w" scale="2.2" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+    <radialGradient id="age" cx="50%" cy="46%" r="72%">
+      <stop offset="0.6" stop-color="#6E5638" stop-opacity="0" />
+      <stop offset="1" stop-color="#6E5638" stop-opacity="0.16" />
+    </radialGradient>
+  </defs>
+  <rect width="1080" height="1920" fill="#E6D7BE" />
+  <rect width="1080" height="1920" filter="url(#mottle)" opacity="0.28" />
+  <rect width="1080" height="1920" filter="url(#fibre)" opacity="0.5" />
+  <rect width="1080" height="1920" fill="url(#age)" />
+  <g id="frame" filter="url(#pen)" fill="none" stroke="#1B1B1B">
+    <rect x="38" y="38" width="1004" height="1844" stroke-width="3" />
+    <rect x="50" y="50" width="980" height="1820" stroke-width="1.4" />
+  </g>
+  <g id="pins">
+    <circle cx="78" cy="78" r="7" fill="#3A2F22" opacity="0.55" /><circle cx="78" cy="78" r="11" fill="none" stroke="#8C7556" stroke-width="2" opacity="0.5" />
+    <circle cx="1002" cy="78" r="7" fill="#3A2F22" opacity="0.55" /><circle cx="1002" cy="78" r="11" fill="none" stroke="#8C7556" stroke-width="2" opacity="0.5" />
+    <circle cx="78" cy="1842" r="7" fill="#3A2F22" opacity="0.55" /><circle cx="78" cy="1842" r="11" fill="none" stroke="#8C7556" stroke-width="2" opacity="0.5" />
+    <circle cx="1002" cy="1842" r="7" fill="#3A2F22" opacity="0.55" /><circle cx="1002" cy="1842" r="11" fill="none" stroke="#8C7556" stroke-width="2" opacity="0.5" />
+  </g>
+  <g id="deco"></g>
+  <g id="guides" stroke="#7D6C55" stroke-width="1.6" opacity="0.42"></g>
+  <g id="axis"></g>
+  <g id="bars" filter="url(#paint)"></g>
+  <g id="lead"></g>
+  <g id="ul" filter="url(#paint)"></g>
+</svg>
+
+<div class="kick" id="kick"></div>
+<div class="title" id="title"></div>
+<div id="rows"></div>
+<div class="big" id="big"></div>
+<div class="note" id="note"></div>
+<div class="meta" id="meta"></div>
+<div class="cap" id="cap" data-slot="caption"></div>
+
+<script>
+  // Built-in sample so the file opens on its own in a browser.
+  const D = window.D || {
+    series: "AI dalam angka", ep: "#01", kicker: "AI dalam angka · #01",
+    title: "1 chat ke AI = oven nyala 1 detik", hl: "1 detik",
+    sub: "Kecil? Kalikan miliaran chat tiap hari.",
+    items: [{ label: "Listrik per chat", value: "0,34 Wh" }, { label: "Setara oven", value: "±1 dtk" }, { label: "Chat per hari", value: "miliaran" }],
+    source: "klaim OpenAI, Jun 2025", date: "per 14 Okt 2026"
+  };
+
+  // ---- value parser: leading number of a lettered value ----------------------
+  // Handles "0,34 Wh", "1.500.000", "±1 dtk", "2×10^25 FLOP", "10^21", "1e21",
+  // "128K", "800 jt", "1 JUTA+", "1,8 T", "Rp 5 M" and word magnitudes ("miliaran").
+  // Returns NaN when the value has no readable number (then bars fall back to steps).
+  const WORDN = { puluhan: 10, ratusan: 100, ribuan: 1e3, jutaan: 1e6, miliaran: 1e9, milyaran: 1e9, triliunan: 1e12, thousands: 1e3, millions: 1e6, billions: 1e9, trillions: 1e12 };
+  const MULT = { rb: 1e3, ribu: 1e3, k: 1e3, thousand: 1e3, jt: 1e6, juta: 1e6, mn: 1e6, million: 1e6, miliar: 1e9, milyar: 1e9, b: 1e9, bn: 1e9, billion: 1e9, t: 1e12, tn: 1e12, triliun: 1e12, trillion: 1e12 };
+  const SUP = "⁰¹²³⁴⁵⁶⁷⁸⁹";
+  function toNumber(s) {
+    if (s.includes(".") && s.includes(",")) {
+      const dec = s.lastIndexOf(".") > s.lastIndexOf(",") ? "." : ",";
+      return parseFloat(s.split(dec === "." ? "," : ".").join("").replace(",", "."));
+    }
+    if (s.includes(",")) return /^\d{1,3}(,\d{3})+$/.test(s) ? parseFloat(s.replace(/,/g, "")) : parseFloat(s.replace(",", "."));
+    if (s.includes(".")) return /^\d{1,3}(\.\d{3})+$/.test(s) ? parseFloat(s.replace(/\./g, "")) : parseFloat(s);
+    return parseFloat(s);
+  }
+  function parseVal(raw) {
+    let s = String(raw == null ? "" : raw).trim().toLowerCase()
+      .replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹]+/g, m => "^" + [...m].map(c => SUP.indexOf(c)).join(""));
+    const rupiah = /rp/.test(s);
+    s = s.replace(/^(?:sekitar|hampir|lebih dari|kurang dari|di atas|>|<|≥|≤|~|≈|±|\+|rp\.?|us\$|\$|€|£|\s)+/, "");
+    let m = s.match(/^(puluhan|ratusan|ribuan|jutaan|miliaran|milyaran|triliunan|thousands|millions|billions|trillions)/);
+    if (m) return WORDN[m[1]];
+    m = s.match(/^\d+(?:[.,]\d+)*/);
+    if (!m) return NaN;
+    let num = toNumber(m[0]), rest = s.slice(m[0].length);
+    let e = rest.match(/^\s*(?:[×x*·]\s*10\s*\^\s*(-?\d+)|e(-?\d+))/);
+    if (e) { num *= Math.pow(10, +(e[1] != null ? e[1] : e[2])); rest = rest.slice(e[0].length); }
+    else if (num === 10 && (e = rest.match(/^\s*\^\s*(-?\d+)/))) { num = Math.pow(10, +e[1]); rest = rest.slice(e[0].length); }
+    const w = rest.match(/^\s*([a-z]+)/);
+    if (w) { if (w[1] === "m") num *= rupiah ? 1e9 : 1e6; else if (MULT[w[1]]) num *= MULT[w[1]]; }
+    return num;
+  }
+
+  const FONTS = ['600 100px "Saira Condensed"', '700 100px "Saira Condensed"', '600 32px "Saira Condensed"', '500 28px "Saira Condensed"', '400 44px Literata', '600 44px Literata', 'italic 400 30px Literata'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+    const NS = "http://www.w3.org/2000/svg";
+    const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const $ = id => document.getElementById(id);
+    const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent.appendChild(e); return e; };
+    const INK = "#1B1B1B", CRIMSON = "#B8232F", GOLD = "#E2A93B", SLATE = "#6B83A8", ROSE = "#D99A92", UMBER = "#6E4A2E";
+    const ctx = document.createElement("canvas").getContext("2d");
+    const metrics = (font) => { ctx.font = font; const m = ctx.measureText("HAMBURG"); return { A: m.fontBoundingBoxAscent, De: m.fontBoundingBoxDescent, cap: m.actualBoundingBoxAscent }; };
+
+    const items = (D.items || []).slice(0, 5);
+    const n = items.length;
+
+    // ---- kicker (series + ep), centred like a plate heading ----
+    const ep = String(D.ep || "").trim();
+    const series = D.series || (D.kicker || "").replace(/\s*·\s*#?\d+\s*$/, "");
+    $("kick").innerHTML = esc(series) + (ep ? " &nbsp;·&nbsp; <b>" + esc(ep) + "</b>" : "");
+
+    // ---- title, hand-lettered caps on pencil guide rules; hl inked crimson ----
+    const t = D.title || "", hl = D.hl || "";
+    const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    const titleEl = $("title");
+    titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+    let fs = 132;
+    for (; fs >= 72; fs -= 2) {
+      titleEl.style.fontSize = fs + "px";
+      const lines = Math.round(titleEl.offsetHeight / (fs * 1.08));
+      if (titleEl.offsetHeight <= 300 && lines <= 3) break;
+    }
+    const LH = fs * 1.08, tTop = titleEl.offsetTop, tH = titleEl.offsetHeight;
+    const tm = metrics('600 ' + fs + 'px "Saira Condensed"');
+    const guides = $("guides"), nLines = Math.round(tH / LH);
+    for (let i = 0; i < nLines; i++) {
+      const base = tTop + i * LH + (LH - (tm.A + tm.De)) / 2 + tm.A;
+      el("line", { x1: 64, x2: 1016, y1: (base + 1).toFixed(1), y2: (base + 1).toFixed(1) }, guides);
+      el("line", { x1: 64, x2: 1016, y1: (base - tm.cap - 1).toFixed(1), y2: (base - tm.cap - 1).toFixed(1) }, guides);
+    }
+
+    // ---- bottom block, built bottom-up: caption (legend) ends at y 1618, source line above it ----
+    const capEl = $("cap");
+    const ct = String(D.caption || D.sub || "").trim();
+    const words = ct.split(/\s+/).filter(Boolean);
+    let active = 0;                                             // ONE active word: the first caption word inside hl, else the first word
+    if (hl) {
+      const p = ct.toLowerCase().indexOf(hl.toLowerCase());
+      if (p >= 0) {
+        let pos = 0, found = -1;
+        words.forEach((w, i) => { const s = ct.indexOf(w, pos); const e = s + w.length; pos = e; if (found < 0 && s < p + hl.length && e > p) found = i; });
+        if (found >= 0) active = found;
+      }
+    }
+    capEl.innerHTML = words.map((w, i) => i === active ? '<span class="on" id="capOn">' + esc(w) + "</span>" : esc(w)).join(" ");
+    // 44 -> 40 px, then (only for the longest captions) slightly tighter tracking, so it stays on 2 lines
+    let cfs = 44;
+    const capFits = () => capEl.offsetHeight <= cfs * 1.24 * 2 + 4;
+    for (; cfs >= 40; cfs -= 2) { capEl.style.fontSize = cfs + "px"; if (capFits()) break; }
+    if (cfs < 40) {
+      cfs = 40; capEl.style.fontSize = "40px";
+      for (const [ls, ws] of [[0.01, 0.01], [0.02, 0.02], [0.025, 0.04]]) { capEl.style.letterSpacing = -ls + "em"; capEl.style.wordSpacing = -ws + "em"; if (capFits()) break; }
+    }
+    const capTop = 1614 - capEl.offsetHeight;                   // two lines at 44 px start at y >= 1500: clear of the action column
+    capEl.style.top = capTop + "px";
+    const on = $("capOn");
+    if (on) {                                                   // gold gouache stroke under the active word
+      const cm = metrics("400 " + cfs + "px Literata");
+      [...on.getClientRects()].filter(r => r.width > 4).forEach(r => {
+        const y = r.top + cm.A + cfs * 0.2;
+        el("path", { d: "M" + (r.left - 6).toFixed(1) + " " + (y + 1.5).toFixed(1) + " Q" + ((r.left + r.right) / 2).toFixed(1) + " " + (y - 1.5).toFixed(1) + " " + (r.right + 6).toFixed(1) + " " + (y + 0.5).toFixed(1),
+          fill: "none", stroke: GOLD, "stroke-width": Math.round(cfs * 0.3), "stroke-linecap": "round" }, $("ul"));
+      });
+    }
+
+    const metaEl = $("meta");
+    const src = D.source ? "Sumber: " + D.source : "";
+    metaEl.textContent = [src, D.date].filter(Boolean).join("  ·  ");
+    const metaTop = capTop - 24 - metaEl.offsetHeight;
+    metaEl.style.top = metaTop + "px";
+
+    // ---- read the values: do they parse into numbers? ----
+    const vals = items.map(it => parseVal(it.value));
+    const parsed = n >= 2 && vals.every(v => isFinite(v) && v > 0);
+    const sv = vals.slice(0, n - 1);
+    const vMax = parsed ? Math.max(...sv) : 1;
+    const vLast = parsed ? vals[n - 1] : NaN;
+    // the last value is SMALLER than one before it: it fits, so it is drawn straight like the rest (no coil)
+    const flat = parsed && vLast < vMax * (1 - 1e-9);
+    const scaled = flat ? vals : sv;                            // bars that share one length scale
+    const sMax = parsed ? Math.max(...scaled) : 1, sMin = parsed ? Math.min(...scaled) : 1;
+    // fraction of the longest bar: linear when the spread is small, log when it is wide; ties equal
+    const frac = scaled.map(v => !parsed ? 1 : (sMax / sMin <= 8 ? v / sMax : 0.22 + 0.78 * Math.log(v / sMin) / Math.log(sMax / sMin)));
+    // coil turns: 3/4 when the last value only ties the largest, + 1 turn per x10 above it, up to 2 3/4 turns
+    let turns = parsed ? 0.75 + Math.max(0, Math.min(2, Math.log10(vLast / vMax))) : 2.75;
+
+    // ---- the chart ----
+    const X0 = 352, LABR = 330, T = 46, XR = 890;               // axis, label right edge, bar thickness, ruled inner margin
+    let P = 62;                                                 // coil pitch
+    const objTop = tTop + tH + 64, objBot = metaTop - 34;
+    const rows = $("rows");
+    const labs = items.map(it => {
+      const d = document.createElement("div");
+      d.className = "lab"; d.style.left = (LABR - 236) + "px"; d.textContent = it.label || "";
+      rows.appendChild(d);
+      if (d.offsetHeight > 70) d.style.fontSize = "30px";
+      return d;
+    });
+    let gap = 26;
+    const rowH = labs.map(d => Math.max(T, d.offsetHeight));
+    const layout = (g) => { const ys = []; let y = objTop; rowH.forEach((h, i) => { ys.push(y + h / 2); y += h + g; }); return ys; };
+    let ys = layout(gap);
+    const coilR = (yb) => (objBot - T / 2 - yb + P / 2) / 2;
+    const RMAX = 250;
+    let r0 = coilR(ys[n - 1]);
+    if (r0 > RMAX) {                       // spare height: loosen the rows a little, then centre the whole chart
+      gap = Math.min(46, gap + (2 * (r0 - RMAX)) / Math.max(1, n - 1));
+      ys = layout(gap); r0 = coilR(ys[n - 1]);
+    }
+    if (r0 > RMAX) { const shift = r0 - RMAX; ys = ys.map(y => y + shift); r0 = RMAX; }
+    if (r0 < 170) { gap = 14; ys = layout(gap); r0 = Math.max(150, coilR(ys[n - 1])); }
+    if (flat) {                            // no coil: spread the rows, leave room under them for the lettered value + note
+      const below = 34 + Math.round(fs * 0.82 * 0.94) + 30 + 76, rowsH = rowH.reduce((a, b) => a + b, 0);
+      gap = Math.max(26, Math.min(84, (objBot - objTop - below - rowsH) / Math.max(1, n - 1)));
+      ys = layout(gap);
+      const used = ys[n - 1] + rowH[n - 1] / 2 - objTop + below;
+      const sh = Math.max(0, (objBot - objTop - used) / 2); ys = ys.map(y => y + sh);
+      r0 = 150;
+    }
+
+    // keep a visible hole in the middle: tighten the pitch, then (only if needed) the turns
+    const HOLE = 46;
+    if (r0 - P * turns < HOLE) P = Math.max(56, (r0 - HOLE) / turns);
+    if (r0 - P * turns < HOLE) turns = Math.max(0.75, Math.floor((r0 - HOLE) / P * 4) / 4);
+
+    const yb = ys[n - 1];
+    const rAt = (deg) => r0 - P * (deg + 90) / 360;            // deg from +x, clockwise, starting at -90 (top)
+    const cx = XR - T / 2 - rAt(0), cy = flat ? 99999 : yb + r0;
+    const coilBottom = flat ? yb + T / 2 : cy + rAt(90) + T / 2;
+
+    // value labels first, so bar lengths can leave them room before the margin rule
+    const vEls = items.slice(0, n - 1).map(it => {
+      const v = document.createElement("div");
+      v.className = "val"; v.textContent = it.value || "";
+      rows.appendChild(v);
+      return v;
+    });
+    const cap = vEls.map(v => (XR - 26) - X0 - 18 - v.offsetWidth);
+    if (flat) cap.push(XR - 40 - X0);                           // the straight crimson bar carries no value beside it
+    const lens = [];
+    if (parsed) {
+      // one shared scale: ties equal, smaller values shorter
+      let Lmax = XR - 40 - X0;
+      frac.forEach((f, i) => { Lmax = Math.min(Lmax, cap[i] / f); });
+      frac.forEach((f, i) => { lens[i] = Math.max(36, Lmax * f); });
+    } else {
+      // values have no readable number: ordered illustrative steps
+      for (let i = 0; i < n - 1; i++) lens[i] = Math.max(70, Math.min(cx - X0, 470) * Math.pow(0.6, n - 2 - i));
+      for (let i = 0; i < n - 1; i++) lens[i] = Math.min(lens[i], cap[i]);
+      for (let i = n - 3; i >= 0; i--) lens[i] = Math.max(48, Math.min(lens[i], lens[i + 1] - 30));
+    }
+
+    // axis rule (pen) and the ruled inner margin the last bar presses against
+    const axis = $("axis");
+    const top0 = ys[0] - rowH[0] / 2 - 22;
+    el("path", { d: "M" + (X0 - 4) + " " + top0 + " V" + (yb + T / 2 + 18), stroke: INK, "stroke-width": 3, fill: "none", filter: "url(#pen)" }, axis);
+    const mg = el("g", { stroke: INK, fill: "none", filter: "url(#pen)" }, axis);
+    el("path", { d: "M" + (XR + 2.5) + " " + top0 + " V" + (coilBottom + 22), "stroke-width": 3 }, mg);
+    el("path", { d: "M" + (XR + 9) + " " + top0 + " V" + (coilBottom + 22), "stroke-width": 1.4 }, mg);
+
+    // straight bars
+    const fills = [GOLD, SLATE, ROSE, UMBER];
+    const bars = $("bars");
+    items.forEach((it, i) => {
+      const y = ys[i];
+      labs[i].style.top = (y - labs[i].offsetHeight / 2 + 1) + "px";
+      if (i < n - 1) {
+        el("path", { d: "M" + X0 + " " + y + " H" + (X0 + lens[i]).toFixed(1), stroke: fills[i % fills.length], "stroke-width": T, fill: "none" }, bars);
+        const v = vEls[i];
+        v.style.left = (X0 + lens[i] + 18) + "px";
+        v.style.top = (y - v.offsetHeight / 2 + 1) + "px";
+      }
+    });
+
+    // the bar that does not fit: straight, then pressed against the margin rule and coiled inward
+    const endDeg = -90 + 360 * turns;
+    if (flat) {
+      el("path", { d: "M" + X0 + " " + yb + " H" + (X0 + lens[n - 1]).toFixed(1), stroke: CRIMSON, "stroke-width": T, fill: "none" }, bars);
+    } else {
+      let d = "M" + X0 + " " + yb + " L" + cx.toFixed(1) + " " + yb;
+      for (let deg = -90; deg <= endDeg + 0.01; deg += 3) {
+        const r = rAt(deg), th = deg * Math.PI / 180;
+        d += " L" + (cx + r * Math.cos(th)).toFixed(1) + " " + (cy + r * Math.sin(th)).toFixed(1);
+      }
+      { const r = rAt(endDeg), th = endDeg * Math.PI / 180; d += " L" + (cx + r * Math.cos(th)).toFixed(1) + " " + (cy + r * Math.sin(th)).toFixed(1); }
+      el("path", { d, stroke: CRIMSON, "stroke-width": T, fill: "none", "stroke-linejoin": "round" }, bars);
+    }
+
+    // outer edge of the coil at height y, on its left side (conservative circle)
+    const Rout = rAt(180) + T / 2;
+    const outerLeft = (y) => { const dy = y - cy; return flat || Math.abs(dy) >= Rout ? XR : cx - Math.sqrt(Rout * Rout - dy * dy); };
+
+    // big value: lettered in the free corner under its label, above the coil's centre line, smaller than the title
+    const big = $("big"), it = items[n - 1] || {};
+    big.textContent = it.value || "";
+    const lastLab = labs[n - 1];
+    const bTop = Math.max(yb + T / 2, lastLab.offsetTop + lastLab.offsetHeight) + 34;
+    big.style.left = "90px"; big.style.top = bTop + "px";
+    let bfs = Math.min(150, flat ? 150 : Math.round(r0 * 0.46), Math.floor(fs * 0.82)), bw = 0;
+    for (; bfs >= 52; bfs -= 2) {
+      big.style.fontSize = bfs + "px";
+      const h = big.offsetHeight;
+      bw = big.offsetWidth;
+      if (bw <= Math.min(outerLeft(bTop), outerLeft(bTop + h)) - 36 - 90 && bTop + h <= cy - 8) break;
+    }
+    if (bfs < 52) {
+      bfs = 52; big.style.fontSize = bfs + "px"; big.style.whiteSpace = "normal";
+      big.style.width = Math.max(200, outerLeft(bTop + bfs * 2) - 36 - 90) + "px";
+    }
+    const bh = big.offsetHeight;
+    bw = big.offsetWidth;
+    // the wrapped case: measure the widest line
+    if (big.style.whiteSpace === "normal") { const rg = document.createRange(); rg.selectNodeContents(big); bw = Math.max(...[...rg.getClientRects()].map(r => r.right)) - 90; }
+
+    // dotted leader: from the lettered value to its bar
+    const lead = $("lead");
+    const ym = bTop + bh / 2, lx0 = 90 + bw + 16;
+    if (flat) {                                                 // straight crimson bar just above: rise onto its end
+      const ex = X0 + lens[n - 1] - 14;
+      if (ex - lx0 > 24) {
+        el("path", { d: "M" + lx0 + " " + ym + " H" + ex.toFixed(1) + " V" + (yb + T / 2 + 10).toFixed(1), stroke: INK, "stroke-width": 4, "stroke-dasharray": "2 9", "stroke-linecap": "round", fill: "none" }, lead);
+        el("circle", { cx: ex.toFixed(1), cy: (yb + T / 2 + 2).toFixed(1), r: 7, fill: INK }, lead);
+      }
+    } else if (turns < 1) {                                     // 3/4 curl: the bar ends just below, pointing up; drop onto its end
+      const ex = cx - rAt(endDeg), ey = cy;
+      el("path", { d: "M" + lx0 + " " + ym + " H" + ex.toFixed(1) + " V" + (ey - 10).toFixed(1), stroke: INK, "stroke-width": 4, "stroke-dasharray": "2 9", "stroke-linecap": "round", fill: "none" }, lead);
+      el("circle", { cx: ex.toFixed(1), cy: (ey - 2).toFixed(1), r: 7, fill: INK }, lead);
+    } else {                                                    // coiled: run right until the leader meets the crimson ring
+      let hx = null;
+      for (let deg = 180; deg <= 270; deg += 0.5) {
+        const r = rAt(deg) + T / 2, th = deg * Math.PI / 180, py = cy + r * Math.sin(th);
+        if (py <= ym) { hx = cx + r * Math.cos(th); break; }
+      }
+      if (hx == null) hx = outerLeft(ym);
+      if (hx - 6 - lx0 > 24) {
+        el("line", { x1: lx0, y1: ym, x2: (hx - 6).toFixed(1), y2: ym, stroke: INK, "stroke-width": 4, "stroke-dasharray": "2 9", "stroke-linecap": "round" }, lead);
+        el("circle", { cx: (hx + 2).toFixed(1), cy: ym, r: 7, fill: INK }, lead);
+      }
+    }
+
+    // honesty note in the lower free corner, left of the coil
+    const note = $("note");
+    note.innerHTML = parsed ? "panjang batang<br />= urutan, bukan skala" : "panjang batang<br />= ilustrasi";
+    const nh = note.offsetHeight, nw = note.offsetWidth;
+    let nTop = flat ? bTop + bh + 30 : Math.min(coilBottom - nh, objBot - nh);
+    nTop = Math.max(nTop, bTop + bh + 30);
+    const roomN = Math.min(outerLeft(nTop), outerLeft(nTop + nh)) - 36 - 90;
+    if (nw <= roomN && nTop + nh <= metaTop - 24) note.style.top = nTop + "px";
+    else {                                                      // no corner left: the note joins the source line
+      note.style.display = "none";
+      metaEl.textContent = [src, D.date, note.textContent.replace(/\s+/g, " ")].filter(Boolean).join("  ·  ");
+      metaEl.style.top = (capTop - 24 - metaEl.offsetHeight) + "px";
+    }
+
+    // decorative (drawn, not text): pencil lettering guides the artist ruled but never used,
+    // top and bottom margins, and the gouache test strokes made on the bottom one before painting
+    const deco = $("deco");
+    el("path", { d: "M64 196 H1016 M64 242 H1016 M64 1712 H1016 M64 1758 H1016", stroke: "#7D6C55", "stroke-width": 1.6, opacity: 0.42, fill: "none" }, deco);
+    const dabs = el("g", { filter: "url(#paint)", opacity: 0.9 }, deco);
+    [[CRIMSON, 34], [GOLD, 22], [SLATE, 40], [ROSE, 26], [UMBER, 30]].forEach(([c, w], i, a) => {
+      const x = 100 + a.slice(0, i).reduce((s, q) => s + q[1] + 30, 0);
+      el("path", { d: "M" + x + " " + (1737 + (i % 2 ? 1.5 : -1)) + " h" + w, stroke: c, "stroke-width": 18, "stroke-linecap": "round" }, dabs);
+    });
+  }
+</script>
+</body>
+</html>

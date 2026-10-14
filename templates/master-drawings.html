@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@100..900&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Master Drawings: vellum master drawings of ONE letter on a light table that
+    glows in a dark type studio. Two inked MASTER sheets (hairline and
+    ultra-black) sit at the ends of the weight axis; every sheet between them is
+    a blue-pencil INSTANCE whose letter is interpolated from the masters (same
+    outline points, moved along the axis).
+    Metaphor: latent-space interpolation - image models blend between known
+    points to make in-between results nobody ever drew.
+
+    The whole frame is set in ONE variable family (Hanken Grotesk): weight does
+    all the work, like a specimen proof.
+    - the title is a proof line: real cap-height / x-height / baseline guides
+      measured from the font, the highlight is a weight ramp sitting on its
+      baseline between two master squares;
+    - every item = one vellum sheet on the weight axis (t = 0 ... 1); the letter
+      is a parametric single-storey "a" drawn as SVG paths;
+    - the caption is the proof slug / status line: "wght 820" + karaoke line,
+      the active word jumps to the heavy master weight.
+    Tags are neutral world terms (MASTER A / INSTANS t=.. / MASTER B). Claims
+    such as "TAK PERNAH DIGAMBAR" only appear from data: items[i].tag, or
+    D.interp === true for topics where it is literally true.
+    Slider meaning (one meaning only): the knob marks how far along the axis the
+    in-betweens are computed. Still = frame 0 = knob at 1, all drawn.
+  */
+  :root {
+    --desk: #1A1917;
+    --light: #FCFBF7;
+    --ink: #1D1F24;
+    --blue: #2F4DB8;
+    --red: #A8321F;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; }
+  body { position: relative; color: var(--ink); font-family: "Hanken Grotesk", sans-serif; font-variant-numeric: tabular-nums;
+    background: radial-gradient(ellipse 760px 1180px at 50% 50%, #3A352E 0%, #26231F 52%, #171614 100%); }
+  /* the light table: opal acrylic in an aluminium bezel, glowing in a dark studio */
+  #table { position: absolute; left: 20px; top: 214px; width: 1040px; height: 1446px; border-radius: 26px;
+    border: 12px solid #77746D;
+    box-shadow: 0 0 0 2px #2B2925, 0 0 0 3px rgba(255,255,255,0.10), 0 0 120px 6px rgba(255,236,196,0.14), inset 0 0 0 2px rgba(255,255,255,0.75), inset 0 0 60px rgba(120,110,90,0.10);
+    background: radial-gradient(ellipse 820px 980px at 50% 50%, #FFFFFF 0%, #FCFBF7 46%, #F4F1EA 80%, #E9E5DC 100%); }
+  #desk { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; pointer-events: none; }
+  #slug { position: absolute; left: 32px; width: 1016px; border-radius: 0 0 14px 14px; background: rgba(29,31,36,0.045);
+    border-top: 2px solid rgba(29,31,36,0.30); }
+
+  .top { position: absolute; left: 90px; right: 90px; top: 296px; display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 26px; font-weight: 560; letter-spacing: 0.08em; text-transform: uppercase; color: #474A52; }
+  .top b { color: var(--ink); font-weight: 800; }
+
+  .title { position: absolute; left: 90px; width: 900px; top: 340px; font-weight: 660; letter-spacing: -0.026em; line-height: 0.98; color: var(--ink); text-wrap: balance; }
+  .title .hl { color: var(--blue); }
+  .title .hl.nw { white-space: nowrap; }
+  .title .bl { display: inline-block; width: 0; height: 0; vertical-align: baseline; }
+  #guides { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; pointer-events: none; overflow: visible; }
+
+  #stack { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  .card { position: absolute; background: rgba(196, 189, 170, 0.26); border-radius: 2px;
+    box-shadow: 0 0 0 1.5px rgba(29,31,36,0.16), 0 10px 22px -16px rgba(29,31,36,0.40); }
+  .card .frame { position: absolute; inset: 9px; border-radius: 2px; }
+  .card.master .frame { border: 2px solid rgba(29,31,36,0.45); }
+  .card.inst .frame { border: 2px dashed rgba(47,77,184,0.66); }
+  .card .glyph { position: absolute; overflow: visible; }
+  .card .txt { position: absolute; top: 0; display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+  .card .tag { font-size: 30px; font-weight: 640; letter-spacing: 0.05em; line-height: 1.14; white-space: nowrap; }
+  .card .tag.two .ta, .card .tag.two .tb { display: block; }
+  .card .tag.two .sep { display: none; }
+  .card.master .tag { color: var(--red); }
+  .card.inst .tag { color: var(--blue); }
+  .card .lb { font-size: 48px; line-height: 1.04; letter-spacing: -0.012em; color: var(--ink); }
+  .card .vl { font-size: 40px; font-weight: 520; line-height: 1.12; color: #2A2D34; white-space: nowrap; }
+  #stack.tight .card .txt { gap: 2px; }
+  #stack.tight .card .tag, #stack.tight .card .lb, #stack.tight .card .vl { line-height: 1.0; }
+  .card .deco { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+  .dot { position: absolute; width: 30px; height: 30px; border-radius: 50%;
+    background: radial-gradient(circle at 38% 34%, #F3ECDA 0%, #E2D7BC 58%, #D3C6A6 100%); box-shadow: 0 1px 2px rgba(29,31,36,0.22); }
+
+  #overlay { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; pointer-events: none; }
+
+  .chip { position: absolute; left: 90px; font-size: 30px; font-weight: 680; line-height: 1; color: var(--red); letter-spacing: 0.01em;
+    border: 2px solid var(--red); border-radius: 6px; padding: 6px 10px 7px; white-space: nowrap; }
+  .caption { position: absolute; left: 90px; width: 810px; font-size: 44px; font-weight: 420; line-height: 1.24; color: #3A3D45; letter-spacing: -0.01em; text-wrap: pretty; }
+  .caption .w { display: inline; }
+  .caption .w.on { font-weight: 820; color: var(--ink); text-decoration: underline; text-decoration-color: var(--red); text-decoration-thickness: 5px; text-underline-offset: 9px; text-decoration-skip-ink: none; }
+
+  .foot { position: absolute; left: 90px; width: 900px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; column-gap: 32px;
+    font-size: 26px; font-weight: 500; line-height: 1.3; color: #474A52; }
+  .foot span:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- glyph-cell strip: openings of c / e and the arch of n, in each cell's 0..100 user space -->
+    <mask id="cutC" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><rect width="100" height="100" fill="#fff"/><path d="M52 56 L100 20 L100 92 Z" fill="#000"/></mask>
+    <mask id="cutE" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><rect width="100" height="100" fill="#fff"/><path d="M52 61 L100 63 L100 94 Z" fill="#000"/></mask>
+    <mask id="cutN" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" x="0" y="0" width="100" height="100"><rect width="100" height="100" fill="#fff"/><rect x="0" y="56" width="100" height="44" fill="#000"/></mask>
+  </defs>
+</svg>
+<div id="table"></div>
+<svg id="desk" viewBox="0 0 1080 1920" data-layout-allow-overflow aria-hidden="true"></svg>
+<div id="slug" data-layout-allow-overlap></div>
+<div class="top"><span id="kick"></span><span id="axisnote">sumbu wght <b>0 → 1</b></span></div>
+<svg id="guides" viewBox="0 0 1080 1920" data-layout-allow-overlap aria-hidden="true"></svg>
+<div class="title" id="title"></div>
+<div id="stack"></div>
+<svg id="overlay" viewBox="0 0 1080 1920" data-layout-allow-overlap aria-hidden="true"></svg>
+<div class="chip" id="chip">wght 820</div>
+<div class="caption" id="cap" data-slot="caption"></div>
+<div class="foot" id="foot"><span id="src"></span><span id="date"></span></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const NS = "http://www.w3.org/2000/svg";
+  const f2 = (v) => Math.round(v * 100) / 100;
+
+  // ---------- desk: a printed glyph-cell strip (the character set being drawn), cell "a" selected ----------
+  (() => {
+    // mini geometric glyphs in a 0..100 cell: ascender 12, x-height 36, baseline 76, descender 94
+    const ASC = 12, X = 36, B = 76, DS = 94, cx = 50, cy = 56, rx = 21, ry = 20.6, sw = 7.6;
+    const ring = `M${cx - rx} ${cy}a${rx} ${ry} 0 1 0 ${2 * rx} 0a${rx} ${ry} 0 1 0 ${-2 * rx} 0Z` +
+      `M${cx - rx + sw} ${cy}a${rx - sw} ${f2(ry - 0.8 * sw)} 0 1 0 ${f2(2 * (rx - sw))} 0a${rx - sw} ${f2(ry - 0.8 * sw)} 0 1 0 ${f2(-2 * (rx - sw))} 0Z`;
+    const st = 1.1 * sw, L = cx - rx, R = cx + rx - st;
+    const bar = (x, y1, y2) => `<rect x="${f2(x)}" y="${y1}" width="${f2(st)}" height="${y2 - y1}"/>`;
+    const bowl = (m) => `<path d="${ring}" fill-rule="evenodd"${m ? ` mask="url(#${m})"` : ""}/>`;
+    const G = {
+      a: bowl() + bar(R, X, B), b: bowl() + bar(L, ASC, B), c: bowl("cutC"), d: bowl() + bar(R, ASC, B),
+      e: `<g mask="url(#cutE)"><path d="${ring}" fill-rule="evenodd"/><rect x="${L + 2}" y="53" width="${2 * rx - 4}" height="6.4"/></g>`,
+      i: bar(cx - st / 2, X, B) + `<rect x="${f2(cx - st / 2)}" y="18" width="${f2(st)}" height="${f2(st)}"/>`,
+      l: bar(cx - st / 2, ASC, B), n: bar(L, X, B) + bowl("cutN") + bar(R, cy, B), o: bowl(), p: bowl() + bar(L, X, DS), q: bowl() + bar(R, X, DS),
+    };
+    const order = ["a", "b", "c", "d", "e", "i", "l", "n", "o", "p"];
+    const x0 = 92, cw = 89.6, y0 = 98, ch = 104;
+    let s = `<g transform="rotate(-1.1 540 150)">`;
+    s += `<rect x="${x0 - 22}" y="${y0 - 14}" width="${order.length * cw + 44}" height="${ch + 28}" fill="#1D1F24" fill-opacity="0.35" transform="translate(4 7)"/>`;
+    s += `<rect x="${x0 - 22}" y="${y0 - 14}" width="${order.length * cw + 44}" height="${ch + 28}" fill="#F2EEE4"/>`;
+    order.forEach((k, j) => {
+      const x = x0 + j * cw, on = k === "a";
+      if (on) s += `<rect x="${f2(x)}" y="${y0}" width="${cw}" height="${ch}" fill="#2F4DB8"/>`;
+      s += `<line x1="${f2(x + 6)}" y1="${y0 + ch * 0.76}" x2="${f2(x + cw - 6)}" y2="${y0 + ch * 0.76}" stroke="${on ? "#F2EEE4" : "#2F4DB8"}" stroke-opacity="${on ? 0.5 : 0.35}" stroke-width="1.4"/>`;
+      s += `<svg x="${f2(x)}" y="${y0}" width="${cw}" height="${ch}" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet"><g fill="${on ? "#F2EEE4" : "#1D1F24"}">${G[k]}</g></svg>`;
+    });
+    s += `<rect x="${x0}" y="${y0}" width="${order.length * cw}" height="${ch}" fill="none" stroke="#2F4DB8" stroke-opacity="0.55" stroke-width="1.6"/>`;
+    for (let j = 1; j < order.length; j++) s += `<line x1="${f2(x0 + j * cw)}" y1="${y0}" x2="${f2(x0 + j * cw)}" y2="${y0 + ch}" stroke="#2F4DB8" stroke-opacity="0.45" stroke-width="1.4"/>`;
+    s += `<rect x="${x0 - 3}" y="${y0 - 3}" width="${cw + 6}" height="${ch + 6}" fill="none" stroke="#2F4DB8" stroke-width="3"/>`;
+    // drafting dots holding the strip down
+    for (const [dx, dy] of [[x0 - 30, y0 - 12], [x0 + order.length * cw + 6, y0 + ch - 14]])
+      s += `<circle cx="${dx + 15}" cy="${dy + 15}" r="15" fill="#E2D7BC"/><circle cx="${dx + 11}" cy="${dy + 11}" r="6" fill="#F3ECDA" fill-opacity="0.8"/>`;
+    s += `</g>`;
+    $("desk").innerHTML = s;
+  })();
+
+  // ---------- static text ----------
+  $("kick").innerHTML = (() => {
+    if (D.kicker) return esc(D.kicker);
+    return [D.series, D.ep].filter(Boolean).map(esc).join(" · ");
+  })();
+  $("src").textContent = D.source || "";
+  $("date").textContent = D.date || "";
+
+  // Title: the highlight is a weight axis of its own. Letters ramp 450 -> 900; figures and
+  // symbols (digits, %, ×, ±, ...) stay heavy so a number is never the faintest glyph.
+  (() => {
+    const t = String(D.title || ""), hl = String(D.hl || "");
+    const i = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    const mark = `<i class="bl" id="bl0"></i>`;
+    if (i < 0) { $("title").innerHTML = mark + esc(t); return; }
+    const part = t.slice(i, i + hl.length);
+    const chars = [...part];
+    const isLetter = (c) => /\p{L}/u.test(c);
+    const nL = chars.filter(isLetter).length;
+    let kL = 0;
+    const ramp = chars.map((c) => {
+      if (c === " ") return " ";
+      let w = 860;
+      if (isLetter(c)) { w = nL > 1 ? Math.round(lerp(450, 900, kL / (nL - 1))) : 860; kL++; }
+      return `<span style="font-weight:${w}">${esc(c)}</span>`;
+    }).join("");
+    $("title").innerHTML = `${mark}${esc(t.slice(0, i))}<span class="hl${part.length <= 18 ? " nw" : ""}" id="hlspan">${ramp}</span>${esc(t.slice(i + hl.length))}`;
+  })();
+
+  // Caption: karaoke line, active word = the hl word if it appears, else the first word.
+  const CAPW = { words: [], active: 0 };
+  function renderCap(a, b) {
+    const { words, active } = CAPW;
+    $("cap").innerHTML = (a > 0 ? "… " : "") + words.slice(a, b).map((w, k) => `<span class="w${k + a === active ? " on" : ""}">${esc(w)}</span>`).join(" ") + (b < words.length ? " …" : "");
+  }
+  (() => {
+    const cap = String(D.caption || D.sub || "").trim();
+    const words = cap.split(/\s+/).filter(Boolean);
+    let active = 0;
+    const hl = String(D.hl || "").toLowerCase().trim();
+    if (hl) {
+      const at = cap.toLowerCase().indexOf(hl);
+      if (at >= 0) {
+        let pos = 0;
+        for (let k = 0; k < words.length; k++) {
+          const s = cap.indexOf(words[k], pos);
+          if (at >= s && at < s + words[k].length) { active = k; break; }
+          if (at < s) { active = Math.max(0, k - 1); break; }
+          pos = s + words[k].length;
+        }
+      }
+    }
+    CAPW.words = words; CAPW.active = active;
+    renderCap(0, words.length);
+  })();
+
+  // ---------- the letter: parametric geometric single-storey "a" ----------
+  // viewBox 0..100. x-height line y=16, baseline y=84, overshoot 1.2.
+  const XH = 16, BASE = 84, CX = 50, CY = 50, RX = 31, RY = 35.2;
+  function letter(w) {
+    const rxi = RX - w, ryi = RY - 0.8 * w, ws = 1.1 * w;
+    const ell = (rx, ry) => `M${f2(CX - rx)} ${CY}a${f2(rx)} ${f2(ry)} 0 1 0 ${f2(2 * rx)} 0a${f2(rx)} ${f2(ry)} 0 1 0 ${f2(-2 * rx)} 0Z`;
+    return {
+      ring: ell(RX, RY) + ell(rxi, ryi),
+      stem: { x: f2(CX + RX - ws), y: XH, w: f2(ws), h: BASE - XH },
+      nodes: [
+        ["ot", CX, CY - RY], ["ob", CX, CY + RY], ["ol", CX - RX, CY],
+        ["it", CX, CY - ryi], ["ib", CX, CY + ryi], ["il", CX - rxi, CY],
+        ["st", CX + RX - ws, XH], ["sb", CX + RX - ws, BASE], ["rt", CX + RX, XH], ["rb", CX + RX, BASE],
+      ],
+    };
+  }
+  const SEL = new Set(["il", "st"]); // the two points whose travel is traced across the sheets
+
+  function glyphSVG(g, w, master, dim, idx) {
+    const L = letter(w);
+    const col = master ? "#A8321F" : "#2F4DB8";
+    const sc = g / 86; // px per unit
+    const sb = 6;
+    let s = `<svg class="glyph" width="${Math.round(g * 100 / 86)}" height="${g}" viewBox="0 8 100 86" xmlns="${NS}">`;
+    if (!master) {
+      // blue-pencil hatch with a constant on-screen spacing (~7 px) at every sheet size
+      const p = f2(7.2 / sc), lw = f2(2.1 / sc);
+      s += `<defs><pattern id="hatch${idx}" patternUnits="userSpaceOnUse" width="${p}" height="${p}" patternTransform="rotate(42)"><rect x="0" y="0" width="${lw}" height="${p}" fill="#2F4DB8" fill-opacity="0.85"/></pattern></defs>`;
+    }
+    // glyph cell: em box, metrics strip (unit ticks), x-height / baseline, sidebearings
+    s += `<g fill="none" stroke="#2F4DB8">`;
+    s += `<rect x="0.5" y="9" width="99" height="84" stroke-opacity="0.32" stroke-width="1.2" vector-effect="non-scaling-stroke"/>`;
+    for (let y = 12, k = 0; y <= 92; y += 4, k++) s += `<line x1="0.5" y1="${y}" x2="${k % 5 === 0 ? 4.5 : 2.6}" y2="${y}" stroke-opacity="0.5" stroke-width="1.1" vector-effect="non-scaling-stroke"/>`;
+    s += `<rect x="1" y="${XH - 1.2}" width="98" height="1.2" fill="#2F4DB8" fill-opacity="0.10" stroke="none"/>`;
+    s += `<rect x="1" y="${BASE}" width="98" height="1.2" fill="#2F4DB8" fill-opacity="0.10" stroke="none"/>`;
+    s += `<line x1="0" y1="${XH}" x2="100" y2="${XH}" stroke-opacity="0.55" stroke-width="1.4" vector-effect="non-scaling-stroke"/>`;
+    s += `<line x1="0" y1="${BASE}" x2="100" y2="${BASE}" stroke-opacity="0.75" stroke-width="1.8" vector-effect="non-scaling-stroke"/>`;
+    s += `<line x1="${CX - RX - sb}" y1="9" x2="${CX - RX - sb}" y2="93" stroke-opacity="0.45" stroke-width="1.2" stroke-dasharray="4 5" vector-effect="non-scaling-stroke"/>`;
+    s += `<line x1="${CX + RX + sb}" y1="9" x2="${CX + RX + sb}" y2="93" stroke-opacity="0.45" stroke-width="1.2" stroke-dasharray="4 5" vector-effect="non-scaling-stroke"/>`;
+    s += `</g>`;
+    const stemR = `<rect x="${L.stem.x}" y="${L.stem.y}" width="${L.stem.w}" height="${L.stem.h}"/>`;
+    if (master) {
+      s += `<g fill="#1D1F24"><path d="${L.ring}" fill-rule="evenodd"/>${stemR}</g>`;
+    } else {
+      s += `<g fill="#FBFAF6" fill-opacity="0.55"><path d="${L.ring}" fill-rule="evenodd"/>${stemR}</g>`;
+      s += `<g fill="url(#hatch${idx})"><path d="${L.ring}" fill-rule="evenodd"/>${stemR}</g>`;
+      s += `<g fill="none" stroke="#2F4DB8" stroke-width="2.2" stroke-linejoin="round" vector-effect="non-scaling-stroke"><path d="${L.ring}" fill-rule="evenodd" vector-effect="non-scaling-stroke"/><rect x="${L.stem.x}" y="${L.stem.y}" width="${L.stem.w}" height="${L.stem.h}" vector-effect="non-scaling-stroke"/></g>`;
+    }
+    if (master) {
+      // Bézier handles in red ink on the masters (the drawn outlines)
+      const k = 0.5523;
+      s += `<g stroke="${col}" stroke-width="1.3" fill="none">`;
+      s += `<line x1="${f2(CX - RX * k)}" y1="${f2(CY - RY)}" x2="${f2(CX + RX * k)}" y2="${f2(CY - RY)}" vector-effect="non-scaling-stroke"/>`;
+      s += `<line x1="${f2(CX - RX)}" y1="${f2(CY - RY * k)}" x2="${f2(CX - RX)}" y2="${f2(CY + RY * k)}" vector-effect="non-scaling-stroke"/>`;
+      s += `<line x1="${f2(CX - RX * k)}" y1="${f2(CY + RY)}" x2="${f2(CX + RX * k)}" y2="${f2(CY + RY)}" vector-effect="non-scaling-stroke"/>`;
+      s += `</g><g fill="${col}">`;
+      for (const [x, y] of [[CX - RX * k, CY - RY], [CX + RX * k, CY - RY], [CX - RX, CY - RY * k], [CX - RX, CY + RY * k], [CX - RX * k, CY + RY], [CX + RX * k, CY + RY]])
+        s += `<circle cx="${f2(x)}" cy="${f2(y)}" r="1.15"/>`;
+      s += `</g>`;
+    }
+    if (master && dim) {
+      const y = 91, x1 = L.stem.x, x2 = CX + RX;
+      s += `<g stroke="${col}" stroke-width="1.4" fill="none">`;
+      s += `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" vector-effect="non-scaling-stroke"/>`;
+      s += `<line x1="${x1}" y1="${y - 3}" x2="${x1}" y2="${y + 3}" vector-effect="non-scaling-stroke"/>`;
+      s += `<line x1="${x2}" y1="${y - 3}" x2="${x2}" y2="${y + 3}" vector-effect="non-scaling-stroke"/>`;
+      s += `</g>`;
+    }
+    // on-curve points: the SAME points on every sheet; the two traced points are selected (filled)
+    for (const [key, x, y] of L.nodes) {
+      const on = SEL.has(key), r = on ? 1.8 : 1.35;
+      s += `<rect class="nd" data-k="${key}" x="${f2(x - r)}" y="${f2(y - r)}" width="${f2(2 * r)}" height="${f2(2 * r)}" fill="${on ? "#2F4DB8" : "#F7F4EE"}" stroke="${on ? "#2F4DB8" : col}" stroke-width="1.5" vector-effect="non-scaling-stroke"/>`;
+    }
+    s += `</svg>`;
+    return s;
+  }
+
+  // draftsperson's mark on the two masters (decoration paths)
+  const SIGN = [
+    "M2 30 C 8 12, 16 6, 15 22 S 22 36, 30 20 C 34 10, 38 26, 44 22 S 54 12, 58 22 C 61 30, 68 18, 74 16 S 88 20, 98 10",
+    "M4 26 C 10 8, 22 10, 18 26 C 16 34, 28 30, 34 18 C 38 10, 42 30, 50 24 C 56 20, 58 12, 64 20 C 70 28, 80 14, 96 18",
+  ];
+
+  // Tag per sheet: neutral world terms by default. Claims come only from data.
+  function tagFor(it, i, n, t) {
+    const master = i === 0 || i === n - 1;
+    const tv = `t=${t.toFixed(2).replace(".", ",")}`;
+    if (it && typeof it.tag === "string" && it.tag.trim()) {
+      const p = it.tag.split(" · ");
+      return { parts: p.length === 2 ? p : [it.tag], short: null };
+    }
+    if (D.interp === true) {
+      return master
+        ? { parts: [`MASTER ${i === 0 ? "A" : "B"}`, "DIGAMBAR MANUSIA"], short: [`MASTER ${i === 0 ? "A" : "B"}`, "DIGAMBAR"] }
+        : { parts: [tv, "TAK PERNAH DIGAMBAR"], short: [tv, "TAK DIGAMBAR"] };
+    }
+    return { parts: master ? [`MASTER ${i === 0 ? "A" : "B"}`] : ["INSTANS", tv], short: null };
+  }
+  const tagHTML = (p) => p.length === 2 ? `<span class="ta">${esc(p[0])}</span><span class="sep"> · </span><span class="tb">${esc(p[1])}</span>` : `<span class="ta">${esc(p[0])}</span>`;
+
+  function layout() {
+    // 1. title fit: max 3 lines, never wider than 900
+    const T = $("title");
+    const nItems = Math.min(5, Array.isArray(D.items) ? D.items.length : 0);
+    let fs = nItems >= 5 ? 96 : 106;
+    for (; fs >= 74; fs -= 2) {
+      T.style.fontSize = fs + "px";
+      const lines = Math.round(T.offsetHeight / (fs * 0.98));
+      if (lines <= 3 && T.scrollWidth <= 902) break;
+    }
+    const lh = fs * 0.98, nLines = Math.max(1, Math.round(T.offsetHeight / lh));
+    const b0 = $("bl0").getBoundingClientRect().top;
+    const cv = document.createElement("canvas").getContext("2d");
+    cv.font = `700 ${fs}px "Hanken Grotesk"`;
+    const xh = cv.measureText("x").actualBoundingBoxAscent, ch = cv.measureText("H").actualBoundingBoxAscent, ds = cv.measureText("gp").actualBoundingBoxDescent;
+    const BL = Array.from({ length: nLines }, (_, k) => b0 + k * lh);
+
+    // 2. proof-line guides through every title line (cap height, x-height, baseline), metric handles in the margin
+    let gs = "";
+    const GX1 = 40, GX2 = 1040;
+    BL.forEach((b) => {
+      gs += `<line x1="${GX1}" y1="${f2(b - ch)}" x2="${GX2}" y2="${f2(b - ch)}" stroke="#2F4DB8" stroke-opacity="0.38" stroke-width="1.4" stroke-dasharray="2 6"/>`;
+      gs += `<line x1="${GX1}" y1="${f2(b - xh)}" x2="${GX2}" y2="${f2(b - xh)}" stroke="#2F4DB8" stroke-opacity="0.42" stroke-width="1.6" stroke-dasharray="10 7"/>`;
+      gs += `<line x1="${GX1}" y1="${f2(b)}" x2="${GX2}" y2="${f2(b)}" stroke="#2F4DB8" stroke-opacity="0.55" stroke-width="2"/>`;
+      gs += `<rect x="${GX1 + 6}" y="${f2(b - 5)}" width="10" height="10" fill="#2F4DB8"/>`;
+      gs += `<rect x="${GX1 + 7}" y="${f2(b - xh - 4)}" width="8" height="8" fill="#FCFBF7" stroke="#2F4DB8" stroke-width="2"/>`;
+      gs += `<line x1="${GX1 + 11}" y1="${f2(b - ch - 6)}" x2="${GX1 + 11}" y2="${f2(b + 6)}" stroke="#2F4DB8" stroke-opacity="0.5" stroke-width="1.4"/>`;
+    });
+    // the highlight's own weight axis sits ON its baseline, master squares at both ends
+    const hs = $("hlspan");
+    if (hs) {
+      const rects = [...hs.getClientRects()].filter((r) => r.width > 2);
+      rects.forEach((r, i) => {
+        const b = BL.reduce((best, y) => (y >= r.top && y <= r.bottom + 2 && Math.abs(y - (r.top + r.bottom) / 2) < Math.abs(best - (r.top + r.bottom) / 2) ? y : best), BL[BL.length - 1]);
+        const y = b + 5;
+        gs += `<line x1="${f2(r.left)}" y1="${f2(y)}" x2="${f2(r.right)}" y2="${f2(y)}" stroke="#2F4DB8" stroke-width="4"/>`;
+        for (const q of [0.25, 0.5, 0.75]) gs += `<line x1="${f2(r.left + (r.right - r.left) * q)}" y1="${f2(y)}" x2="${f2(r.left + (r.right - r.left) * q)}" y2="${f2(y + 13)}" stroke="#2F4DB8" stroke-width="2.6"/>`;
+        if (i === 0) gs += `<rect x="${f2(r.left - 8)}" y="${f2(y - 8)}" width="16" height="16" fill="#FCFBF7" stroke="#A8321F" stroke-width="3.2"/>`;
+        if (i === rects.length - 1) gs += `<rect x="${f2(r.right - 8)}" y="${f2(y - 8)}" width="16" height="16" fill="#A8321F"/>`;
+      });
+    }
+    $("guides").innerHTML = gs;
+    const titleBottom = BL[BL.length - 1] + Math.max(ds, 22);
+
+    // 3. proof slug along the bottom edge of the table: foot (meta) bottom-anchored, caption + wght chip above it
+    const F = $("foot");
+    F.style.top = (1614 - F.offsetHeight) + "px";
+    const C = $("cap"), CH = $("chip");
+    const indent = CH.offsetWidth + 18;
+    C.style.textIndent = indent + "px";
+    const fits = () => C.offsetHeight <= parseFloat(C.style.fontSize) * 1.24 * 2 + 4;
+    for (const cfs of [44, 42, 40]) { C.style.fontSize = cfs + "px"; if (fits()) break; }
+    if (!fits()) {
+      const N = CAPW.words.length, a = Math.max(0, CAPW.active - 3);
+      let b = N;
+      while (b > a + 1) { renderCap(a, b); if (fits()) break; b--; }
+    }
+    const capTop = F.offsetTop - 20 - C.offsetHeight;
+    C.style.top = capTop + "px";
+    const cfsNow = parseFloat(C.style.fontSize);
+    CH.style.top = Math.round(capTop + (cfsNow * 1.24 - CH.offsetHeight) / 2) + "px";
+    const slugTop = capTop - 24;
+    const S = $("slug");
+    S.style.top = slugTop + "px";
+    S.style.height = (1648 - slugTop) + "px";
+
+    // 4. vellum sheets on the weight axis
+    const items = (Array.isArray(D.items) ? D.items : []).slice(0, 5);
+    const n = Math.max(items.length, 1);
+    const top = Math.max(titleBottom + 30, 620), bottom = slugTop - 26;
+    const OV = 14;
+    const h = Math.floor((bottom - top + (n - 1) * OV) / n);
+    const g = Math.min(h - OV - 12, 290), gw = Math.round(g * 100 / 86);
+    const OFF = [0, 12, -4, 9, 2], ROT = [-0.5, 0.35, -0.3, 0.45, -0.4];
+    const W = 880, TEXT_RIGHT = 880;
+    const st = $("stack");
+    let html = "";
+    const tags = [];
+    items.forEach((it, i) => {
+      const t = n > 1 ? i / (n - 1) : 0;
+      const master = i === 0 || i === n - 1;
+      const w = lerp(2.6, 23, t);
+      const x0 = 98 + OFF[i], y0 = Math.round(top + i * (h - OV));
+      const vh = i < n - 1 ? h - OV : h;
+      const gx = 22, gy = Math.round((vh - g) / 2);
+      const tx = gx + gw + 26, tw = TEXT_RIGHT - (x0 + tx);
+      const tg = tagFor(it, i, n, t);
+      tags.push(tg);
+      const lw = Math.round(lerp(330, 820, t));
+      let deco = "";
+      if (master) deco += `<g transform="translate(${W - 128} ${vh - 50}) scale(1.02)"><path d="${SIGN[i === 0 ? 0 : 1]}" fill="none" stroke="#1D1F24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></g>`;
+      html += `<div class="card ${master ? "master" : "inst"}" style="left:${x0}px;top:${y0}px;width:${W}px;height:${h}px;transform:rotate(${ROT[i]}deg)">`;
+      html += `<div class="frame"></div>`;
+      html += `<div style="position:absolute;left:${gx}px;top:${gy}px;width:${gw}px;height:${g}px">${glyphSVG(g, w, master, i === n - 1, i)}</div>`;
+      if (deco) html += `<svg class="deco" width="${W}" height="${h}" aria-hidden="true">${deco}</svg>`;
+      html += `<div class="txt" style="left:${tx}px;top:9px;width:${tw}px;height:${h - 18}px"><div class="tag">${tagHTML(tg.parts)}</div><div class="lb" style="font-weight:${lw}">${esc(it.label)}</div><div class="vl">${esc(it.value)}</div></div>`;
+      html += `<div class="dot" style="left:-12px;top:-11px"></div><div class="dot" style="left:${W - 20}px;top:-11px"></div>`;
+      html += `</div>`;
+    });
+    st.innerHTML = html;
+    st.classList.toggle("tight", n >= 5);
+
+    // fit text inside each sheet: tags stay 30 px; a long tag breaks at its dot or takes its short form
+    st.querySelectorAll(".card").forEach((card, i) => {
+      const txt = card.querySelector(".txt"), tag = card.querySelector(".tag"), lb = card.querySelector(".lb"), vl = card.querySelector(".vl");
+      const tw = txt.clientWidth;
+      if (n >= 5) vl.style.fontSize = "38px";
+      let ls = n >= 5 ? 42 : 48;
+      lb.style.fontSize = ls + "px";
+      lb.style.whiteSpace = "nowrap";
+      while (lb.scrollWidth > tw && ls > 40) { ls -= 2; lb.style.fontSize = ls + "px"; }
+      if (lb.scrollWidth > tw) lb.style.whiteSpace = "normal";
+      for (let s = parseFloat(getComputedStyle(vl).fontSize); s >= 34 && vl.scrollWidth > tw; s -= 2) vl.style.fontSize = s + "px";
+      const tg = tags[i];
+      // the text block sits centred between the sheet's frame lines and clears them by >= 5 px
+      const room = txt.clientHeight - 10;
+      const used = () => tag.offsetHeight + lb.offsetHeight + vl.offsetHeight + 2 * parseFloat(getComputedStyle(txt).rowGap || 0);
+      if (tag.scrollWidth > tw) {
+        if (tg.parts.length === 2) tag.classList.add("two"); else tag.style.whiteSpace = "normal";
+        if (used() > room && tg.short) {
+          tag.classList.remove("two");
+          tag.innerHTML = tagHTML(tg.short);
+          if (tag.scrollWidth > tw) tag.classList.add("two");
+        }
+      }
+      if (used() > room) { lb.style.fontSize = "40px"; vl.style.fontSize = Math.min(parseFloat(getComputedStyle(vl).fontSize), 36) + "px"; }
+      card.dataset.fit = used() <= room ? "ok" : "tight";
+    });
+
+    // 5. overlay: weight-axis slider in the gutter (knob at t = 1: every in-between computed) + node travel paths
+    const cards = [...st.querySelectorAll(".card")];
+    const centers = cards.map((c) => { const r = c.getBoundingClientRect(); return (r.top + r.bottom) / 2; });
+    let o = "";
+    if (cards.length) {
+      const X = 58, y1 = centers[0], y2 = centers[centers.length - 1];
+      o += `<line x1="${X}" y1="${y1 - 40}" x2="${X}" y2="${y2 + 40}" stroke="#1D1F24" stroke-opacity="0.22" stroke-width="10" stroke-linecap="round"/>`;
+      o += `<line x1="${X}" y1="${y1 - 40}" x2="${X}" y2="${y2}" stroke="#2F4DB8" stroke-width="4" stroke-linecap="round"/>`;
+      centers.forEach((y, i) => {
+        const m = i === 0 || i === centers.length - 1;
+        o += `<line x1="${X - (m ? 16 : 11)}" y1="${y}" x2="${X + (m ? 16 : 11)}" y2="${y}" stroke="${m ? "#A8321F" : "#2F4DB8"}" stroke-width="${m ? 4 : 3}"/>`;
+      });
+      o += `<rect x="${X - 15}" y="${y2 - 24}" width="30" height="48" rx="6" fill="#1D1F24"/><line x1="${X - 8}" y1="${y2}" x2="${X + 8}" y2="${y2}" stroke="#FCFBF7" stroke-width="3"/>`;
+      for (const sel of ['.nd[data-k="il"]', '.nd[data-k="st"]']) {
+        const pts = cards.map((c) => { const r = c.querySelector(sel).getBoundingClientRect(); return [f2((r.left + r.right) / 2), f2((r.top + r.bottom) / 2)]; });
+        o += `<polyline points="${pts.map((p) => p.join(",")).join(" ")}" fill="none" stroke="#2F4DB8" stroke-width="2.4" stroke-dasharray="2 7" stroke-linecap="round" stroke-opacity="0.9"/>`;
+      }
+    }
+    $("overlay").innerHTML = o;
+  }
+
+  (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(layout);
+</script>
+</body>
+</html>

@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Antonio:wght@700&family=Azeret+Mono:wght@600;700&family=Barlow+Condensed:wght@500;600&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Billion Wheels (billion-wheels): a giant nickel combination lock on a black lacquer plinth, the
+    front one of an endless row of identical locks that converges to a vanishing point off the left
+    edge. Every piece of text is part of the lock:
+      - the collar is a widened polished nameplate: maker's mark stamped on top (series + episode from D),
+        the title engraved below it (dark-filled condensed caps, 1 px lower highlight); the hl is the
+        combination: each character on its own small aged-brass letter wheel, neighbours ghosted above/below;
+      - each item is one knurled number wheel, read through a raised dark-steel window frame that runs
+        over the whole stack; a small blue enamel arrow marks the wheel being turned;
+      - the caption is engraved cream small print on the plinth's riveted lacquer plate.
+    The 3D is a small hand-written perspective projection (level camera just under the collar, fixed key light)
+    drawn as inline SVG; the letter wheels are painted on a canvas. All shapes come from fixed numbers.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #0E0F11; }
+  body { position: relative; color: #EAE0C8; font-family: "Barlow Condensed", sans-serif; }
+  #scene, #dial { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* collar nameplate */
+  #collar { position: absolute; left: 0; top: 0; text-align: center; color: #17191C; }
+  #mark { font: 600 26px "Azeret Mono", monospace; letter-spacing: 0.08em; text-transform: uppercase; line-height: 1.25; color: #25282D; white-space: nowrap;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.55); display: flex; align-items: center; justify-content: center; gap: 14px; }
+  #mark::before, #mark::after { content: ""; flex: 0 0 30px; height: 2px; background: #3A3E44; box-shadow: 0 1px 0 rgba(255,255,255,0.5); }
+  #mark.bare::before, #mark.bare::after { display: none; }
+  #mark.wrap { white-space: normal; display: block; }
+  #title { margin-top: 14px; font-family: "Antonio", sans-serif; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.01em; line-height: 1.06; color: #17191C; text-shadow: 0 1px 0 rgba(255,255,255,0.62), 0 -1px 0 rgba(0,0,0,0.22); }
+  #title .grp { display: inline-block; white-space: nowrap; padding: 0.19em 0.07em; } /* only the dialled line gets taller */
+  #title .lw { display: inline-block; padding: 0 0.09em; margin: 0 0.006em; color: #1A140B; text-shadow: 0 1px 0 rgba(255,236,196,0.5); }
+  #title .sp { display: inline-block; width: 0.2em; }
+
+  /* reading cells on the number wheels */
+  #cells { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; pointer-events: none; }
+  .cell { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .cell .lb { font: 600 32px "Barlow Condensed", sans-serif; letter-spacing: 0.07em; text-transform: uppercase; line-height: 1.0; white-space: nowrap; color: #24272C;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.45); }
+  .cell .vl { font-family: "Azeret Mono", monospace; font-weight: 700; letter-spacing: -0.04em; line-height: 1.02; white-space: nowrap; color: #111316;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.5); }
+
+  /* riveted lacquer plate on the plinth: engraved small print */
+  #plate { position: absolute; left: 100px; width: 790px; top: 0; }
+  #caption { font: 600 44px "Barlow Condensed", sans-serif; line-height: 1.2; color: #EAE0C8; text-shadow: 0 -1px 0 rgba(0,0,0,0.7); }
+  #caption .todo { color: #A39982; }
+  #caption .on { color: #17110A; background: #B39058; border-radius: 4px; padding: 0 0.12em; margin: 0 -0.03em; text-shadow: none;
+    -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  #small { margin-top: 14px; padding-top: 10px; border-top: 1.5px solid rgba(205,192,160,0.38); font: 500 28px "Barlow Condensed", sans-serif;
+    letter-spacing: 0.02em; line-height: 1.22; color: #B7AC94; }
+</style>
+</head>
+<body>
+<svg id="scene" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+<canvas id="dial" width="1080" height="1920" aria-hidden="true"></canvas>
+<div id="collar"><div id="mark"></div><div id="title"></div></div>
+<div id="cells"></div>
+<div id="plate"><div id="caption" data-slot="caption"></div><div id="small"></div></div>
+<script>
+(function () {
+  // Built-in sample so the file also opens on its own in a browser.
+  const D = window.D || { series: "AI dalam angka", ep: "#01", kicker: "AI dalam angka · #01",
+    title: "1 chat ke AI = oven nyala 1 detik", hl: "1 detik",
+    sub: "Kecil? Kalikan miliaran chat tiap hari.",
+    items: [{ label: "Listrik per chat", value: "0,34 Wh" }, { label: "Setara oven", value: "±1 dtk" }, { label: "Chat per hari", value: "miliaran" }],
+    source: "klaim OpenAI, Jun 2025", date: "per 14 Okt 2026" };
+
+  const FONTS = ['700 80px "Antonio"', '700 56px "Azeret Mono"', '600 26px "Azeret Mono"',
+    '600 32px "Barlow Condensed"', '600 44px "Barlow Condensed"', '500 28px "Barlow Condensed"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render, render);
+
+  function render() {
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const low = s => String(s == null ? "" : s).toLowerCase();
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const items = (Array.isArray(D.items) ? D.items : []).slice(0, 5);
+    const N = Math.max(1, items.length);
+    const hl = String(D.hl || "").trim();
+    const W_T = 628; // text width on the collar front (about +-51 degrees of the nameplate)
+
+    // ---------- collar: maker's mark (series + episode, from D) ----------
+    const ep = String(D.ep || "").trim().replace(/^#\s*/, "");
+    const series = String(D.series || "").trim();
+    const markEl = $("mark"), titleEl = $("title"), collarEl = $("collar");
+    collarEl.style.width = W_T + "px";
+    markEl.textContent = series ? "Seri " + series + (ep ? " · No. " + ep : "") : String(D.kicker || "");
+    if (markEl.scrollWidth > W_T) markEl.style.letterSpacing = "0.02em";
+    if (markEl.scrollWidth > W_T) markEl.classList.add("bare");
+    if (markEl.scrollWidth > W_T) markEl.classList.add("wrap");
+
+    // ---------- collar: engraved title; the hl is dialled in on brass letter wheels ----------
+    const t = String(D.title || "");
+    const at = hl ? low(t).indexOf(low(hl)) : -1;
+    if (at >= 0) {
+      let g = '<span class="grp">';
+      for (const ch of t.slice(at, at + hl.length).toUpperCase()) g += /\s/.test(ch) ? '<span class="sp"></span>' : '<span class="lw">' + esc(ch) + "</span>";
+      titleEl.innerHTML = esc(t.slice(0, at)) + g + "</span>" + esc(t.slice(at + hl.length));
+    } else titleEl.textContent = t;
+    let tfs = 100;
+    for (; tfs >= 64; tfs -= 2) { titleEl.style.fontSize = tfs + "px"; if (titleEl.offsetHeight <= 284 && titleEl.scrollWidth <= W_T + 1) break; }
+    if (tfs < 64) { tfs = 64; titleEl.style.fontSize = "64px"; }
+    const collarTextH = collarEl.offsetHeight;
+    const CH = 40 + collarTextH + 24; // collar band height (world units ~ px at the front); extra top room for the band's bowed edge
+
+    // ---------- plinth plate: karaoke caption (D.caption || D.sub) + small print ----------
+    const capText = String(D.caption || D.sub || "").trim();
+    const capEl = $("caption");
+    const words = []; { const re = /\S+/g; let m; while ((m = re.exec(capText))) words.push({ w: m[0], s: m.index, e: m.index + m[0].length }); }
+    let a0 = 0, a1 = 0;
+    if (hl) { const p = low(capText).indexOf(low(hl));
+      if (p >= 0) { const q = p + hl.length; const hit = words.map((w, i) => (w.e > p && w.s < q ? i : -1)).filter(i => i >= 0); if (hit.length) { a0 = hit[0]; a1 = hit[hit.length - 1]; } } }
+    const part = (from, to) => words.slice(from, to).map(w => esc(w.w)).join(" ");
+    capEl.innerHTML = (a0 > 0 ? '<span class="done">' + part(0, a0) + "</span> " : "") + '<span class="on">' + part(a0, a1 + 1) + "</span>" + (a1 + 1 < words.length ? ' <span class="todo">' + part(a1 + 1, words.length) + "</span>" : "");
+    let capFs = 46; for (; capFs >= 40; capFs -= 2) { capEl.style.fontSize = capFs + "px"; if (capEl.offsetHeight <= capFs * 1.2 * 2 + 4) break; }
+    $("small").textContent = [D.source ? "Sumber: " + D.source : "", D.date || ""].filter(Boolean).join("  ·  ");
+    const plateEl = $("plate");
+    const PLH = 24 + plateEl.offsetHeight + 26; // riveted plate height on the plinth face
+
+    // ---------- which number wheel is "being turned": the item holding hl, else hl's leading number, else the last ----------
+    let active = hl ? items.findIndex(it => low(it.label + " " + it.value).includes(low(hl))) : -1;
+    if (active < 0 && hl) { const m = hl.match(/\d+(?:[.,]\d+)?/);
+      if (m) { const re = new RegExp("(^|[^0-9.,])" + m[0].replace(/\./g, "\\.") + "(?![0-9])"); active = items.findIndex(it => re.test(String(it.value))); if (active < 0) active = items.findIndex(it => re.test(String(it.label))); } }
+    if (active < 0) active = N - 1;
+
+    // ---------- tiny vector + colour kit ----------
+    const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]], sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+    const mul = (a, k) => [a[0] * k, a[1] * k, a[2] * k], dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    const nrm = a => mul(a, 1 / Math.hypot(a[0], a[1], a[2]));
+    const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+    const mix = (a, b, k) => a.map((v, i) => v + (b[i] - v) * clamp(k, 0, 1));
+    const hex = c => "#" + c.map(v => Math.round(clamp(v, 0, 255)).toString(16).padStart(2, "0")).join("");
+    const f1 = v => v.toFixed(1);
+    const FOGC = rgb("#1E2125");
+    // metals: polished nickel (collar), satin nickel (wheels), aged matte brass (accents only)
+    const NI = { deep: rgb("#16181B"), base: rgb("#A6AAAF"), hi: rgb("#E8EBED"), rim: rgb("#CDD1D4"), amb: 0.2, k1: 0.66, e: 0.55, k2: 0.18, sp: 34, ks: 0.5, r1: 0.5, r2: 0.42 };
+    const NC = Object.assign({}, NI, { base: rgb("#B2B6BA"), amb: 0.3, k1: 0.62, e: 0.4, k2: 0.14, sp: 52, ks: 0.45 });
+    const BR = { deep: rgb("#21180D"), base: rgb("#9C8152"), hi: rgb("#D3BC8C"), rim: rgb("#BFAB84"), amb: 0.16, k1: 0.62, e: 0.7, k2: 0.24, sp: 80, ks: 0.42, r1: 0.55, r2: 0.45 };
+    const STEEL = rgb("#2A2D32"), BLUE = "#3F6CC2";
+
+    // ---------- lock geometry (world units ~ px at the front) ----------
+    const R = 340, RC = 404, RR = 352, RF = 362, G = 10, FOOT = 26, RING = 16, SH = 150, TUBE = 25, RA = 96;
+    const PW = 478, PD = 430, AX = 548, F = 3000;
+    const FWD = [0, 0, -1], UP = [0, 1, 0]; // level camera: verticals stay vertical, the plate stays a true rectangle
+    let S = 1, OX = AX, OY = 0, CAM = [0, 0, F];
+    const proj = p => { const d = sub3(p, CAM); const Z = dot(d, FWD); return [OX + S * F * d[0] / Z, OY - S * F * dot(d, UP) / Z, Z]; };
+    function build(HW) {
+      const wheels = [], grooves = []; let y = FOOT;
+      for (let j = N - 1; j >= 0; j--) { grooves.push([y, y + G]); wheels[j] = [y + G, y + G + HW]; y += G + HW; }
+      grooves.push([y, y + G]); y += G;
+      return { HW, wheels, grooves, ringB: y, capB: y + RING, capT: y + RING + CH, shTop: y + RING + CH + SH };
+    }
+    function camera(geo) {
+      CAM = [0, geo.ringB - 70, F]; // eye height just under the collar: the nameplate reads almost flat, the wheels below bow gently
+      S = 1; OY = 0;
+      S = proj([0, 0, R])[2] / F; // scale 1 at the wheel front
+      OY = 1636 - proj([0, -PLH, PD])[1]; // bottom of the riveted plate anchored at y 1636
+    }
+    // where the collar text block sits on the nameplate (clear of the band's bowed top edge)
+    function collarSpot(g) {
+      const pA = proj([0, g.capT, RC]), yB = proj([0, g.capB, RC])[1], a = Math.asin(Math.min(1, (W_T / 2 + 10) / RC));
+      const sag = pA[1] - proj([RC * Math.sin(a), g.capT, RC * Math.cos(a)])[1];
+      return { x: pA[0], y: Math.max(pA[1] - sag + 10, (pA[1] + yB) / 2 - collarTextH / 2 + 8) };
+    }
+    // wheel height: the stack fills the frame, shackle top near y 116, but the collar text never above the y 300 safe line
+    let geo, HW = 160;
+    for (let it = 0; it < 8; it++) { geo = build(HW); camera(geo); const yTop = proj([0, geo.shTop + TUBE, 0])[1];
+      HW = clamp(HW + Math.min(yTop - 116, collarSpot(geo).y - 306) / N, 104, 236); }
+    geo = build(HW); camera(geo);
+    const { wheels, grooves, ringB, capB, capT } = geo;
+    const PLT = PLH + Math.max(0, 1920 - proj([0, -PLH, PD])[1]) / (S * F / proj([0, -PLH, PD])[2]); // the plinth runs on to the frame bottom
+
+    const L = nrm([-0.34, 0.55, 0.76]), Lh = nrm([L[0], 0, L[2]]);
+    const cyl = (x0, z0) => { const dx = CAM[0] - x0, dz = CAM[2] - z0; return { phi: Math.atan2(dx, dz), dd: Math.hypot(dx, dz) }; };
+    const onCyl = (x0, z0, r, th, yy) => [x0 + r * Math.sin(th), yy, z0 + r * Math.cos(th)];
+    const arc = (x0, z0, r, yy, a, b, n) => { const pts = []; for (let i = 0; i <= n; i++) pts.push(proj(onCyl(x0, z0, r, a + (b - a) * i / n, yy))); return pts; };
+    const pstr = pts => pts.map((p, i) => (i ? "L" : "M") + f1(p[0]) + " " + f1(p[1])).join("");
+    const poly = pts => pstr(pts.map(proj)) + "Z";
+
+    function metal(x0, z0, th, P, tone) {
+      const c = cyl(x0, z0), rel = th - c.phi;
+      const n = [Math.sin(th), 0, Math.cos(th)], v = nrm(sub3(CAM, [x0, 0, z0]));
+      const lam = Math.max(0, dot(n, Lh)), face = Math.max(0, Math.cos(rel));
+      let col = mix(P.deep, P.base, P.amb + P.k1 * Math.pow(face, P.e) + P.k2 * lam);
+      col = mix(col, P.deep, P.r1 * Math.exp(-Math.pow((rel - 1.0) / 0.15, 2)));   // dark room reflected on the right flank
+      col = mix(col, P.deep, P.r2 * Math.exp(-Math.pow((rel + 1.12) / 0.12, 2)));  // and on the left flank
+      const h = nrm(add(Lh, [v[0], 0, v[2]]));
+      col = mix(col, P.hi, P.ks * Math.pow(Math.max(0, dot(n, h)), P.sp));         // narrow key highlight
+      col = mix(col, P.rim, 0.18 * Math.exp(-Math.pow((rel - 1.25) / 0.07, 2)));    // thin rim light, far right
+      return col.map(q => q * tone);
+    }
+    const defs = [], back = [], front = [];
+    let gid = 0;
+    function grad(x0, z0, r, yy, P, tone, fog) {
+      const c = cyl(x0, z0), be = Math.acos(r / c.dd), n = 30, id = "g" + (gid++), xs = [], cs = [];
+      for (let i = 0; i <= n; i++) { const th = c.phi - be + 2 * be * i / n; xs.push(proj(onCyl(x0, z0, r, th, yy))[0]); cs.push(mix(metal(x0, z0, th, P, tone), FOGC, fog)); }
+      const x1 = xs[0], x2 = xs[n];
+      defs.push('<linearGradient id="' + id + '" gradientUnits="userSpaceOnUse" x1="' + f1(x1) + '" y1="0" x2="' + f1(x2) + '" y2="0">' +
+        xs.map((x, i) => '<stop offset="' + ((x - x1) / (x2 - x1)).toFixed(4) + '" stop-color="' + hex(cs[i]) + '"/>').join("") + "</linearGradient>");
+      return "url(#" + id + ")";
+    }
+    function vgrad(y1, y2, stops) {
+      const id = "v" + (gid++);
+      defs.push('<linearGradient id="' + id + '" gradientUnits="userSpaceOnUse" x1="0" y1="' + f1(y1) + '" x2="0" y2="' + f1(y2) + '">' + stops.map(s => '<stop offset="' + s[0] + '" stop-color="' + s[1] + '"/>').join("") + "</linearGradient>");
+      return "url(#" + id + ")";
+    }
+    function band(out, x0, z0, r, y0, y1, fill, extra) {
+      const c = cyl(x0, z0), be = Math.acos(r / c.dd);
+      out.push('<path d="' + pstr(arc(x0, z0, r, y1, c.phi - be, c.phi + be, 44).concat(arc(x0, z0, r, y0, c.phi + be, c.phi - be, 44))) + 'Z" fill="' + fill + '"' + (extra || "") + "/>");
+    }
+    function ellipse(out, x0, z0, r, yy, fill, extra) { out.push('<path d="' + pstr(arc(x0, z0, r, yy, 0, Math.PI * 2, 72)) + 'Z" fill="' + fill + '"' + (extra || "") + "/>"); }
+    function shackle(out, x0, z0, fog, detail) {
+      const c = cyl(x0, z0), rv = [Math.cos(c.phi), 0, -Math.sin(c.phi)], A = RC * 0.46, L1 = SH - RA;
+      const pts = [[-A, capT - 30], [-A, capT + L1]];
+      for (let i = 1; i <= 32; i++) { const a = Math.PI - Math.PI * i / 32; pts.push([A * Math.cos(a), capT + L1 + RA * Math.sin(a)]); }
+      pts.push([A, capT - 30]);
+      const sp = pts.map(([u, yy]) => proj([x0 + rv[0] * u, yy, z0 + rv[2] * u]));
+      const d = pstr(sp), w = S * F * 2 * TUBE / sp[0][2], col = k => hex(mix(k, FOGC, fog));
+      out.push('<path d="' + d + '" fill="none" stroke="' + col(BR.deep) + '" stroke-width="' + f1(w + 5) + '" stroke-linejoin="round"/>');
+      out.push('<path d="' + d + '" fill="none" stroke="' + col(mix(BR.deep, BR.base, 0.55)) + '" stroke-width="' + f1(w) + '" stroke-linejoin="round"/>');
+      out.push('<path d="' + d + '" fill="none" stroke="' + col(BR.base) + '" stroke-width="' + f1(w * 0.5) + '" stroke-linejoin="round" transform="translate(' + f1(-w * 0.14) + " " + f1(-w * 0.08) + ')"/>');
+      if (detail) out.push('<path d="' + d + '" fill="none" stroke="' + col(BR.hi) + '" stroke-width="' + f1(w * 0.09) + '" stroke-linejoin="round" stroke-linecap="round" opacity="0.85" transform="translate(' + f1(-w * 0.24) + " " + f1(-w * 0.18) + ')"/>');
+    }
+    // collar: underside crescent (seen from below), brass ring, nameplate band, top only if the eye is above it
+    function collar(out, x0, z0, fog, tone) {
+      if (CAM[1] < capB) ellipse(out, x0, z0, RC, capB, hex(mix(rgb("#0D0E10"), FOGC, fog)));
+      band(out, x0, z0, RR, ringB, capB, grad(x0, z0, RR, ringB, BR, tone, fog));
+      if (CAM[1] < capT) shackle(out, x0, z0, fog, fog < 0.3);
+      band(out, x0, z0, RC, capB, capT, grad(x0, z0, RC, capT, NC, tone, fog));
+      if (CAM[1] >= capT) { ellipse(out, x0, z0, RC, capT, hex(mix(NC.base, FOGC, fog))); shackle(out, x0, z0, fog, fog < 0.3); }
+    }
+    // a plinth (black lacquer box) under a lock at (x0, z0); top face at y 0
+    function plinth(out, x0, z0, fog, hero) {
+      const fc = k => hex(mix(rgb(k), FOGC, fog));
+      const tl = [x0 - PW, 0, z0 + PD], tr = [x0 + PW, 0, z0 + PD], br = [x0 + PW, 0, z0 - PD], bl = [x0 - PW, 0, z0 - PD];
+      const pf = proj(tl), pk = proj(bl);
+      if (CAM[0] > x0 + PW) out.push('<path d="' + poly([tr, br, [x0 + PW, -PLT, z0 - PD], [x0 + PW, -PLT, z0 + PD]]) + '" fill="' + fc("#0E0E10") + '"/>');
+      out.push('<path d="' + poly([tl, tr, br, bl]) + '" fill="' + vgrad(pk[1], pf[1], [[0, fc("#0F1012")], [0.75, fc("#18191C")], [1, fc("#26272B")]]) + '"/>');
+      const fb = proj([x0, -PLT, z0 + PD]);
+      out.push('<path d="' + poly([tl, tr, [x0 + PW, -PLT, z0 + PD], [x0 - PW, -PLT, z0 + PD]]) + '" fill="' + vgrad(pf[1], fb[1], [[0, fc("#1D1C1E")], [0.1, fc("#171618")], [0.5, fc("#121213")], [1, fc("#0B0B0C")]]) + '"/>');
+      const a = proj(tl), b = proj(tr);
+      out.push('<path d="M' + f1(a[0]) + " " + f1(a[1] + 1) + "L" + f1(b[0]) + " " + f1(b[1] + 1) + '" stroke="' + fc("#4C4C52") + '" stroke-width="2.2"/>');
+      if (!hero) return;
+      // a faint lacquer sheen down the face and polished vertical edges
+      const sx = [x0 - PW * 0.62, x0 - PW * 0.38].map(x => proj([x, 0, z0 + PD])[0]);
+      defs.push('<linearGradient id="sheen" gradientUnits="userSpaceOnUse" x1="' + f1(sx[0]) + '" y1="0" x2="' + f1(sx[1]) + '" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="0.5" stop-color="#fff" stop-opacity="0.045"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>');
+      out.push('<path d="' + poly([tl, tr, [x0 + PW, -PLT, z0 + PD], [x0 - PW, -PLT, z0 + PD]]) + '" fill="url(#sheen)"/>');
+      [[x0 - PW + 1, "#3B3B41"], [x0 + PW - 1, "#26262B"]].forEach(([x, c]) => { const e1 = proj([x, -2, z0 + PD]), e2 = proj([x, -PLT, z0 + PD]);
+        out.push('<path d="M' + f1(e1[0]) + " " + f1(e1[1]) + "L" + f1(e2[0]) + " " + f1(e2[1]) + '" stroke="' + c + '" stroke-width="2"/>'); });
+      // the riveted plate: engraved hairline frame + four aged-brass rivets
+      const q = [[x0 - PW + 16, -14], [x0 + PW - 16, -14], [x0 + PW - 16, -PLH + 4], [x0 - PW + 16, -PLH + 4]].map(([x, y]) => proj([x, y, z0 + PD]));
+      out.push('<path d="' + pstr(q) + 'Z" fill="none" stroke="#CDBF9E" stroke-width="1.5" opacity="0.42"/>');
+      [[x0 - PW + 30, -28], [x0 + PW - 30, -28], [x0 + PW - 30, -PLH + 18], [x0 - PW + 30, -PLH + 18]].forEach(([x, y]) => {
+        const p = proj([x, y, z0 + PD]);
+        out.push('<circle cx="' + f1(p[0]) + '" cy="' + f1(p[1]) + '" r="7.5" fill="url(#rivet)" stroke="#120E09" stroke-width="1.4"/>');
+      });
+    }
+    function shadowOn(out, x0, z0, r, yy, k) { ellipse(out, x0, z0, r, yy, "url(#shadowG)", ' opacity="' + k.toFixed(3) + '"'); }
+
+    // ---------- the row of identical locks on their plinths, converging off the left edge ----------
+    const VPX = -70;
+    const ALPHA = Math.atan((VPX - OX) / (S * F)), SPACING = 1500;
+    const copies = [];
+    for (let k = 1; k <= 40; k++) {
+      const x0 = k * SPACING * Math.sin(ALPHA), z0 = -k * SPACING * Math.cos(ALPHA);
+      const s = S * F / proj([x0, 0, z0])[2];
+      if (s < 0.06 || proj([x0 + PW, 0, z0])[0] < -10) break;
+      copies.push({ k, x0, z0, s });
+    }
+    const s0 = S * F / proj([0, 0, 0])[2];
+    for (let i = copies.length - 1; i >= 0; i--) {
+      const { k, x0, z0, s } = copies[i];
+      const fog = Math.min(0.99, 1 - Math.exp(-0.5 * (s0 / s - 1)));
+      const op = fog > 0.84 ? clamp((0.985 - fog) / 0.145, 0, 1) : 1; // far copies dissolve into the haze instead of closing into a wedge
+      if (op <= 0.02) continue;
+      const g = [];
+      plinth(g, x0, z0, fog, false);
+      shadowOn(g, x0, z0, RF * 1.25, 0, 0.8 * (1 - fog));
+      band(g, x0, z0, RF, 0, FOOT, grad(x0, z0, RF, 10, BR, 0.9, fog));
+      const gW = grad(x0, z0, R, 300, NI, 0.95, fog), gG = grad(x0, z0, R * 0.97, 300, NI, 0.45, fog);
+      for (let j = 0; j < N; j++) band(g, x0, z0, R, wheels[j][0], wheels[j][1], gW);
+      for (const gr of grooves) band(g, x0, z0, R * 0.97, gr[0], gr[1], gG);
+      if (k <= 4) { const c = cyl(x0, z0); [-0.86, 0.86].forEach(sg => { const p1 = proj(onCyl(x0, z0, R + 8, c.phi + sg, FOOT)), p2 = proj(onCyl(x0, z0, R + 8, c.phi + sg, ringB));
+        g.push('<path d="M' + f1(p1[0]) + " " + f1(p1[1]) + "L" + f1(p2[0]) + " " + f1(p2[1]) + '" stroke="' + hex(mix(STEEL, FOGC, fog)) + '" stroke-width="' + f1(16 * s / s0) + '"/>'); }); }
+      collar(g, x0, z0, fog, 0.97);
+      back.push('<g opacity="' + op.toFixed(3) + '">' + g.join("") + "</g>");
+    }
+
+    // ---------- the hero lock ----------
+    plinth(front, 0, 0, 0, true);
+    shadowOn(front, 0, 0, RF * 1.3, 0, 1);
+    const c0 = cyl(0, 0), PH = c0.phi, be0 = Math.acos(R / c0.dd);
+    band(front, 0, 0, RF, 0, FOOT, grad(0, 0, RF, 10, BR, 0.95, 0));
+    front.push('<path d="' + pstr(arc(0, 0, RF, FOOT - 2, PH - 1.25, PH + 1.25, 40)) + '" fill="none" stroke="' + hex(BR.hi) + '" stroke-width="1.6" opacity="0.5"/>');
+
+    // measure the reading text: the window between the rails widens to fit it
+    const vfs = Math.round(clamp(HW * S * 0.44, 44, 62));
+    const cellsEl = $("cells");
+    cellsEl.innerHTML = items.map(it => '<div class="cell"><div class="lb">' + esc(it.label) + '</div><div class="vl" style="font-size:' + vfs + 'px">' + esc(it.value) + "</div></div>").join("");
+    let needW = 0; cellsEl.querySelectorAll(".cell").forEach(cl => { needW = Math.max(needW, cl.querySelector(".lb").scrollWidth, cl.querySelector(".vl").scrollWidth); });
+    const chord = a => proj(onCyl(0, 0, R, PH + a, 0))[0] - proj(onCyl(0, 0, R, PH - a, 0))[0];
+    let CELL = 0.56; while (CELL < 0.9 && chord(CELL - 0.05) < needW + 36) CELL += 0.01;
+    const RAIL = CELL + 0.05, RW = 0.034;
+
+    const gWa = grad(0, 0, R, 300, NI, 1.05, 0), gWn = grad(0, 0, R, 300, NI, 0.97, 0), gGr = grad(0, 0, R * 0.97, 300, NI, 0.42, 0);
+    // digit glyphs (10 x 16 box), engraved numerals for the spare digits round the sides
+    const DIG = ["M2.2 1H7.8Q9.4 1 9.4 2.8V13.2Q9.4 15 7.8 15H2.2Q0.6 15 0.6 13.2V2.8Q0.6 1 2.2 1Z", "M2.4 4L5.6 1V15M2.4 15H8.8", "M0.9 4.2Q0.9 1 5 1Q9.1 1 9.1 4.4Q9.1 6.9 5.2 9.6L0.9 15H9.3", "M1.2 1H8.9L4.6 6.6Q9.4 6.6 9.4 10.8Q9.4 15 5 15Q1.8 15 0.8 12.7", "M7 15V1L0.8 10.6H9.6", "M8.9 1H1.7L1.2 7.3Q2.9 6.3 5 6.3Q9.4 6.3 9.4 10.6Q9.4 15 5 15Q1.8 15 0.8 12.8", "M8.6 1.7Q7.6 1 5.5 1Q0.8 1 0.8 8.4V10.9Q0.8 15 5 15Q9.3 15 9.3 10.9Q9.3 7 5.2 7Q1.7 7 0.8 9.7", "M0.8 1H9.2L3.6 15", "M5 7.6Q1.2 7.6 1.2 4.3Q1.2 1 5 1Q8.8 1 8.8 4.3Q8.8 7.6 5 7.6Q0.6 7.6 0.6 11.3Q0.6 15 5 15Q9.4 15 9.4 11.3Q9.4 7.6 5 7.6Z", "M1.4 14.3Q2.4 15 4.5 15Q9.2 15 9.2 7.6V5.1Q9.2 1 5 1Q0.7 1 0.7 5.1Q0.7 9 4.8 9Q8.3 9 9.2 6.3"];
+    function glyph(out, dgt, th, yc, size, stroke, op) {
+      const k = size / 16;
+      const s0g = proj(onCyl(0, 0, R + 0.5, th, yc)), su = proj(onCyl(0, 0, R + 0.5, th + k / R, yc)), sv = proj(onCyl(0, 0, R + 0.5, th, yc - k));
+      const a = su[0] - s0g[0], b = su[1] - s0g[1], c = sv[0] - s0g[0], d = sv[1] - s0g[1];
+      const e = s0g[0] - 5 * a - 8 * c, f = s0g[1] - 5 * b - 8 * d;
+      out.push('<path d="' + DIG[dgt] + '" fill="none" stroke="' + stroke + '" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity="' + op + '" transform="matrix(' + [a, b, c, d, e, f].map(v => v.toFixed(3)).join(" ") + ')"/>');
+    }
+    // knurled grooves
+    grooves.forEach(gr => {
+      band(front, 0, 0, R * 0.97, gr[0], gr[1], gGr);
+      let d = ""; const bg = Math.acos(R * 0.97 / c0.dd);
+      for (let th = PH - bg + 0.03; th < PH + bg - 0.02; th += 0.05) { const p0 = proj(onCyl(0, 0, R * 0.97, th, gr[0] + 1.5)), p1 = proj(onCyl(0, 0, R * 0.97, th, gr[1] - 1.5)); d += "M" + f1(p0[0]) + " " + f1(p0[1]) + "L" + f1(p1[0]) + " " + f1(p1[1]); }
+      front.push('<path d="' + d + '" stroke="' + hex(mix(NI.base, NI.hi, 0.2)) + '" stroke-width="1.5" opacity="0.5" fill="none"/>');
+    });
+    // number wheels
+    for (let j = N - 1; j >= 0; j--) {
+      const [y0, y1] = wheels[j], yc = (y0 + y1) / 2, isA = j === active;
+      band(front, 0, 0, R, y0, y1, isA ? gWa : gWn);
+      front.push('<path d="' + pstr(arc(0, 0, R, y1 - 2.5, PH - be0 + 0.05, PH + be0 - 0.05, 48)) + '" fill="none" stroke="' + hex(NI.hi) + '" stroke-width="2" opacity="0.55"/>');
+      front.push('<path d="' + pstr(arc(0, 0, R, y0 + 2.5, PH - be0 + 0.05, PH + be0 - 0.05, 48)) + '" fill="none" stroke="' + hex(NI.deep) + '" stroke-width="2" opacity="0.5"/>');
+      // spare digits round the sides (about 30% quieter than the reading); the turning wheel sits half a click off, with a smear
+      const base = (j * 3 + 4) % 10, off = isA ? 0.12 : 0, gh = Math.min(46, HW * 0.36);
+      [-1.36, -1.13, 1.13, 1.36].forEach((sl, si) => {
+        const th = PH + sl + off; if (Math.abs(th - PH) > be0 - 0.07 || Math.abs(th - PH) < RAIL + RW + 0.1) return;
+        const dg = (base + (si < 2 ? si - 2 : si - 1) + 10) % 10;
+        if (isA) [0.08, 0.055, 0.03].forEach((o, oi) => glyph(front, dg, th - o, yc, gh, hex(NI.deep), [0.08, 0.13, 0.19][oi]));
+        glyph(front, dg, th, yc, gh, hex(NI.deep), 0.62);
+      });
+    }
+    // soft occlusion under the overhanging collar
+    { const pa = proj(onCyl(0, 0, R, PH, ringB)), pb2 = proj(onCyl(0, 0, R, PH, ringB - 50));
+      band(front, 0, 0, R + 0.3, ringB - 50, ringB, vgrad(pb2[1] - 14, pa[1], [[0, "rgba(10,11,13,0)"], [1, "rgba(10,11,13,0.6)"]])); }
+    // raised dark-steel reading frame: two rails over the whole stack, inner side faces catching light, screws at the ends
+    [-1, 1].forEach(sg => {
+      const th = PH + sg * RAIL, ya = FOOT - 3, yb = ringB + 3;
+      const o1 = th - RW, o2 = th + RW, inner = sg < 0 ? o2 : o1;
+      front.push('<path d="' + poly([onCyl(0, 0, R, inner, ya), onCyl(0, 0, R, inner, yb), onCyl(0, 0, R + 9, inner, yb), onCyl(0, 0, R + 9, inner, ya)]) + '" fill="' + hex(mix(STEEL, NI.base, 0.32)) + '"/>');
+      front.push('<path d="' + poly([onCyl(0, 0, R + 9, o1, ya), onCyl(0, 0, R + 9, o1, yb), onCyl(0, 0, R + 9, o2, yb), onCyl(0, 0, R + 9, o2, ya)]) + '" fill="' + hex(sg < 0 ? mix(STEEL, NI.base, 0.08) : mix(STEEL, NI.deep, 0.25)) + '"/>');
+      const e1 = proj(onCyl(0, 0, R + 9, o1 + 0.004, ya)), e2 = proj(onCyl(0, 0, R + 9, o1 + 0.004, yb));
+      front.push('<path d="M' + f1(e1[0]) + " " + f1(e1[1]) + "L" + f1(e2[0]) + " " + f1(e2[1]) + '" stroke="#7D838C" stroke-width="1.6" opacity="0.8"/>');
+      [ya + 14, yb - 14].forEach(yy => { const p = proj(onCyl(0, 0, R + 9, th, yy));
+        front.push('<circle cx="' + f1(p[0]) + '" cy="' + f1(p[1]) + '" r="5.2" fill="#5B6068" stroke="#121417" stroke-width="1.2"/><path d="M' + f1(p[0] - 3.4) + " " + f1(p[1] + 1.6) + "L" + f1(p[0] + 3.4) + " " + f1(p[1] - 1.6) + '" stroke="#16181B" stroke-width="1.4"/>'); });
+    });
+    // blue enamel index arrow on the left rail, at the wheel being turned
+    { const yc = (wheels[active][0] + wheels[active][1]) / 2, p = proj(onCyl(0, 0, R + 9, PH - RAIL + RW, yc));
+      front.push('<path d="M' + f1(p[0] + 21) + " " + f1(p[1]) + "L" + f1(p[0] - 3) + " " + f1(p[1] - 14) + "L" + f1(p[0] - 3) + " " + f1(p[1] + 14) + 'Z" fill="' + BLUE + '" stroke="#0E1320" stroke-width="1.6" stroke-linejoin="round"/>');
+      front.push('<path d="M' + f1(p[0] + 1) + " " + f1(p[1] - 8) + "L" + f1(p[0] + 11) + " " + f1(p[1] - 2.5) + '" stroke="#A9BFE8" stroke-width="1.6" stroke-linecap="round" opacity="0.8"/>'); }
+    // collar: brass ring + polished nickel nameplate (+ shackle behind its top edge)
+    collar(front, 0, 0, 0, 1);
+    front.push('<path d="' + pstr(arc(0, 0, RC, capT - 3, PH - 1.3, PH + 1.3, 48)) + '" fill="none" stroke="' + hex(NC.hi) + '" stroke-width="2.2" opacity="0.7"/>');
+    front.push('<path d="' + pstr(arc(0, 0, RC, capB + 3, PH - 1.3, PH + 1.3, 48)) + '" fill="none" stroke="' + hex(NC.deep) + '" stroke-width="2.5" opacity="0.5"/>');
+
+    // ---------- assemble SVG: haze toward the vanishing row, floor, copies, hero ----------
+    const hy = OY; // level camera: the horizon is the eye height
+    $("scene").innerHTML =
+      '<defs><radialGradient id="shadowG" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#000" stop-opacity="0.8"/><stop offset="0.6" stop-color="#000" stop-opacity="0.35"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>' +
+      '<radialGradient id="rivet" cx="0.38" cy="0.32" r="0.7"><stop offset="0" stop-color="#CDB585"/><stop offset="0.55" stop-color="#8E7448"/><stop offset="1" stop-color="#3E2F1A"/></radialGradient>' +
+      '<radialGradient id="haze" gradientUnits="userSpaceOnUse" cx="' + f1(Math.max(0, VPX + 40)) + '" cy="' + f1(hy) + '" r="980"><stop offset="0" stop-color="#2B2F35"/><stop offset="0.42" stop-color="#17191C"/><stop offset="1" stop-color="#0E0F11"/></radialGradient>' +
+      '<linearGradient id="floorShade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#08090A" stop-opacity="0"/><stop offset="0.12" stop-color="#08090A" stop-opacity="0.32"/><stop offset="1" stop-color="#08090A" stop-opacity="0.5"/></linearGradient>' +
+      defs.join("") + "</defs>" +
+      '<rect width="1080" height="1920" fill="url(#haze)"/>' +
+      '<rect x="0" y="' + f1(hy - 120) + '" width="1080" height="' + f1(2040 - hy) + '" fill="url(#floorShade)"/>' +
+      '<g id="row">' + back.join("") + "</g>" + front.join("");
+
+    // ---------- place the collar text on the nameplate ----------
+    const spot = collarSpot(geo);
+    collarEl.style.left = f1(spot.x - W_T / 2) + "px";
+    collarEl.style.top = f1(spot.y) + "px";
+
+    // ---------- reading cells (label + value) inside the frame on each wheel ----------
+    const cellW = chord(CELL - 0.05);
+    cellsEl.querySelectorAll(".cell").forEach((cl, j) => {
+      const [y0, y1] = wheels[j], p = proj(onCyl(0, 0, R, PH, (y0 + y1) / 2)), h = S * (y1 - y0) * 0.9;
+      Object.assign(cl.style, { left: f1(p[0] - cellW / 2) + "px", top: f1(p[1] - h / 2) + "px", width: f1(cellW) + "px", height: f1(h) + "px" });
+      const lb = cl.querySelector(".lb"), vl = cl.querySelector(".vl");
+      for (let ls = 0.07; lb.scrollWidth > cellW && ls > 0; ls -= 0.02) lb.style.letterSpacing = Math.max(0, ls - 0.02) + "em";
+      for (let fs = vfs; vl.scrollWidth > cellW && fs > 40; fs -= 2) vl.style.fontSize = (fs - 2) + "px";
+    });
+
+    // ---------- the riveted plate text ----------
+    const faceTop = proj([0, 0, PD])[1], faceLeft = proj([-PW, 0, PD])[0];
+    plateEl.style.left = f1(Math.max(100, faceLeft + 46)) + "px";
+    plateEl.style.top = f1(faceTop + 24) + "px";
+
+    // ---------- the combination: aged-brass letter wheels painted under the hl characters ----------
+    const lws = titleEl.querySelectorAll(".lw");
+    if (lws.length) {
+      const ctx = $("dial").getContext("2d");
+      const fnt = '700 ' + tfs + 'px "Antonio"';
+      ctx.font = fnt;
+      const mH = ctx.measureText("H"), capA = mH.actualBoundingBoxAscent, fA = mH.fontBoundingBoxAscent, fD = mH.fontBoundingBoxDescent;
+      const AL = "ABCDEFGHIJKLMNOPQRSTUVWXYZ", DG = "0123456789";
+      const nb = (c, d) => { const s = AL.includes(c) ? AL : DG.includes(c) ? DG : ""; if (!s) return ""; const i = s.indexOf(c); return s[(i + d + s.length) % s.length]; };
+      const grp = titleEl.querySelector(".grp").getBoundingClientRect(), r0 = lws[0].getBoundingClientRect();
+      const cy = r0.top + (r0.height - (fA + fD)) / 2 + fA - capA / 2; // optical centre of the caps
+      const half = capA * 0.83, Rd = capA * 1.16, step = 0.95;
+      const sx0 = grp.left - 3, sx1 = grp.right + 3, sy0 = cy - half - 4, sy1 = cy + half + 4;
+      const rr = (x, y, w, h, r) => { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); };
+      ctx.fillStyle = "rgba(255,255,255,0.55)"; rr(sx0, sy0 + 1.5, sx1 - sx0, sy1 - sy0, 5); ctx.fill(); // lower lip of the slot catching light
+      ctx.fillStyle = "#121315"; rr(sx0, sy0, sx1 - sx0, sy1 - sy0, 5); ctx.fill();
+      lws.forEach(el => {
+        const r = el.getBoundingClientRect(), x0 = r.left + 1.5, w = r.width - 3, y0 = cy - half, h = 2 * half, xc = r.left + r.width / 2, ch = el.textContent;
+        let g = ctx.createLinearGradient(0, y0, 0, y0 + h);
+        [[0, "#3A2C17"], [0.16, "#7C6338"], [0.36, "#A98B57"], [0.46, "#BE9F69"], [0.54, "#B1935F"], [0.74, "#94784A"], [0.9, "#5E4A2A"], [1, "#2A1F10"]].forEach(s => g.addColorStop(s[0], s[1]));
+        ctx.fillStyle = g; ctx.fillRect(x0, y0, w, h);
+        ctx.save(); ctx.beginPath(); ctx.rect(x0, y0, w, h); ctx.clip();
+        ctx.font = fnt; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic"; ctx.fillStyle = "rgba(28,20,10,0.74)";
+        [-1, 1].forEach(dn => { const c = nb(ch, dn); if (!c) return; const ang = dn * step;
+          ctx.save(); ctx.translate(xc, cy + Rd * Math.sin(ang)); ctx.scale(1, Math.cos(ang)); ctx.fillText(c, 0, capA / 2); ctx.restore(); });
+        g = ctx.createLinearGradient(0, y0, 0, y0 + h);
+        [[0, "rgba(20,14,6,0.62)"], [0.16, "rgba(20,14,6,0.1)"], [0.34, "rgba(20,14,6,0)"], [0.66, "rgba(20,14,6,0)"], [0.84, "rgba(20,14,6,0.12)"], [1, "rgba(20,14,6,0.66)"]].forEach(s => g.addColorStop(s[0], s[1]));
+        ctx.fillStyle = g; ctx.fillRect(x0, y0, w, h);
+        for (let yy = y0 + 1; yy < y0 + h; yy += 3) { // knurled flanks
+          ctx.fillStyle = "rgba(24,17,8,0.75)"; ctx.fillRect(x0, yy, 3.5, 1.2); ctx.fillRect(x0 + w - 3.5, yy, 3.5, 1.2);
+          ctx.fillStyle = "rgba(236,214,164,0.35)"; ctx.fillRect(x0, yy + 1.4, 3.5, 0.8); ctx.fillRect(x0 + w - 3.5, yy + 1.4, 3.5, 0.8); }
+        ctx.restore();
+      });
+    }
+  }
+})();
+</script>
+</body>
+</html>

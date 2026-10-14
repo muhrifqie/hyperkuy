@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Flag Hoist</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=Zilla+Slab:ital,wght@0,600;0,700;1,500&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Flag Hoist: a ship's signal halyard under a pale overcast sky.
+    The International Code book carries all the type: its page head (running
+    head over a double rule + the title in a bookish slab) spans the frame,
+    then the page narrows into a column of code-book rows clamped to a
+    haze-grey mast. In the notch beside it a hoist of code flags flies, one
+    flag per item, each level with its row. The flags (red, yellow, navy,
+    cream) are the only saturated colour. The hl word sits on a flat K-flag
+    plate; the hl item's flag has just broken out and its row is marked in
+    signal yellow. The caption is a signal-log entry on a cream slip on the
+    bulwark. Cloth folds come from a fixed wave warp (no randomness).
+  */
+  :root { --navy: #13264A; --cream: #F4F0E6; --haze: #8E979C; --red: #D3332A; --yellow: #F2C230; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; }
+  body { position: relative; color: var(--navy); font-family: "IBM Plex Sans Condensed", sans-serif;
+         background: linear-gradient(180deg, #C9D3DC 0%, #D2DAE2 34%, #DDE3E8 66%, #E4E8EC 100%); }
+  .abs { position: absolute; }
+  #scene, #front { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  #front { pointer-events: none; }
+
+  /* the code book's running head */
+  #rhead { left: 126px; width: 828px; top: 300px; display: flex; justify-content: space-between; gap: 28px;
+           font: 600 26px/1.3 "IBM Plex Mono", monospace; letter-spacing: .02em; }
+  #rhead span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; }
+  #rhead span:last-child { flex: none; }
+
+  /* page head = the title, set in the book's slab */
+  #title { left: 126px; width: 828px; top: 368px; font-family: "Zilla Slab", serif; font-weight: 700; line-height: 1.04;
+           letter-spacing: -.006em; text-wrap: balance; }
+  /* hl = a flat K-flag plate: the word on the yellow hoist half, a navy fly half, toggled to a halyard on the left */
+  #title .hl { --fly: 1.1em; display: inline-block; position: relative; white-space: nowrap; margin: 0 .05em 0 .12em;
+               padding: 0 calc(var(--fly) + .12em) 0 .12em;
+               background: linear-gradient(var(--yellow), var(--yellow)) left 0 top .1em / calc(100% - var(--fly)) .92em no-repeat; }
+  #title .hl .fly { position: absolute; right: 0; top: .1em; width: var(--fly); height: .92em; background: var(--navy); }
+  #title .hl .rope { position: absolute; left: -.045em; top: -.1em; width: .04em; height: 1.32em; background: var(--navy); border-radius: .02em; }
+  #title .hl .tg { position: absolute; left: -.085em; width: .12em; height: .12em; border-radius: 50%; background: var(--navy); }
+  #deck { left: 126px; width: 828px; font: italic 500 34px/1.24 "Zilla Slab", serif; display: -webkit-box; -webkit-box-orient: vertical;
+          -webkit-line-clamp: 2; overflow: hidden; text-wrap: balance; }
+
+  /* the narrow column of the page: one row per flag */
+  #col { left: 0; top: 0; width: 1080px; height: 1920px; }
+  #col .chead { position: absolute; display: flex; justify-content: space-between; gap: 16px;
+                font: 600 26px/1.3 "IBM Plex Mono", monospace; letter-spacing: .04em; text-transform: uppercase; }
+  #col .chead span:last-child { flex: none; }
+  .band { position: absolute; background: var(--yellow); }
+  .band::before { content: ""; position: absolute; left: 0; top: -6px; bottom: -6px; width: 5px; background: var(--navy); }
+  .row { position: absolute; }
+  .row .r1 { display: flex; align-items: center; gap: 12px; }
+  .chip { flex: none; display: inline-flex; align-items: center; justify-content: center; background: var(--navy); color: var(--cream);
+          font: 600 30px/1 "IBM Plex Mono", monospace; }
+  .lab { flex: 1 1 auto; min-width: 0; font-weight: 600; line-height: 1.32; white-space: nowrap; overflow: hidden; }
+  .lab.wrap { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+  .r2 { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+  .val { font-family: "Zilla Slab", serif; font-weight: 700; line-height: 1; white-space: nowrap; letter-spacing: -.01em; }
+  .sw { flex: none; display: block; margin-bottom: .14em; }
+
+  /* signal-log slip on the bulwark: mono time stamp + karaoke caption */
+  #log { left: 70px; width: 846px; background: var(--cream); border: 2px solid var(--navy); }
+  #log .stamp { position: absolute; left: 20px; font: 600 30px/1 "IBM Plex Mono", monospace; letter-spacing: -.02em; white-space: nowrap;
+                padding: 4px 10px 4px 0; border-right: 2px solid var(--navy); }
+  #log .stamp.tab { top: -19px; left: 20px; padding: 3px 10px; border: 0; background: var(--navy); color: var(--cream); font-size: 26px; }
+  #cap { position: relative; margin: 12px 20px 14px 20px; font-weight: 600; line-height: 1.24; letter-spacing: .002em; text-wrap: balance; }
+  #cap .w { display: inline; }
+  /* active word: a strip of yellow hoist tape under it, with the navy rope line below */
+  #cap .on { padding: 0 .04em .02em; box-decoration-break: clone; -webkit-box-decoration-break: clone;
+             background: linear-gradient(var(--navy), var(--navy)) left 0 bottom 0 / 100% 3px no-repeat,
+                         linear-gradient(var(--yellow), var(--yellow)) left 0 bottom 3px / 100% .26em no-repeat; }
+  #src { left: 90px; width: 810px; font: 500 26px/1.3 "IBM Plex Mono", monospace; letter-spacing: 0;
+         white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+</style>
+</head>
+<body>
+<svg id="scene" data-layout-allow-overlap aria-hidden="true" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div id="rhead" class="abs"><span id="kick"></span><span id="date"></span></div>
+<div id="title" class="abs"></div>
+<div id="deck" class="abs"></div>
+<div id="col" class="abs"></div>
+<svg id="front" class="abs" data-layout-allow-overlap aria-hidden="true" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div id="log" class="abs"><span class="stamp">09.15</span><div id="cap" data-slot="caption"></div></div>
+<svg id="clips" class="abs" data-layout-allow-overlap aria-hidden="true" style="left:0;top:0;width:1080px;height:1920px;pointer-events:none" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div id="src" class="abs"></div>
+<script>
+  // Built-in sample so the file also opens on its own.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const FONTS = ['700 100px "Zilla Slab"', '600 40px "Zilla Slab"', 'italic 500 34px "Zilla Slab"', '600 40px "IBM Plex Sans Condensed"',
+                 '600 26px "IBM Plex Mono"', '600 30px "IBM Plex Mono"', '500 26px "IBM Plex Mono"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).then(() => document.fonts.ready).catch(() => {}).then(render);
+
+  function render() {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const NAVY = "#13264A", CREAM = "#F4F0E6", RED = "#D3332A", YEL = "#F2C230", HAZE = "#8E979C";
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(1, items.length);
+  const hl = String(D.hl || "").trim();
+  const fx = v => v.toFixed(1);
+
+  // ---------- running head: BUKU KODE · series · BAB nn ........ date ----------
+  const ep = String(D.ep || "").replace(/^#\s*/, "").trim();
+  const head = D.series ? ["Buku kode", D.series, ep ? "Bab " + ep : ""] : ["Buku kode", D.kicker || ""];
+  const kickEl = $("kick");
+  $("date").textContent = D.date || "";
+  kickEl.textContent = head.filter(Boolean).join(" · ");
+  if (kickEl.scrollWidth > kickEl.clientWidth + 1) { $("rhead").style.letterSpacing = "0"; }
+  if (kickEl.scrollWidth > kickEl.clientWidth + 1) { kickEl.textContent = head.slice(1).filter(Boolean).join(" · "); }
+
+  // ---------- title on the page head (largest element; hl on a K-flag plate) ----------
+  const t = String(D.title || ""), titleEl = $("title");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) +
+                      '<i class="fly"></i><i class="rope"></i><i class="tg" style="top:.1em"></i><i class="tg" style="top:.9em"></i></span>' + esc(t.slice(at + hl.length));
+  // fly half ~ half the word's width, so the plate reads as a K flag (yellow hoist, navy fly)
+  const hlEl = titleEl.querySelector(".hl");
+  if (hlEl) {
+    const cv = document.createElement("canvas").getContext("2d");
+    cv.font = '700 100px "Zilla Slab"';
+    const wEm = cv.measureText(t.slice(at, at + hl.length)).width / 100;
+    hlEl.style.setProperty("--fly", Math.min(1.25, Math.max(0.9, wEm * 0.5)).toFixed(3) + "em");
+  }
+  let tfs = 116;
+  for (; tfs >= 62; tfs -= 2) {
+    titleEl.style.fontSize = tfs + "px";
+    if (titleEl.scrollWidth <= 830 && titleEl.offsetHeight <= 266) break;
+  }
+  tfs = Math.max(62, tfs);
+  let headBottom = titleEl.offsetTop + titleEl.offsetHeight;
+  // sub is spoken in the caption; when a separate caption is given, sub becomes the page's deck line
+  const deckEl = $("deck");
+  const capText = String(D.caption || D.sub || "").trim();
+  if (D.caption && D.sub && String(D.caption).trim() !== String(D.sub).trim()) {
+    deckEl.textContent = D.sub; deckEl.style.top = (headBottom + 14) + "px";
+    headBottom = deckEl.offsetTop + deckEl.offsetHeight;
+  } else deckEl.style.display = "none";
+  const HB = headBottom + 30;                          // where the page narrows into the column
+
+  // ---------- geometry ----------
+  const PL = 90, PR = 990, PT = 266;                   // page edges (head part spans the frame)
+  const RAIL = 1404;                                   // top of the ship's rail
+  const objTop = HB + 38;                              // masthead truck
+  const fTop0 = objTop + 116, fBotMax = RAIL - 26, GAP = 22;
+  let h = Math.floor((fBotMax - fTop0 - GAP * (n - 1)) / n);
+  h = Math.min(h, 186);
+  const used = n * h + (n - 1) * GAP;
+  const fTop = fTop0 + Math.floor((fBotMax - fTop0 - used) / 2);
+  const L = Math.round(Math.min(286, Math.max(172, h * 1.6)));   // fly length is capped, so the page column stays >= ~400 px
+  const LH = Math.round(L * 1.08);                     // the flag that just broke out flies a little longer
+  const XH = 76 + LH + 9;                              // halyard x (fly tip of the hl flag at x 76)
+  const XM = XH + 30, MR = 12;                         // mast centre, half-width
+  const CL = XM + MR + 20;                             // page column left edge
+  const cIn = CL + 26, cOut = 896;                     // row text box (stays clear of the button column)
+  const lastBottom = fTop + used;
+  const PB = RAIL + 12;                                // page foot tucks behind the rail
+
+  let hi = items.findIndex(it => hl && (String(it.label) + " " + String(it.value)).toLowerCase().includes(hl.toLowerCase()));
+  if (hi < 0) hi = 0;
+
+  // ---------- flag cloth: flat (u,v) patterns warped by a fixed wave ----------
+  const K = 1.2;
+  const PH = [0.4, 2.1, 3.6, 5.0, 1.2];                // fixed phases per flag (no randomness)
+  function warp(X, y0, hh, LL, A, ph, taper) {
+    const f = (u, v) => {
+      const s = Math.min(1, u * 2.2), w = A * s * Math.sin(2 * Math.PI * K * u + ph);
+      const tp = taper == null ? 0.06 : taper;
+      return [X - u * LL, y0 + hh * (v * (1 - tp * u) + tp * 0.5 * u) + w];
+    };
+    f.slope = u => {
+      const s = Math.min(1, u * 2.2), ds = u * 2.2 < 1 ? 2.2 : 0, a = 2 * Math.PI * K * u + ph;
+      return A * (ds * Math.sin(a) + s * 2 * Math.PI * K * Math.cos(a)) / (A * 2 * Math.PI * K || 1);
+    };
+    return f;
+  }
+  const rect = (u0, v0, u1, v1) => [[u0, v0], [u1, v0], [u1, v1], [u0, v1]];
+  function pathUV(pts, f) {
+    const out = [];
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i], b = pts[(i + 1) % pts.length];
+      const m = Math.max(1, Math.ceil(Math.abs(b[0] - a[0]) / 0.02));
+      for (let j = 0; j < m; j++) { const q = j / m; out.push(f(a[0] + (b[0] - a[0]) * q, a[1] + (b[1] - a[1]) * q)); }
+    }
+    return "M" + out.map(p => fx(p[0]) + "," + fx(p[1])).join("L") + "Z";
+  }
+  // five code flags, palette only: K, C, P, R, I
+  const FLAGS = [
+    { k: "K", parts: ar => [[YEL, rect(0, 0, 1, 1)], [NAVY, rect(0.5, 0, 1, 1)]] },
+    { k: "C", parts: ar => [[NAVY, rect(0, 0, 1, 1)], [CREAM, rect(0, 0.2, 1, 0.8)], [RED, rect(0, 0.4, 1, 0.6)]] },
+    { k: "P", parts: ar => { const s = 0.42 * ar; return [[NAVY, rect(0, 0, 1, 1)], [CREAM, rect(0.5 - s / 2, 0.29, 0.5 + s / 2, 0.71)]]; } },
+    { k: "R", parts: ar => { const s = 0.2 * ar; return [[RED, rect(0, 0, 1, 1)], [YEL, rect(0, 0.4, 1, 0.6)], [YEL, rect(0.5 - s / 2, 0, 0.5 + s / 2, 1)]]; } },
+    { k: "I", parts: ar => { const c = []; for (let i = 0; i < 64; i++) { const a = i / 64 * 2 * Math.PI; c.push([0.5 + 0.3 * ar * Math.cos(a), 0.5 + 0.3 * Math.sin(a)]); } return [[YEL, rect(0, 0, 1, 1)], [NAVY, c]]; } },
+  ];
+
+  let defs = "", back = "", front = "";
+
+  // overcast: soft, blurred stratus banks (no outlined cartoon clouds)
+  defs += '<filter id="haze" x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="26"/></filter>' +
+          '<filter id="lift" x="-10%" y="-10%" width="120%" height="125%"><feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="' + NAVY + '" flood-opacity=".17"/></filter>';
+  back += '<g filter="url(#haze)" fill="#FFFFFF">' +
+          '<ellipse cx="250" cy="150" rx="360" ry="46" opacity=".34"/><ellipse cx="860" cy="92" rx="330" ry="38" opacity=".3"/>' +
+          '<ellipse cx="640" cy="222" rx="300" ry="30" opacity=".24"/></g>';
+
+  // ---------- the code-book page: wide page head, narrowing into the row column ----------
+  const pagePath = "M" + PL + " " + PT + " H" + PR + " V" + PB + " H" + CL + " V" + HB + " H" + PL + " Z";
+  back += '<path d="' + pagePath + '" fill="' + CREAM + '" filter="url(#lift)"/>' +
+          '<path d="' + pagePath + '" fill="none" stroke="' + NAVY + '" stroke-opacity=".55" stroke-width="2"/>';
+  // double rule under the running head, single rule closing the page head
+  back += '<rect x="126" y="342" width="828" height="3" fill="' + NAVY + '"/><rect x="126" y="349" width="828" height="1.5" fill="' + NAVY + '"/>';
+  // column rules: header rule + hairlines between rows
+  back += '<rect x="' + cIn + '" y="' + (objTop + 50) + '" width="' + (PR - 26 - cIn) + '" height="2" fill="' + NAVY + '"/>';
+  for (let i = 1; i < n; i++) {
+    const yy = fTop + i * (h + GAP) - GAP / 2;
+    back += '<rect x="' + cIn + '" y="' + fx(yy - 0.75) + '" width="' + (PR - 26 - cIn) + '" height="1.5" fill="' + NAVY + '" fill-opacity=".22"/>';
+  }
+
+  // ---------- mast (haze-grey pole, cylinder shading) ----------
+  defs += '<linearGradient id="mastG" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="' + NAVY + '" stop-opacity=".28"/>' +
+          '<stop offset=".3" stop-color="#FFFFFF" stop-opacity=".38"/><stop offset=".56" stop-color="' + NAVY + '" stop-opacity="0"/>' +
+          '<stop offset="1" stop-color="' + NAVY + '" stop-opacity=".45"/></linearGradient>';
+  back += '<rect x="' + (XM - MR) + '" y="' + (objTop + 6) + '" width="' + MR * 2 + '" height="' + (RAIL + 40 - objTop) + '" fill="' + HAZE + '"/>' +
+          '<rect x="' + (XM - MR) + '" y="' + (objTop + 6) + '" width="' + MR * 2 + '" height="' + (RAIL + 40 - objTop) + '" fill="url(#mastG)"/>';
+  back += '<ellipse cx="' + XM + '" cy="' + (objTop + 6) + '" rx="' + (MR + 7) + '" ry="8" fill="' + HAZE + '" stroke="' + NAVY + '" stroke-width="3"/>' +
+          '<circle cx="' + XM + '" cy="' + (objTop + 22) + '" r="4" fill="' + NAVY + '"/>';
+
+  // ---------- code pennant at the masthead: "I use the International Code" ----------
+  {
+    const yc = objTop + 32, hp = 50, Lp = Math.min(LH + 4, 330), X0 = XM - MR;
+    const f = warp(X0, yc - hp / 2, hp, Lp, 6, 1.0, 0.86);
+    const shape = [[0, 0], [1, 0], [1, 1], [0, 1]];
+    defs += '<clipPath id="penC"><path d="' + pathUV(shape, f) + '"/></clipPath>';
+    let g = '<path d="' + pathUV(shape, f) + '" fill="' + RED + '"/>';
+    [[0.2, 0.4], [0.6, 0.8]].forEach(([a, b]) => { g += '<path d="' + pathUV(rect(a, -0.2, b, 1.2), f) + '" fill="' + CREAM + '"/>'; });
+    back += '<g clip-path="url(#penC)">' + g + '</g>' +
+            '<path d="' + pathUV(shape, f) + '" fill="none" stroke="' + NAVY + '" stroke-opacity=".6" stroke-width="2"/>';
+  }
+
+  // ---------- crosstree, block and the signal halyard ----------
+  const yCT = objTop + 74;
+  back += '<rect x="' + (XH - 10) + '" y="' + yCT + '" width="' + (XM - XH + 22) + '" height="9" rx="3" fill="' + NAVY + '"/>' +
+          '<rect x="' + (XH - 8) + '" y="' + (yCT + 12) + '" width="16" height="26" rx="6" fill="' + NAVY + '"/>' +
+          '<circle cx="' + XH + '" cy="' + (yCT + 25) + '" r="3.5" fill="' + CREAM + '"/>';
+  const yCleat = RAIL - 26;
+  const rope = (x1, y1, x2, y2) => '<path d="M' + fx(x1) + ' ' + fx(y1) + ' L' + fx(x2) + ' ' + fx(y2) + '" stroke="' + NAVY + '" stroke-width="4" stroke-linecap="round"/>';
+  back += rope(XH, yCT + 36, XH, lastBottom + 8) + rope(XH, lastBottom + 8, XM - MR - 2, yCleat);
+  back += '<rect x="' + (XM - MR - 12) + '" y="' + (yCleat - 4) + '" width="' + (MR * 2 + 24) + '" height="9" rx="4" fill="' + NAVY + '"/>';
+
+  // ---------- the hoist ----------
+  items.forEach((it, i) => {
+    const y0 = fTop + i * (h + GAP), isH = i === hi;
+    const LL = isH ? LH : L, A = h * (isH ? 0.08 : 0.065);
+    const f = warp(XH - 9, y0, h, LL, A, PH[i % PH.length]);
+    const ar = h / LL;
+    const outline = pathUV([[0, 0], [1, 0], [1, 1], [0, 1]], f);
+    defs += '<clipPath id="fc' + i + '"><path d="' + outline + '"/></clipPath>';
+    let st = "";
+    for (let u = 0; u <= 1.0001; u += 0.025) {
+      const s = Math.max(-1, Math.min(1, f.slope(u)));
+      st += s > 0 ? '<stop offset="' + u.toFixed(3) + '" stop-color="' + NAVY + '" stop-opacity="' + (0.3 * s).toFixed(3) + '"/>'
+                  : '<stop offset="' + u.toFixed(3) + '" stop-color="#FFFFFF" stop-opacity="' + (0.24 * -s).toFixed(3) + '"/>';
+    }
+    defs += '<linearGradient id="fs' + i + '" gradientUnits="userSpaceOnUse" x1="' + (XH - 9) + '" x2="' + (XH - 9 - LL) + '" y1="0" y2="0">' + st + '</linearGradient>';
+    const parts = FLAGS[i % FLAGS.length].parts(ar);
+    let g = "";
+    parts.forEach(([col, pts], j) => { g += '<path d="' + (j === 0 ? outline : pathUV(pts, f)) + '" fill="' + col + '"/>'; });
+    g += '<rect x="' + (XH - 9 - LL - 20) + '" y="' + (y0 - 40) + '" width="' + (LL + 30) + '" height="' + (h + 80) + '" fill="url(#fs' + i + ')"/>';
+    back += '<g clip-path="url(#fc' + i + ')">' + g + '</g>' +
+            '<path d="' + outline + '" fill="none" stroke="' + NAVY + '" stroke-opacity=".7" stroke-width="2.5" stroke-linejoin="round"/>';
+    back += '<rect x="' + (XH - 11) + '" y="' + y0 + '" width="7" height="' + h + '" fill="' + CREAM + '" stroke="' + NAVY + '" stroke-opacity=".6" stroke-width="1.5"/>';
+    [y0 + 4, y0 + h - 4].forEach(yy => { back += '<rect x="' + (XH - 6) + '" y="' + (yy - 5) + '" width="12" height="10" rx="4" fill="' + NAVY + '"/>'; });
+    if (isH) {
+      // the flag that just broke out: airflow streaming off its top edge + the parted stop (yarn) hanging from the hoist
+      const a0 = f(0.32, -0.16), a1 = f(1.0, -0.22), b0 = f(0.6, -0.36), b1 = f(1.05, -0.4);
+      back += '<g fill="none" stroke="' + NAVY + '" stroke-linecap="round" stroke-width="3" opacity=".5">' +
+        '<path d="M' + fx(a0[0]) + ' ' + fx(a0[1]) + ' Q ' + fx((a0[0] + a1[0]) / 2) + ' ' + fx(a0[1] - 10) + ' ' + fx(a1[0]) + ' ' + fx(a1[1]) + '"/>' +
+        '<path d="M' + fx(b0[0]) + ' ' + fx(b0[1]) + ' Q ' + fx((b0[0] + b1[0]) / 2) + ' ' + fx(b0[1] - 8) + ' ' + fx(b1[0]) + ' ' + fx(b1[1]) + '"/></g>';
+      const yy = y0 + h * 0.55;
+      back += '<path d="M' + (XH - 4) + ' ' + fx(yy) + ' c 10 14 -2 24 6 40" fill="none" stroke="' + NAVY + '" stroke-width="2.5" stroke-linecap="round"/>' +
+              '<path d="M' + (XH - 4) + ' ' + fx(yy + 4) + ' c 14 8 10 22 20 30" fill="none" stroke="' + NAVY + '" stroke-width="2.5" stroke-linecap="round"/>';
+    }
+  });
+
+  // ---------- code-book column: header + one row level with each flag ----------
+  const col = $("col");
+  let html = '<div class="chead" style="left:' + cIn + 'px;width:' + (cOut - cIn) + 'px;top:' + (objTop + 10) + 'px"><span>Isyarat · arti</span><span>' +
+             esc(FLAGS.slice(0, n).map(F => F.k).join("·")) + '</span></div>';
+  col.innerHTML = html;
+  const valFs0 = Math.round(Math.max(50, Math.min(74, h * 0.42, tfs - 14)));
+  const labFs0 = Math.round(Math.max(32, Math.min(42, h * 0.25)));
+  const chipS = Math.round(Math.max(40, Math.min(48, h * 0.27)));
+  const swW = Math.round(Math.max(46, Math.min(62, h * 0.3))), swH = Math.round(swW * 0.7);
+  function swatch(i, w, hh) {
+    const f = (u, v) => [1 + u * (w - 2), 1 + v * (hh - 2)];
+    const parts = FLAGS[i % FLAGS.length].parts((hh - 2) / (w - 2));
+    return '<svg class="sw" width="' + w + '" height="' + hh + '" viewBox="0 0 ' + w + ' ' + hh + '" aria-hidden="true">' +
+      '<clipPath id="sw' + i + '"><rect x="1" y="1" width="' + (w - 2) + '" height="' + (hh - 2) + '"/></clipPath><g clip-path="url(#sw' + i + ')">' +
+      parts.map(([c, pts]) => '<path d="' + pathUV(pts, f) + '" fill="' + c + '"/>').join("") + '</g>' +
+      '<rect x="1" y="1" width="' + (w - 2) + '" height="' + (hh - 2) + '" fill="none" stroke="' + NAVY + '" stroke-width="2"/></svg>';
+  }
+  const rows = [];
+  items.forEach((it, i) => {
+    const y0 = fTop + i * (h + GAP);
+    if (i === hi) {
+      const band = document.createElement("div");
+      band.className = "band";
+      band.style.left = (CL + 14) + "px"; band.style.width = (PR - 14 - CL - 14) + "px";
+      band.style.top = (y0 - 7) + "px"; band.style.height = (h + 14) + "px";
+      col.appendChild(band);
+    }
+    const row = document.createElement("div");
+    row.className = "row";
+    row.style.left = cIn + "px"; row.style.width = (cOut - cIn) + "px";
+    row.innerHTML = '<div class="r1"><span class="chip" style="width:' + chipS + 'px;height:' + chipS + 'px">' + FLAGS[i % FLAGS.length].k + '</span>' +
+                    '<span class="lab">' + esc(it.label) + '</span></div><div class="r2"><span class="val">' + esc(it.value) + '</span>' + swatch(i, swW, swH) + '</div>';
+    col.appendChild(row);
+    rows.push({ row, y0, lab: row.querySelector(".lab"), val: row.querySelector(".val") });
+  });
+  // labels: shrink to 30 px, then wrap to two lines instead of running off the page
+  rows.forEach(r => {
+    let lf = labFs0; r.lab.style.fontSize = lf + "px";
+    while (r.lab.scrollWidth > r.lab.clientWidth + 1 && lf > 30) { lf -= 1; r.lab.style.fontSize = lf + "px"; }
+    if (r.lab.scrollWidth > r.lab.clientWidth + 1) r.lab.classList.add("wrap");
+  });
+  // values: one shared size (the smallest fit across rows) so the book's rows stay even
+  const valW = cOut - cIn - swW - 12;
+  let vf = valFs0;
+  rows.forEach(r => {
+    let v = valFs0; r.val.style.fontSize = v + "px";
+    while (r.val.scrollWidth > valW && v > 40) { v -= 1; r.val.style.fontSize = v + "px"; }
+    vf = Math.min(vf, v);
+  });
+  const gapR = 0;
+  for (;; vf -= 2) {
+    rows.forEach(r => { r.val.style.fontSize = vf + "px"; r.row.querySelector(".r2").style.marginTop = gapR + "px"; });
+    const tallest = Math.max(...rows.map(r => r.row.offsetHeight));
+    if (tallest <= h + GAP - 6 || vf <= 40) break;
+  }
+  rows.forEach(r => { r.row.style.top = Math.round(r.y0 + h / 2 - r.row.offsetHeight / 2) + "px"; });
+
+  // clamps holding the column to the mast (in front of page + mast)
+  [objTop + 96, RAIL - 50].forEach(yy => {
+    front += '<rect x="' + (XM - MR - 3) + '" y="' + (yy - 7) + '" width="' + (MR * 2 + 6) + '" height="14" rx="3" fill="' + NAVY + '"/>' +
+             '<rect x="' + (XM + MR) + '" y="' + (yy - 5) + '" width="' + (CL - XM - MR + 16) + '" height="10" fill="' + NAVY + '"/>' +
+             '<rect x="' + (CL - 4) + '" y="' + (yy - 14) + '" width="22" height="28" rx="4" fill="' + NAVY + '"/>' +
+             '<circle cx="' + (CL + 7) + '" cy="' + yy + '" r="4" fill="' + CREAM + '"/>';
+  });
+
+  // ---------- the ship: rail, haze-grey bulwark, rubbing strake, water (under the platform UI) ----------
+  let hull = '<rect x="0" y="' + (RAIL + 8) + '" width="1080" height="' + (1800 - RAIL) + '" fill="' + HAZE + '"/>' +
+             '<rect x="0" y="' + (RAIL + 8) + '" width="1080" height="14" fill="' + NAVY + '" opacity=".16"/>' +
+             '<rect x="0" y="' + (RAIL - 8) + '" width="1080" height="16" rx="3" fill="' + NAVY + '"/>' +
+             '<rect x="0" y="' + (RAIL - 6) + '" width="1080" height="3" fill="#FFFFFF" opacity=".22"/>';
+  hull += '<g stroke="' + NAVY + '" stroke-opacity=".16" stroke-width="3" fill="none">' +
+          '<path d="M0 1664 H1080"/><path d="M40 1664 V1790 M330 1664 V1790 M600 1664 V1790 M870 1664 V1790 M1010 ' + (RAIL + 22) + ' V1664"/></g>';
+  let riv = "";
+  for (let x = 22; x < 1080; x += 34) riv += '<circle cx="' + x + '" cy="1676" r="3"/>';
+  hull += '<g fill="' + NAVY + '" fill-opacity=".2">' + riv + '</g>';
+  hull += '<rect x="0" y="1800" width="1080" height="22" fill="' + NAVY + '"/>' +
+          '<rect x="0" y="1822" width="1080" height="98" fill="#66737E"/>' +
+          '<g fill="#FFFFFF" opacity=".22"><rect x="36" y="1846" width="190" height="3" rx="1.5"/><rect x="300" y="1868" width="120" height="3" rx="1.5"/>' +
+          '<rect x="520" y="1842" width="240" height="3" rx="1.5"/><rect x="820" y="1874" width="160" height="3" rx="1.5"/><rect x="140" y="1892" width="90" height="3" rx="1.5"/></g>';
+
+  $("scene").innerHTML = "<defs>" + defs + "</defs>" + back;
+
+  // ---------- caption: a signal-log entry (karaoke line) ----------
+  const LOGTOP = RAIL + 26;
+  const logEl = $("log"), capEl = $("cap"), stampEl = logEl.querySelector(".stamp");
+  logEl.style.top = LOGTOP + "px";
+  const words = capText.split(/\s+/).filter(Boolean);
+  let onStart = 0, onEnd = 0;
+  if (hl) {
+    const low = capText.toLowerCase(), hpos = low.indexOf(hl.toLowerCase());
+    if (hpos >= 0) {
+      let pos = 0, s = -1, e = -1;
+      words.forEach((w, i) => { const ws = capText.indexOf(w, pos), we = ws + w.length; pos = we; if (we > hpos && ws < hpos + hl.length) { if (s < 0) s = i; e = i; } });
+      if (s >= 0) { onStart = s; onEnd = e; }
+    }
+  }
+  const indent = stampEl.offsetWidth + 12;
+  capEl.style.textIndent = indent + "px";
+  const buildCap = keep => {
+    const ws = words.slice(0, keep), cut = keep < words.length;
+    const s0 = onEnd < keep ? onStart : 0, e0 = onEnd < keep ? onEnd : 0;
+    capEl.innerHTML = ws.map((w, i) => {
+      if (i === s0) return '<span class="w on">' + esc(ws.slice(s0, e0 + 1).join(" ")) + "</span>";
+      if (i > s0 && i <= e0) return "";
+      return '<span class="w">' + esc(w) + (cut && i === keep - 1 ? "…" : "") + "</span>";
+    }).filter(Boolean).join(" ");
+  };
+  let cfs = 46;
+  for (; cfs >= 40; cfs -= 2) { capEl.style.fontSize = cfs + "px"; buildCap(words.length); if (capEl.offsetHeight <= cfs * 1.24 * 2 + 4) break; }
+  if (cfs < 40) {
+    cfs = 40; capEl.style.fontSize = "40px";
+    // long entry: set it a touch tighter before giving up any words
+    capEl.style.letterSpacing = "-.012em"; capEl.style.wordSpacing = "-.06em"; buildCap(words.length);
+    if (capEl.offsetHeight > 40 * 1.24 * 2 + 4) {
+      // still too long: the time stamp moves up onto the slip's top edge as a tab, freeing the first line
+      stampEl.classList.add("tab"); capEl.style.textIndent = "0"; buildCap(words.length);
+      if (capEl.offsetHeight > 40 * 1.24 * 2 + 4)
+        for (let keep = words.length - 1; keep >= 3; keep--) { buildCap(keep); if (capEl.offsetHeight <= 40 * 1.24 * 2 + 4) break; }
+    }
+  }
+  // stamp sits on the first line, vertically centred on it
+  if (!stampEl.classList.contains("tab")) stampEl.style.top = Math.round(12 + (cfs * 1.24 - stampEl.offsetHeight) / 2 + 2) + "px";
+  const logBottom = LOGTOP + logEl.offsetHeight;
+  // slip clips (bulldog clips holding the log slip to the bulwark), in front of the slip
+  let clips = "";
+  [330, 834].forEach(x => {
+    clips += '<rect x="' + (x - 26) + '" y="' + (LOGTOP - 12) + '" width="52" height="22" rx="4" fill="' + NAVY + '"/>' +
+            '<rect x="' + (x - 18) + '" y="' + (LOGTOP - 20) + '" width="36" height="10" rx="5" fill="none" stroke="' + NAVY + '" stroke-width="4"/>';
+  });
+  $("front").innerHTML = front + hull;
+  $("clips").innerHTML = clips;
+
+  // ---------- source (stencilled on the bulwark under the slip) ----------
+  const srcEl = $("src");
+  srcEl.textContent = D.source ? "Sumber · " + D.source : "";
+  srcEl.style.top = Math.min(1584, logBottom + 12) + "px";
+  }
+</script>
+</body>
+</html>

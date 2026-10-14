@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Bullet Rig</title>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Stencil+Display:wght@800&family=Mohave:wght@500;700&family=Sometype+Mono:wght@500;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Bullet Rig (bullet-rig): a bullet-time stage. A white infinity cove, a semicircle
+    of 24 identical graphite still cameras on tripods around a frozen coffee crown-splash
+    on a black plinth, seen from high behind the rig. A clapperboard slate stands at the
+    back of the cove: the title is chalked on it, the slate fields carry series / ep / date.
+    The empty back half of the orbit holds red dashed "ghost" cameras: viewpoints nobody
+    shot, which the AI renders from the 24 photos ("SUDUT BARU").
+    Metaphor: photo-to-3D (NeRF / Gaussian splatting) — many photos around one object are
+    fused into a 3D scene you can view from new angles.
+    Items = picked cameras (red tally lamp on) with white gaffer-tape number labels.
+    Geometry is a real perspective projection of hard-coded 3D points (no randomness).
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; }
+  body {
+    position: relative; color: #161618; font-family: "Mohave", sans-serif;
+    background-color: #D9D6CF;
+    background-image:
+      radial-gradient(ellipse 820px 1020px at 540px 1000px, #F1EFEA 0%, #ECEAE4 38%, #DEDBD4 70%, #CFCBC2 100%);
+  }
+
+  /* ---------- clapperboard slate (title + meta) ---------- */
+  .slate { position: absolute; left: 90px; top: 300px; width: 900px; background: #161618; color: #F2F0EA;
+    border-radius: 3px 3px 10px 10px; box-shadow: 0 34px 38px -22px rgba(52, 46, 38, 0.55), 0 2px 0 #000; }
+  .sticks { position: absolute; left: 90px; top: 0; width: 900px; height: 300px; overflow: visible; }
+  .row { display: flex; border-bottom: 3px solid rgba(242, 240, 234, 0.72); }
+  .row.bot { border-bottom: 0; border-top: 3px solid rgba(242, 240, 234, 0.72); }
+  .f { display: flex; align-items: baseline; gap: 12px; padding: 10px 20px 9px; white-space: nowrap; min-width: 0; }
+  .f + .f { border-left: 3px solid rgba(242, 240, 234, 0.72); }
+  .f.grow { flex: 1; overflow: hidden; }
+  .f i { font: 500 26px "Sometype Mono", monospace; font-style: normal; letter-spacing: 0.06em; color: #A9A69F; }
+  .f b { font: 700 28px "Sometype Mono", monospace; letter-spacing: 0.04em; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; }
+  .title { padding: 18px 30px 14px; font-family: "Big Shoulders Stencil Display", "Mohave", sans-serif; font-weight: 800;
+    text-transform: uppercase; line-height: 0.9; letter-spacing: 0.012em; color: #F2F0EA; }
+  .title .hl { color: #F04A3E; }
+
+  #scene { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* ---------- camera tags: black card + white gaffer-tape number ---------- */
+  .tag { position: absolute; display: flex; align-items: stretch; background: #161618; color: #F2F0EA;
+    box-shadow: 0 14px 22px rgba(52, 46, 38, 0.3); white-space: nowrap; }
+  .tag .id { background: #F4F2EC; color: #161618; min-width: 84px; margin: 0 0 0 10px; padding: 12px 12px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    clip-path: polygon(0 3px, 12% 0, 26% 4px, 40% 1px, 55% 5px, 70% 0, 86% 4px, 100% 1px, 100% calc(100% - 4px), 84% 100%, 68% calc(100% - 5px), 52% calc(100% - 1px), 36% calc(100% - 4px), 20% 100%, 8% calc(100% - 5px), 0 calc(100% - 2px)); }
+  .tag .id small { font: 500 30px "Sometype Mono", monospace; letter-spacing: 0.04em; line-height: 1; }
+  .tag .id b { font: 700 54px "Mohave", sans-serif; line-height: 0.9; margin-top: 4px; }
+  .tag .tx { padding: 10px 20px 10px 16px; display: flex; flex-direction: column; justify-content: center; }
+  .tag .lb { font: 500 34px "Mohave", sans-serif; line-height: 1.04; color: #D3D0C9; text-wrap: balance; }
+  .tag.wrap { white-space: normal; }
+  .tag.wrap .tx { flex: 1; min-width: 0; }
+  .tag .vl { white-space: nowrap; font: 700 52px "Mohave", sans-serif; line-height: 0.98; letter-spacing: 0.005em; }
+
+  .slug { position: absolute; background: #D42A20; color: #FFFFFF; font: 700 34px "Mohave", sans-serif; letter-spacing: 0.05em;
+    padding: 5px 14px 4px; white-space: nowrap; line-height: 1.1; box-shadow: 0 8px 14px rgba(52, 46, 38, 0.22); }
+
+  .src { position: absolute; left: 90px; max-width: 810px; font: 500 26px "Sometype Mono", monospace; line-height: 1.25; letter-spacing: 0.01em; color: #2A292D; }
+  .src b { font-weight: 700; letter-spacing: 0.08em; }
+
+  /* ---------- caption: camera-monitor burn-in ---------- */
+  .mon { position: absolute; left: 90px; width: 900px; background: #121214; color: #F2F0EA; padding: 12px 22px 16px; }
+  .tc { display: flex; justify-content: space-between; gap: 20px; font: 500 26px "Sometype Mono", monospace; letter-spacing: 0.06em; color: #ABA9A3;
+    line-height: 1.2; white-space: nowrap; padding-bottom: 8px; margin-bottom: 8px; border-bottom: 2px solid #2E2E33; }
+  .tc .rec { display: inline-block; width: 16px; height: 16px; border-radius: 50%; background: #E5332A; margin-right: 12px; vertical-align: 1px; }
+  .cap { font: 500 40px "Sometype Mono", monospace; line-height: 1.32; letter-spacing: -0.01em; }
+  .cap .w { position: relative; }
+  .cap .w.on { font-weight: 700; color: #FFFFFF; }
+  .cap .w.on::after { content: ""; position: absolute; left: -2px; right: -2px; bottom: -5px; height: 6px; background: #E5332A; }
+</style>
+</head>
+<body>
+<svg class="sticks" id="sticks" viewBox="0 0 900 300" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+<div class="slate" id="slate">
+  <div class="row"><div class="f grow"><i>PROD.</i><b id="prod"></b></div><div class="f"><i>SCENE</i><b id="scn"></b></div><div class="f"><i>TAKE</i><b>1</b></div></div>
+  <div class="title" id="title"></div>
+  <div class="row bot"><div class="f grow"><i>DATE</i><b id="date"></b></div><div class="f"><i>CAM</i><b>01–24</b></div></div>
+</div>
+<svg id="scene" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+<div id="tags"></div>
+<div class="slug" id="slug">SUDUT BARU</div>
+<div class="src" id="src"></div>
+<div class="mon" id="mon">
+  <div class="tc"><span><i class="rec"></i>FRM 01/24</span><span>TC 00:00:00:01</span></div>
+  <div class="cap" id="cap" data-slot="caption"></div>
+</div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Tools AI", ep: "#07", kicker: "Tools AI · #07",
+    title: "24 foto jadi satu dunia 3D", hl: "dunia 3D",
+    sub: "AI menebak sudut yang nggak pernah difoto.",
+    caption: "AI menebak sudut yang nggak pernah difoto.",
+    items: [{ label: "Foto masuk", value: "24 sudut" }, { label: "Sudut baru", value: "tak hingga" }, { label: "Waktu latih", value: "± 30 menit" }],
+    source: "ilustrasi — angka beda tiap alat", date: "per 14 Okt 2026" };
+
+  const fontsIn = Promise.all(['800 100px "Big Shoulders Stencil Display"', '700 50px Mohave', '500 34px Mohave', '500 26px "Sometype Mono"', '500 40px "Sometype Mono"', '700 30px "Sometype Mono"']
+    .map(f => document.fonts.load(f))).then(() => document.fonts.ready).catch(() => {});
+  fontsIn.then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+  const INK = "#161618", CHALK = "#F2F0EA", RED = "#E5332A";
+
+  // ---------- slate: fields + title ----------
+  const ep = String(D.ep || "").trim();
+  $("prod").textContent = D.series || D.kicker || "";
+  $("scn").textContent = ep || "—";
+  $("date").textContent = D.date || "";
+  const t = D.title || "", hl = D.hl || "";
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  for (let fs = 150; fs >= 80; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (titleEl.offsetHeight - 32 <= 236) break; }
+  const slateEl = $("slate");
+  const slateBottom = 300 + slateEl.offsetHeight;
+
+  // clapper sticks: lower stick on the slate, upper stick hinged open at the left
+  {
+    const stripes = (w, h) => { let s = ""; for (let x = -h; x < w + h; x += 64) s += '<polygon points="' + x + ',' + h + ' ' + (x + 32) + ',' + h + ' ' + (x + 32 + h * 0.75) + ',0 ' + (x + h * 0.75) + ',0" fill="' + CHALK + '"/>'; return s; };
+    const st = (y, h) => '<g transform="translate(0,' + y + ')"><rect width="900" height="' + h + '" rx="3" fill="' + INK + '"/><svg width="900" height="' + h + '" viewBox="0 0 900 ' + h + '">' + stripes(900, h) + '</svg><rect width="900" height="' + h + '" rx="3" fill="none" stroke="' + INK + '" stroke-width="4"/></g>';
+    $("sticks").innerHTML =
+      '<g transform="rotate(-7 6 252)">' + st(206, 42) + '</g>' +
+      st(254, 42) +
+      '<circle cx="24" cy="252" r="13" fill="#5A5A60" stroke="' + INK + '" stroke-width="4"/><circle cx="24" cy="252" r="4" fill="' + CHALK + '"/>';
+  }
+
+  // ---------- caption: monitor burn-in with a karaoke line ----------
+  const monEl = $("mon"), capEl = $("cap");
+  const capText = String(D.caption || D.sub || "").trim();
+  const words = capText.split(/\s+/).filter(Boolean);
+  let active = 0;
+  if (hl) {
+    const pos = capText.toLowerCase().indexOf(hl.toLowerCase());
+    if (pos >= 0) { let acc = 0; for (let i = 0; i < words.length; i++) { const s = capText.indexOf(words[i], acc); if (s + words[i].length > pos) { active = i; break; } acc = s + words[i].length; } }
+  }
+  // one karaoke window: at most 2 lines, always containing the active word
+  const setCap = (s, e) => { capEl.innerHTML = (s > 0 ? "… " : "") + words.slice(s, e).map((w, j) => '<span class="w' + (s + j === active ? " on" : "") + '">' + esc(w) + "</span>").join(" ") + (e < words.length ? " …" : ""); };
+  const twoLines = fs => capEl.offsetHeight <= 2 * fs * 1.32 + 4;
+  setCap(0, words.length);
+  let capFs = 44;
+  for (const wpx of [900, 810]) {
+    monEl.style.width = wpx + "px";
+    for (capFs = 44; capFs >= 40; capFs -= 1) { capEl.style.fontSize = capFs + "px"; if (twoLines(capFs)) break; }
+    capFs = Math.max(capFs, 40);
+    if (1616 - monEl.offsetHeight >= 1500) break;
+  }
+  if (!twoLines(capFs)) {
+    let s0 = 0, e0 = words.length;
+    while (e0 - s0 > 1 && !twoLines(capFs)) { if (active - s0 > e0 - 1 - active) s0++; else e0--; setCap(s0, e0); }
+  }
+  const monTop = 1616 - monEl.offsetHeight;
+  monEl.style.top = monTop + "px";
+
+  // ---------- source ----------
+  const srcEl = $("src");
+  srcEl.innerHTML = D.source ? "<b>SUMBER</b> · " + esc(D.source) : "";
+  const srcTop = monTop - 14 - srcEl.offsetHeight;
+  srcEl.style.top = srcTop + "px";
+  const objTop = slateBottom + 26, objBottom = srcTop - 18;
+
+  // ---------- items → tags ----------
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+  const PICK = { 1: [11], 2: [0, 23], 3: [0, 11, 23], 4: [0, 8, 15, 23], 5: [0, 5, 11, 18, 23] }[n] || [];
+  const tagsEl = $("tags");
+  const tags = items.map((it, i) => {
+    const k = PICK[i];
+    const el = document.createElement("div");
+    el.className = "tag";
+    el.innerHTML = '<div class="id"><small>CAM</small><b>' + String(k + 1).padStart(2, "0") + '</b></div><div class="tx"><div class="lb">' + esc(it.label) + '</div><div class="vl">' + esc(it.value) + "</div></div>";
+    tagsEl.appendChild(el);
+    return { el, k, w: el.offsetWidth, h: el.offsetHeight, nw: el.offsetWidth };
+  });
+  const slugEl = $("slug"), slugW = slugEl.offsetWidth, slugH = slugEl.offsetHeight;
+
+  // ---------- 3D rig ----------
+  const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+  const mul = (a, s) => [a[0] * s, a[1] * s, a[2] * s], dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const nrm = a => { const l = Math.hypot(a[0], a[1], a[2]); return [a[0] / l, a[1] / l, a[2] / l]; };
+  const UP = [0, 1, 0], EYE = [0, 6.4, -9.6], TGT = [0, 0.9, 0.4], FOC = 1450;
+  const fw = nrm(sub(TGT, EYE)), rt = nrm(cross(UP, fw)), vu = cross(fw, rt);
+  let S = 1, CX = 540, CY = 0;
+  const P = p => { const d = sub(p, EYE), Z = dot(d, fw); return [CX + S * FOC * dot(d, rt) / Z, CY - S * FOC * dot(d, vu) / Z, Z]; };
+  const PXM = p => S * FOC / dot(sub(p, EYE), fw);
+
+  const R = 3.0, CH = 1.4, HS = [0.17, 0.12, 0.1], GS = 1.6;
+  const cams = [];
+  for (let k = 0; k < 24; k++) {
+    const th = Math.PI + k * Math.PI / 23, pos = [R * Math.cos(th), 0, R * Math.sin(th)];
+    const fc = nrm([-pos[0], 0, -pos[2]]);
+    cams.push({ k, th, pos, fc, rc: [fc[2], 0, -fc[0]], item: PICK.indexOf(k) });
+  }
+  // ghost cameras: novel viewpoints on the visible back arc, beside the splash (not behind it)
+  const GDEG = [14, 34, 54, 126, 146, 166], GCONE = 4;   // index of the ghost that shows its view cone
+  const ghosts = GDEG.map(d => {
+    const th = d * Math.PI / 180, pos = [R * Math.cos(th), 0, R * Math.sin(th)];
+    const fc = nrm([-pos[0], 0, -pos[2]]);
+    return { th, pos, fc, rc: [fc[2], 0, -fc[0]] };
+  });
+  const PH = 0.95;   // plinth height (the cup sits on top)
+
+  // projected bounding box of a ghost camera (body + lens)
+  function ghostBox(g) {
+    const C = add(g.pos, [0, CH, 0]), hs = HS.map(v => v * GS), ps = [];
+    for (const a of [-1, 1]) for (const b of [-1, 1]) for (const c of [-1, 1.9]) ps.push(P(add(C, add(mul(g.rc, a * hs[0]), add(mul(UP, b * hs[1]), mul(g.fc, c * hs[2]))))));
+    const xs = ps.map(q => q[0]), ys = ps.map(q => q[1]);
+    return [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)];
+  }
+  function sizeTag(tg, maxW) {
+    const wrap = tg.nw > maxW, vl = tg.el.querySelector(".vl");
+    tg.el.classList.toggle("wrap", wrap);
+    tg.el.style.width = wrap ? Math.round(maxW) + "px" : "";
+    vl.style.fontSize = "";
+    for (let fs = 50; wrap && fs >= 42 && vl.scrollWidth > vl.clientWidth + 1; fs -= 2) vl.style.fontSize = fs + "px";
+    if (wrap && tg.el.scrollWidth > tg.el.clientWidth + 1) tg.el.style.width = (tg.el.scrollWidth + 20) + "px";
+    tg.w = tg.el.offsetWidth; tg.h = tg.el.offsetHeight;
+  }
+  // tag placement for the current S / CY: every tag hangs below its camera
+  function placeTags() {
+    const rects = tags.map(tg => {
+      const cam = cams[tg.k], side = Math.abs(Math.cos(cam.th)) > 0.9;
+      if (side) {
+        // side cameras: the tag sits in the band under the slate, a short leader drops to the tally lamp;
+        // it always stays above every ghost camera it overlaps, so no novel view is hidden
+        const lp = P(add(cam.pos, [0, CH + HS[1] + 0.22, 0])), left = Math.cos(cam.th) < 0;
+        sizeTag(tg, 340);
+        const x = left ? 90 : 990 - tg.w;
+        let yb = lp[1] - 64;
+        ghosts.forEach(g => { const b = ghostBox(g); if (b[0] < x + tg.w + 8 && b[2] > x - 8) yb = Math.min(yb, b[1] - 14); });
+        return { tg, x, y: yb - tg.h, w: tg.w, h: tg.h, ax: lp[0], ay: lp[1], up: true };
+      }
+      const hd = P(add(cam.pos, [0, 0.9, 0]));
+      sizeTag(tg, 9999);
+      return { tg, x: hd[0] - tg.w / 2, y: hd[1] + 44, w: tg.w, h: tg.h, ax: hd[0], ay: hd[1], up: false };
+    });
+    const clampX = r => { const maxR = (r.y < 1500 && r.y + r.h > 900) ? 895 : 990; r.x = Math.min(Math.max(90, r.x), maxR - r.w); };
+    rects.forEach(clampX);
+    for (let pass = 0; pass < 6; pass++) {
+      for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) {
+        const a = rects[i], b = rects[j];
+        if (a.x < b.x + b.w + 14 && b.x < a.x + a.w + 14 && a.y < b.y + b.h + 14 && b.y < a.y + a.h + 14) {
+          const [u, l] = a.ay <= b.ay ? [a, b] : [b, a]; l.y = u.y + u.h + 16; clampX(a); clampX(b);
+        }
+      }
+    }
+    return rects;
+  }
+  // the slug hangs right under its ghost camera, like the tags under the real ones
+  function slugPos() {
+    const g = ghosts[GCONE], gb = P(add(g.pos, [0, CH - HS[1] * GS, 0])), side = P(add(cams[Math.cos(g.th) < 0 ? 0 : 23].pos, [0, CH, 0]));
+    // keep it beside the splash, never on it
+    const crownL = P([-1.08, RIM + 0.3, -0.3])[0], crownR = P([1.08, RIM + 0.3, -0.3])[0];
+    const x = Math.cos(g.th) < 0 ? Math.min(Math.max(gb[0] - slugW * 0.35, side[0] + 40), crownL - 10 - slugW) : Math.max(Math.min(gb[0] - slugW * 0.65, side[0] - 40 - slugW), crownR + 10);
+    return { x, y: gb[1] + 30, gx: Math.min(Math.max(gb[0], x + 14), x + slugW - 14), gy: gb[1] };
+  }
+  function extents() {
+    const ys = [P([0, PH + 0.42 + 1.55, 0])[1], P([0.42, 3.22, 0.1])[1] - 4, P([-0.5, 3.12, -0.25])[1] - 4];
+    ghosts.forEach(g => ys.push(P(add(g.pos, [0, CH + HS[1] * GS + 0.1, 0]))[1]));
+    cams.forEach(c => ys.push(P(c.pos)[1] + 10));
+    let top = Math.min(...ys), bot = Math.max(...ys);
+    placeTags().forEach(r => { top = Math.min(top, r.y); bot = Math.max(bot, r.y + r.h); });
+    return [top, bot];
+  }
+  const avail = objBottom - objTop;
+  let fit = null;
+  // horizontal: keep the horseshoe ≤ 860 px wide so its right end stays out of the action-button column
+  const rigW = () => { const xs = cams.map(c => P(add(c.pos, [0, CH, 0]))[0]); return Math.max(...xs) - Math.min(...xs) + 2 * 0.2 * PXM(add(cams[0].pos, [0, CH, 0])); };
+  CX = 528;
+  for (S = 1.06; S >= 0.7; S -= 0.01) { CY = 0; if (rigW() > 860) continue; const [a, b] = extents(); if (b - a <= avail) { fit = [a, b]; break; } }
+  if (!fit) { S = 0.7; CY = 0; fit = extents(); }
+  CY = objTop - fit[0] + Math.max(0, (avail - (fit[1] - fit[0])) * 0.45);
+
+  // ---------- SVG building ----------
+  const out = [];
+  const pts = arr => arr.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ");
+  const poly = (arr, attrs) => out.push('<polygon points="' + pts(arr) + '" ' + attrs + "/>");
+  const line = (a, b, attrs) => out.push('<line x1="' + a[0].toFixed(1) + '" y1="' + a[1].toFixed(1) + '" x2="' + b[0].toFixed(1) + '" y2="' + b[1].toFixed(1) + '" ' + attrs + "/>");
+  const pline = (arr, attrs) => out.push('<polyline fill="none" points="' + pts(arr) + '" ' + attrs + "/>");
+  const hull = ps => {
+    const p = ps.map(q => [q[0], q[1]]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+    const lo = [], hi = [];
+    for (const q of p) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+    for (let i = p.length - 1; i >= 0; i--) { const q = p[i]; while (hi.length >= 2 && cr(hi[hi.length - 2], hi[hi.length - 1], q) <= 0) hi.pop(); hi.push(q); }
+    return lo.slice(0, -1).concat(hi.slice(0, -1));
+  };
+  const ring = (c, a1, a2, r, m = 28) => { const o = []; for (let i = 0; i < m; i++) { const t = i / m * Math.PI * 2; o.push(add(c, add(mul(a1, r * Math.cos(t)), mul(a2, r * Math.sin(t))))); } return o; };
+  const LIGHT = nrm([-0.55, 0.8, -0.35]);
+  const shade = n => { const b = Math.max(0, dot(n, LIGHT)); const c = (lo, hi) => Math.round(lo + (hi - lo) * b); return "rgb(" + c(30, 112) + "," + c(30, 112) + "," + c(33, 118) + ")"; };
+  function boxFaces(c, ax, hs) {
+    const f = [];
+    for (let i = 0; i < 3; i++) for (const s of [1, -1]) {
+      const j = (i + 1) % 3, k = (i + 2) % 3, n = mul(ax[i], s), cen = add(c, mul(ax[i], s * hs[i]));
+      const cor = (a, b) => add(cen, add(mul(ax[j], a * hs[j]), mul(ax[k], b * hs[k])));
+      f.push({ n, cen, i, s, pts: [cor(-1, -1), cor(1, -1), cor(1, 1), cor(-1, 1)] });
+    }
+    return f.filter(q => dot(q.n, sub(EYE, q.cen)) > 0);
+  }
+
+  out.push('<defs>' +
+    '<linearGradient id="plg" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#4C4C52"/><stop offset="0.5" stop-color="#2A2A2E"/><stop offset="1" stop-color="#141416"/></linearGradient>' +
+    '<radialGradient id="flr" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#8E877B" stop-opacity="0.22"/><stop offset="1" stop-color="#8E877B" stop-opacity="0"/></radialGradient>' +
+    '<linearGradient id="cupg" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#FFFFFF"/><stop offset="0.5" stop-color="#ECE9E3"/><stop offset="1" stop-color="#B8B3AA"/></linearGradient>' +
+    '<linearGradient id="cof" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#C08655"/><stop offset="0.4" stop-color="#8A5733"/><stop offset="1" stop-color="#3A2416"/></linearGradient>' +
+    '<linearGradient id="cin" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#6A4329"/><stop offset="1" stop-color="#21150D"/></linearGradient>' +
+    '<linearGradient id="riser" x1="0" x2="1"><stop offset="0" stop-color="#55555B"/><stop offset="1" stop-color="#1D1D20"/></linearGradient></defs>');
+
+  // slate stand: a C-stand riser from the slate down to a turtle base on the back floor (behind the splash)
+  {
+    const base = P([0, 0, R + 1.5]), by = Math.max(base[1], slateBottom + 70), m = PXM([0, 0, R + 1.5]);
+    out.push('<ellipse cx="540" cy="' + (by + 4).toFixed(1) + '" rx="' + (0.9 * m).toFixed(1) + '" ry="' + (0.22 * m).toFixed(1) + '" fill="#8E877B" fill-opacity="0.35"/>');
+    out.push('<rect x="531" y="' + (slateBottom - 2) + '" width="18" height="' + (by - slateBottom - 6).toFixed(1) + '" fill="url(#riser)"/>');
+    [-1, 1].forEach(s => line([540, by - 0.18 * m], [540 + s * 0.75 * m, by + 0.04 * m], 'stroke="' + INK + '" stroke-width="7" stroke-linecap="round"'));
+    line([540, by - 0.18 * m], [540, by + 0.12 * m], 'stroke="' + INK + '" stroke-width="7" stroke-linecap="round"');
+  }
+
+  // floor: soft rig shadow, dashed back track (the unshot half), thin sync cable on the shot half
+  const fc0 = P([0, 0, 0]), fr = P([R + 0.9, 0, 0]), ff = P([0, 0, -R - 0.9]), fb = P([0, 0, R + 0.9]);
+  out.push('<ellipse cx="' + fc0[0].toFixed(1) + '" cy="' + ((ff[1] + fb[1]) / 2).toFixed(1) + '" rx="' + (fr[0] - fc0[0]).toFixed(1) + '" ry="' + ((ff[1] - fb[1]) / 2).toFixed(1) + '" fill="url(#flr)"/>');
+  const orbit = (a0, a1, r, y = 0) => { const o = []; for (let i = 0; i <= 60; i++) { const t = a0 + (a1 - a0) * i / 60; o.push(P([r * Math.cos(t), y, r * Math.sin(t)])); } return o; };
+  pline(orbit(0, Math.PI, R), 'stroke="' + RED + '" stroke-opacity="0.55" stroke-width="2.5" stroke-dasharray="10 12"');
+  const cable = orbit(Math.PI, 2 * Math.PI, R + 0.3);
+  pline(cable, 'stroke="#2C2C30" stroke-width="' + (2.6 * S).toFixed(1) + '" stroke-linejoin="round" stroke-linecap="round"');
+  cams.forEach(c => { const a = P(mul(c.pos, (R + 0.3) / R)), b = P(add(c.pos, mul(c.fc, -0.05))); line(a, b, 'stroke="#2C2C30" stroke-width="' + (1.8 * S).toFixed(1) + '"'); });
+  // contact shadows of the tripods + the plinth
+  cams.forEach(c => { const p = P(c.pos), m = PXM(c.pos); out.push('<ellipse cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" rx="' + (0.4 * m).toFixed(1) + '" ry="' + (0.2 * m).toFixed(1) + '" fill="#7D766A" fill-opacity="0.13"/>'); });
+  { const p = P([0, 0, 0.15]), m = PXM([0, 0, 0]); out.push('<ellipse cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" rx="' + (1.25 * m).toFixed(1) + '" ry="' + (0.52 * m).toFixed(1) + '" fill="#7D766A" fill-opacity="0.26"/>'); }
+
+  function camGeo(c, sc = 1) {
+    const C = add(c.pos, [0, CH, 0]), ax = [c.rc, UP, c.fc];
+    const lens0 = add(C, mul(c.fc, HS[2] * sc)), lens1 = add(C, mul(c.fc, (HS[2] + 0.17) * sc));
+    return { C, ax, lens0, lens1 };
+  }
+  const SC = P([0, PH + 0.42 + 0.35, 0]);
+  const cone = (L, hwU, attrs, edge) => {
+    const dx = SC[0] - L[0], dy = SC[1] - L[1], dl = Math.hypot(dx, dy), px = -dy / dl, py = dx / dl, hw = hwU * PXM([0, PH + 0.4, 0]);
+    const p1 = [SC[0] + px * hw, SC[1] + py * hw], p2 = [SC[0] - px * hw, SC[1] - py * hw];
+    poly([L, p1, p2], attrs); line(L, p1, edge); line(L, p2, edge);
+  };
+
+  // ghost cameras (novel viewpoints): red, dashed, floating, no stands; one shows its view cone
+  ghosts.forEach((g, i) => {
+    const { C, ax, lens1 } = camGeo(g, GS);
+    if (i === GCONE) cone(P(lens1), 0.9, 'fill="' + RED + '" fill-opacity="0.13"', 'stroke="' + RED + '" stroke-width="3" stroke-dasharray="10 7"');
+    const st = 'fill="' + RED + '" fill-opacity="0.08" stroke="' + RED + '" stroke-width="3.6" stroke-dasharray="9 6" stroke-linejoin="round"';
+    boxFaces(C, ax, HS.map(v => v * GS)).forEach(f => poly(f.pts.map(P), st));
+    poly(hull(ring(add(C, mul(g.fc, HS[2] * GS)), g.rc, UP, 0.085 * GS, 20).concat(ring(lens1, g.rc, UP, 0.085 * GS, 20)).map(P)), st);
+    // small drop line to the floor track: where this view sits on the orbit
+    line(P(add(C, [0, -HS[1] * GS, 0])), P(g.pos), 'stroke="' + RED + '" stroke-opacity="0.5" stroke-width="2" stroke-dasharray="3 6"');
+  });
+
+  // view cones: each picked camera looks into the splash
+  cams.filter(c => c.item >= 0).forEach(c => cone(P(camGeo(c).lens1), 0.95, 'fill="' + INK + '" fill-opacity="0.06"', 'stroke="' + INK + '" stroke-opacity="0.32" stroke-width="2"'));
+
+  // black plinth + white porcelain cup
+  const PR = 0.72, CUPB = 0.4, CUPT = 0.56, CUPH = 0.42, RIM = PH + CUPH;
+  {
+    const X = [1, 0, 0], Z = [0, 0, 1], OL = 'stroke="' + INK + '" stroke-width="2.5" stroke-linejoin="round"';
+    const b = ring([0, 0, 0], X, Z, PR, 64).map(P), tp = ring([0, PH, 0], X, Z, PR, 64).map(P);
+    poly(hull(b.concat(tp)), 'fill="url(#plg)" ' + OL);
+    poly(tp, 'fill="#55555C" ' + OL);
+    const m = PXM([CUPT, RIM, 0]);
+    const A = P([CUPT * 0.96, RIM - 0.09, 0]), B = P([CUPT + 0.34, RIM - 0.1, 0]), C2 = P([CUPT + 0.28, PH + 0.1, 0]), E = P([CUPB * 1.05, PH + 0.12, 0]);
+    const hd = "M" + A[0].toFixed(1) + "," + A[1].toFixed(1) + " C" + B[0].toFixed(1) + "," + B[1].toFixed(1) + " " + C2[0].toFixed(1) + "," + C2[1].toFixed(1) + " " + E[0].toFixed(1) + "," + E[1].toFixed(1);
+    out.push('<path d="' + hd + '" fill="none" stroke="' + INK + '" stroke-width="' + (0.115 * m).toFixed(1) + '" stroke-linecap="round"/>');
+    out.push('<path d="' + hd + '" fill="none" stroke="#E4E0D8" stroke-width="' + (0.115 * m - 5).toFixed(1) + '" stroke-linecap="round"/>');
+    const c0 = ring([0, PH, 0], X, Z, CUPB, 56).map(P), c1 = ring([0, RIM, 0], X, Z, CUPT, 56).map(P);
+    poly(hull(c0.concat(c1)), 'fill="url(#cupg)" ' + OL);
+    poly(c1, 'fill="#D6D2CA" ' + OL);
+    poly(ring([0, RIM - 0.02, 0], X, Z, CUPT * 0.9, 56).map(P), 'fill="#2A1A10"');
+  }
+
+  // frozen coffee crown splash (3D coronet from the cup rim + Worthington jet + droplets)
+  {
+    const Y0 = RIM - 0.02, N = 9, PHI0 = 0.35, RD = CUPT * 0.9, RT = 1.0, H = 0.8;
+    const peak = f => Math.pow(0.5 + 0.5 * Math.cos(N * (f - PHI0)), 3);
+    const top = f => { const pk = peak(f), r = RT * (1 + 0.05 * pk); return [r * Math.cos(f), Y0 + H * (0.46 + 0.54 * pk), r * Math.sin(f)]; };
+    const bot = f => [RD * Math.cos(f), Y0, RD * Math.sin(f)];
+    const arc = (a0, a1, fn, m = 180) => { const o = []; for (let i = 0; i <= m; i++) o.push(P(fn(a0 + (a1 - a0) * i / m))); return o; };
+    const COF = "#5A3720";
+    const drop = (p, r) => { const c = P(p), rr = r * PXM(p); out.push('<circle cx="' + c[0].toFixed(1) + '" cy="' + c[1].toFixed(1) + '" r="' + rr.toFixed(1) + '" fill="' + COF + '" stroke="' + INK + '" stroke-width="1.5"/><circle cx="' + (c[0] - rr * 0.36).toFixed(1) + '" cy="' + (c[1] - rr * 0.36).toFixed(1) + '" r="' + (rr * 0.32).toFixed(1) + '" fill="#F7E4CC" fill-opacity="0.9"/>'); };
+    const tips = [];
+    for (let i = 0; i < N; i++) {
+      const f = PHI0 + i * 2 * Math.PI / N, tp = top(f), o1 = [Math.cos(f) * 0.07, 0, Math.sin(f) * 0.07];
+      tips.push({ z: tp[2], tp, lig: add(tp, add(o1, [0, 0.13 + 0.04 * (i % 3), 0])), dr: add(tp, add(mul(o1, 1.6), [0, 0.24 + 0.05 * (i % 3), 0])), r: 0.055 + 0.012 * ((i * 2) % 3) });
+    }
+    const tipDraw = t => { const a = P(t.tp), b = P(t.lig), w = 0.045 * PXM(t.tp); out.push('<line x1="' + a[0].toFixed(1) + '" y1="' + a[1].toFixed(1) + '" x2="' + b[0].toFixed(1) + '" y2="' + b[1].toFixed(1) + '" stroke="' + COF + '" stroke-width="' + w.toFixed(1) + '" stroke-linecap="round"/>'); drop(t.dr, t.r); };
+    poly(arc(0, Math.PI, top).concat(arc(Math.PI, 0, bot)), 'fill="url(#cin)" stroke="' + INK + '" stroke-width="2" stroke-linejoin="round"');
+    tips.filter(t => t.z > 0.1).forEach(tipDraw);
+    const fly = [[-1.3, 2.25, -0.35, 0.06], [1.32, 2.4, 0.15, 0.055], [-1.0, 2.75, 0.45, 0.045], [0.95, 2.85, -0.45, 0.05], [-1.6, 1.9, -0.7, 0.045],
+      [1.62, 1.95, -0.3, 0.045], [0.42, 3.15, 0.1, 0.04], [-0.5, 3.05, -0.25, 0.045], [1.18, 1.72, -1.0, 0.04], [-0.82, 1.78, -1.1, 0.035], [-1.85, 2.5, 0.2, 0.035], [1.9, 2.6, 0.4, 0.035]];
+    fly.filter(q => q[2] > 0).forEach(q => drop([q[0], q[1], q[2]], q[3]));
+    const jb = P([0, Y0, 0]), m = PXM([0, Y0 + 0.6, 0]), jt = P([0, Y0 + 1.12, 0]);
+    const Lp = [], Rp = [];
+    for (let i = 0; i <= 24; i++) {
+      const t = i / 24, y = jb[1] + (jt[1] - jb[1]) * t, w = (0.2 * Math.pow(1 - t, 2) + 0.06 + 0.025 * Math.sin(t * Math.PI * 0.9)) * m;
+      Lp.push([jb[0] - w, y]); Rp.push([jb[0] + w, y]);
+    }
+    const f1 = p => p[0].toFixed(1) + "," + p[1].toFixed(1);
+    out.push('<path d="M' + Lp.map(f1).join(" L") + " C" + f1([Lp[24][0], jt[1] - 0.09 * m]) + " " + f1([Rp[24][0], jt[1] - 0.09 * m]) + " " + f1(Rp[24]) + " L" + Rp.slice().reverse().map(f1).join(" L") + 'Z" fill="url(#cof)" stroke="' + INK + '" stroke-width="2" stroke-linejoin="round"/>');
+    out.push('<path d="M' + f1([jb[0] - 0.08 * m, jb[1] - 0.45 * m]) + " Q" + f1([jb[0] - 0.07 * m, (jb[1] + jt[1]) / 2]) + " " + f1([jt[0] - 0.035 * m, jt[1] + 0.02 * m]) + '" fill="none" stroke="#F7E4CC" stroke-opacity="0.8" stroke-width="3" stroke-linecap="round"/>');
+    drop([0, Y0 + 1.4, 0], 0.11);
+    poly(arc(Math.PI, 2 * Math.PI, bot).concat(arc(2 * Math.PI, Math.PI, top)), 'fill="url(#cof)" stroke="' + INK + '" stroke-width="2.2" stroke-linejoin="round"');
+    pline(arc(Math.PI + 0.12, Math.PI * 1.58, top, 120), 'stroke="#F7E4CC" stroke-opacity="0.6" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"');
+    for (let i = 0; i < N; i++) {
+      const f = (((PHI0 + i * 2 * Math.PI / N) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+      if (f > Math.PI * 1.05 && f < Math.PI * 1.75) {
+        const a = P([RD * 1.03 * Math.cos(f), Y0 + 0.07, RD * 1.03 * Math.sin(f)]), b = P([RT * 1.03 * Math.cos(f), Y0 + H * 0.8, RT * 1.03 * Math.sin(f)]);
+        line(a, b, 'stroke="#E2B488" stroke-opacity="0.55" stroke-width="2" stroke-linecap="round"');
+      }
+    }
+    tips.filter(t => t.z <= 0.1).sort((a, b) => P(b.tp)[2] - P(a.tp)[2]).forEach(tipDraw);
+    fly.filter(q => q[2] <= 0).sort((a, b) => P(b)[2] - P(a)[2]).forEach(q => drop([q[0], q[1], q[2]], q[3]));
+  }
+
+  // graphite cameras on tripods, far to near; picked ones have the red tally lamp on + a lit LCD
+  cams.slice().sort((a, b) => P(b.pos)[2] - P(a.pos)[2]).forEach(c => {
+    const { C, ax, lens0, lens1 } = camGeo(c), m = PXM(C), lw = (0.024 * m).toFixed(1);
+    const J = add(c.pos, [0, 1.0, 0]), pj = P(J);
+    [Math.PI / 2, Math.PI / 2 + 2.1, Math.PI / 2 - 2.1].forEach(a => line(pj, P(add(c.pos, add(mul(c.rc, 0.34 * Math.cos(a)), mul(c.fc, 0.34 * Math.sin(a))))), 'stroke="#2E2E33" stroke-opacity="0.72" stroke-width="' + lw + '" stroke-linecap="round"'));
+    line(pj, P(add(C, [0, -HS[1], 0])), 'stroke="#2E2E33" stroke-width="' + (0.04 * m).toFixed(1) + '"');
+    const facing = dot(c.fc, sub(EYE, C)) > 0;
+    const drawLens = () => {
+      const a1 = c.rc, a2 = UP;
+      poly(hull(ring(lens0, a1, a2, 0.085, 20).concat(ring(lens1, a1, a2, 0.085, 20)).map(P)), 'fill="#101012"');
+      if (dot(c.fc, sub(EYE, lens1)) > 0) {
+        poly(ring(lens1, a1, a2, 0.08, 20).map(P), 'fill="#2A2F38"');
+        poly(ring(add(lens1, mul(c.fc, 0.002)), a1, a2, 0.045, 16).map(P), 'fill="#5B6B80"');
+      }
+    };
+    if (!facing) drawLens();
+    boxFaces(C, ax, HS).forEach(f => {
+      poly(f.pts.map(P), 'fill="' + shade(f.n) + '" stroke="' + INK + '" stroke-width="1.2" stroke-linejoin="round"');
+      if (f.i === 2 && f.s === -1) { // rear LCD
+        const cen = add(f.cen, mul(c.fc, -0.003)), w = HS[0] * 0.62, hh = HS[1] * 0.55;
+        const q = [add(cen, add(mul(c.rc, -w), mul(UP, -hh))), add(cen, add(mul(c.rc, w), mul(UP, -hh))), add(cen, add(mul(c.rc, w), mul(UP, hh * 0.7))), add(cen, add(mul(c.rc, -w), mul(UP, hh * 0.7)))];
+        poly(q.map(P), c.item >= 0 ? 'fill="#E8ECEF"' : 'fill="#2B3138"');
+      }
+    });
+    boxFaces(add(C, [0, HS[1] + 0.045, 0]), ax, [0.065, 0.045, 0.06]).forEach(f => poly(f.pts.map(P), 'fill="' + shade(f.n) + '" stroke="' + INK + '" stroke-width="1.2" stroke-linejoin="round"'));
+    if (facing) drawLens();
+    if (c.item >= 0) { // tally lamp
+      const L = P(add(C, [0, HS[1] + 0.13, 0])), r = Math.max(7, 0.075 * m);
+      out.push('<circle cx="' + L[0].toFixed(1) + '" cy="' + L[1].toFixed(1) + '" r="' + (r * 2.1).toFixed(1) + '" fill="' + RED + '" fill-opacity="0.16"/>' +
+        '<circle cx="' + L[0].toFixed(1) + '" cy="' + L[1].toFixed(1) + '" r="' + r.toFixed(1) + '" fill="' + RED + '" stroke="' + INK + '" stroke-width="2"/>' +
+        '<circle cx="' + (L[0] - r * 0.32).toFixed(1) + '" cy="' + (L[1] - r * 0.32).toFixed(1) + '" r="' + (r * 0.3).toFixed(1) + '" fill="#FFFFFF" fill-opacity="0.85"/>');
+    }
+  });
+
+  // tags + leaders
+  const rects = placeTags();
+  rects.forEach(r => {
+    const tx = Math.min(Math.max(r.ax, r.x + 40), r.x + r.w - 40);
+    line([r.ax, r.ay], [tx, r.up ? r.y + r.h : r.y], 'stroke="' + INK + '" stroke-width="2.5"');
+    out.push('<circle cx="' + r.ax.toFixed(1) + '" cy="' + r.ay.toFixed(1) + '" r="7" fill="' + CHALK + '" stroke="' + INK + '" stroke-width="2.5"/>');
+    const el = r.tg.el;
+    el.style.left = Math.round(r.x) + "px"; el.style.top = Math.round(r.y) + "px";
+  });
+  // "SUDUT BARU" slug on the ghost that shows its cone
+  { const s = slugPos(); slugEl.style.left = Math.round(s.x) + "px"; slugEl.style.top = Math.round(s.y) + "px";
+    out.push('<line x1="' + s.gx.toFixed(1) + '" y1="' + s.gy.toFixed(1) + '" x2="' + s.gx.toFixed(1) + '" y2="' + (s.y + 2).toFixed(1) + '" stroke="' + RED + '" stroke-width="3"/><circle cx="' + s.gx.toFixed(1) + '" cy="' + s.gy.toFixed(1) + '" r="6" fill="' + RED + '"/>'); }
+
+  $("scene").innerHTML = out.join("");
+  }
+</script>
+</body>
+</html>

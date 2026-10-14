@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Reverse Camera</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..900&family=Archivo+Narrow:wght@500;600;700&family=Spline+Sans+Mono:wght@500;600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Reverse Camera: a car's portrait infotainment screen in reverse gear at night.
+    The rear-view camera pane shows a wide-angle (barrel-distorted) parking bay;
+    the dynamic guide lines bend with the steering and are split into distance
+    bands. Every item is one rung of that guide (far = cream, then amber, nearest
+    = red STOP band). A striped bollard already sits in the red band, the
+    top-down car inset lights its rear sensor arcs on that side.
+    Metaphor: guardrails. The model moves freely, the rules are the guide lines;
+    drift into the red band and the system brakes.
+    Everything is computed from a fixed ground-plane projection + barrel
+    distortion, so it is fully deterministic.
+  */
+  :root { --ink: #0B0C0F; --cream: #F2F0EA; --amber: #F2B134; --red: #E2412F; --blue: #6C8EF5; --mute: #9A9EA6; --dim: #8E929B; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #050506; }
+  body { position: relative; color: var(--cream); font-family: "Archivo Narrow", sans-serif; }
+
+  /* the display glass inside its bezel */
+  .screen { position: absolute; left: 14px; top: 36px; right: 14px; bottom: 36px; border-radius: 48px; background: var(--ink); box-shadow: inset 0 0 0 2px #1B1D23; }
+
+  .status { position: absolute; left: 90px; right: 90px; top: 196px; height: 40px; display: flex; align-items: center; justify-content: space-between; font: 500 28px "Spline Sans Mono", monospace; color: var(--dim); }
+  .status .cam { display: flex; align-items: center; gap: 12px; text-transform: uppercase; letter-spacing: 0.08em; font-size: 26px; }
+  .dock { position: absolute; left: 90px; top: 1716px; }
+  .kick { position: absolute; left: 90px; right: 90px; top: 298px; height: 44px; display: flex; align-items: center; justify-content: space-between; font: 500 28px "Spline Sans Mono", monospace; letter-spacing: 0.06em; text-transform: uppercase; color: #B4B8BF; }
+  .kick b { color: var(--cream); font-weight: 600; }
+  .gear { display: flex; gap: 6px; align-items: center; }
+  .gear span { width: 44px; height: 44px; display: grid; place-items: center; font: 600 28px "Spline Sans Mono", monospace; color: var(--dim); }
+  .gear span.on { background: var(--amber); color: #060708; border-radius: 8px; font-weight: 700; }
+
+  .title { position: absolute; left: 90px; width: 900px; top: 362px; font-family: "Archivo", sans-serif; font-stretch: 66%; font-weight: 800; text-transform: uppercase; line-height: 1.02; letter-spacing: 0.004em; color: var(--cream); }
+  .title .hl { color: var(--amber); position: relative; white-space: nowrap; }
+  /* the hl word sits on its own guide rung: a bracket with up-turned ends */
+  .title .hl::after { content: ""; position: absolute; left: 0.02em; right: 0.02em; bottom: 0.0em; height: 0.15em; border: 0.055em solid var(--amber); border-top: 0; }
+
+  .pane { position: absolute; left: 60px; width: 960px; border-radius: 30px; overflow: hidden; background: #0D0F12; box-shadow: 0 0 0 2px #1E2027, 0 0 0 10px #08090B; }
+  .pane svg.scene { position: absolute; left: 0; top: 0; }
+  .chips { position: absolute; inset: 0; }
+  .chip { position: absolute; display: flex; align-items: stretch; height: 58px; border-radius: 7px; overflow: hidden; background: rgba(8, 9, 11, 0.9); border: 2px solid var(--z); box-shadow: 0 8px 20px rgba(0, 0, 0, 0.55); white-space: nowrap; }
+  .chip .lb { padding: 0 16px 0 16px; font: 700 34px/54px "Archivo Narrow", sans-serif; color: var(--cream); letter-spacing: 0.01em; overflow: hidden; text-overflow: ellipsis; }
+  .chip .vl { padding: 0 15px; font: 700 30px/54px "Spline Sans Mono", monospace; color: #060708; background: var(--z); }
+  .chip .vl i { font-style: normal; color: #060708; }
+
+  .inset { position: absolute; right: 30px; top: 18px; width: 168px; height: 212px; border-radius: 16px; background: rgba(9, 10, 12, 0.88); box-shadow: inset 0 0 0 2px #2B2E36, 0 8px 20px rgba(0, 0, 0, 0.5); }
+  .inset svg { position: absolute; left: 0; top: 0; }
+  .stop { position: absolute; left: 38px; top: 164px; width: 92px; height: 34px; border-radius: 5px; background: var(--red); color: #060708; font: 700 26px/34px "Spline Sans Mono", monospace; letter-spacing: 0.14em; text-align: center; padding-left: 0.14em; }
+
+  .cap { position: absolute; left: 90px; width: 900px; font: 600 46px "Archivo Narrow", sans-serif; line-height: 1.24; color: var(--dim); }
+  .cap .w.done { color: var(--cream); }
+  .cap .w.on { background: var(--amber); color: #060708; border-radius: 0.12em; padding: 0 0.14em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+
+  .meta { position: absolute; left: 90px; right: 90px; display: flex; justify-content: space-between; align-items: flex-end; gap: 36px; font: 500 26px "Spline Sans Mono", monospace; line-height: 1.32; color: var(--mute); }
+  .meta span:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="screen"></div>
+<div class="status"><span>21:47</span><span class="cam"><svg width="34" height="26" viewBox="0 0 34 26"><rect x="2" y="6" width="22" height="16" rx="3" fill="none" stroke="#8E929B" stroke-width="2.5"/><path d="M24 11 L32 6 L32 22 L24 17 Z" fill="#8E929B"/></svg>Kamera belakang</span><span>27°C</span></div>
+<svg class="dock" width="900" height="110" viewBox="0 0 900 110" xmlns="http://www.w3.org/2000/svg" id="dock"></svg>
+<div class="kick" id="kick"></div>
+<div class="title" id="title"></div>
+<div class="pane" id="pane" data-layout-allow-overlap>
+  <svg class="scene" id="scene" xmlns="http://www.w3.org/2000/svg"></svg>
+  <div class="chips" id="chips"></div>
+  <div class="inset" id="inset" data-layout-allow-overlap>
+    <svg width="168" height="212" viewBox="0 0 168 212" xmlns="http://www.w3.org/2000/svg" id="insetSvg"></svg>
+    <div class="stop">STOP</div>
+  </div>
+</div>
+<div class="cap" id="cap" data-slot="caption"></div>
+<div class="meta" id="meta"><span id="src"></span><span id="date"></span></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  // Lay out only after the web fonts are in: the fitting below measures real glyph widths.
+  Promise.all(['800 100px Archivo', '700 34px "Archivo Narrow"', '600 46px "Archivo Narrow"', '700 30px "Spline Sans Mono"', '500 28px "Spline Sans Mono"'].map(f => document.fonts.load(f)))
+    .catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const CREAM = "#F2F0EA", AMBER = "#F2B134", RED = "#E2412F", BLUE = "#6C8EF5";
+  const items = (Array.isArray(D.items) ? D.items : []).slice(0, 5);
+  const n = items.length;
+
+  // ---- kicker: series · ep on the left, the gear strip (R engaged) on the right
+  const epNo = String(D.ep || "").replace(/^#/, "");
+  const left = D.series ? esc(D.series) + (epNo ? " · <b>#" + esc(epNo) + "</b>" : "") : esc(D.kicker || "");
+  document.getElementById("kick").innerHTML = "<span>" + left + "</span>" +
+    '<span class="gear"><span>P</span><span class="on">R</span><span>N</span><span>D</span></span>';
+
+  // ---- title, hl sits on an amber guide rung
+  const t = String(D.title || ""), hl = String(D.hl || "");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = document.getElementById("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  for (let fs = 128; fs >= 72; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (titleEl.offsetHeight <= 270) break; }
+  const titleBottom = 362 + titleEl.offsetHeight;
+
+  // ---- meta (bottom-anchored), then caption above it
+  document.getElementById("src").textContent = D.source || "";
+  document.getElementById("date").textContent = D.date || "";
+  const meta = document.getElementById("meta");
+  const metaTop = 1618 - meta.offsetHeight;
+  meta.style.top = metaTop + "px";
+
+  // karaoke caption: active = hl if it appears in the caption (whole words), else the first word
+  const capText = String(D.caption || D.sub || "");
+  const words = capText.split(/\s+/).filter(Boolean);
+  const norm = w => w.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+  const hlW = hl.split(/\s+/).map(norm).filter(Boolean);
+  let a0 = 0, a1 = 0;
+  if (hlW.length) {
+    for (let i = 0; i + hlW.length <= words.length; i++) {
+      if (hlW.every((w, k) => norm(words[i + k]) === w)) { a0 = i; a1 = i + hlW.length - 1; break; }
+    }
+  }
+  const capEl = document.getElementById("cap");
+  const parts = [];
+  for (let i = 0; i < words.length; i++) {
+    if (i === a0) { parts.push('<span class="w on">' + esc(words.slice(a0, a1 + 1).join(" ")) + "</span>"); i = a1; continue; }
+    parts.push('<span class="w' + (i < a0 ? " done" : "") + '">' + esc(words[i]) + "</span>");
+  }
+  capEl.innerHTML = parts.join(" ");
+  for (let fs = 46; fs >= 40; fs -= 1) { capEl.style.fontSize = fs + "px"; if (capEl.offsetHeight <= fs * 1.24 * 2 + 2) break; }
+  const capH = capEl.offsetHeight;
+  const capTop = metaTop - 22 - capH;
+  capEl.style.top = capTop + "px";
+
+  // ---- the camera pane fills everything between title and caption
+  const paneTop = Math.round(titleBottom + 34), paneBottom = Math.round(capTop - 26);
+  const W = 960, H = paneBottom - paneTop;
+  const pane = document.getElementById("pane");
+  pane.style.top = paneTop + "px"; pane.style.height = H + "px";
+
+  // Ground-plane projection: camera pitched down (horizon above the pane), then barrel distortion.
+  const K = 0.10, VH = -0.6, VB = 0.95, ZO = 1 / (VB - VH), PX = 264;
+  const cx = W / 2, cy = H / 2, R2 = cx * cx + cy * cy;
+  const dist = (x, y) => { const dx = x - cx, dy = y - cy, f = 1 - K * (dx * dx + dy * dy) / R2; return [cx + dx * f, cy + dy * f]; };
+  const vOfZ = z => VH + 1 / (z + ZO);
+  const zOfV = v => 1 / (v - VH) - ZO;
+  const G = (X, Z) => { const v = vOfZ(Z); return dist(cx + X * PX * (v - VH), v * H); };
+  const pt = p => p[0].toFixed(1) + " " + p[1].toFixed(1);
+  const path = (arr, close) => "M" + arr.map(pt).join(" L") + (close ? " Z" : "");
+  const alongZ = (Xf, Za, Zb, steps = 28) => { const o = []; for (let s = 0; s <= steps; s++) { const z = Za + (Zb - Za) * s / steps; o.push(G(Xf(z), z)); } return o; };
+  const alongX = (Xa, Xb, Z, steps = 28) => { const o = []; for (let s = 0; s <= steps; s++) o.push(G(Xa + (Xb - Xa) * s / steps, Z)); return o; };
+  const stripZ = (Xf, Za, Zb, hw) => path(alongZ(z => Xf(z) - hw, Za, Zb).concat(alongZ(z => Xf(z) + hw, Za, Zb).reverse()), true);
+  const stripX = (Xa, Xb, Z, hz) => path(alongX(Xa, Xb, Z - hz).concat(alongX(Xa, Xb, Z + hz).reverse()), true);
+  const ellipseG = (X, Z, rx, rz) => { const o = []; for (let s = 0; s < 36; s++) { const a = s / 36 * Math.PI * 2; o.push(G(X + rx * Math.cos(a), Z + rz * Math.sin(a))); } return path(o, true); };
+
+  // Steering: the dynamic guide bends left with distance; car half-width = 1 ground unit.
+  const XC = z => -1.45 * z * z;
+  const Z0 = 0.035;                                   // guide starts just above the bumper
+  // rung spacing: perspective (gaps grow toward the car) but never closer than a chip + its rung
+  const vNear = 0.82, NEED = 92;
+  const rungV = (vF, p) => items.map((_, i) => { const tt = n > 1 ? i / (n - 1) : 1; return vF + (vNear - vF) * Math.pow(tt, p); });
+  const minGap = vs => { let m = 1e9; for (let i = 1; i < vs.length; i++) m = Math.min(m, (vs[i] - vs[i - 1]) * H); return m; };
+  let VS = null;
+  for (const [vF, p] of [[0.27, 1.3], [0.27, 1.15], [0.25, 1.0], [0.21, 1.0]]) { VS = rungV(vF, p); if (minGap(VS) >= NEED) break; }
+  const ZR = VS.map(zOfV);
+  const zone = i => (i === n - 1 ? RED : (i === n - 2 || (n >= 5 && i === n - 3)) ? AMBER : CREAM);
+  const lineW = z => 4.5 + 5.5 * (vOfZ(z) - 0.2) / 0.75;
+
+  let s = "";
+  s += `<defs>
+    <linearGradient id="gnd" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#07080A"/><stop offset="0.28" stop-color="#101318"/><stop offset="0.7" stop-color="#1A1D23"/><stop offset="1" stop-color="#25282E"/></linearGradient>
+    <radialGradient id="rev" cx="0.5" cy="1.02" r="0.62" fx="0.5" fy="1.02"><stop offset="0" stop-color="#E9E6DC" stop-opacity="0.22"/><stop offset="1" stop-color="#E9E6DC" stop-opacity="0"/></radialGradient>
+    <radialGradient id="tail" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="${RED}" stop-opacity="0.26"/><stop offset="1" stop-color="${RED}" stop-opacity="0"/></radialGradient>
+    <radialGradient id="lamp" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="${BLUE}" stop-opacity="0.12"/><stop offset="1" stop-color="${BLUE}" stop-opacity="0"/></radialGradient>
+    <radialGradient id="vig" cx="0.5" cy="0.54" r="0.72"><stop offset="0.5" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.78"/></radialGradient>
+    <linearGradient id="bump" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2A2D33"/><stop offset="0.18" stop-color="#17191D"/><stop offset="1" stop-color="#0A0B0D"/></linearGradient>
+    <linearGradient id="post" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#121418"/><stop offset="0.55" stop-color="#3B3E45"/><stop offset="0.8" stop-color="#2A2D33"/><stop offset="1" stop-color="#101114"/></linearGradient>
+    <linearGradient id="postBand" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7A5A1A"/><stop offset="0.55" stop-color="${AMBER}"/><stop offset="1" stop-color="#6B4E16"/></linearGradient>
+    <pattern id="hatch" width="22" height="22" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="9" height="22" fill="${RED}" fill-opacity="0.22"/></pattern>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="7"/></filter>
+    <filter id="grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="11" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="table" tableValues="0 0.16"/></feComponentTransfer></filter>
+  </defs>`;
+
+  // ground + far wall
+  s += `<rect width="${W}" height="${H}" fill="url(#gnd)"/>`;
+  const wallBase = alongX(-6, 6, 0.8, 40);
+  s += `<path d="M0 0 L${pt(wallBase[0])} L${wallBase.map(pt).join(" L")} L${W} 0 Z" fill="#0C0D10"/>`;
+  s += `<path d="${path(wallBase)}" fill="none" stroke="#1F2126" stroke-width="2"/>`;
+  // concrete column on the far left, hazard-striped at its foot
+  const pb0 = G(-2.22, 0.8), pb1 = G(-1.86, 0.8);
+  const col = `M${pt(pb0)} L${(pb0[0] - 20).toFixed(1)} 0 L${(pb1[0] - 15).toFixed(1)} 0 L${pt(pb1)} Z`;
+  s += `<clipPath id="colClip"><path d="${col}"/></clipPath><path d="${col}" fill="#16181C"/>`;
+  s += `<g clip-path="url(#colClip)">`;
+  for (let k = -3; k < 8; k++) {
+    const x0 = pb0[0] - 30 + k * 16, yb = pb0[1] + 2, yt = pb0[1] - 52;
+    if (k % 2 === 0) s += `<path d="M${x0} ${yb} L${x0 + 8} ${yb} L${x0 + 30} ${yt} L${x0 + 22} ${yt} Z" fill="${AMBER}" fill-opacity="0.55"/>`;
+  }
+  s += `</g><path d="M${pt(pb1)} L${(pb1[0] - 15).toFixed(1)} 0" stroke="#2A2D33" stroke-width="2"/>`;
+  // concrete expansion joints: faint lines that sell the ground perspective
+  [0.12, 0.26, 0.42, 0.6].forEach(z => { s += `<path d="${path(alongX(-5, 5, z, 30))}" fill="none" stroke="#050607" stroke-opacity="0.55" stroke-width="2.5"/>`; });
+  s += `<path d="${path(alongZ(z => 0.05 - 0.8 * z, -0.05, 0.8, 24))}" fill="none" stroke="#050607" stroke-opacity="0.35" stroke-width="2"/>`;
+  // cold ceiling lamp pool on the far right, warm reverse-light pool near, red tail glows
+  const lp = G(1.1, 0.5);
+  s += `<ellipse cx="${lp[0]}" cy="${lp[1]}" rx="340" ry="150" fill="url(#lamp)"/>`;
+  s += `<rect width="${W}" height="${H}" fill="url(#rev)"/>`;
+  s += `<ellipse cx="20" cy="${H}" rx="260" ry="190" fill="url(#tail)"/><ellipse cx="${W - 20}" cy="${H}" rx="260" ry="190" fill="url(#tail)"/>`;
+  // oil stains in the bay (hard-coded)
+  [[-0.42, 0.40, 0.34, 0.035], [-0.15, 0.30, 0.22, 0.03], [-0.7, 0.52, 0.18, 0.022], [0.05, 0.47, 0.12, 0.018]].forEach(e => {
+    s += `<path d="${ellipseG(e[0], e[1], e[2], e[3])}" fill="#030304" fill-opacity="0.45" filter="url(#soft)"/>`;
+  });
+  // painted bay lines (worn white) + back line
+  const bayL = z => -1.3 - 0.8 * z, bayR = z => 1.4 - 0.8 * z;
+  s += `<path d="${stripZ(bayL, -0.05, 0.74, 0.055)}" fill="#D6D4CB" fill-opacity="0.32"/>`;
+  s += `<path d="${stripZ(bayR, -0.05, 0.74, 0.055)}" fill="#D6D4CB" fill-opacity="0.32"/>`;
+  s += `<path d="${stripX(-4.5, 4.5, 0.745, 0.012)}" fill="#D6D4CB" fill-opacity="0.34"/>`;
+  // wheel stop block (raised), amber stripes on its face
+  const ws = alongX(-1.08, 0.12, 0.655, 16), wsB = alongX(-1.08, 0.12, 0.69, 16);
+  const up = (arr, h) => arr.map(p => [p[0], p[1] - h]);
+  s += `<path d="${path(up(wsB, 13).concat(up(ws, 13).reverse()), true)}" fill="#3A3C42"/>`;
+  s += `<path d="${path(up(ws, 13).concat(ws.slice().reverse()), true)}" fill="#24262B"/>`;
+  for (let k = 1; k < 16; k += 3) {
+    const p0 = ws[k], p1 = ws[k + 1];
+    s += `<path d="M${pt(p0)} L${p0[0] + 4} ${p0[1] - 13} L${p1[0] + 4} ${p1[1] - 13} L${pt(p1)} Z" fill="${AMBER}" fill-opacity="0.5"/>`;
+  }
+
+  // the bollard, right at the red band on the left, leaning out like a wide-angle lens makes it
+  const base = G(-1.13, 0.045), PH = Math.min(330, H * 0.4), lean = -26, R = 34;
+  const bx = base[0], by = base[1], tx = bx + lean, ty = by - PH;
+  // soft shadow thrown away from the reverse lights
+  s += `<path d="M${bx - R} ${by} L${bx - R - 40} ${by - 150} L${bx + R - 60} ${by - 170} L${bx + R} ${by} Z" fill="#000" fill-opacity="0.55" filter="url(#soft)"/>`;
+  s += `<path d="M${bx - R} ${by} L${tx - R + 4} ${ty} L${tx + R - 4} ${ty} L${bx + R} ${by} A${R} 11 0 0 1 ${bx - R} ${by} Z" fill="url(#post)"/>`;
+  [[0.58, 0.68], [0.78, 0.88]].forEach(([a, b]) => {
+    const ya = by - PH * a, yb = by - PH * b, xa = bx + lean * a, xb = bx + lean * b, ra = R - 4 * a, rb = R - 4 * b;
+    s += `<path d="M${xa - ra} ${ya} A${ra} 10 0 0 0 ${xa + ra} ${ya} L${xb + rb} ${yb} A${rb} 10 0 0 1 ${xb - rb} ${yb} Z" fill="url(#postBand)"/>`;
+  });
+  s += `<ellipse cx="${tx}" cy="${ty}" rx="${R - 4}" ry="10" fill="#4A4D55"/>`;
+  s += `<ellipse cx="${tx}" cy="${ty - 3}" rx="${R - 10}" ry="6" fill="#2C2F35"/>`;
+
+  // grain + lens vignette on the camera image (overlay graphics stay crisp above)
+  s += `<rect width="${W}" height="${H}" filter="url(#grain)"/>`;
+  s += `<rect width="${W}" height="${H}" fill="url(#vig)"/>`;
+
+  // ---- dynamic guide overlay: distance bands (items) ----
+  const bandFrom = i => (i === n - 1 ? Z0 : ZR[i + 1]);
+  for (let i = 0; i < n; i++) {
+    const za = bandFrom(i), zb = ZR[i], c = zone(i);
+    const L = alongZ(z => XC(z) - 1, za, zb, 16), Rr = alongZ(z => XC(z) + 1, za, zb, 16);
+    const d = path(L.concat(Rr.reverse()), true);
+    s += `<path d="${d}" fill="${c}" fill-opacity="${c === RED ? 0.12 : c === AMBER ? 0.055 : 0.03}"/>`;
+    if (c === RED) s += `<path d="${d}" fill="url(#hatch)"/>`;
+  }
+  const seg = (side, za, zb, c, op) => {
+    const d = path(alongZ(z => XC(z) + side, za, zb, 18));
+    const w = lineW((za + zb) / 2);
+    return `<path d="${d}" fill="none" stroke="#000" stroke-opacity="${0.6 * op}" stroke-width="${w + 5}" stroke-linejoin="round"/>` +
+           `<path d="${d}" fill="none" stroke="${c}" stroke-opacity="${op}" stroke-width="${w}" stroke-linejoin="round"/>`;
+  };
+  for (const side of [-1, 1]) {
+    for (let i = 0; i < n; i++) s += seg(side, bandFrom(i), ZR[i], zone(i), 1);
+    if (n) { const zt = ZR[0]; s += seg(side, zt, zt + 0.05, CREAM, 0.55) + seg(side, zt + 0.05, zt + 0.1, CREAM, 0.25); }
+  }
+  // obstacle detected: red sensor arcs on the ground in front of the bollard
+  [[0.16, 0.022, 1], [0.27, 0.036, 0.45]].forEach(([rx, rz, op]) => {
+    const o = []; for (let k = 0; k <= 20; k++) { const a = (-0.15 + 0.62 * k / 20) * Math.PI; o.push(G(-1.13 + rx * Math.cos(a), 0.045 - rz * Math.sin(a))); }
+    s += `<path d="${path(o)}" fill="none" stroke="#000" stroke-opacity="${0.5 * op}" stroke-width="10" stroke-linecap="round"/><path d="${path(o)}" fill="none" stroke="${RED}" stroke-opacity="${op}" stroke-width="5" stroke-linecap="round"/>`;
+  });
+  const rungMid = [];
+  for (let i = 0; i < n; i++) {
+    const z = ZR[i], xc = XC(z), w = lineW(z) + (i === n - 1 ? 2 : 0);
+    const d = path(alongX(xc - 1.12, xc + 1.12, z, 24));
+    s += `<path d="${d}" fill="none" stroke="#000" stroke-opacity="0.6" stroke-width="${w + 5}"/>`;
+    s += `<path d="${d}" fill="none" stroke="${zone(i)}" stroke-width="${w}"/>`;
+    rungMid.push(G(xc, z));
+  }
+
+  // rear bumper (wide-angle arch) closes the bottom of the image
+  const b0 = H * 0.972, b1 = H * 0.885;
+  s += `<path d="M0 ${H} L0 ${b0} Q${cx} ${2 * b1 - b0} ${W} ${b0} L${W} ${H} Z" fill="url(#bump)"/>`;
+  s += `<path d="M0 ${b0} Q${cx} ${2 * b1 - b0} ${W} ${b0}" fill="none" stroke="#F2F0EA" stroke-opacity="0.22" stroke-width="3"/>`;
+
+  const svg = document.getElementById("scene");
+  svg.setAttribute("width", W); svg.setAttribute("height", H); svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.innerHTML = s;
+
+  // ---- item chips sit on their rungs ----
+  const chipsEl = document.getElementById("chips");
+  chipsEl.innerHTML = items.map((it, i) => `<div class="chip" style="--z:${zone(i)}"><span class="lb">${esc(it.label)}</span><span class="vl"><i>${esc(it.value)}</i></span></div>`).join("");
+  const chipEls = [...chipsEl.children];
+  chipEls.forEach((el, i) => {
+    let lb = el.querySelector(".lb"), fs = 34;
+    while (el.offsetWidth > 600 && fs > 30) { fs -= 1; lb.style.fontSize = fs + "px"; }
+    if (el.offsetWidth > 600) lb.style.maxWidth = (600 - el.querySelector(".vl").offsetWidth - 4) + "px";
+    const wv = el.offsetWidth, hv = el.offsetHeight;
+    const top = rungMid[i][1] - 12 - hv;
+    let x = rungMid[i][0] - wv / 2;
+    const pageY0 = paneTop + top, pageY1 = pageY0 + hv;
+    const maxRight = (pageY1 > 900 && pageY0 < 1500) ? 900 - 60 - 6 : 990 - 60;
+    x = Math.max(30 + 4, Math.min(x, maxRight - wv));
+    el.style.left = x.toFixed(1) + "px"; el.style.top = top.toFixed(1) + "px";
+  });
+
+  // ---- top-down car with rear sensor arcs (obstacle on the left -> left arcs lit) ----
+  const ac = [84, 90];
+  const arc = (r, a0, a1, c) => {
+    const p = a => [ac[0] + r * Math.cos(a * Math.PI / 180), ac[1] + r * Math.sin(a * Math.PI / 180)];
+    const A = p(a0), B = p(a1);
+    return `<path d="M${pt(A)} A${r} ${r} 0 0 1 ${pt(B)}" fill="none" stroke="${c}" stroke-width="9"/>`;
+  };
+  const segs = [[32, 58], [62, 88], [92, 118], [122, 148]];
+  const OFF = "#33363D";
+  const lit = { 26: [OFF, OFF, RED, RED], 40: [OFF, OFF, AMBER, AMBER], 54: [OFF, OFF, OFF, "#5B5E66"] };
+  let ins = "";
+  Object.keys(lit).forEach(r => segs.forEach((sg, k) => { ins += arc(+r, sg[0], sg[1], lit[r][k]); }));
+  ins += `<path d="M63 26 Q63 14 84 14 Q105 14 105 26 L107 82 Q107 93 84 93 Q61 93 61 82 Z" fill="#161920" stroke="${BLUE}" stroke-width="3"/>`;
+  ins += `<path d="M66 35 L102 35 L99 48 L69 48 Z" fill="#2B3243"/><path d="M69 72 L99 72 L102 84 L66 84 Z" fill="#2B3243"/>`;
+  ins += `<rect x="55" y="37" width="7" height="9" rx="2" fill="${BLUE}"/><rect x="106" y="37" width="7" height="9" rx="2" fill="${BLUE}"/>`;
+  document.getElementById("insetSvg").innerHTML = ins;
+
+  // ---- infotainment dock (decoration below the safe zone): home, media, nav, camera (active), settings
+  const G2 = "#4E525A";
+  const icons = [
+    `<path d="M-22 4 L0 -16 L22 4 M-15 -2 L-15 20 L15 20 L15 -2" fill="none" stroke="${G2}" stroke-width="4" stroke-linejoin="round"/>`,
+    `<path d="M-6 14 L-6 -16 L18 -20 L18 10" fill="none" stroke="${G2}" stroke-width="4"/><circle cx="-12" cy="14" r="7" fill="${G2}"/><circle cx="12" cy="10" r="7" fill="${G2}"/>`,
+    `<path d="M0 -20 L16 18 L0 9 L-16 18 Z" fill="none" stroke="${G2}" stroke-width="4" stroke-linejoin="round"/>`,
+    `<rect x="-24" y="-13" width="34" height="26" rx="5" fill="none" stroke="${AMBER}" stroke-width="4"/><path d="M10 -4 L24 -12 L24 12 L10 4 Z" fill="${AMBER}"/>`,
+    `<circle r="8" fill="none" stroke="${G2}" stroke-width="4"/>` + [0, 45, 90, 135, 180, 225, 270, 315].map(a => `<rect x="-3" y="-21" width="6" height="9" rx="1.5" fill="${G2}" transform="rotate(${a})"/>`).join("") + `<circle r="15" fill="none" stroke="${G2}" stroke-width="4"/>`
+  ];
+  document.getElementById("dock").innerHTML = icons.map((ic, k) => {
+    const x = 90 + k * 180;
+    return `<rect x="${x - 66}" y="6" width="132" height="92" rx="20" fill="${k === 3 ? "#1A1B1F" : "none"}" stroke="${k === 3 ? "#3A3216" : "none"}" stroke-width="2"/>` +
+           `<g transform="translate(${x} 52)">${ic}</g>` + (k === 3 ? `<rect x="${x - 22}" y="102" width="44" height="5" rx="2.5" fill="${AMBER}"/>` : "");
+  }).join("");
+  }
+</script>
+</body>
+</html>

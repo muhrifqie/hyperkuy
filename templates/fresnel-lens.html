@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Stint+Ultra+Condensed&family=Overpass:wght@500;600;700&family=Overpass+Mono:wght@500;600&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Fresnel Lens (fresnel-lens): a lighthouse lens drawn the way lens makers drew them,
+    "half section, half elevation", standing on its cast-iron pedestal in a dark lantern room.
+    Everything sits on one vertical axis (x 540): designation, lens, nameplate, caption.
+    LEFT of the axis: the lens cut open in drafting style (cream section, ink lines): the thin
+    stepped prisms that were kept, and the fat plano-convex lens they replaced as a dashed,
+    hatched ghost (the dead bulk). RIGHT of the axis: the same lens as lamp-lit glass.
+    Metaphor: pruning / compression. Fresnel kept only the glass that bends light and dropped
+    the dead bulk; pruning keeps the weights that matter, so the model is lighter but the
+    answer still reaches as far.
+    Items = the prism rings, numbered I..V in drafting balloons: label in ink on the section,
+    value on a black enamel tablet on the glass. Title = the maker's cast nameplate on the
+    pedestal; hl = red enamel (the red sector glass of a lighthouse). Caption: the active word
+    is hit by a wedge of lamp light that enters from the panel's left edge.
+    Fully deterministic, no randomness.
+  */
+  :root {
+    --night: #0D1117; --cream: #E9E2CF; --brass: #B88B3A; --lamp: #F6D58A; --red: #C2413A;
+    --ink: #161B24; --meta: #97A4B8; --dim: #8D98AA; --relief: #EFE2BC; --enamel: #D04A3E; --datec: #C9B186;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--night); }
+  body { position: relative; color: var(--cream); font-family: "Overpass", sans-serif; }
+  #art { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* lens designation, centred on the axis */
+  .kick { position: absolute; left: 90px; width: 900px; top: 304px; text-align: center; white-space: nowrap;
+    font: 500 26px/1.2 "Overpass Mono", monospace; letter-spacing: 0.14em; text-transform: uppercase; color: var(--meta); }
+  .kick b { font-weight: 600; color: var(--cream); }
+
+  /* the maker's cast nameplate: raised polished letters on a blackened field */
+  .title { position: absolute; left: 180px; width: 720px; text-align: center; font-family: "Stint Ultra Condensed", serif; font-weight: 400;
+    text-transform: uppercase; letter-spacing: 0.035em; line-height: 1.02; color: var(--relief);
+    text-shadow: 0 -1px 0 rgba(255, 250, 232, 0.5), 0 2px 0 #070402, 0 5px 7px rgba(0, 0, 0, 0.6); }
+  .title .hl { color: var(--enamel); text-shadow: 0 -1px 0 rgba(255, 214, 196, 0.42), 0 2px 0 #070402, 0 5px 7px rgba(0, 0, 0, 0.6); }
+  .date { position: absolute; left: 180px; width: 720px; text-align: center; white-space: nowrap;
+    font: 600 26px/1.2 "Overpass Mono", monospace; letter-spacing: 0.2em; text-transform: uppercase; color: var(--datec); }
+
+  /* ring text: numeral in a drafting balloon, label in ink on the section, value on an enamel tablet */
+  .num { position: absolute; width: 50px; text-align: center; font: 400 34px/1 "Stint Ultra Condensed", serif; color: var(--ink); letter-spacing: 0.02em; }
+  .lab { position: absolute; font: 600 32px/1.06 "Overpass", sans-serif; color: var(--ink); text-align: right; letter-spacing: -0.005em; }
+  .lab .sep { font-family: "Overpass Mono", monospace; font-weight: 700; margin: 0 -0.12em; color: #8F6524; }
+  .val { position: absolute; white-space: nowrap; font: 400 46px/1 "Stint Ultra Condensed", serif; color: var(--lamp); letter-spacing: 0.045em;
+    background: #120E08; padding: 7px 18px 5px; border-radius: 3px; border: 2px solid #8C6A2C;
+    box-shadow: inset 0 1px 0 rgba(242, 220, 160, 0.28), 0 3px 0 rgba(0, 0, 0, 0.55), 0 7px 14px rgba(0, 0, 0, 0.5); }
+
+  /* karaoke caption on the gallery panel */
+  .cap { position: absolute; left: 180px; width: 720px; text-align: center; font-family: "Overpass", sans-serif; font-weight: 500;
+    line-height: 1.18; color: var(--dim); letter-spacing: -0.005em; text-wrap: balance; }
+  .cap .w.said { color: var(--cream); }
+  .cap .w.on { color: #120E06; font-weight: 700; }
+  .src { position: absolute; left: 110px; width: 860px; text-align: center; font: 500 26px/1.3 "Overpass Mono", monospace; color: var(--meta); }
+</style>
+</head>
+<body>
+<svg id="art" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" data-layout-allow-overlap data-layout-allow-overflow></svg>
+<div class="kick" id="kick"></div>
+<div id="rings"></div>
+<div class="title" id="title"></div>
+<div class="date" id="date"></div>
+<div class="cap" id="cap" data-slot="caption"></div>
+<div class="src" id="src"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  // Lay out only after the web fonts are in: all fitting below measures real glyph widths.
+  const FONTS = ['400 100px "Stint Ultra Condensed"', '500 44px Overpass', '600 32px Overpass', '700 44px Overpass', '500 26px "Overpass Mono"', '600 26px "Overpass Mono"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const f1 = v => (+v).toFixed(1);
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(1, items.length);
+  const ROMAN = ["I", "II", "III", "IV", "V"];
+  const CX = 540, HW = 392;                       // the axis, and the half-width of the lamp belt
+  const INK = "#161B24", PAPER = "#E9E2CF", LAMP = "#F6D58A", HI = "#F2DCA0";
+
+  // ---------- lens designation (series + episode) ----------
+  const epNo = String(D.ep || "").replace(/^#/, "");
+  $("kick").innerHTML = D.series ? esc(D.series) + (epNo ? " · <b>Lensa No. " + esc(epNo) + "</b>" : "") : esc(D.kicker || "");
+
+  // ---------- karaoke caption, paginated: never more than 2 lines on screen ----------
+  const hl = String(D.hl || "");
+  const words = String(D.caption || D.sub || "").trim().split(/\s+/).filter(Boolean);
+  const norm = w => w.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+  const hws = hl ? hl.split(/\s+/).map(norm).filter(Boolean) : [];
+  let a0 = -1, a1 = -1;
+  if (hws.length) {
+    for (let i = 0; i + hws.length <= words.length && a0 < 0; i++) if (hws.every((h2, k) => norm(words[i + k]) === h2)) { a0 = i; a1 = i + hws.length - 1; }
+    if (a0 < 0 && hws.length === 1) { const j = words.findIndex(w => norm(w).includes(hws[0])); if (j >= 0) a0 = a1 = j; }
+  }
+  if (a0 < 0) a0 = a1 = 0;
+  const toks = [];
+  for (let i = 0; i < words.length; i++) {
+    if (i === a0) { toks.push({ t: words.slice(a0, a1 + 1).join(" "), on: true }); i = a1; }
+    else toks.push({ t: words[i], said: i < a0 });
+  }
+  const capEl = $("cap");
+  const fillCap = (k0, k1) => { capEl.innerHTML = toks.slice(k0, k1).map(o => `<span class="w${o.on ? " on" : o.said ? " said" : ""}">${esc(o.t)}</span>`).join(" "); };
+  const lineStarts = () => { const sp = [...capEl.children], st = [0]; for (let k = 1; k < sp.length; k++) if (sp[k].offsetTop > sp[k - 1].offsetTop + 4) st.push(k); return st; };
+  fillCap(0, toks.length);
+  let cfs;
+  for (cfs = 46; cfs >= 40; cfs -= 2) { capEl.style.fontSize = cfs + "px"; if (lineStarts().length <= 2) break; }
+  if (cfs < 40) {
+    // too long for 2 lines even at 40 px: cut it into 2-line pages at 46 px and show the page with the active word
+    cfs = 46; capEl.style.fontSize = cfs + "px";
+    const st = lineStarts(), kOn = Math.max(0, toks.findIndex(o => o.on));
+    let k0 = 0, k1 = toks.length;
+    for (let p = 0; p < st.length; p += 2) { const e = p + 2 < st.length ? st[p + 2] : toks.length; if (kOn >= st[p] && kOn < e) { k0 = st[p]; k1 = e; } }
+    fillCap(k0, k1);
+  }
+  const srcEl = $("src");
+  srcEl.textContent = D.source ? "Sumber: " + D.source : "";
+  const capH = capEl.offsetHeight, srcH = D.source ? srcEl.offsetHeight : 0;
+  const PANEL_B = 1618;
+  const cardTop = Math.round(PANEL_B - 20 - capH - (srcH ? 8 + srcH : 0) - 16);
+  capEl.style.top = (cardTop + 20) + "px";
+  srcEl.style.top = (cardTop + 20 + capH + 8) + "px";
+
+  // ---------- the nameplate (title + date), standing on the pedestal above the panel ----------
+  const t = String(D.title || ""), at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  let tfs;
+  for (tfs = 120; tfs >= 72; tfs -= 2) { titleEl.style.fontSize = tfs + "px"; if (titleEl.scrollWidth <= 722 && titleEl.offsetHeight <= 252) break; }
+  if (tfs < 72) { tfs = 72; titleEl.style.fontSize = "72px"; }
+  const rg = document.createRange(); rg.selectNodeContents(titleEl);
+  const rows = new Map();
+  for (const r of rg.getClientRects()) {
+    if (r.width < 1) continue;
+    const k = Math.round((r.top + r.height / 2) / (tfs * 0.5)), v = rows.get(k) || [1e9, -1e9];
+    rows.set(k, [Math.min(v[0], r.left), Math.max(v[1], r.right)]);
+  }
+  let lw = 0; for (const v of rows.values()) lw = Math.max(lw, v[1] - v[0]);
+  const dateEl = $("date"); dateEl.textContent = D.date || "";
+  const th = titleEl.offsetHeight, dh = D.date ? dateEl.offsetHeight : 0;
+  const pw = Math.round(Math.min(880, Math.max(620, lw + 140)));
+  const padT = 32, gap = D.date ? 14 : 0, padB = 30;
+  const plateH = padT + th + gap + dh + padB;
+  const plateBot = cardTop - 26, plateTop = Math.round(plateBot - plateH);
+  titleEl.style.top = (plateTop + padT) + "px";
+  dateEl.style.top = (plateTop + padT + th + gap) + "px";
+
+  // ---------- lens geometry (page coords) ----------
+  // A beehive of prism rings: the lamp belt is widest, each ring above and below steps in,
+  // down to ~0.72 of the belt for the outermost ring.
+  const LT = 350, crownH = 62, footH = 28;
+  const corniceTop = plateTop - 30;
+  const lensBot = corniceTop - 16;                 // lowest point of the brass foot (a short iron neck below it)
+  const body = lensBot - LT - crownH - footH;
+  const nUp = Math.ceil(n / 2), nDn = n - nUp;
+  let bh = Math.min(104, Math.max(72, body * 0.56 / n));
+  let belt = Math.min(330, body - n * bh);
+  if (belt < 200) { bh = Math.max(62, (body - 200) / n); belt = body - n * bh; }
+  const extra = Math.max(0, body - n * bh - belt);
+  const topY = LT + crownH + extra * 0.42;
+  const fac = (d, ns) => 1 - 0.28 * d / Math.max(2, ns);
+  const bands = [];
+  let y = topY;
+  for (let k = 0; k < nUp; k++) { bands.push({ i: k, y0: y, y1: y + bh, h: HW * fac(nUp - k, nUp) }); y += bh; }
+  const B0 = y, B1 = y + belt, BC = (B0 + B1) / 2; y = B1;
+  for (let k = 0; k < nDn; k++) { bands.push({ i: nUp + k, y0: y, y1: y + bh, h: HW * fac(k + 1, nDn) }); y += bh; }
+  const botY = y, footB = botY + footH;
+  const hTop = bands[0].h, hBot = bands[bands.length - 1].h;
+
+  // glass half: the front arc of each ring rises above the lamp and dips below it
+  const sag = yy => 0.03 * (BC - yy);
+  const atR = (x, yy, h) => { const u = (x - CX) / h; return yy - sag(yy) * (1 - u * u); };
+  const eR = (yy, h) => { const s = sag(yy); return "M" + CX + "," + f1(yy - s) + "Q" + f1(CX + h / 2) + "," + f1(yy - s) + " " + f1(CX + h) + "," + f1(yy); };
+  const eRb = (yy, h) => { const s = sag(yy); return "L" + f1(CX + h) + "," + f1(yy) + "Q" + f1(CX + h / 2) + "," + f1(yy - s) + " " + CX + "," + f1(yy - s); };
+  const stripR = (ya, yb, h, h2) => eR(ya, h) + eRb(yb, h2 == null ? h : h2) + "Z";
+  // section half: an orthographic cut, flat, meeting the glass at the axis
+  const yS = yy => yy - sag(yy);
+  const rectL = (ya, yb, h) => "M" + f1(CX - h) + "," + f1(yS(ya)) + "H" + CX + "V" + f1(yS(yb)) + "H" + f1(CX - h) + "Z";
+
+  const Rb = Math.min(belt / 2 - 18, 158);
+  // the dioptric belt in section: flat face toward the lamp, stepped face outward, the fat lens as a ghost
+  const xb = CX - HW, xi = xb + 46, hb = belt / 2 - 12, T = Math.min(146, xi - 52), tmin = 8, dZ = 27;
+  const bulk = yy => T * Math.max(0, 1 - Math.pow((yy - BC) / hb, 2));
+  const xf = yy => xi - bulk(yy);
+  const xs = yy => xi - (tmin + (bulk(yy) % dZ));
+  const rayY = [-3, -2, -1, 0, 1, 2, 3].map(k => BC + k * hb * 0.26);
+
+  // caption wedge geometry (from the active word)
+  const onEl = capEl.querySelector(".w.on");
+  const onRects = onEl ? [...onEl.getClientRects()].filter(r => r.width > 1) : [];
+  const PX0 = 70, PX1 = 1010;
+
+  let s = "";
+  s += `<defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#07090D"/><stop offset="0.5" stop-color="#0D1117"/><stop offset="1" stop-color="#10161F"/></linearGradient>
+    <radialGradient id="halo" cx="${CX}" cy="${f1(BC)}" r="640" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F6D58A" stop-opacity="0.26"/><stop offset="0.4" stop-color="#B88B3A" stop-opacity="0.09"/><stop offset="1" stop-color="#B88B3A" stop-opacity="0"/></radialGradient>
+    <linearGradient id="beamR" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#F6D58A" stop-opacity="0.5"/><stop offset="1" stop-color="#F6D58A" stop-opacity="0.05"/></linearGradient>
+    <linearGradient id="beamL" x1="1" y1="0" x2="0" y2="0">
+      <stop offset="0" stop-color="#F6D58A" stop-opacity="0.1"/><stop offset="1" stop-color="#F6D58A" stop-opacity="0.02"/></linearGradient>
+    <linearGradient id="band" gradientUnits="userSpaceOnUse" x1="${CX}" y1="0" x2="${CX + HW}" y2="0">
+      <stop offset="0" stop-color="#FFF6DA" stop-opacity="0.95"/><stop offset="0.2" stop-color="#FFE3A0" stop-opacity="0.78"/>
+      <stop offset="0.52" stop-color="#D9B36A" stop-opacity="0.45"/><stop offset="0.85" stop-color="#8C8F92" stop-opacity="0.24"/><stop offset="1" stop-color="#6A7A92" stop-opacity="0.2"/></linearGradient>
+    <linearGradient id="bandW" gradientUnits="userSpaceOnUse" x1="${CX}" y1="0" x2="${CX + HW}" y2="0">
+      <stop offset="0" stop-color="#FFFBF0" stop-opacity="0.9"/><stop offset="0.3" stop-color="#F3E6C6" stop-opacity="0.6"/>
+      <stop offset="0.7" stop-color="#B9B4A8" stop-opacity="0.32"/><stop offset="1" stop-color="#7C8798" stop-opacity="0.22"/></linearGradient>
+    <linearGradient id="bandC" gradientUnits="userSpaceOnUse" x1="${CX}" y1="0" x2="${CX + HW}" y2="0">
+      <stop offset="0" stop-color="#F4F7FB" stop-opacity="0.8"/><stop offset="0.3" stop-color="#C9D6E6" stop-opacity="0.5"/>
+      <stop offset="0.7" stop-color="#8FA3BC" stop-opacity="0.3"/><stop offset="1" stop-color="#6A7A92" stop-opacity="0.22"/></linearGradient>
+    <linearGradient id="spec" gradientUnits="userSpaceOnUse" x1="${CX}" y1="0" x2="${CX + HW}" y2="0">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="1"/><stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0.75"/><stop offset="0.92" stop-color="#FFFFFF" stop-opacity="0.15"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>
+    <radialGradient id="beltGlow" cx="${CX}" cy="${f1(BC)}" r="${HW}" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F6D58A" stop-opacity="0.62"/><stop offset="0.55" stop-color="#E0B867" stop-opacity="0.3"/><stop offset="1" stop-color="#6A7A92" stop-opacity="0.2"/></radialGradient>
+    <linearGradient id="shadeV" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFF6DA" stop-opacity="0.34"/><stop offset="0.16" stop-color="#FFF6DA" stop-opacity="0"/>
+      <stop offset="0.68" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.46"/></linearGradient>
+    <linearGradient id="caus" gradientUnits="userSpaceOnUse" x1="${CX}" y1="0" x2="${CX + HW}" y2="0">
+      <stop offset="0" stop-color="#FFFBEF" stop-opacity="1"/><stop offset="0.45" stop-color="#FFE8AE" stop-opacity="0.8"/>
+      <stop offset="0.88" stop-color="#F6D58A" stop-opacity="0.15"/><stop offset="1" stop-color="#F6D58A" stop-opacity="0"/></linearGradient>
+    <linearGradient id="chim" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FFF8E2" stop-opacity="0.95"/><stop offset="0.55" stop-color="#FFE6A0" stop-opacity="0.45"/><stop offset="1" stop-color="#F6D58A" stop-opacity="0"/></linearGradient>
+    <linearGradient id="brassF" gradientUnits="userSpaceOnUse" x1="${CX - HW}" y1="0" x2="${CX + HW}" y2="0">
+      <stop offset="0" stop-color="#4A3612"/><stop offset="0.2" stop-color="#9C7430"/><stop offset="0.46" stop-color="#E9CC88"/>
+      <stop offset="0.6" stop-color="#C99B4A"/><stop offset="0.82" stop-color="#7A5A20"/><stop offset="1" stop-color="#3A2A0E"/></linearGradient>
+    <linearGradient id="brassV" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#EACD8A"/><stop offset="0.28" stop-color="#C79B4C"/><stop offset="0.66" stop-color="#9C7430"/><stop offset="1" stop-color="#5A4115"/></linearGradient>
+    <linearGradient id="iron" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#06080B"/><stop offset="0.38" stop-color="#1E2631"/><stop offset="0.55" stop-color="#28323F"/><stop offset="1" stop-color="#06080B"/></linearGradient>
+    <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0D1117" stop-opacity="0.35"/><stop offset="0.6" stop-color="#0D1117" stop-opacity="0.92"/><stop offset="1" stop-color="#0D1117"/></linearGradient>
+    <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#EFE9D9"/><stop offset="1" stop-color="#E2DAC4"/></linearGradient>
+    <radialGradient id="core" cx="${CX}" cy="${f1(BC)}" r="${f1(Rb)}" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFCF0"/><stop offset="0.2" stop-color="#FFF1C8"/><stop offset="0.5" stop-color="#F6D58A" stop-opacity="0.85"/>
+      <stop offset="0.82" stop-color="#D9AE5C" stop-opacity="0.5"/><stop offset="1" stop-color="#B88B3A" stop-opacity="0.3"/></radialGradient>
+    <radialGradient id="eyeSide" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FFE9B4" stop-opacity="0.85"/><stop offset="0.55" stop-color="#C9A05A" stop-opacity="0.45"/><stop offset="1" stop-color="#3A3426" stop-opacity="0.6"/></radialGradient>
+    <radialGradient id="flame" cx="0.5" cy="0.62" r="0.6">
+      <stop offset="0" stop-color="#FFFFFF"/><stop offset="0.45" stop-color="#FFF3CF"/><stop offset="1" stop-color="#F6D58A"/></radialGradient>
+    <pattern id="hatch" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path d="M0,0V12" stroke="${INK}" stroke-opacity="0.42" stroke-width="2.2"/></pattern>
+    <pattern id="mhatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)"><path d="M0,0V7" stroke="${INK}" stroke-opacity="0.55" stroke-width="1.6"/></pattern>
+    <pattern id="stip" width="9" height="9" patternUnits="userSpaceOnUse"><circle cx="2" cy="3" r="1" fill="#33281A"/><circle cx="6.5" cy="7.5" r="0.9" fill="#2A2115"/></pattern>
+    <clipPath id="beltR"><path d="${stripR(B0, B1, HW)}"/></clipPath>
+    <clipPath id="halfR"><rect x="${CX}" y="0" width="${1080 - CX}" height="1920"/></clipPath>
+  </defs>`;
+
+  // ---------- the lantern room ----------
+  s += `<rect width="1080" height="1920" fill="url(#sky)"/>`;
+  { // roof ribs converging on the vent above the axis
+    let p = "";
+    for (let x = -260; x <= 1340; x += 92) p += `M${CX},-300L${x},268`;
+    s += `<path d="${p}" stroke="#6A7A92" stroke-opacity="0.07" stroke-width="2" fill="none"/>`;
+  }
+  const lattice = (stroke, op, w) => {
+    let p = "";
+    for (let x0 = -1300; x0 <= 1300; x0 += 136) { p += "M" + x0 + ",280L" + f1(x0 + 1640 / 1.55) + ",1920"; p += "M" + (x0 + 1240) + ",280L" + f1(x0 + 1240 - 1640 / 1.55) + ",1920"; }
+    return `<path d="${p}" stroke="${stroke}" stroke-opacity="${op}" stroke-width="${w}" fill="none"/>`;
+  };
+  s += lattice("#6A7A92", 0.06, 2);
+  s += `<circle cx="${CX}" cy="${f1(BC)}" r="640" fill="url(#halo)"/>`;
+
+  // left: the drawn rays leave the dead-bulk ghost and run on as a thin, dim beam
+  s += `<path d="M${f1(xf(rayY[0]))},${f1(rayY[0])}L0,${f1(rayY[0] - 26)}L0,${f1(rayY[6] + 26)}L${f1(xf(rayY[6]))},${f1(rayY[6])}Z" fill="url(#beamL)"/>`;
+  { let p = ""; for (const yy of rayY) p += `M${f1(xf(yy) - 2)},${f1(yy)}L0,${f1(yy)}`;
+    s += `<path d="${p}" stroke="${LAMP}" stroke-opacity="0.5" stroke-width="2" fill="none"/>`; }
+  // right: the lamp-lit half throws the real beam
+  const xr = CX + HW - 6;
+  const beamR = `M${f1(xr)},${f1(BC - belt * 0.26)}L1080,${f1(BC - belt * 0.62)}L1080,${f1(BC + belt * 0.46)}L${f1(xr)},${f1(BC + belt * 0.22)}Z`;
+  s += `<clipPath id="beamClip"><path d="${beamR}"/></clipPath><path d="${beamR}" fill="url(#beamR)"/>`;
+  s += `<g clip-path="url(#beamClip)">${lattice("#F6D58A", 0.22, 2.5)}</g>`;
+
+  // floor grating under the panel (decor, under the platform UI)
+  { let p = ""; for (let k = 0, yy = 1640; yy < 1920; k++, yy += 16 + k * 5) p += `M0,${yy}H1080`;
+    s += `<path d="${p}" stroke="#6A7A92" stroke-opacity="0.09" stroke-width="2" fill="none"/>`; }
+
+  // ---------- the pedestal: iron neck, brass cornice, plinth face ----------
+  const plw = pw + 56;
+  s += `<path d="M${f1(CX - plw / 2)},${plateTop - 12}H${f1(CX + plw / 2)}V1920H${f1(CX - plw / 2)}Z" fill="url(#iron)"/>`;
+  s += `<rect x="${f1(CX - plw / 2 - 2)}" y="${PANEL_B}" width="${f1(plw + 4)}" height="${1920 - PANEL_B}" fill="url(#fade)"/>`;
+  s += `<path d="M${f1(CX - plw / 2 + 10)},${plateTop - 12}V1920M${f1(CX + plw / 2 - 10)},${plateTop - 12}V1920" stroke="#3A4656" stroke-opacity="0.6" stroke-width="2"/>`;
+  s += `<path d="M${f1(CX - hBot * 0.78)},${f1(footB - 4)}H${f1(CX + hBot * 0.78)}L${f1(CX + hBot * 0.92)},${corniceTop + 2}H${f1(CX - hBot * 0.92)}Z" fill="url(#iron)"/>`;
+  s += `<rect x="${f1(CX - plw / 2 - 16)}" y="${corniceTop}" width="${f1(plw + 32)}" height="18" rx="3" fill="url(#brassV)"/>`;
+  s += `<path d="M${f1(CX - plw / 2 - 14)},${corniceTop + 1.5}H${f1(CX + plw / 2 + 14)}" stroke="${HI}" stroke-opacity="0.6" stroke-width="1.5"/>`;
+  s += `<rect x="${f1(CX - plw / 2 - 6)}" y="${corniceTop + 18}" width="${f1(plw + 12)}" height="6" fill="#3A2A0E"/>`;
+
+  // ---------- RIGHT HALF: the lens as lamp-lit glass ----------
+  // crown: brass beehive dome, ribs converging on the vent ball
+  const domeTop = topY - crownH + 24, sT = sag(topY);
+  s += `<path d="M${CX},${f1(domeTop)}C${f1(CX + hTop * 0.42)},${f1(domeTop)} ${f1(CX + hTop * 0.92)},${f1(topY - crownH * 0.6)} ${f1(CX + hTop * 0.98)},${f1(topY + 2)}L${f1(CX + hTop * 0.98)},${f1(topY + 2)}Q${f1(CX + hTop * 0.49)},${f1(topY - sT + 2)} ${CX},${f1(topY - sT + 2)}Z" fill="url(#brassF)"/>`;
+  { let p = "";
+    for (const u of [0.24, 0.5, 0.76]) p += `M${f1(CX + u * hTop * 0.97)},${f1(atR(CX + u * hTop * 0.97, topY, hTop) + 1)}Q${f1(CX + u * hTop * 0.62)},${f1(topY - crownH * 0.55)} ${f1(CX + u * 30)},${f1(domeTop + 4)}`;
+    s += `<path d="${p}" stroke="#4A3612" stroke-opacity="0.7" stroke-width="3" fill="none"/>`; }
+  s += `<path d="M${CX},${f1(topY - crownH * 0.9 + 18)}Q${f1(CX + hTop * 0.4)},${f1(topY - crownH * 0.86 + 14)} ${f1(CX + hTop * 0.7)},${f1(topY - crownH * 0.4)}" stroke="${HI}" stroke-opacity="0.45" stroke-width="2" fill="none"/>`;
+  s += `<rect x="${CX - 8}" y="${f1(domeTop - 16)}" width="16" height="18" rx="3" fill="#B88B3A"/><circle cx="${CX}" cy="${f1(domeTop - 20)}" r="11" fill="#C99B4A"/><circle cx="${CX + 3}" cy="${f1(domeTop - 23)}" r="4" fill="#F4DFA8"/>`;
+  // foot: brass collar
+  s += `<path d="${stripR(botY - 2, footB, hBot * 0.98, hBot * 0.9)}" fill="url(#brassF)"/>`;
+
+  // prism rings: clear dark glass that the night shows through, two bright bands of refracted lamp light
+  // per ring (brightest at the axis), the lamp chimney seen through it, the back frame behind it
+  bands.forEach((b, k) => {
+    const h = b.h, d = stripR(b.y0, b.y1, h), hh = b.y1 - b.y0, shift = [5, -2, 7, 0, 4][k % 5];
+    s += `<clipPath id="cr${k}"><path d="${d}"/></clipPath>`;
+    s += `<path d="${d}" fill="#0D1620"/>`;
+    s += `<g clip-path="url(#cr${k})">`;
+    for (const u of [0.46, 0.88]) s += `<path d="M${f1(CX + u * h)},${f1(b.y0 - 12)}V${f1(b.y1 + 12)}" stroke="#B88B3A" stroke-opacity="0.32" stroke-width="5"/>`;
+    // three thin prisms per ring: each bright along its upper face, dimming toward its lower face (the section's sawtooth, lit)
+    [[0.05, 0.33, "band"], [0.37, 0.65, "bandW"], [0.69, 0.96, "bandC"]].forEach(([fa, fb, g]) => {
+      const ya = b.y0 + hh * fa, yb = b.y0 + hh * fb;
+      s += `<path d="${stripR(ya, yb, h * 1.02)}" fill="url(#${g})"/>`;
+      s += `<path d="${stripR(ya + (yb - ya) * 0.45, yb, h * 1.02)}" fill="#04070C" fill-opacity="0.42"/>`;
+      s += `<path d="${eR(ya + 1.5, h * 0.99)}" stroke="url(#spec)" stroke-width="2.2" fill="none"/>`;
+    });
+    s += `<rect x="${CX}" y="${f1(b.y0 - 20)}" width="${44 + shift}" height="${f1(hh + 40)}" fill="url(#chim)"/>`;
+    s += `</g>`;
+    s += `<path d="${d}" fill="url(#shadeV)"/>`;
+    s += `<path d="M${f1(CX + h)},${f1(b.y0)}V${f1(b.y1)}" stroke="#05070A" stroke-width="4"/>`;
+    s += `<path d="M${f1(CX + h - 4)},${f1(b.y0 + 3)}V${f1(b.y1 - 3)}" stroke="#FFF0C8" stroke-opacity="0.55" stroke-width="2"/>`;
+  });
+
+  // the lamp belt: half a bullseye panel around the flame, a side bullseye selling the cylinder
+  s += `<path d="${stripR(B0, B1, HW)}" fill="#0B1019"/><path d="${stripR(B0, B1, HW)}" fill="url(#beltGlow)"/>`;
+  s += `<g clip-path="url(#beltR)">`;
+  s += `<circle cx="${CX}" cy="${f1(BC)}" r="${f1(Rb * 1.75)}" fill="#F6D58A" fill-opacity="0.12"/>`;
+  { const ex = CX + HW * Math.sin(72 * Math.PI / 180), rx = Rb * Math.cos(72 * Math.PI / 180) * 1.25;
+    s += `<ellipse cx="${f1(ex)}" cy="${f1(BC)}" rx="${f1(rx)}" ry="${f1(Rb)}" fill="url(#eyeSide)"/>`;
+    for (let j = 1; j <= 5; j++) { const q = 0.32 + 0.68 * j / 5; s += `<ellipse cx="${f1(ex)}" cy="${f1(BC)}" rx="${f1(rx * q)}" ry="${f1(Rb * q)}" fill="none" stroke="#FFF1CC" stroke-opacity="${(0.55 - j * 0.07).toFixed(2)}" stroke-width="1.6"/>`; } }
+  s += `<path d="${eR(B0 + belt * 0.08, HW)}" stroke="url(#caus)" stroke-width="2.4" fill="none"/><path d="${eR(B1 - belt * 0.08, HW)}" stroke="url(#caus)" stroke-width="2" fill="none"/>`;
+  s += `</g>`;
+  { const half = r => `M${CX},${f1(BC - r)}A${f1(r)},${f1(r)} 0 0 1 ${CX},${f1(BC + r)}`;
+    s += `<path d="${half(Rb)}Z" fill="url(#core)"/>`;
+    for (let j = 1; j <= 7; j++) {
+      const r = Rb * (0.24 + 0.76 * j / 7);
+      s += `<path d="${half(r)}" fill="none" stroke="#FFF6DC" stroke-opacity="${(0.95 - j * 0.08).toFixed(2)}" stroke-width="${j < 4 ? 2.6 : 2}"/>`;
+      s += `<path d="${half(r - 4.5)}" fill="none" stroke="#7A5A20" stroke-opacity="${(0.12 + j * 0.05).toFixed(2)}" stroke-width="2.2"/>`;
+    }
+    s += `<path d="${half(Rb + 7)}" fill="none" stroke="url(#brassF)" stroke-width="7"/>`;
+    s += `<path d="M${f1(CX + Rb * 0.2)},${f1(BC - Rb * 0.8)}A${f1(Rb * 0.82)},${f1(Rb * 0.82)} 0 0 1 ${f1(CX + Rb * 0.74)},${f1(BC - Rb * 0.32)}" stroke="#FFFFFF" stroke-opacity="0.5" stroke-width="5" stroke-linecap="round" fill="none"/>`; }
+  { const x = CX + HW * Math.sin(36 * Math.PI / 180);
+    s += `<path d="M${f1(x)},${f1(atR(x, B0, HW))}L${f1(x)},${f1(atR(x, B1, HW))}" stroke="#A47A2E" stroke-width="8"/>`;
+    s += `<path d="M${f1(x - 2)},${f1(atR(x, B0, HW))}L${f1(x - 2)},${f1(atR(x, B1, HW))}" stroke="${HI}" stroke-opacity="0.5" stroke-width="1.5"/>`; }
+  s += `<path d="M${f1(CX + HW)},${f1(B0)}V${f1(B1)}" stroke="#05070A" stroke-width="3"/>`;
+  // the flame, glowing (its other half is drawn in ink on the section)
+  const flameR = `M${CX},${f1(BC - 50)}C${CX + 7},${f1(BC - 32)} ${CX + 24},${f1(BC - 8)} ${CX + 19},${f1(BC + 14)}Q${CX + 15},${f1(BC + 28)} ${CX},${f1(BC + 28)}Z`;
+  s += `<g clip-path="url(#halfR)"><ellipse cx="${CX}" cy="${f1(BC - 8)}" rx="58" ry="84" fill="#FFF3CF" fill-opacity="0.22"/></g><path d="${flameR}" fill="url(#flame)"/>`;
+
+  // brass rails: heavy at the crown, the belt and the foot; slim ledges where a ring steps in
+  const rail = (yy, h, big) => big
+    ? `<path d="${eR(yy + 3.5, h)}" stroke="#20170A" stroke-width="3" fill="none"/><path d="${eR(yy, h)}" stroke="url(#brassF)" stroke-width="8" fill="none"/><path d="${eR(yy - 2.6, h)}" stroke="${HI}" stroke-opacity="0.55" stroke-width="1.3" fill="none"/>`
+    : `<path d="${eR(yy + 2, h)}" stroke="#05070A" stroke-opacity="0.8" stroke-width="2" fill="none"/><path d="${eR(yy, h)}" stroke="#8C6A2C" stroke-width="4" fill="none"/><path d="${eR(yy - 1.5, h)}" stroke="${HI}" stroke-opacity="0.4" stroke-width="1.2" fill="none"/>`;
+  s += rail(topY, hTop, true);
+  for (let k = 1; k < nUp; k++) s += rail(bands[k].y0, bands[k].h, false);
+  s += rail(B0, HW, true) + rail(B1, HW, true);
+  for (let k = nUp + 1; k < bands.length; k++) s += rail(bands[k].y0, bands[k - 1].h, false);
+  s += rail(botY, hBot, true);
+
+  // ---------- LEFT HALF: the same lens cut open, in ink on cream ----------
+  // crown in section: a hatched brass shell over the cream interior
+  { const y2 = yS(topY), o = 12, a = hTop * 0.98;
+    s += `<path d="M${CX},${f1(domeTop)}C${f1(CX - hTop * 0.42)},${f1(domeTop)} ${f1(CX - hTop * 0.92)},${f1(topY - crownH * 0.6)} ${f1(CX - a)},${f1(y2)}H${CX}Z" fill="url(#paper)"/>`;
+    const shell = `M${CX},${f1(domeTop)}C${f1(CX - hTop * 0.42)},${f1(domeTop)} ${f1(CX - hTop * 0.92)},${f1(topY - crownH * 0.6)} ${f1(CX - a)},${f1(y2)}H${f1(CX - a + o)}C${f1(CX - hTop * 0.92 + o)},${f1(topY - crownH * 0.6 + o * 0.5)} ${f1(CX - hTop * 0.42)},${f1(domeTop + o)} ${CX},${f1(domeTop + o)}Z`;
+    s += `<path d="${shell}" fill="url(#mhatch)" stroke="${INK}" stroke-width="2.2" stroke-linejoin="round"/>`;
+    s += `<path d="M${CX},${f1(domeTop - 31)}A11,11 0 0 0 ${CX},${f1(domeTop - 9)}Z" fill="${PAPER}" stroke="${INK}" stroke-width="2"/>`;
+    s += `<path d="M${CX - 8},${f1(domeTop - 9)}V${f1(domeTop + 1)}" stroke="${INK}" stroke-width="2"/>`; }
+  // rings, belt and foot in section: cream paper, ink outline
+  for (const b of bands) s += `<path d="${rectL(b.y0, b.y1, b.h)}" fill="url(#paper)" stroke="${INK}" stroke-width="2.2"/>`;
+  s += `<path d="${rectL(B0, B1, HW)}" fill="url(#paper)" stroke="${INK}" stroke-width="2.2"/>`;
+  s += `<path d="${rectL(botY, footB, hBot * 0.98)}" fill="${PAPER}"/><path d="${rectL(botY, footB, hBot * 0.98)}" fill="url(#mhatch)" stroke="${INK}" stroke-width="2.2"/>`;
+  // catadioptric prisms: the only glass a ring keeps, in section at the outer edge
+  for (const b of bands) {
+    const xL = CX - b.h, ya = yS(b.y0), yb = yS(b.y1), my = (ya + yb) / 2;
+    s += `<path d="M${f1(xL + 40)},${f1(ya + 7)}L${f1(xL + 40)},${f1(yb - 7)}L${f1(xL + 4)},${f1(my)}Z" fill="#B7C3D4" stroke="${INK}" stroke-width="2.2" stroke-linejoin="round"/>`;
+    s += `<path d="M${f1(xL + 32)},${f1(ya + 16)}L${f1(xL + 12)},${f1(my - 2)}" stroke="#FFFFFF" stroke-opacity="0.7" stroke-width="2"/>`;
+  }
+  // the dioptric belt: fat plano-convex ghost (dead bulk, hatched, dashed) against the stepped profile
+  { let ghost = `M${f1(xi)},${f1(BC - hb)}`;
+    for (let yy = BC - hb; yy <= BC + hb + 0.01; yy += 3) ghost += `L${f1(xf(yy))},${f1(yy)}`;
+    ghost += `L${f1(xi)},${f1(BC + hb)}Z`;
+    s += `<path d="${ghost}" fill="${PAPER}"/><path d="${ghost}" fill="url(#hatch)"/><path d="${ghost}" fill="none" stroke="${INK}" stroke-width="2.2" stroke-dasharray="9 6"/>`;
+    let st = `M${f1(xi)},${f1(BC - hb)}`;
+    for (let yy = BC - hb; yy <= BC + hb + 0.01; yy += 1) st += `L${f1(xs(yy))},${f1(yy)}`;
+    st += `L${f1(xi)},${f1(BC + hb)}Z`;
+    s += `<path d="${st}" fill="#B7C3D4" stroke="${INK}" stroke-width="2.4" stroke-linejoin="round"/>`;
+    // rays: from the lamp, through the kept glass, out parallel (starting at the facet, through the removed bulk)
+    let rays = "";
+    for (const yy of rayY) rays += `M${CX - 2},${f1(BC)}L${f1(xi)},${f1(yy)}M${f1(xs(yy))},${f1(yy)}L${f1(xf(yy) - 2)},${f1(yy)}`;
+    s += `<path d="${rays}" stroke="#8F6524" stroke-width="2.2" fill="none"/>`; }
+  // the lamp in section: half flame, burner, chimney
+  { const flameL = `M${CX},${f1(BC - 50)}C${CX - 7},${f1(BC - 32)} ${CX - 24},${f1(BC - 8)} ${CX - 19},${f1(BC + 14)}Q${CX - 15},${f1(BC + 28)} ${CX},${f1(BC + 28)}Z`;
+    s += `<path d="${flameL}" fill="#F6D58A" fill-opacity="0.75" stroke="${INK}" stroke-width="2.2"/>`;
+    s += `<path d="M${CX - 22},${f1(BC + 32)}H${CX}V${f1(BC + hb * 0.86)}H${CX - 22}Z" fill="${PAPER}" stroke="${INK}" stroke-width="2"/>`;
+    s += `<path d="M${CX - 22},${f1(BC + 48)}H${CX}M${CX - 22},${f1(BC + 64)}H${CX}" stroke="${INK}" stroke-width="1.6"/>`;
+    s += `<path d="M${CX - 13},${f1(BC - 58)}V${f1(yS(topY))}M${CX - 11},${f1(BC + hb * 0.86)}V${f1(yS(footB))}" stroke="${INK}" stroke-opacity="0.7" stroke-width="1.6"/>`; }
+  // the cut: seam along the axis, centre line running on above and below the lens
+  s += `<path d="M${CX},${f1(domeTop - 9)}V${f1(yS(footB))}" stroke="${INK}" stroke-width="2.6"/>`;
+  s += `<path d="M${CX},${LT - 12}V${f1(domeTop - 32)}M${CX},${f1(footB + 4)}V${corniceTop - 2}" stroke="${PAPER}" stroke-opacity="0.6" stroke-width="1.6" stroke-dasharray="20 6 4 6"/>`;
+  // part balloons with short leaders to each prism
+  for (const b of bands) {
+    const xL = CX - b.h, my = (yS(b.y0) + yS(b.y1)) / 2;
+    s += `<path d="M${f1(xL - 15)},${f1(my)}H${f1(xL + 4)}" stroke="${PAPER}" stroke-width="2"/>`;
+    s += `<circle cx="${f1(xL - 40)}" cy="${f1(my)}" r="25" fill="${PAPER}" stroke="#05070A" stroke-width="2"/>`;
+  }
+
+  // ---------- the nameplate: brass rim, blackened field, screws, date rules ----------
+  { const x0 = CX - pw / 2, y0 = plateTop;
+    s += `<rect x="${f1(x0 + 5)}" y="${y0 + 9}" width="${pw}" height="${plateH}" rx="9" fill="#000" fill-opacity="0.5"/>`;
+    s += `<rect x="${f1(x0)}" y="${y0}" width="${pw}" height="${plateH}" rx="9" fill="url(#brassV)"/>`;
+    s += `<rect x="${f1(x0 + 1.5)}" y="${y0 + 1.5}" width="${pw - 3}" height="${plateH - 3}" rx="8" fill="none" stroke="${HI}" stroke-opacity="0.6" stroke-width="1.5"/>`;
+    s += `<rect x="${f1(x0 + 13)}" y="${y0 + 13}" width="${pw - 26}" height="${plateH - 26}" rx="3" fill="#1C150C"/>`;
+    s += `<rect x="${f1(x0 + 13)}" y="${y0 + 13}" width="${pw - 26}" height="${plateH - 26}" rx="3" fill="url(#stip)"/>`;
+    s += `<rect x="${f1(x0 + 13)}" y="${y0 + 13}" width="${pw - 26}" height="${plateH - 26}" rx="3" fill="none" stroke="#000" stroke-opacity="0.7" stroke-width="3"/>`;
+    s += `<rect x="${f1(x0 + 22)}" y="${y0 + 22}" width="${pw - 44}" height="${plateH - 44}" rx="2" fill="none" stroke="#B88B3A" stroke-opacity="0.55" stroke-width="2"/>`;
+    for (const [cx, cy] of [[x0 + 36, y0 + 36], [x0 + pw - 36, y0 + 36], [x0 + 36, y0 + plateH - 36], [x0 + pw - 36, y0 + plateH - 36]]) {
+      s += `<circle cx="${f1(cx)}" cy="${f1(cy)}" r="7.5" fill="#C99B4A" stroke="#3A2A0E" stroke-width="1.5"/><path d="M${f1(cx - 5)},${f1(cy + 2.5)}L${f1(cx + 5)},${f1(cy - 2.5)}" stroke="#3A2A0E" stroke-width="2"/>`;
+    }
+    if (D.date) {
+      const dw = Math.min(600, dateEl.scrollWidth ? measureText(dateEl) : 0), dy = plateTop + padT + th + gap + dh / 2;
+      s += `<path d="M${f1(CX - dw / 2 - 70)},${f1(dy)}H${f1(CX - dw / 2 - 18)}M${f1(CX + dw / 2 + 18)},${f1(dy)}H${f1(CX + dw / 2 + 70)}" stroke="#B88B3A" stroke-opacity="0.8" stroke-width="2"/>`;
+      s += `<circle cx="${f1(CX - dw / 2 - 76)}" cy="${f1(dy)}" r="3" fill="#B88B3A"/><circle cx="${f1(CX + dw / 2 + 76)}" cy="${f1(dy)}" r="3" fill="#B88B3A"/>`;
+    }
+  }
+
+  // ---------- the gallery panel and the light wedge on the active caption word ----------
+  s += `<rect x="${PX0}" y="${cardTop}" width="${PX1 - PX0}" height="${PANEL_B - cardTop}" rx="6" fill="#0E131A"/>`;
+  s += `<rect x="${PX0 + 0.75}" y="${cardTop + 0.75}" width="${PX1 - PX0 - 1.5}" height="${PANEL_B - cardTop - 1.5}" rx="6" fill="none" stroke="#B88B3A" stroke-opacity="0.5" stroke-width="1.5"/>`;
+  if (onRects.length) {
+    const r = onRects[0], pad = 6;
+    // the wedge flares at the word; when other words precede it on its line, it runs in under them as a thin ray
+    const leads = [...capEl.children].some(e => e !== onEl && Math.abs(e.offsetTop - onEl.offsetTop) < 4 && e.offsetLeft < onEl.offsetLeft);
+    const ay = leads ? r.bottom - cfs * 0.12 : (r.top + r.bottom) / 2, xFl = leads ? r.left - 46 : PX0 + 2;
+    s += `<linearGradient id="wedge" gradientUnits="userSpaceOnUse" x1="${PX0}" y1="0" x2="${f1(r.left - 4)}" y2="0"><stop offset="0" stop-color="#F6D58A" stop-opacity="0"/><stop offset="0.55" stop-color="#F6D58A" stop-opacity="0.3"/><stop offset="0.9" stop-color="#F6D58A" stop-opacity="0.85"/><stop offset="1" stop-color="#F6D58A" stop-opacity="1"/></linearGradient>`;
+    s += `<path d="M${PX0 + 1},${f1(ay - 2)}L${f1(xFl)},${f1(ay - 2.5)}L${f1(r.left - pad)},${f1(r.top - pad)}L${f1(r.right + pad + 4)},${f1(r.top - pad)}Q${f1(r.right + pad + 14)},${f1((r.top + r.bottom) / 2)} ${f1(r.right + pad + 4)},${f1(r.bottom + pad)}L${f1(r.left - pad)},${f1(r.bottom + pad)}L${f1(xFl)},${f1(ay + 2.5)}L${PX0 + 1},${f1(ay + 2)}Z" fill="url(#wedge)"/>`;
+    for (const r2 of onRects.slice(1)) s += `<rect x="${f1(r2.left - pad)}" y="${f1(r2.top - pad)}" width="${f1(r2.width + 2 * pad)}" height="${f1(r2.height + 2 * pad)}" rx="3" fill="#F6D58A"/>`;
+  }
+  $("art").innerHTML = s;
+
+  // ---------- ring text (HTML, so it stays crisp and measurable) ----------
+  let html = "";
+  bands.forEach((b, k) => {
+    const it = items[b.i] || {};
+    html += `<div class="num" id="n${k}">${ROMAN[b.i] || ""}</div><div class="lab" id="l${k}">${esc(it.label).replace(/[·•]/g, '<span class="sep">·</span>')}</div><div class="val" id="v${k}">${esc(it.value)}</div>`;
+  });
+  $("rings").innerHTML = html;
+  bands.forEach((b, k) => {
+    const xL = CX - b.h, my = (yS(b.y0) + yS(b.y1)) / 2;
+    const nEl = $("n" + k), lEl = $("l" + k), vEl = $("v" + k);
+    nEl.style.left = f1(xL - 40 - 25) + "px";
+    nEl.style.top = f1(my - nEl.offsetHeight / 2 + 1) + "px";
+    // label: ink on the section, flush right against the axis
+    const lx0 = xL + 54, lx1 = CX - 22, avail = lx1 - lx0;
+    lEl.style.whiteSpace = "nowrap";
+    for (let fs = 32; fs >= 30; fs--) { lEl.style.fontSize = fs + "px"; if (lEl.offsetWidth <= avail) break; }
+    if (lEl.offsetWidth > avail) { lEl.style.whiteSpace = "normal"; lEl.style.width = f1(avail) + "px"; if (lEl.scrollWidth > avail + 1) lEl.style.overflowWrap = "anywhere"; }
+    lEl.style.left = f1(lx1 - lEl.offsetWidth) + "px";
+    lEl.style.top = f1(my - lEl.offsetHeight / 2 + 2) + "px";
+    // value: lamp-coloured on a black enamel tablet, flush left against the axis on the glass
+    const vx0 = CX + 42, vmax = CX + b.h - 34 - vx0;
+    for (let fs = 46; fs >= 34; fs -= 2) { vEl.style.fontSize = fs + "px"; if (vEl.offsetWidth <= vmax) break; }
+    vEl.style.left = vx0 + "px";
+    vEl.style.top = f1(atR(vx0 + vEl.offsetWidth / 2, (b.y0 + b.y1) / 2, b.h) - vEl.offsetHeight / 2) + "px";
+  });
+
+  function measureText(el) { const r = document.createRange(); r.selectNodeContents(el); const b = r.getBoundingClientRect(); return b.width; }
+  }
+</script>
+</body>
+</html>

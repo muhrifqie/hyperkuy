@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&family=Instrument+Serif:ital@0;1&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Parenthetical: one page of a shooting script, held by two round-head brads,
+    a red/blue editing pencil lying on the desk above it. Metaphor: role prompting.
+    Same character cue, a different (parenthetical), a different line: the format
+    itself is the instruction. Every item is one dialogue block (dual dialogue,
+    side by side): cue "AI", the item label as the parenthetical (bracketed again
+    in red pencil = the hero), the item value as the spoken line.
+    A blue gutter at the binding edge shows the plain-text markup that produces
+    each formatted line (> . @ ( ) ^). The caption is the NARATOR (V.O.) dialogue.
+    Deterministic: hand-drawn pencil strokes are fixed curves + a seeded SVG filter.
+  */
+  :root { --paper: #FBFAF6; --ink: #1A1A1A; --red: #C23B22; --blue: #3557A6; --desk: #E8E3D5; --soft: #55524B; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--desk); }
+  body { position: relative; color: var(--ink); font-family: "Courier Prime", "Courier New", monospace; }
+
+  #deco, #marks { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; pointer-events: none; }
+
+  #col { position: absolute; left: 100px; top: 300px; width: 880px; }
+  .hdr { display: flex; justify-content: space-between; align-items: baseline; font-size: 28px; line-height: 1.2; }
+  .hdr .rev { color: var(--blue); }
+  .hdr .pg { font-weight: 700; font-size: 32px; }
+
+  #title { font-family: "Instrument Serif", serif; font-weight: 400; line-height: 0.98; letter-spacing: -0.012em; color: var(--ink); text-wrap: balance; }
+  #title .hl { font-style: italic; white-space: nowrap; padding: 0 0.2em; }
+
+  .script { padding-left: 90px; }
+  .trans { font-weight: 700; font-size: 32px; line-height: 1.2; }
+  .slug { font-weight: 700; font-size: 34px; line-height: 1.2; letter-spacing: 0.01em; }
+
+  #grid { width: 710px; }
+  .row { display: flex; justify-content: center; gap: 50px; }
+  .cell.solo { width: 520px; }
+  .cell { width: 330px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .cue { font-weight: 700; letter-spacing: 0.05em; line-height: 1.15; }
+  .par { font-style: italic; color: var(--soft); line-height: 1.12; padding: 0 28px; width: 100%; display: flex; align-items: center; justify-content: center; }
+  .par .in { text-align: center; }
+  .par .lbl { display: inline; }
+  .val { font-weight: 700; line-height: 1.05; white-space: nowrap; letter-spacing: -0.02em; margin-top: 0.16em; }
+
+  .vo { display: flex; flex-direction: column; align-items: center; width: 760px; margin-left: -50px; }
+  .vo .cue { font-size: 32px; }
+  [data-slot="caption"] { width: 760px; text-align: center; line-height: 1.3; font-weight: 400; text-wrap: balance; }
+  [data-slot="caption"] .w { display: inline; }
+  [data-slot="caption"] .on { background: var(--blue); color: var(--paper); font-weight: 700; padding: 0 0.16em; border-radius: 4px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+  [data-slot="caption"].serif { font-family: "Instrument Serif", serif; letter-spacing: 0; }
+
+  #foot { position: absolute; left: 100px; width: 890px; top: 1566px; display: flex; justify-content: space-between; align-items: flex-end; gap: 30px; }
+  #foot .src { font-size: 26px; line-height: 1.2; color: var(--soft); max-width: 660px; text-wrap: balance; }
+  #foot .cut { font-weight: 700; font-size: 32px; line-height: 1.2; white-space: nowrap; }
+
+  .gut { position: absolute; width: 60px; text-align: right; color: var(--blue); font-weight: 700; font-size: 30px; line-height: 1; white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg id="deco" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap data-layout-allow-overflow aria-hidden="true">
+  <defs>
+    <filter id="sheetShadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#1A1A1A" flood-opacity="0.12" />
+    </filter>
+    <filter id="paperGrain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="4" result="n" />
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.10  0 0 0 0 0.10  0 0 0 0 0.08  0 0 0 0.05 0" />
+    </filter>
+    <filter id="pencilShadow" x="-10%" y="-200%" width="120%" height="500%">
+      <feGaussianBlur stdDeviation="6" />
+    </filter>
+    <radialGradient id="brad" cx="38%" cy="34%" r="70%">
+      <stop offset="0" stop-color="#FBFAF6" stop-opacity="0.85" />
+      <stop offset="0.28" stop-color="#8E8A82" />
+      <stop offset="1" stop-color="#1A1A1A" />
+    </radialGradient>
+  </defs>
+  <g id="sheets"></g>
+  <g id="pencil"></g>
+</svg>
+
+<div id="col">
+  <div class="hdr" id="hdr"><span class="rev" id="rev"></span><span class="pg" id="pg"></span></div>
+  <h1 id="title"></h1>
+  <div class="script">
+    <div class="trans" id="fade">FADE IN:</div>
+    <div class="slug" id="slug"></div>
+    <div id="grid"></div>
+    <div class="vo" id="vo">
+      <div class="cue" id="vocue">NARATOR (V.O.)</div>
+      <div data-slot="caption" id="cap"></div>
+    </div>
+  </div>
+</div>
+<div id="foot"><span class="src" id="src"></span><span class="cut" id="cut">CUT TO:</span></div>
+<div id="gutter"></div>
+
+<svg id="marks" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap aria-hidden="true">
+  <defs>
+    <filter id="pencilGrain" x="-30%" y="-10%" width="160%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="2" seed="7" result="n" />
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G" result="d" />
+      <feTurbulence type="fractalNoise" baseFrequency="1.9" numOctaves="1" seed="13" result="g" />
+      <feColorMatrix in="g" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  -1.1 0 0 0 1.32" result="ga" />
+      <feComposite in="d" in2="ga" operator="in" />
+    </filter>
+  </defs>
+  <g id="redmarks" filter="url(#pencilGrain)"></g>
+</svg>
+
+<script>
+  // Built-in sample so the file opens on its own in a browser.
+  const D = window.D || {
+    series_id: "ai-tools", series: "Tools AI", ep: "#07", kicker: "Tools AI · #07",
+    title: "Beda satu kurung, beda jawaban AI.", hl: "kurung",
+    sub: "Kasih AI peran dan nada, jawabannya ikut berubah.",
+    items: [{ label: "singkat, santai", value: "Bisa kok." }, { label: "dosen galak", value: "Revisi!" }, { label: "sales", value: "Diskon 50%" }, { label: "anak 5 tahun", value: "Hore!" }],
+    source: "ilustrasi — gaya jawaban beda tiap model", date: "per 14 Okt 2026"
+  };
+
+  const NS = "http://www.w3.org/2000/svg";
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+
+  Promise.all([
+    '400 100px "Instrument Serif"', 'italic 400 100px "Instrument Serif"',
+    '400 40px "Courier Prime"', '700 40px "Courier Prime"', 'italic 400 40px "Courier Prime"'
+  ].map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(build);
+
+  function build() {
+    const items = (D.items || []).slice(0, 5);
+    const n = items.length;
+
+    // ---- header: revision line (date, blue) + page number (episode)
+    $("rev").textContent = D.date || "";
+    const ep = String(D.ep || "").trim();
+    $("pg").textContent = ep ? (ep.startsWith("#") ? ep : "#" + ep) + "." : "";
+
+    // ---- title, hl in italic (red pencil parentheses are drawn later)
+    const t = D.title || "", hl = (D.hl || "").trim();
+    const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    $("title").innerHTML = at < 0 ? esc(t)
+      : esc(t.slice(0, at)) + '<span class="hl" id="thl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+
+    // ---- scene heading carries the series
+    const series = (D.series || D.kicker || "").toUpperCase();
+    $("slug").textContent = "INT. " + series + " — MALAM";
+
+    // ---- items: dual dialogue rows (pairs), odd one last and centred
+    const rows = [];
+    for (let i = 0; i < n; i += 2) rows.push(items.slice(i, i + 2));
+    $("grid").innerHTML = rows.map((r, ri) =>
+      '<div class="row">' + r.map((it, ci) =>
+        '<div class="cell' + (r.length === 1 ? ' solo' : '') + '"><div class="cue">AI</div>' +
+        '<div class="par"><div class="in"><span class="lbl">' + esc(it.label) + '</span></div></div>' +
+        '<div class="val">' + esc(it.value) + '</div></div>').join("") + "</div>").join("");
+
+    // ---- caption: karaoke words, active = hl if present, else first word
+    const cap = String(D.caption || D.sub || "");
+    const words = cap.split(/\s+/).filter(Boolean);
+    let actFrom = 0, actTo = 0;
+    if (hl) {
+      const ci = cap.toLowerCase().indexOf(hl.toLowerCase());
+      if (ci >= 0) {
+        let pos = 0; const spans = words.map(w => { const s = cap.indexOf(w, pos); pos = s + w.length; return [s, pos]; });
+        const hits = spans.map((s, k) => (s[0] < ci + hl.length && s[1] > ci) ? k : -1).filter(k => k >= 0);
+        if (hits.length) { actFrom = hits[0]; actTo = hits[hits.length - 1]; }
+      }
+    }
+    let capHtml = "";
+    words.forEach((w, k) => {
+      if (k === actFrom) capHtml += '<span class="w on">';
+      else if (!(k > actFrom && k <= actTo)) capHtml += '<span class="w">';
+      capHtml += esc(w);
+      if (k === actTo || !(k >= actFrom && k <= actTo)) capHtml += "</span>";
+      capHtml += k < words.length - 1 ? " " : "";
+    });
+    $("cap").innerHTML = capHtml;
+
+    // ---- footer
+    $("src").textContent = D.source ? "Sumber: " + D.source : "";
+
+    fit(rows.length);
+    draw(rows.length);
+  }
+
+  // ---------- fitting: column runs y 300 -> 1546 (footer at 1566)
+  const TOP = 300, BOTTOM = 1544;
+  function lineCount(el, lh) { return Math.round(el.getBoundingClientRect().height / lh); }
+
+  function apply(k, titleMax) {
+    const title = $("title");
+    for (let fs = 132; fs >= 74; fs -= 2) {
+      title.style.fontSize = fs + "px";
+      if (title.offsetHeight <= titleMax) break;
+    }
+    document.querySelectorAll(".cell .cue").forEach(e => e.style.fontSize = Math.max(30, Math.round(36 * Math.min(k, 1.1))) + "px");
+    document.querySelectorAll(".par").forEach(e => { e.style.fontSize = Math.max(32, Math.round(40 * Math.min(k, 1))) + "px"; e.style.minHeight = ""; });
+    // one dialogue size for every line (largest that fits the widest value), so the takes read as equals
+    const vals = Array.from(document.querySelectorAll(".val"));
+    let vfs = Math.max(48, Math.round(84 * Math.min(k, 1.1)));
+    const limit = e => e.closest(".solo") ? 500 : 296;
+    const tooWide = () => vals.some(e => e.scrollWidth > limit(e));
+    vals.forEach(e => e.style.fontSize = vfs + "px");
+    while (vals.length && tooWide() && vfs > 36) { vfs -= 2; vals.forEach(e => e.style.fontSize = vfs + "px"); }
+    // dual dialogue: parentheticals in a pair share one height so both lines sit on one baseline
+    document.querySelectorAll(".row").forEach(r => {
+      const ps = Array.from(r.querySelectorAll(".par"));
+      const h = Math.max(...ps.map(e => e.offsetHeight));
+      ps.forEach(e => e.style.minHeight = h + "px");
+    });
+    // caption: Courier 44 -> 40, else Instrument Serif 46 (1-2 lines)
+    const c = $("cap"); c.classList.remove("serif");
+    let ok = false;
+    for (const fs of [44, 42, 40]) { c.style.fontSize = fs + "px"; if (lineCount(c, fs * 1.3) <= 2) { ok = true; break; } }
+    if (!ok) { c.classList.add("serif"); for (const fs of [48, 46, 44, 42, 40]) { c.style.fontSize = fs + "px"; if (lineCount(c, fs * 1.3) <= 2) break; } }
+  }
+
+  function fit(nRows) {
+    const ks = [1.12, 1.06, 1, 0.95, 0.9, 0.85, 0.8, 0.75];
+    const g = { title: 30, fade: 40, slug: 10, grid: 40, row: 40, vo: 44 };
+    let chosen = null;
+    for (const k of ks) {
+      const titleMax = Math.round((nRows >= 3 ? 300 : 340) * (0.75 + 0.25 * Math.min(k, 1)));
+      apply(k, titleMax);
+      const natural = measure(g, nRows, k);
+      if (natural <= BOTTOM - TOP) { chosen = { k, natural }; break; }
+      chosen = { k, natural };
+    }
+    // distribute leftover space so the script fills the page instead of pooling at the bottom
+    let extra = Math.max(0, (BOTTOM - TOP) - chosen.natural);
+    const kk = chosen.k;
+    const base = { title: 30, fade: 40, slug: 10, grid: 40 * kk, row: 40 * kk, vo: 44 * kk };
+    const add = { fade: 0, grid: 0, row: 0, vo: 0 };
+    const caps = { fade: 30, grid: 44, row: 40, vo: 44 };
+    const w = { fade: 0.2, grid: 0.25, row: nRows > 1 ? 0.3 : 0, vo: 0.25 };
+    let spend = extra;
+    for (const key in add) {
+      const share = key === "row" ? (spend * w[key]) / Math.max(1, nRows - 1) : spend * w[key];
+      add[key] = Math.min(caps[key], share);
+    }
+    const used = add.fade + add.grid + add.vo + add.row * Math.max(0, nRows - 1);
+    const rest = Math.max(0, extra - used);
+    setGaps({ title: base.title + rest * 0.2, fade: base.fade + add.fade + rest * 0.3, slug: base.slug, grid: base.grid + add.grid + rest * 0.25, row: base.row + add.row, vo: base.vo + add.vo + rest * 0.25 });
+  }
+
+  function setGaps(g) {
+    $("title").style.marginTop = g.title + "px";
+    $("fade").style.marginTop = g.fade + "px";
+    $("slug").style.marginTop = g.slug + "px";
+    $("grid").style.marginTop = g.grid + "px";
+    document.querySelectorAll(".row").forEach((r, i) => r.style.marginTop = (i ? g.row : 0) + "px");
+    $("vo").style.marginTop = g.vo + "px";
+  }
+
+  function measure(g, nRows, k) {
+    setGaps({ title: g.title, fade: g.fade, slug: g.slug, grid: g.grid * k, row: g.row * k, vo: g.vo * k });
+    return $("col").getBoundingClientRect().height;
+  }
+
+  // ---------- drawing: sheets, brads, pencil, red pencil parentheses, markup gutter
+  function el(tag, attrs, parent) {
+    const e = document.createElementNS(NS, tag);
+    for (const a in attrs) e.setAttribute(a, attrs[a]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+
+  // hand-drawn parenthesis: two pencil passes, slightly different curves (fixed, no randomness)
+  function paren(g, x, y0, h, side, sw, idx) {
+    const w = Math.max(10, h * 0.16);
+    const j = [0.6, -0.8, 1.1, -0.4, 0.9, -1.2, 0.5, -0.7][idx % 8];
+    const d = side < 0
+      ? `M${x + w * 0.55},${y0} C${x - w * 0.55},${y0 + h * 0.2} ${x - w * 0.6 + j},${y0 + h * 0.78} ${x + w * 0.6},${y0 + h}`
+      : `M${x - w * 0.55},${y0} C${x + w * 0.55},${y0 + h * 0.2} ${x + w * 0.6 + j},${y0 + h * 0.78} ${x - w * 0.6},${y0 + h}`;
+    const d2 = side < 0
+      ? `M${x + w * 0.45},${y0 + h * 0.04} C${x - w * 0.42 + j},${y0 + h * 0.26} ${x - w * 0.5},${y0 + h * 0.72} ${x + w * 0.5 + j},${y0 + h * 0.97}`
+      : `M${x - w * 0.45},${y0 + h * 0.04} C${x + w * 0.42 + j},${y0 + h * 0.26} ${x + w * 0.5},${y0 + h * 0.72} ${x - w * 0.5 + j},${y0 + h * 0.97}`;
+    el("path", { d, fill: "none", stroke: "#C23B22", "stroke-width": sw, "stroke-linecap": "round" }, g);
+    el("path", { d: d2, fill: "none", stroke: "#C23B22", "stroke-width": sw * 0.5, "stroke-linecap": "round", opacity: 0.7 }, g);
+  }
+
+  function draw(nRows) {
+    // sheets: the page underneath (slightly rotated) + the top page, both bleeding off the bottom
+    const sh = $("sheets");
+    el("rect", { x: 40, y: 186, width: 1030, height: 1760, fill: "#F2EFE6", transform: "rotate(0.7 540 186)", filter: "url(#sheetShadow)" }, sh);
+    el("rect", { x: 26, y: 204, width: 1028, height: 1716, fill: "#FBFAF6", filter: "url(#sheetShadow)" }, sh);
+    el("rect", { x: 26, y: 204, width: 1028, height: 1716, fill: "#FBFAF6", filter: "url(#paperGrain)", opacity: 1 }, sh);
+    // three-hole punch at the binding edge: brads in the top and bottom holes, middle hole empty
+    [[338, true], [1062, false], [1786, true]].forEach(([y, brad]) => {
+      el("circle", { cx: 58, cy: y, r: 15, fill: "#E8E3D5" }, sh);
+      el("path", { d: `M44,${y - 4} A15,15 0 0 1 72,${y - 4}`, fill: "none", stroke: "#1A1A1A", "stroke-opacity": 0.25, "stroke-width": 3 }, sh);
+      if (brad) {
+        el("ellipse", { cx: 60, cy: y + 5, rx: 22, ry: 20, fill: "#1A1A1A", opacity: 0.18 }, sh);
+        el("circle", { cx: 58, cy: y, r: 21, fill: "url(#brad)" }, sh);
+        el("circle", { cx: 58, cy: y, r: 21, fill: "none", stroke: "#1A1A1A", "stroke-opacity": 0.55, "stroke-width": 1.5 }, sh);
+      }
+    });
+
+    // the red/blue editing pencil lying on the desk above the page
+    const p = $("pencil");
+    const pg = el("g", { transform: "translate(452 176) rotate(-11.5)" }, p);
+    el("rect", { x: 30, y: 8, width: 580, height: 16, rx: 8, fill: "#1A1A1A", opacity: 0.18, filter: "url(#pencilShadow)" }, pg); // shadow
+    // red half + blue half, hexagonal facets as stripes
+    el("rect", { x: 46, y: -13, width: 270, height: 26, fill: "#C23B22" }, pg);
+    el("rect", { x: 316, y: -13, width: 270, height: 26, fill: "#3557A6" }, pg);
+    el("rect", { x: 46, y: -13, width: 540, height: 8, fill: "#FBFAF6", opacity: 0.22 }, pg);
+    el("rect", { x: 46, y: 5, width: 540, height: 8, fill: "#1A1A1A", opacity: 0.22 }, pg);
+    // sharpened wood cones + leads at both ends
+    el("path", { d: "M46,-13 L4,0 L46,13 Z", fill: "#E8E3D5" }, pg);
+    el("path", { d: "M14,-3.2 L4,0 L14,3.2 Z", fill: "#C23B22" }, pg);
+    el("path", { d: "M586,-13 L628,0 L586,13 Z", fill: "#E8E3D5" }, pg);
+    el("path", { d: "M618,-3.2 L628,0 L618,3.2 Z", fill: "#3557A6" }, pg);
+    el("path", { d: "M46,-13 L4,0 L46,13", fill: "none", stroke: "#1A1A1A", "stroke-opacity": 0.25, "stroke-width": 1.5 }, pg);
+    el("path", { d: "M586,-13 L628,0 L586,13", fill: "none", stroke: "#1A1A1A", "stroke-opacity": 0.25, "stroke-width": 1.5 }, pg);
+
+    // red pencil: brackets around the title highlight and around every parenthetical
+    const rm = $("redmarks");
+    let idx = 0;
+    const thl = $("thl");
+    if (thl) {
+      const r = thl.getBoundingClientRect();
+      const fs = parseFloat(getComputedStyle($("title")).fontSize);
+      const h = fs * 0.98, y0 = r.top + (r.height - h) / 2 + fs * 0.04;
+      const sw = Math.max(5, fs * 0.055);
+      paren(rm, r.left + fs * 0.07, y0, h, -1, sw, idx++);
+      paren(rm, r.right - fs * 0.07, y0, h, 1, sw, idx++);
+    }
+    document.querySelectorAll(".par").forEach(pe => {
+      const lbl = pe.querySelector(".lbl");
+      const rects = Array.from(lbl.getClientRects());
+      const left = Math.min(...rects.map(q => q.left)), right = Math.max(...rects.map(q => q.right));
+      const top = Math.min(...rects.map(q => q.top)), bot = Math.max(...rects.map(q => q.bottom));
+      const fs = parseFloat(getComputedStyle(pe).fontSize);
+      const h = (bot - top) + fs * 0.3, y0 = top - fs * 0.12;
+      paren(rm, left - fs * 0.42, y0, h, -1, 4.2, idx++);
+      paren(rm, right + fs * 0.42, y0, h, 1, 4.2, idx++);
+    });
+
+    // markup gutter (Fountain plain text): > forced transition, . forced heading, @ character, ( ) parenthetical, ^ dual dialogue
+    const gut = $("gutter");
+    const GX = 96; // gutter right edge sits at x 156
+    const mark = (txt, refEl, small) => {
+      const r = refEl.getBoundingClientRect();
+      const d = document.createElement("div");
+      d.className = "gut"; d.textContent = txt;
+      if (small) d.style.fontSize = "30px";
+      d.style.left = GX + "px";
+      gut.appendChild(d);
+      d.style.top = (r.top + (r.height - d.offsetHeight) / 2) + "px";
+    };
+    mark(">", $("fade"));
+    mark(".", $("slug"));
+    document.querySelectorAll(".row").forEach(row => {
+      const cells = row.querySelectorAll(".cell");
+      mark(cells.length > 1 ? "@ ^" : "@", cells[0].querySelector(".cue"));
+      const lbl = cells[0].querySelector(".par");
+      const r = lbl.getBoundingClientRect();
+      const d = document.createElement("div");
+      d.className = "gut"; d.textContent = "( )";
+      d.style.left = GX + "px";
+      gut.appendChild(d);
+      d.style.top = (r.top + Math.min(r.height, 44) / 2 - d.offsetHeight / 2) + "px";
+    });
+    mark("@", $("vocue"));
+    // a thin blue rule separating markup from the formatted page
+    const f = $("fade").getBoundingClientRect(), v = $("vocue").getBoundingClientRect();
+    el("path", { d: `M172,${f.top - 4} L172,${v.bottom + 4}`, stroke: "#3557A6", "stroke-width": 2, "stroke-dasharray": "2 10", "stroke-linecap": "round", opacity: 0.8 }, $("sheets"));
+  }
+</script>
+</body>
+</html>

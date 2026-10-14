@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Junk Shadow</title>
+<link href="https://fonts.googleapis.com/css2?family=Antonio:wght@700&family=Libre+Franklin:ital,wght@0,500;0,600;0,700;1,500&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Junk Shadow (junk-shadow): a dark gallery. One floor projector in front of a
+    plinth throws a fan of light up the wall; a heap of scrap on the plinth
+    (salvaged sign letters, a receipt roll, a wire coil, a snapped ruler, keycaps)
+    casts a crisp shadow of a person thinking, chin on fist. The heap's outline
+    runs straight into the shadow's outline: roll + paper tongue = shoulder,
+    ruler = forearm, the coil's loose end = knuckles. Metaphor: AI
+    "understanding" is a heap of statistics that, from the right angle, casts
+    the silhouette of a mind.
+    Type comes from the gallery: the title is matte vinyl lettering on the lit
+    wall; the hl word is knocked out of the shadow's head (cream letters in the
+    shadow). Items = manila tags tied to the heap; caption + kicker + source =
+    the museum wall label (tombstone) mounted on the plinth.
+    Fully deterministic: every irregular shape is a hard-coded path.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #1A1714; }
+  body { position: relative; color: #1A1714; font-family: "Libre Franklin", sans-serif; }
+
+  #scene { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* exhibition title: matte vinyl letters on the lit wall, centred */
+  .title { position: absolute; left: 110px; width: 860px; text-align: center; font-family: "Antonio", sans-serif; font-weight: 700;
+           text-transform: uppercase; line-height: 1.0; letter-spacing: 0.012em; color: #1A1714; text-wrap: balance; }
+  .title .hl { color: #A8401F; }                 /* plain mode only (no knock-out possible) */
+  /* the hl, knocked out of the shadow's head */
+  .ko { position: absolute; left: 0; white-space: nowrap; font-family: "Antonio", sans-serif; font-weight: 700; text-transform: uppercase;
+        line-height: 1.0; letter-spacing: 0.012em; color: #EDE4D3; }
+
+  #tags { position: absolute; left: 0; top: 0; width: 1080px; height: 0; }
+  .tag { position: absolute; background: #E6DCC9; color: #1A1714; text-align: center; padding: 42px 8px 10px;
+         clip-path: polygon(20px 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%, 0 20px);
+         box-shadow: inset 0 -5px 0 rgba(138, 127, 114, 0.28); }
+  .tag::before { content: ""; position: absolute; left: 50%; top: 10px; width: 24px; height: 24px; margin-left: -12px; border-radius: 50%;
+                 background: #2A2420; border: 5px solid #D2532F; }
+  .tag .lb { font: 600 30px/1.12 "Libre Franklin", sans-serif; color: #3A332C; overflow-wrap: anywhere; }
+  .tag .lb.cnd { font: 700 32px/1.08 "Antonio", sans-serif; letter-spacing: 0.01em; }
+  .tag .vl { font: 700 50px/1.04 "Antonio", sans-serif; color: #1A1714; margin-top: 3px; white-space: nowrap; letter-spacing: 0.01em; }
+
+  /* museum wall label (tombstone) */
+  .label { position: absolute; left: 90px; width: 760px; background: #EDE4D3; padding: 20px 28px 18px; }
+  .label.tight { padding: 14px 24px 12px; }
+  .label .who { font: 700 28px/1.2 "Libre Franklin", sans-serif; color: #1A1714; letter-spacing: 0.01em; }
+  .label .who b { color: #A8401F; font-weight: 700; }
+  .label .work { font: italic 500 40px/1.16 "Libre Franklin", sans-serif; color: #3A332C; margin-top: 6px; }
+  .label .cap { font: 600 42px/1.18 "Libre Franklin", sans-serif; color: #6B6157; margin-top: 8px; }
+  .label .cap .said { color: #1A1714; }
+  .label .cap .on { color: #1A1714; font-weight: 700; padding-bottom: 2px;
+                    background: linear-gradient(#D2532F, #D2532F) no-repeat 0 100% / 100% 5px;
+                    -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  .label .rule { height: 2px; background: #B3A794; margin: 14px 0 10px; }
+  .label.tight .rule { margin: 8px 0 6px; }
+  .label.tight .cap { line-height: 1.1; margin-top: 4px; }
+  .label.tight .work { line-height: 1.1; margin-top: 2px; }
+  .label .mat { font: 500 26px/1.25 "Libre Franklin", sans-serif; color: #5A5148; }
+  .label .mat b { font-weight: 700; color: #1A1714; }
+  .label .mat i { font-style: normal; white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg id="scene" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+<h1 class="title" id="title"></h1>
+<div id="ko"></div>
+<div id="tags"></div>
+<div class="label" id="label">
+  <div class="who" id="who"></div>
+  <div class="work" id="work" hidden></div>
+  <p class="cap" data-slot="caption" id="cap"></p>
+  <div class="rule" id="rule"></div>
+  <div class="mat" id="mat"></div>
+</div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const FONTS = ['700 120px "Antonio"', '700 50px "Antonio"', '700 32px "Antonio"', '600 30px "Libre Franklin"', '600 42px "Libre Franklin"',
+                 '700 28px "Libre Franklin"', '500 26px "Libre Franklin"', 'italic 500 40px "Libre Franklin"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const INK = "#1A1714", CREAM = "#EDE4D3", TAUPE = "#8A7F72", RUST = "#D2532F", BLUE = "#3E5C8A", SHADOW = "#1C1814";
+  const f1 = v => (+v).toFixed(1);
+
+  // ---------- geometry ----------
+  // The shadow is drawn in a local box (x -60..604, y 30..700) and mapped to the page.
+  const K = 1.16, CROWN = 572;
+  const T = (x, y) => [540 + (x - 317) * K, CROWN + (y - 34) * K];
+  const TP = (x, y) => T(x, y).map(f1).join(",");
+  const tp = d => d.replace(/(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/g, (m, x, y) => TP(+x, +y));
+  const PT = 1116, PF = 1150, FLOOR = 1664;            // plinth back edge, front edge, floor line
+  const LX = 540, LY = 1792, SL = 0.3655;              // lamp lens; the beam's two hard edges: x = LX +- SL * (LY - y)
+  const EL = { cx: 540, cy: 920, rx: 680, ry: 760 };   // far (soft) edge of the projected light
+  const poolHalf = y => { const e = (y - EL.cy) / EL.ry, q = 0.94 * 0.94 - e * e; return Math.min(q > 0 ? EL.rx * Math.sqrt(q) : 0, SL * (LY - y)); };
+  const bz = (p0, p1, p2, p3, t) => { const m = 1 - t; return [0, 1].map(k => m * m * m * p0[k] + 3 * m * m * t * p1[k] + 3 * m * t * t * p2[k] + t * t * t * p3[k]); };
+
+  // The thinking profile: face right, chin on fist, forearm down to the knee. The hole = light between jaw, chest and forearm.
+  const SIL =
+    "M-60,700 L-60,560 C-20,530 40,506 90,492 C100,488 106,486 110,484 " +                              // back of the shoulder (hidden in the heap)
+    "C160,478 212,464 236,444 C252,426 248,398 238,380 C232,366 228,356 224,346 C214,322 196,300 186,276 " + // shoulder -> back of the neck -> nape
+    "C168,240 160,196 168,158 C172,128 184,104 200,88 C214,74 226,70 236,62 C256,44 284,34 312,34 " +    // back of the head
+    "C340,30 366,36 384,46 C404,54 420,64 428,80 C436,92 434,104 428,112 " +                           // crown, fringe
+    "C438,126 446,148 449,168 C450,176 444,182 438,188 " +                                             // forehead, brow
+    "C450,208 466,232 479,250 C483,256 479,264 470,265 C462,266 455,265 450,268 " +                    // nose
+    "C452,276 456,282 457,288 C458,292 452,298 448,300 C452,303 455,308 454,312 " +                    // lips
+    "C452,318 444,322 442,327 C446,336 451,345 451,354 " +                                             // chin
+    "C452,360 458,364 468,364 C482,364 494,368 500,378 C506,388 504,396 500,402 " +                    // fist: knuckles under the chin
+    "C506,410 506,420 500,426 C504,434 500,444 490,450 C486,452 484,456 486,462 L604,700 Z " +         // curled fingers, wrist, forearm
+    "M432,382 C420,384 404,388 394,396 C384,420 382,450 386,480 C392,540 400,620 408,700 L512,700 L434,458 C428,440 426,410 432,382 Z";
+
+  const svg = [];
+  svg.push(`<defs>
+    <linearGradient id="gWall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#121010"/><stop offset="0.55" stop-color="#1D1915"/><stop offset="1" stop-color="#1A1613"/>
+    </linearGradient>
+    <radialGradient id="gPool" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#F4EEE2"/><stop offset="0.5" stop-color="#EEE6D6"/><stop offset="0.82" stop-color="#E8DFCC"/>
+      <stop offset="0.935" stop-color="#E0D5C0"/><stop offset="0.965" stop-color="#9C907F" stop-opacity="0.8"/><stop offset="1" stop-color="#2A241F" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="cFan"><path d="M${LX},${LY} L${f1(LX - SL * LY)},0 L${f1(LX + SL * LY)},0 Z"/></clipPath>
+    <linearGradient id="gPlTop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#211C18"/><stop offset="1" stop-color="#2E2722"/>
+    </linearGradient>
+    <linearGradient id="gFront" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3B342D"/><stop offset="1" stop-color="#2C2621"/>
+    </linearGradient>
+    <linearGradient id="gFloor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0F0D0B"/><stop offset="1" stop-color="#171411"/>
+    </linearGradient>
+    <linearGradient id="gBeam" gradientUnits="userSpaceOnUse" x1="0" y1="${PF}" x2="0" y2="${LY}">
+      <stop offset="0" stop-color="#EDE4D3" stop-opacity="0.13"/><stop offset="1" stop-color="#EDE4D3" stop-opacity="0.2"/>
+    </linearGradient>
+    <linearGradient id="gLit" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#FFF6E6" stop-opacity="0.26"/><stop offset="0.55" stop-color="#FFF6E6" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="gTopDark" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0C0A08" stop-opacity="0.42"/><stop offset="0.6" stop-color="#0C0A08" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="fGrain" x="0" y="0" width="1" height="1">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7" stitchTiles="stitch"/>
+      <feColorMatrix values="0 0 0 0 0.5  0 0 0 0 0.45  0 0 0 0 0.4  0 0 0 0.55 0"/>
+    </filter>
+  </defs>`);
+
+  // wall + the fan of projected light (soft far edge, two hard side edges aimed at the lamp)
+  svg.push(`<rect width="1080" height="1920" fill="url(#gWall)"/>`);
+  svg.push(`<ellipse cx="${EL.cx}" cy="${EL.cy}" rx="${EL.rx}" ry="${EL.ry}" fill="url(#gPool)" clip-path="url(#cFan)"/>`);
+  // the shadow on the wall
+  svg.push(`<path id="sil" d="${tp(SIL)}" fill="${SHADOW}" fill-rule="evenodd" clip-path="url(#cFan)"/>`);
+
+  // plinth (wide gallery plinth; the wall label is mounted on its front), floor, beam haze over the front
+  svg.push(`<path d="M100,${PT} L980,${PT} L1016,${PF} L64,${PF} Z" fill="url(#gPlTop)"/>`);
+  svg.push(`<rect x="64" y="${PF}" width="952" height="${FLOOR - PF}" fill="url(#gFront)"/>`);
+  svg.push(`<rect x="0" y="${FLOOR}" width="1080" height="${1920 - FLOOR}" fill="url(#gFloor)"/>`);
+  svg.push(`<rect x="64" y="${FLOOR - 10}" width="952" height="10" fill="#14110F"/>`);
+  svg.push(`<path d="M${f1(LX - SL * (LY - PF))},${PF} L${f1(LX + SL * (LY - PF))},${PF} L${LX},${LY} Z" fill="url(#gBeam)"/>`);
+  svg.push(`<path d="M64,${PF} L1016,${PF}" stroke="#6E6457" stroke-width="2.5"/>`);
+  svg.push(`<g id="gShadows"></g>`);
+
+  // ---------- heap ----------
+  const shade = (hex, f) => { const v = parseInt(hex.slice(1), 16); const ch = [v >> 16, (v >> 8) & 255, v & 255];
+    return "#" + ch.map(c => Math.max(0, Math.min(255, Math.round(f < 0 ? c * (1 + f) : c + (255 - c) * f))).toString(16).padStart(2, "0")).join(""); };
+  const G = {
+    S7: "M0.2,0.14 L0.8,0.14 L0.42,0.88",
+    S3: "M0.24,0.16 L0.74,0.16 L0.46,0.44 C0.86,0.44 0.86,0.88 0.5,0.88 C0.36,0.88 0.26,0.84 0.2,0.78",
+    S0: "M0.5,0.12 C0.82,0.12 0.82,0.88 0.5,0.88 C0.18,0.88 0.18,0.12 0.5,0.12 Z",
+    PC: "M0.78,0.14 L0.22,0.86 M0.3,0.16 C0.42,0.16 0.42,0.36 0.3,0.36 C0.18,0.36 0.18,0.16 0.3,0.16 Z M0.7,0.64 C0.82,0.64 0.82,0.84 0.7,0.84 C0.58,0.84 0.58,0.64 0.7,0.64 Z",
+  };
+  const glyph = (key, x, y, s, col, w) => `<path d="${G[key]}" transform="translate(${x} ${y}) scale(${s})" fill="none" stroke="${col}" stroke-width="${(w / s).toFixed(4)}" stroke-linecap="square"/>`;
+  const L = {
+    A: "M0,1 L0.36,0 L0.64,0 L1,1 L0.74,1 L0.66,0.76 L0.34,0.76 L0.26,1 Z M0.41,0.55 L0.59,0.55 L0.5,0.26 Z",
+    R: "M0,0 L0.6,0 C0.9,0 1,0.16 1,0.3 C1,0.44 0.92,0.54 0.78,0.58 L1.02,1 L0.74,1 L0.54,0.62 L0.26,0.62 L0.26,1 L0,1 Z M0.26,0.2 L0.58,0.2 C0.7,0.2 0.74,0.25 0.74,0.31 C0.74,0.37 0.7,0.42 0.58,0.42 L0.26,0.42 Z",
+    K: "M0,0 L0.26,0 L0.26,0.42 L0.66,0 L0.98,0 L0.52,0.46 L1,1 L0.68,1 L0.34,0.62 L0.26,0.7 L0.26,1 L0,1 Z",
+  };
+  // salvaged shop-sign letter, extruded toward the top-right; top darker, lit from the front-below
+  function sign(cx, cy, s, rot, col, key, chip) {
+    const N = 10, dx = s * 0.1, dy = -s * 0.12, side = shade(col, -0.58), ln = shade(col, -0.82);
+    let o = `<g transform="translate(${cx} ${cy}) rotate(${rot})">`;
+    for (let i = N; i >= 1; i--) o += `<path d="${L[key]}" transform="translate(${(dx * i / N - s / 2).toFixed(2)} ${(dy * i / N - s / 2).toFixed(2)}) scale(${s})" fill="${i === N ? shade(col, -0.68) : side}" fill-rule="evenodd"${i === N ? ` stroke="${ln}" stroke-width="${(1.6 / s).toFixed(4)}"` : ""}/>`;
+    const face = `d="${L[key]}" transform="translate(${-s / 2} ${-s / 2}) scale(${s})" fill-rule="evenodd"`;
+    o += `<path ${face} fill="${col}" stroke="${ln}" stroke-width="${(1.6 / s).toFixed(4)}" stroke-linejoin="round"/>`;
+    o += `<path ${face} fill="url(#gTopDark)"/><path ${face} fill="url(#gLit)"/>`;
+    if (chip) o += `<path d="${chip}" fill="${shade(col, 0.22)}" stroke="${ln}" stroke-width="1.2" stroke-linejoin="round"/>`;
+    return o + `</g>`;
+  }
+  // loose keyboard keycap: lit front skirt, top face with the glyph
+  function key(cx, cy, s, rot, col, g, gcol) {
+    const h = s / 2, ln = shade(col, -0.8);
+    let o = `<g transform="translate(${cx} ${cy}) rotate(${rot})">`;
+    o += `<path d="M${-h},${h * 0.84} Q${-h},${h} ${-h * 0.84},${h} L${h * 0.84},${h} Q${h},${h} ${h},${h * 0.84} L${h * 0.82},${-h * 0.82} Q${h * 0.8},${-h} ${h * 0.62},${-h} L${-h * 0.62},${-h} Q${-h * 0.8},${-h} ${-h * 0.82},${-h * 0.82} Z" fill="${shade(col, -0.25)}" stroke="${ln}" stroke-width="1.6" stroke-linejoin="round"/>`;
+    o += `<rect x="${-h * 0.74}" y="${-h * 0.94}" width="${h * 1.48}" height="${h * 1.36}" rx="${h * 0.2}" fill="${col}" stroke="${ln}" stroke-width="1.2"/>`;
+    o += `<rect x="${-h * 0.74}" y="${-h * 0.94}" width="${h * 1.48}" height="${h * 1.36}" rx="${h * 0.2}" fill="url(#gTopDark)"/>`;
+    o += glyph(g, -h * 0.52, -h * 0.82, h * 1.04, gcol, Math.max(4.5, s * 0.08));
+    return o + `</g>`;
+  }
+
+  // key points of the shadow, in page coords
+  const SA = T(110, 484), SB = T(160, 478), SC = T(212, 464), SD = T(236, 444);   // shoulder curve (roll top -> neck)
+  const WR = T(486, 462), FA = T(604, 700);                                       // forearm's outer edge (wrist -> knee)
+  const fx = y => WR[0] + (y - WR[1]) * (FA[0] - WR[0]) / (FA[1] - WR[1]);      // x of that edge at y
+  const GL = T(386, 480), GR = T(434, 458);                                        // light gap, lower corners
+
+  const H = [];
+  // the heap's dark body: its top follows the shoulder exactly, so heap and shadow are one dark shape
+  { const pts = [[262, PF + 2], [266, 1122], [278, 1104]];
+    for (let i = 0; i <= 12; i++) pts.push(bz(SA, SB, SC, SD, i / 12));
+    pts.push([474, 1044], [528, 1040], [580, 1036], [612, 1052], [GL[0] + 2, 1104], [GR[0] + 14, 1110], [fx(1094) - 22, 1094], [fx(1080) - 2, 1080], [fx(PF), PF + 2]);
+    H.push(`<path d="M${pts.map(p => p.map(f1).join(",")).join(" L")} Z" fill="${SHADOW}"/>`); }
+  // sign letter K at the back, crushed can on the right
+  H.push(sign(578, 1072, 70, -14, "#7A7064", "K"));
+  H.push(`<g transform="translate(842 1130) rotate(-10)">
+    <path d="M-42,-20 L24,-22 L31,-12 L26,-2 L33,10 L24,20 L-42,20 Z" fill="#8E867B" stroke="#2E2823" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M-42,-5 L26,-7 M-42,7 L28,7" stroke="${BLUE}" stroke-width="6"/>
+    <path d="M-16,-21 L-9,-5 L-19,8 L-11,20" fill="none" stroke="#5E574C" stroke-width="2"/>
+    <ellipse cx="-42" cy="0" rx="8" ry="20" fill="#ABA498" stroke="#2E2823" stroke-width="1.6"/>
+    <path d="M-42,-20 L33,-20 L33,20 L-42,20 Z" fill="url(#gTopDark)"/>
+  </g>`);
+  // wire coil lying in the heap; its loose end climbs and becomes the knuckles of the fist
+  { // helix seen from the side: 4 open turns, axis tilted slightly up to the right
+    let p = ""; for (let i = 0; i <= 160; i++) { const a = i / 160 * Math.PI * 2 * 4; const x = 646 + i * 0.36 + 10 * Math.sin(a); const y = 1126 - i * 0.05 - 17 * Math.cos(a); p += (i ? "L" : "M") + f1(x) + "," + f1(y); }
+    const kn = (x, y) => { const q = T(x, y); return f1(q[0] - 3.5) + "," + f1(q[1]); };   // just inside the shadow's edge
+    const end = `M703.6,1101 C712,1096 ${f1(WR[0] - 6)},1090 ${kn(486, 462)} C${kn(484, 456)} ${kn(486, 452)} ${kn(490, 450)} C${kn(500, 444)} ${kn(504, 434)} ${kn(500, 426)} ` +
+                `C${kn(506, 420)} ${kn(506, 410)} ${kn(500, 402)} C${kn(504, 396)} ${kn(506, 388)} ${kn(500, 378)} C${kn(494, 368)} ${kn(482, 364)} ${kn(468, 364)}`;
+    for (const d of [p, end]) {
+      H.push(`<path d="${d}" fill="none" stroke="#0B0908" stroke-width="7.5" stroke-linejoin="round" stroke-linecap="round"/>`);
+      H.push(`<path d="${d}" fill="none" stroke="#7E98BF" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round"/>`);
+    } }
+  // big salvaged sign letters: A (rust, chipped) in front of the neck, R (bone) over the light gap
+  H.push(sign(488, 1088, 104, -9, "#B84A2B", "A", "M-12,-52 L2,-42 L-5,-33 L7,-25 L15,-52 Z"));
+  H.push(sign(602, 1112, 80, 7, "#C9BDA7", "R"));
+  // snapped ruler: its outer edge is the forearm's outer edge
+  { const y0 = 1078, y1 = PF + 4, r0 = [fx(y0), y0], r1 = [fx(y1), y1];
+    const dx = r1[0] - r0[0], dy = r1[1] - r0[1], n = Math.hypot(dx, dy), ux = dx / n, uy = dy / n, w = 26;
+    const left = (p) => [p[0] - w * uy, p[1] + w * ux];     // offset to the ruler's inner side
+    const a = r0, b = r1, c = left(r1), d = left(r0);
+    const snap = [[a[0] - 6, a[1] - 4], [a[0] - 11, a[1] + 5], [a[0] - 16, a[1] - 2], [a[0] - 21, a[1] + 7]];
+    H.push(`<path d="M${[a, b, c, d, ...snap.reverse()].map(p => p.map(f1).join(",")).join(" L")} Z" fill="#B3A792" stroke="#2E2823" stroke-width="1.8" stroke-linejoin="round"/>`);
+    let ticks = ""; for (let i = 1; i < 9; i++) { const t = i / 9, px = a[0] + dx * t, py = a[1] + dy * t, len = i % 2 ? 6 : 11; ticks += `M${f1(px - uy * 2)},${f1(py + ux * 2)} l${f1(-uy * len)},${f1(ux * len)} `; }
+    H.push(`<path d="${ticks}" stroke="${INK}" stroke-width="2.6"/>`);
+    H.push(`<path d="M${[a, b, c, d].map(p => p.map(f1).join(",")).join(" L")} Z" fill="url(#gTopDark)"/>`); }
+  // receipt roll (end-on) at the left; its printed tongue runs up and IS the shoulder's top edge
+  { const pts = []; for (let i = 0; i <= 14; i++) { const q = bz(SA, SB, SC, SD, 0.56 * i / 14); pts.push([q[0], q[1] + 8]); }
+    const d = "M" + pts.map(p => p.map(f1).join(",")).join(" L");
+    H.push(`<path d="${d}" fill="none" stroke="#3E362F" stroke-width="19" stroke-linecap="butt" stroke-linejoin="round"/>`);
+    H.push(`<path d="${d}" fill="none" stroke="#D9CFBC" stroke-width="15" stroke-linecap="butt" stroke-linejoin="round"/>`);
+    H.push(`<path d="${d}" fill="none" stroke="${TAUPE}" stroke-width="3" stroke-dasharray="7 6" stroke-dashoffset="4"/>`);
+    const RC = [SA[0], SA[1] + 30];
+    H.push(`<circle cx="${f1(RC[0])}" cy="${f1(RC[1])}" r="30" fill="#E2D8C6" stroke="#3E362F" stroke-width="1.8"/>`);
+    H.push(`<circle cx="${f1(RC[0])}" cy="${f1(RC[1])}" r="22" fill="none" stroke="#B5AA97" stroke-width="2"/>`);
+    H.push(`<circle cx="${f1(RC[0])}" cy="${f1(RC[1])}" r="15" fill="none" stroke="#B5AA97" stroke-width="2"/>`);
+    H.push(`<circle cx="${f1(RC[0])}" cy="${f1(RC[1])}" r="8" fill="#2A2420"/>`);
+    H.push(`<circle cx="${f1(RC[0])}" cy="${f1(RC[1])}" r="30" fill="url(#gTopDark)"/>`); }
+  // crumpled paper, front right
+  H.push(`<path d="M882,1162 L866,1138 L874,1112 L900,1098 L926,1106 L942,1130 L936,1156 L912,1168 Z" fill="#D6CCBA" stroke="#3E362F" stroke-width="1.6" stroke-linejoin="round"/>
+    <path d="M874,1112 L898,1130 L926,1106 M898,1130 L912,1168 M898,1130 L866,1138 M898,1130 L942,1130" stroke="#9A8E7B" stroke-width="2.5" fill="none"/>`);
+  // a dead cable along the base of the pile
+  { const d = "M264,1148 C310,1136 350,1158 400,1146 C450,1134 500,1160 560,1150 C620,1140 680,1162 740,1150 C800,1140 850,1160 920,1148";
+    H.push(`<path d="${d}" fill="none" stroke="#0B0908" stroke-width="11" stroke-linecap="round"/><path d="${d}" fill="none" stroke="#38312B" stroke-width="7" stroke-linecap="round"/>`); }
+  // loose keycaps along the front edge
+  H.push(key(372, 1140, 52, 9, "#CFC4AF", "S7", INK));
+  H.push(key(446, 1146, 50, -7, BLUE, "PC", CREAM));
+  H.push(key(522, 1144, 52, 4, "#CFC4AF", "S0", INK));
+  H.push(key(598, 1148, 50, -10, "#B84A2B", "S3", CREAM));
+  svg.push(`<g>${H.join("")}</g>`);
+  svg.push(`<g id="gTwine"></g>`);
+
+  // the one lamp: a floor projector seen from behind, aimed up (mostly under the UI band; the beam edges point to it)
+  svg.push(`<g>
+    <ellipse cx="540" cy="1874" rx="92" ry="12" fill="#0A0908"/>
+    <path d="M474,1806 L474,1846 Q474,1864 492,1864 L588,1864 Q606,1864 606,1846 L606,1806" fill="none" stroke="#3A322B" stroke-width="9" stroke-linejoin="round"/>
+    <path d="M494,${LY} L586,${LY} L606,1852 L474,1852 Z" fill="#2B2521" stroke="#0E0C0A" stroke-width="2"/>
+    <path d="M512,1796 L506,1848" stroke="#463D35" stroke-width="5"/>
+    <circle cx="474" cy="1806" r="8" fill="#463D35"/><circle cx="606" cy="1806" r="8" fill="#463D35"/>
+    <ellipse cx="${LX}" cy="${LY}" rx="46" ry="9" fill="#F5EEE1"/>
+    <ellipse cx="${LX}" cy="${LY}" rx="46" ry="9" fill="none" stroke="#5A5047" stroke-width="3"/>
+  </g>`);
+  svg.push(`<rect width="1080" height="1920" filter="url(#fGrain)" opacity="0.09" style="mix-blend-mode:overlay"/>`);
+  document.getElementById("scene").innerHTML = svg.join("");
+  const silEl = document.getElementById("sil");
+  const inShadow = (x, y) => silEl.isPointInFill(new DOMPoint(x, y));
+
+  // ---------- title: vinyl on the wall + the hl knocked out of the head ----------
+  const t = String(D.title || ""), hl = String(D.hl || "").trim();
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  let pre = t, koMain = "", koRest = "";
+  if (at > 0) {
+    const post = t.slice(at + hl.length);
+    const lead = (post.match(/^[\s.,!?;:…"'”)]*/) || [""])[0];
+    const rest = post.slice(lead.length).trim();
+    if (t.slice(0, at).trim() && rest.length <= 16) { pre = t.slice(0, at).trim(); koMain = (t.slice(at, at + hl.length) + lead).trim(); koRest = rest; }
+  }
+  const titleEl = document.getElementById("title"), koEl = document.getElementById("ko");
+  // plain mode (no hl, hl at the very start, or a long tail after it): the whole title is vinyl, the hl in rust vinyl
+  const plainTitle = () => { titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length)); };
+  if (koMain) titleEl.textContent = pre; else plainTitle();
+
+  // knock-out lines, fitted inside the head with a margin from the shadow's edge
+  const cv = document.createElement("canvas").getContext("2d");
+  function metrics(txt, fs) { cv.font = `700 ${fs}px Antonio`; const m = cv.measureText(txt.toUpperCase());
+    return { ga: m.actualBoundingBoxAscent, gd: Math.max(0, m.actualBoundingBoxDescent), base: (fs - (m.fontBoundingBoxAscent + m.fontBoundingBoxDescent)) / 2 + m.fontBoundingBoxAscent }; }
+  function interval(y) { if (!inShadow(540, y)) return null; let l = 540, r = 540; while (l > 0 && inShadow(l - 4, y)) l -= 4; while (r < 1080 && inShadow(r + 4, y)) r += 4; return [l, r]; }
+  let titleMax = 118;
+  if (koMain) {
+    const words = koMain.split(/\s+/);
+    const splits = [[koMain]];
+    if (words.length > 1) { let best = null; for (let i = 1; i < words.length; i++) { const a = words.slice(0, i).join(" "), b = words.slice(i).join(" "); const d = Math.abs(a.length - b.length); if (!best || d < best[0]) best = [d, a, b]; }
+      if (Math.min(best[1].length, best[2].length) >= 4) splits.push([best[1], best[2]]); }   // never leave a 1-3 char line
+    const PAD = 18, PREF = 790;
+    // lay the lines out at font size fs; return their placement if every glyph box (+PAD) sits inside the shadow
+    function tryFit(sp, fs) {
+      const lines = sp.map(s => ({ s, fs })); if (koRest) lines.push({ s: koRest, fs: Math.max(40, Math.round(fs * 0.58)) });
+      koEl.innerHTML = lines.map(l => `<div class="ko" style="font-size:${l.fs}px">${esc(l.s)}</div>`).join("");
+      const els = [...koEl.children];
+      lines.forEach((l, i) => { l.w = els[i].offsetWidth; Object.assign(l, metrics(l.s, l.fs)); });
+      const gap = Math.round(fs * 0.1);
+      const blockH = lines.reduce((s, l) => s + l.ga + l.gd, 0) + gap * (lines.length - 1);
+      for (let d = 0; d <= 140; d += 4) for (const yc of d ? [PREF - d, PREF + d] : [PREF]) {
+        const iv = interval(yc); if (!iv) continue;
+        const cx = (iv[0] + iv[1]) / 2; let y = yc - blockH / 2, ok = true; const placed = [];
+        for (const l of lines) {
+          const top = y, bot = y + l.ga + l.gd, x0 = cx - l.w / 2, x1 = cx + l.w / 2;
+          const probes = [[x0 - PAD, top - PAD], [x1 + PAD, top - PAD], [x0 - PAD, bot + PAD], [x1 + PAD, bot + PAD], [cx, top - PAD], [cx, bot + PAD], [x0 - PAD, (top + bot) / 2], [x1 + PAD, (top + bot) / 2]];
+          if (!probes.every(p => inShadow(p[0], p[1]))) { ok = false; break; }
+          placed.push({ l, x0, top }); y = bot + gap;
+        }
+        if (ok) return placed;
+      }
+      return null;
+    }
+    const best = sp => { for (let fs = 128; fs >= 50; fs -= 2) if (tryFit(sp, fs)) return fs; return 0; };
+    // a two-line split must earn its place: only when it is much larger than the single line
+    const f1l = best(splits[0]), f2l = splits[1] ? best(splits[1]) : 0;
+    const sp = f2l && f2l >= f1l * 1.3 ? splits[1] : splits[0], fsKo = sp === splits[0] ? f1l : f2l;
+    const done = fsKo ? tryFit(sp, fsKo) : null;
+    if (done) titleMax = Math.min(118, Math.max(80, Math.round(fsKo * 1.45 / 2) * 2));   // the wall title never dwarfs the knocked-out word
+    if (done) {
+      const els = [...koEl.children];
+      done.forEach((p, i) => { els[i].style.left = f1(p.x0) + "px"; els[i].style.top = f1(p.top + p.l.ga - p.l.base) + "px"; });
+    } else { koEl.innerHTML = ""; koMain = ""; plainTitle(); }
+  }
+
+  // wall title: centred above the crown, inside the lit part of the fan
+  const crownTop = Math.min(...[300, 320, 340].map(x => T(x, 34)[1])) - 2;
+  const TITLE_BOTTOM = Math.round(crownTop - 18), TITLE_TOP_MIN = 318;
+  function lineBoxes(el) {
+    const r = document.createRange(); r.selectNodeContents(el); const out = [];
+    [...r.getClientRects()].forEach(b => { const o = out.find(q => Math.abs(q.top - b.top) < 8); if (o) { o.left = Math.min(o.left, b.left); o.right = Math.max(o.right, b.right); } else out.push({ top: b.top, left: b.left, right: b.right }); });
+    return out;
+  }
+  let tFit = false;
+  for (let fs = titleMax; fs >= 60 && !tFit; fs -= 2) {
+    titleEl.style.fontSize = fs + "px";
+    const h = titleEl.offsetHeight, top = TITLE_BOTTOM - h;
+    if (top < TITLE_TOP_MIN) continue;
+    titleEl.style.top = top + "px";
+    tFit = lineBoxes(titleEl).every(b => { const half = poolHalf(b.top + fs * 0.14) - 26; return b.left >= 540 - half && b.right <= 540 + half; });
+  }
+  if (!tFit) { titleEl.style.fontSize = "60px"; titleEl.style.top = Math.max(304, TITLE_BOTTOM - titleEl.offsetHeight) + "px"; }
+
+  // ---------- tags (items) ----------
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(1, items.length);
+  const X0 = 98, X1 = 892, GAP = 18;
+  const tw = (X1 - X0 - GAP * (n - 1)) / n;
+  const ROT = [-2.2, 1.6, -1.2, 2.0, -1.6];
+  const tagsEl = document.getElementById("tags");
+  tagsEl.innerHTML = items.map((it, i) =>
+    `<div class="tag" style="left:${(X0 + i * (tw + GAP)).toFixed(1)}px;width:${tw.toFixed(1)}px;transform-origin:50% 22px;transform:rotate(${ROT[i]}deg)">` +
+    `<div class="lb">${esc(it.label)}</div><div class="vl">${esc(it.value)}</div></div>`).join("");
+  const tagEls = [...tagsEl.querySelectorAll(".tag")];
+  tagEls.forEach(el => {
+    const lb = el.querySelector(".lb"), v = el.querySelector(".vl");
+    const longest = Math.max(...String(lb.textContent).split(/\s+/).map(w => { const m = document.createElement("span"); m.textContent = w; m.style.font = getComputedStyle(lb).font; m.style.whiteSpace = "nowrap"; document.body.appendChild(m); const ww = m.offsetWidth; m.remove(); return ww; }));
+    if (longest > el.clientWidth - 20 || n >= 5) lb.classList.add("cnd");
+    for (let fs = 50; fs >= 34; fs -= 2) { v.style.fontSize = fs + "px"; if (v.scrollWidth <= v.clientWidth) break; }
+  });
+  let TT = PF + 14, DROP = n >= 5 ? [0, 4, 1, 5, 2] : [0, 10, 3, 12, 6];
+  const placeTags = () => { let b = 0; tagEls.forEach((el, i) => { el.style.top = (TT + DROP[i]) + "px"; b = Math.max(b, el.offsetTop + el.offsetHeight); }); return b; };
+  let tagBottom = placeTags();
+
+  // ---------- museum label: artist line (kicker) / [work = sub] / karaoke caption / rule / Bahan: source · date ----------
+  const lab = document.getElementById("label"), capEl = document.getElementById("cap"), matEl = document.getElementById("mat");
+  const ep = String(D.ep || "").trim(), series = D.series || "";
+  document.getElementById("who").innerHTML = series || ep ? esc(series) + (ep ? " · <b>" + esc(ep) + "</b>" : "") : esc(D.kicker || "");
+  const capText = String(D.caption || D.sub || "").trim();
+  const workEl = document.getElementById("work");
+  if (D.caption && D.sub && String(D.caption).trim() !== String(D.sub).trim()) { workEl.hidden = false; workEl.textContent = D.sub; }
+  const mat = D.source ? "<b>Bahan:</b> " + esc(D.source) + (D.date ? " <i>· " + esc(D.date) + "</i>" : "") : (D.date ? "<i>" + esc(D.date) + "</i>" : "");   // the date never splits from its dot
+  matEl.innerHTML = mat; if (!mat) { matEl.hidden = true; document.getElementById("rule").hidden = true; }
+
+  const words = capText.split(/\s+/).filter(Boolean);
+  let pos = 0; const spans = words.map(w => { const s = capText.indexOf(w, pos); pos = s + w.length; return { w, s, e: s + w.length }; });
+  const hi = hl ? capText.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  let act = hi >= 0 ? spans.map((o, i) => (o.e > hi && o.s < hi + hl.length) ? i : -1).filter(i => i >= 0) : [0];
+  if (!act.length) act = [0];
+  const a0 = act[0], a1 = act[act.length - 1];
+  const parts = [];
+  for (let i = 0; i < spans.length; i++) {
+    if (i === a0) { parts.push(`<span class="w on">${esc(spans.slice(a0, a1 + 1).map(o => o.w).join(" "))}</span>`); i = a1; continue; }
+    parts.push(`<span class="w${i < a0 ? " said" : ""}">${esc(spans[i].w)}</span>`);
+  }
+  // orphan control: the last two words never split across lines
+  capEl.innerHTML = parts.length > 2 ? parts.slice(0, -1).join(" ") + "&nbsp;" + parts[parts.length - 1] : parts.join(" ");
+
+  const lines = el => el.hidden ? 0 : Math.round(el.offsetHeight / parseFloat(getComputedStyle(el).lineHeight));
+  const WIDTHS = [640, 700, 760, 810];
+  function fitLabel() {
+    let W = 0;
+    for (const w of WIDTHS) { lab.style.width = w + "px"; if (lines(capEl) <= 2 && lines(matEl) <= 1 && lines(workEl) <= 2) { W = w; break; } }
+    if (!W) for (const w of WIDTHS) { lab.style.width = w + "px"; if (lines(capEl) <= 2 && lines(workEl) <= 2) { W = w; break; } }
+    lab.style.width = (W || 810) + "px";   // never past x 900 (action buttons)
+  }
+  const LIMIT = 1620;
+  let LGAP = 16;
+  const labTop = () => tagBottom + LGAP;
+  const fits = () => labTop() + lab.offsetHeight <= LIMIT;
+  fitLabel();
+  if (!fits()) { capEl.style.fontSize = "40px"; workEl.style.fontSize = "40px"; fitLabel(); }
+  if (!fits()) { DROP = [0, 3, 1, 4, 2]; tagBottom = placeTags(); }
+  if (!fits()) { lab.classList.add("tight"); fitLabel(); }
+  if (!fits()) { TT = PF + 4; DROP = [0, 2, 0, 3, 1]; tagBottom = placeTags(); LGAP = 10; }
+  lab.style.top = labTop() + "px";
+
+  // ---------- light-direction cues: tags and label throw their shadows UP the plinth face (lamp is below) ----------
+  const sh = [];
+  tagEls.forEach((el, i) => {
+    const x = el.offsetLeft, y = el.offsetTop, w = el.offsetWidth, h = el.offsetHeight, cx = x + w / 2;
+    const dx = (cx - LX) * 0.035, dy = -12;
+    sh.push(`<path transform="translate(${f1(dx)} ${dy}) rotate(${ROT[i]} ${f1(cx)} ${y + 22})" d="M${x + 20},${y} L${x + w - 20},${y} L${x + w},${y + 20} L${x + w},${y + h} L${x},${y + h} L${x},${y + 20} Z" fill="#0D0B09" opacity="0.6"/>`);
+  });
+  { const x = lab.offsetLeft, y = lab.offsetTop, w = lab.offsetWidth, h = lab.offsetHeight;
+    sh.push(`<rect x="${x + (x + w / 2 - LX) * 0.03}" y="${y - 12}" width="${w}" height="${h}" fill="#0D0B09" opacity="0.55"/>`); }
+  document.getElementById("gShadows").innerHTML = sh.join("");
+
+  // twine: tied on a heap piece, over the plinth's front edge, down to the tag's eyelet
+  const ANCH = [[300, 1154], [446, 1170], [522, 1170], [598, 1172], [fx(PF) - 10, PF + 2]];
+  const tw2 = [];
+  items.forEach((it, i) => {
+    const a = ANCH[n === 1 ? 2 : Math.round(i * 4 / (n - 1))];
+    const hx = X0 + i * (tw + GAP) + tw / 2, hy = TT + DROP[i] + 22;
+    const ex = hx * 0.84 + a[0] * 0.16;
+    const d = `M${f1(a[0])},${f1(a[1])} L${f1(ex)},${Math.max(PF + 4, a[1] + 3)} L${f1(hx)},${hy}`;
+    tw2.push(`<path d="${d}" fill="none" stroke="#0B0908" stroke-width="6" stroke-linejoin="round" opacity="0.75"/>`);
+    tw2.push(`<path d="${d}" fill="none" stroke="#CDBFA6" stroke-width="3" stroke-linejoin="round"/>`);
+    tw2.push(`<circle cx="${f1(a[0])}" cy="${f1(a[1])}" r="6" fill="#CDBFA6" stroke="#0B0908" stroke-width="2"/>`);
+  });
+  document.getElementById("gTwine").innerHTML = tw2.join("");
+  }
+</script>
+</body>
+</html>

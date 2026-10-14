@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Breeze Block</title>
+<link href="https://fonts.googleapis.com/css2?family=Alumni+Sans:wght@800&family=Familjen+Grotesk:wght@500;600;700&family=Roboto+Mono:wght@500;600&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Breeze Block (roster), seen from upstairs through a shift lens: a plastered parapet carries
+    the title as cast-cement relief lettering (the hl word is cut right through it like a roster
+    opening); a precast lintel carries the maker's stamp; below it two courses of pierced roster;
+    a printed photo (a cat) hangs right behind the wall, and the low sun behind it throws every
+    opening onto the terrazzo terrace along one sun vector (flipped and stretched like real light).
+    Metaphor: convolution. Roster block = 3x3 filter (opening size = weight), photo = input,
+    light on the floor = feature map. Item blocks are the filters: each value is inked inside its
+    own light patch, each label chiselled into the step riser below it. The blue 3x3 window marks
+    the active filter (it frames the cat's eye); the patches it has read carry the photo's colours,
+    the rest is plain sunlight.
+    Fully deterministic: fixed camera, fixed sun, seeded LCG for terrazzo and pits.
+  */
+  :root { --plaster: #D9CFBE; --ink: #1E1A15; --mute: #5A534A; --blue: #2F4FA0; --sun: #F6E6C2; --ground: #4D463E; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--plaster); }
+  body { position: relative; color: var(--ink); font-family: "Familjen Grotesk", sans-serif; }
+  #scene, #over { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  #over { pointer-events: none; }
+
+  /* relief letters: painted cast cement, sunlit top faces, soft shadow down-right */
+  #title { position: absolute; left: 90px; width: 900px; font-family: "Alumni Sans", sans-serif; font-weight: 800; text-transform: uppercase;
+           line-height: .9; letter-spacing: .012em; color: #2A241F;
+           text-shadow: 0 -3px 0 #FFF4DA, 3px 4px 0 rgba(70,58,44,.32), 8px 12px 13px rgba(48,38,28,.26); }
+  /* hl = cut right through the parapet: sun behind shows through, the cut's shaded rim outlines it */
+  #title .hl { display: inline-block; color: #FFE6A6; -webkit-text-stroke: .045em #2A231D; text-shadow: none; padding: 0 .04em; }
+
+  .stamp { position: absolute; left: 90px; border: 5px double #4A4037; border-radius: 8px; padding: 1px 14px 0;
+           font: 600 26px/1.15 "Roboto Mono", monospace; letter-spacing: .05em; text-transform: uppercase; color: #3A3129; white-space: nowrap;
+           text-shadow: 0 1.5px 0 rgba(255,250,236,.65); }
+
+  .val { position: absolute; font: 700 48px/1 "Familjen Grotesk", sans-serif; color: var(--ink); letter-spacing: -.012em; white-space: nowrap; text-align: center; }
+  .lab { position: absolute; font: 600 31px/1.06 "Familjen Grotesk", sans-serif; color: #2A241E; text-align: center; hyphens: manual;
+         text-shadow: 0 1.5px 0 rgba(250,243,228,.6); }
+  .lab.on { color: #213A7A; }
+
+  #cap { position: absolute; left: 90px; width: 810px; font: 500 46px/1.2 "Familjen Grotesk", sans-serif; color: #D3CABB; letter-spacing: -.005em; }
+  #cap .w { display: inline; }
+  #cap .w.done { color: #F6EEDF; }
+  #cap .w.on { color: var(--ink); background: #F3D58E; padding: 0 .14em; margin: 0 -.04em; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+
+  .meta { position: absolute; left: 90px; width: 900px; display: flex; justify-content: space-between; align-items: flex-end; gap: 36px;
+          font: 500 26px/1.25 "Roboto Mono", monospace; color: #D9D0C2; }
+  .meta span:first-child { flex: 1 1 auto; }
+  .meta span:last-child { flex: 0 0 auto; white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg id="scene" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" data-layout-allow-overflow></svg>
+<div id="title"></div>
+<div class="stamp" id="stamp"></div>
+<div id="vals"></div>
+<div id="labs"></div>
+<svg id="over" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+<p id="cap" data-slot="caption"></p>
+<div class="meta" id="meta"><span id="src"></span><span id="date"></span></div>
+<script>
+  // Built-in sample so the file also opens on its own in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  // Lay out only once the web fonts are in: every fit below measures real glyphs.
+  Promise.all(['800 120px "Alumni Sans"', '700 48px "Familjen Grotesk"', '600 31px "Familjen Grotesk"', '500 46px "Familjen Grotesk"', '500 26px "Roboto Mono"', '600 26px "Roboto Mono"']
+    .map(f => document.fonts.load(f))).then(() => document.fonts.ready).catch(() => {}).then(build);
+
+  function build() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+  const f1 = v => (Math.round(v * 10) / 10).toString();
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const items = (Array.isArray(D.items) ? D.items : []).slice(0, 5);
+  const n = Math.max(1, items.length);
+  const hl = String(D.hl || "").trim(), hlL = hl.toLowerCase();
+
+  // ---------- title: relief letters on the parapet, hl cut through it ----------
+  const TT = 318;
+  const t = String(D.title || ""), at = hl ? t.toLowerCase().indexOf(hlL) : -1;
+  const titleEl = $("title");
+  titleEl.style.top = TT + "px";
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  let tfs = 150;
+  for (; tfs >= 80; tfs -= 2) { titleEl.style.fontSize = tfs + "px"; if (titleEl.offsetHeight <= 300 && titleEl.scrollWidth <= 901) break; }
+  const titleBottom = TT + titleEl.offsetHeight;
+
+  // ---------- bottom stack (on the shaded yard below the step), measured upward from the safe-zone floor ----------
+  $("src").textContent = D.source || "";
+  $("date").textContent = D.date || "";
+  const meta = $("meta");
+  const metaTop = 1616 - meta.offsetHeight;
+  meta.style.top = metaTop + "px";
+  const capText = String(D.caption || D.sub || "").trim();
+  const words = capText ? capText.split(/\s+/) : [];
+  let a0 = 0, a1 = 0;
+  if (hl && words.length) {
+    const pos = words.join(" ").toLowerCase().indexOf(hlL);
+    if (pos >= 0) {
+      let c = 0, first = -1, last = -1;
+      words.forEach((w, i) => { const s = c, e = c + w.length; if (e > pos && s < pos + hlL.length) { if (first < 0) first = i; last = i; } c = e + 1; });
+      if (first >= 0) { a0 = first; a1 = last; }
+    }
+  }
+  const cap = $("cap");
+  cap.innerHTML = words.map((w, i) => '<span class="w' + (i >= a0 && i <= a1 ? " on" : i < a0 ? " done" : "") + '">' + esc(w) + "</span>").join(" ");
+  if (a1 > a0) { // the active unit is one span so it reads as one karaoke word
+    const sp = [...cap.querySelectorAll(".w.on")];
+    sp[0].textContent = sp.map(s => s.textContent).join(" ");
+    sp.slice(1).forEach(s => { if (s.previousSibling && s.previousSibling.nodeType === 3) s.previousSibling.remove(); s.remove(); });
+  }
+  for (let fs = 46; fs >= 40; fs -= 2) { cap.style.fontSize = fs + "px"; if (cap.offsetHeight <= Math.round(fs * 1.2 * 2) + 2) break; }
+  if (cap.offsetHeight > Math.round(40 * 1.2 * 2) + 2) { cap.style.display = "-webkit-box"; cap.style.webkitBoxOrient = "vertical"; cap.style.webkitLineClamp = "2"; cap.style.overflow = "hidden"; }
+  const capTop = metaTop - 24 - cap.offsetHeight;
+  cap.style.top = capTop + "px";
+  const riserBottom = capTop - 38;
+
+  // ---------- labels: chiselled into the step riser; long words split at a syllable with a visible hyphen ----------
+  const V = /[aeiouAEIOU]/;
+  const syl = w => { // soft hyphens at Indonesian-ish syllable joints (V-CV, VC-CV; ng/ny/kh/sy stay together)
+    if (w.length < 8) return esc(w);
+    let out = "";
+    for (let i = 0; i < w.length; i++) {
+      const c = w[i], nx = w[i + 1] || "", nx2 = w[i + 2] || "";
+      out += esc(c);
+      if (i < 1 || i > w.length - 4) continue;
+      if (V.test(c) && nx && !V.test(nx) && V.test(nx2)) out += "&shy;";
+      else if (!V.test(c) && V.test(w[i - 1]) && nx && !V.test(nx) && V.test(nx2) && !/^(ng|ny|kh|sy)$/i.test(c + nx)) out += "&shy;";
+    }
+    return out;
+  };
+  const hiIdx = (() => { if (!hl) return 0; const i = items.findIndex(it => (String(it.label) + " " + String(it.value)).toLowerCase().includes(hlL)); return i < 0 ? 0 : i; })();
+  $("labs").innerHTML = items.map((it, i) => '<div class="lab' + (i === hiIdx ? " on" : "") + '">' + String(it.label == null ? "" : it.label).split(/\s+/).map(syl).join(" ") + "</div>").join("");
+  const labEls = [...$("labs").children];
+
+  // ---------- camera (shift lens: verticals stay vertical) + sun ----------
+  const VP = { x: 495, y: 40 }, CAM = 2200;
+  const sc = z => CAM / (CAM + z);
+  const proj = (x, y, z) => { const k = sc(z); return [VP.x + (x - VP.x) * k, VP.y + (y - VP.y) * k]; };
+  const SH = 0.05;                                 // sideways lean of the light per unit of drop
+  const YL = titleBottom + 30, LH = 66, LD = 36;   // ledge (precast lintel) under the parapet
+  const Yb = YL + LH;                              // first roster course top
+  let P = 112, Yf = Yb + 2 * P, sFE = 1.5, FE = 1320, RH = 70, slotW = 160;
+  for (let pass = 0; pass < 4; pass++) {
+    P = clamp(806 / (n * sFE), 88, n <= 3 ? 126 : 108);
+    Yf = Yb + 2 * P;
+    slotW = Math.min(P * sFE - 14, 280);
+    labEls.forEach(el => { el.style.width = f1(slotW) + "px"; el.style.fontSize = "31px"; el.style.letterSpacing = ""; });
+    labEls.forEach(el => { // keep every label to 2 lines: tighten, then 30 px
+      if (el.offsetHeight > 31 * 1.06 * 2 + 2) el.style.letterSpacing = "-.02em";
+      if (el.offsetHeight > 31 * 1.06 * 2 + 2) el.style.fontSize = "30px";
+    });
+    const labH = Math.max(...labEls.map(el => el.offsetHeight), 34);
+    RH = labH + 28;
+    FE = riserBottom - RH;
+    sFE = (FE - VP.y) / (Yf - VP.y);
+  }
+  const m = Math.max(6, P * 0.045), B = P - m, T = B * 0.3;
+  const zFE = CAM / sFE - CAM;                     // near edge of the terrace (negative = toward the viewer)
+  const byTop = Yb + m / 2;
+  const k = -zFE * 0.992 / (Yf - byTop);           // sun slope: the top course's light ends right at the step
+  const sunHit = (x, y) => { const drop = Yf - y; return proj(x + SH * drop, Yf, -k * drop); };
+  const x0 = VP.x - SH * (Yf - byTop) - n * P / 2; // item course centred so its light (not the blocks) is centred
+  const colMin = Math.floor((0 - x0) / P) - 1, colMax = Math.floor((1080 - x0) / P) + 1;
+
+  // ---------- the photo hanging behind the wall (flat cat face) ----------
+  // The print is hung so the cat's left eye sits exactly behind the active filter: the blue window frames an eye.
+  const acx = x0 + hiIdx * P + P / 2;
+  const C = { cx: acx + P, ey: Yb + 0.5 * P, edx: P, erx: 0.43 * P, ery: 0.3 * P, prx: 0.085 * P, pry: 0.27 * P,
+              ny: Yb + 1.1 * P, nw: 0.5 * P, nh: 0.3 * P, my: Yb + 1.46 * P, mdx: 0.3 * P, mrx: 0.44 * P, mry: 0.3 * P, chy: Yb + 1.76 * P,
+              fy: Yb + 0.95 * P, frx: 2.45 * P, fry: 1.75 * P };
+  const inE = (x, y, x0_, y0_, rx, ry) => ((x - x0_) / rx) ** 2 + ((y - y0_) / ry) ** 2 <= 1;
+  const y1F = C.ey - C.ery * 1.3;                               // forehead stripes end above the eyes
+  const stripesF = [-0.5, -0.25, 0, 0.25, 0.5].map(o => C.cx + o * P);
+  const hwF = y => 0.04 * P * (1 + (y1F - y) / (1.4 * P));
+  const cheekY = [C.ny - 0.28 * P, C.ny + 0.08 * P, C.ny + 0.44 * P], cheekX = C.edx + C.erx * 0.95;
+  function tone(x, y) {
+    if (!inE(x, y, C.cx, C.fy, C.frx, C.fry)) return "bg";
+    for (const sx of [-1, 1]) {
+      const ex = C.cx + sx * C.edx;
+      if (inE(x, y, ex, C.ey, C.prx, C.pry)) return "pupil";
+      if (inE(x, y, ex, C.ey, C.erx, C.ery)) return "eye";
+      if (inE(x, y, ex, C.ey, C.erx * 1.12, C.ery * 1.2)) return "dark";
+    }
+    const nyy = (y - (C.ny - C.nh / 2)) / C.nh;
+    if (nyy >= 0 && nyy <= 1 && Math.abs(x - C.cx) <= C.nw / 2 * (1 - nyy)) return "nose";
+    if (inE(x, y, C.cx - C.mdx, C.my, C.mrx, C.mry) || inE(x, y, C.cx + C.mdx, C.my, C.mrx, C.mry) || inE(x, y, C.cx, C.chy, C.mrx * 0.95, C.mry * 0.95)) return "cream";
+    if (y < y1F && stripesF.some(sx => Math.abs(x - sx) < hwF(y))) return "stripe";
+    const side = Math.abs(x - C.cx) - cheekX;
+    if (side > 0 && cheekY.some(sy => Math.abs(y - sy - side * 0.16) < 0.045 * P * (1 + side / (2 * P)))) return "stripe";
+    return "ginger";
+  }
+  const PHOTO = { stripe: "#A8622F", cream: "#F5E8CE", pupil: "#231D17", dark: "#3A2B20", nose: "#DE998C", bg: "#7F8C93" };
+  const FLOORLIT = { ginger: "#F9BF72", stripe: "#EFA85E", cream: "#FDEDC6", eye: "#F3DC74", pupil: "#E2A85A", dark: "#E7AE62", nose: "#F8BBA8", bg: "#E6E2D2" };
+  function photoSVG() {
+    // a backlit print: fur lighter at the centre of the face, darker toward the edges
+    let s = '<radialGradient id="fur" gradientUnits="userSpaceOnUse" cx="' + f1(C.cx) + '" cy="' + f1(C.fy) + '" r="' + f1(2.6 * P) + '">' +
+            '<stop offset="0" stop-color="#F1B87E"/><stop offset=".5" stop-color="#DE9354"/><stop offset="1" stop-color="#B26A38"/></radialGradient>' +
+            '<radialGradient id="iris" gradientUnits="objectBoundingBox" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#EAD261"/><stop offset=".7" stop-color="#C9B744"/><stop offset="1" stop-color="#93983A"/></radialGradient>';
+    s += '<rect x="0" y="0" width="1080" height="1920" fill="' + PHOTO.bg + '"/>';
+    s += '<ellipse cx="' + f1(C.cx) + '" cy="' + f1(C.fy) + '" rx="' + f1(C.frx) + '" ry="' + f1(C.fry) + '" fill="url(#fur)"/>';
+    s += '<clipPath id="faceClip"><ellipse cx="' + f1(C.cx) + '" cy="' + f1(C.fy) + '" rx="' + f1(C.frx) + '" ry="' + f1(C.fry) + '"/></clipPath><g clip-path="url(#faceClip)">';
+    let st = "";
+    stripesF.forEach(sx => { const ya = y1F - 3 * P; st += "M" + f1(sx - hwF(ya)) + "," + f1(ya) + "L" + f1(sx + hwF(ya)) + "," + f1(ya) + "L" + f1(sx + hwF(y1F)) + "," + f1(y1F) + "L" + f1(sx - hwF(y1F)) + "," + f1(y1F) + "Z"; });
+    for (const sx of [-1, 1]) for (const sy of cheekY) {
+      const L = 6 * P, x1 = C.cx + sx * cheekX, x2 = C.cx + sx * (cheekX + L), hw0 = 0.045 * P, hw1 = 0.045 * P * (1 + L / (2 * P));
+      st += "M" + f1(x1) + "," + f1(sy - hw0) + "L" + f1(x2) + "," + f1(sy + L * 0.16 - hw1) + "L" + f1(x2) + "," + f1(sy + L * 0.16 + hw1) + "L" + f1(x1) + "," + f1(sy + hw0) + "Z";
+    }
+    s += '<path d="' + st + '" fill="' + PHOTO.stripe + '"/></g>';
+    s += '<ellipse cx="' + f1(C.cx - C.mdx) + '" cy="' + f1(C.my) + '" rx="' + f1(C.mrx) + '" ry="' + f1(C.mry) + '" fill="' + PHOTO.cream + '"/>';
+    s += '<ellipse cx="' + f1(C.cx + C.mdx) + '" cy="' + f1(C.my) + '" rx="' + f1(C.mrx) + '" ry="' + f1(C.mry) + '" fill="' + PHOTO.cream + '"/>';
+    s += '<ellipse cx="' + f1(C.cx) + '" cy="' + f1(C.chy) + '" rx="' + f1(C.mrx * 0.95) + '" ry="' + f1(C.mry * 0.95) + '" fill="' + PHOTO.cream + '"/>';
+    for (const sx of [-1, 1]) {
+      const ex = C.cx + sx * C.edx;
+      s += '<ellipse cx="' + f1(ex) + '" cy="' + f1(C.ey) + '" rx="' + f1(C.erx * 1.12) + '" ry="' + f1(C.ery * 1.2) + '" fill="' + PHOTO.dark + '"/>';
+      s += '<ellipse cx="' + f1(ex) + '" cy="' + f1(C.ey) + '" rx="' + f1(C.erx) + '" ry="' + f1(C.ery) + '" fill="url(#iris)"/>';
+      s += '<ellipse cx="' + f1(ex) + '" cy="' + f1(C.ey) + '" rx="' + f1(C.prx) + '" ry="' + f1(C.pry) + '" fill="' + PHOTO.pupil + '"/>';
+      s += '<circle cx="' + f1(ex + C.erx * 0.3) + '" cy="' + f1(C.ey - C.ery * 0.4) + '" r="' + f1(0.055 * P) + '" fill="#FFF7E4"/>';
+    }
+    s += '<path d="M' + f1(C.cx - C.nw / 2) + "," + f1(C.ny - C.nh / 2) + "H" + f1(C.cx + C.nw / 2) + "L" + f1(C.cx) + "," + f1(C.ny + C.nh / 2) + 'Z" fill="' + PHOTO.nose + '" stroke="#9E5E4E" stroke-width="' + f1(0.03 * P) + '" stroke-linejoin="round"/>';
+    s += '<path d="M' + f1(C.cx) + "," + f1(C.ny + C.nh / 2) + "V" + f1(C.my - 0.05 * P) + "M" + f1(C.cx) + "," + f1(C.my - 0.05 * P) + "q" + f1(-0.3 * P) + "," + f1(0.3 * P) + " " + f1(-0.55 * P) + ",0M" + f1(C.cx) + "," + f1(C.my - 0.05 * P) + "q" + f1(0.3 * P) + "," + f1(0.3 * P) + " " + f1(0.55 * P) + ',0" stroke="' + PHOTO.dark + '" stroke-width="' + f1(0.045 * P) + '" fill="none"/>';
+    let wd = "";
+    for (const sx of [-1, 1]) for (const j of [0, 1, 2]) { const ya = C.my - 0.1 * P + j * 0.16 * P; wd += "M" + f1(C.cx + sx * 0.8 * P) + "," + f1(ya) + "L" + f1(C.cx + sx * 3.4 * P) + "," + f1(ya - 0.5 * P + j * 0.45 * P); }
+    s += '<path d="' + wd + '" stroke="#FFF3DC" stroke-width="' + f1(0.03 * P) + '" fill="none" opacity=".85"/>';
+    return s;
+  }
+
+  // ---------- roster openings (block-local 3x3 grid) ----------
+  // Regular block: four quarter-circle openings in the corner cells + a centre diamond.
+  // Item blocks = filters: square openings whose SIZE is the weight (3 large, 2 medium, 1 small, 0 closed).
+  const KER = [[3,3,3, 2,2,2, 0,0,0], [3,3,2, 3,2,1, 2,1,0], [2,3,3, 1,2,3, 0,1,2], [3,3,3, 3,1,3, 2,0,2], [3,2,3, 2,1,2, 3,2,3]];
+  const SIZE = [0, 0.48, 0.76, 1];
+  const e = B * 0.07, g = B * 0.045, q = (B - 2 * e - 2 * g) / 3;           // regular block grid
+  const eK = B * 0.05, gK = B * 0.035, qK = (B - 2 * eK - 2 * gK) / 3;     // filter blocks: thinner ribs, the weights read bigger
+  function openings(bx, by, kern) {
+    const out = [], cx = c => bx + e + c * (q + g), cy = r => by + e + r * (q + g);
+    const kx = c => bx + eK + c * (qK + gK), ky = r => by + eK + r * (qK + gK);
+    if (!kern) {
+      const arc = (ox, oy, a0_) => { const pts = [[ox, oy]]; for (let s = 0; s <= 8; s++) { const a = a0_ + s / 8 * Math.PI / 2; pts.push([ox + q * 1.2 * Math.cos(a), oy + q * 1.2 * Math.sin(a)]); } return pts; };
+      out.push({ pts: arc(cx(0), cy(0), 0), r: 0, c: 0 });
+      out.push({ pts: arc(cx(2) + q, cy(0), Math.PI / 2), r: 0, c: 2 });
+      out.push({ pts: arc(cx(2) + q, cy(2) + q, Math.PI), r: 2, c: 2 });
+      out.push({ pts: arc(cx(0), cy(2) + q, -Math.PI / 2), r: 2, c: 0 });
+      const dmx = cx(1) + q / 2, dmy = cy(1) + q / 2, d = q * 0.6;
+      out.push({ pts: [[dmx, dmy - d], [dmx + d, dmy], [dmx, dmy + d], [dmx - d, dmy]], r: 1, c: 1 });
+    } else {
+      for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) {
+        const w = kern[r * 3 + c]; if (!w) continue;
+        const sz = qK * SIZE[w], ox = kx(c) + (qK - sz) / 2, oy = ky(r) + (qK - sz) / 2;
+        out.push({ pts: [[ox, oy], [ox + sz, oy], [ox + sz, oy + sz], [ox, oy + sz]], r, c });
+      }
+    }
+    out.forEach(o => { let sx = 0, sy = 0; o.pts.forEach(p => { sx += p[0]; sy += p[1]; }); o.cx = sx / o.pts.length; o.cy = sy / o.pts.length; });
+    return out;
+  }
+  const polyD = (pts, dx = 0, dy = 0) => "M" + pts.map(p => f1(p[0] + dx) + "," + f1(p[1] + dy)).join("L") + "Z";
+
+  // Deterministic LCG (fixed seed, fully repeatable).
+  let seed = 20261014;
+  const rnd = () => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296;
+
+  // ---------- build the SVG ----------
+  let defs = "", body = "";
+  defs += '<linearGradient id="eave" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3A3027" stop-opacity=".34"/><stop offset="1" stop-color="#3A3027" stop-opacity="0"/></linearGradient>';
+  defs += '<filter id="trowel" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.0035 0.016" numOctaves="3" seed="11"/>' +
+          '<feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 0.97  0 0 0 0 0.92  2.2 0 0 0 -1.05"/></filter>';
+  defs += '<filter id="grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="4"/>' +
+          '<feColorMatrix type="matrix" values="0 0 0 0 0.3  0 0 0 0 0.26  0 0 0 0 0.21  0 0 0 -1.4 0.9"/></filter>';
+  defs += '<linearGradient id="ao" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#211B15" stop-opacity=".5"/><stop offset="1" stop-color="#211B15" stop-opacity="0"/></linearGradient>';
+  defs += '<linearGradient id="ledgeSh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#241D16" stop-opacity=".45"/><stop offset="1" stop-color="#241D16" stop-opacity="0"/></linearGradient>';
+  defs += '<linearGradient id="riser" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C6BEB1"/><stop offset="1" stop-color="#B3AB9E"/></linearGradient>';
+  defs += '<linearGradient id="yard" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3F3932"/><stop offset=".25" stop-color="#4D463E"/><stop offset="1" stop-color="#4A433B"/></linearGradient>';
+  defs += '<filter id="pen" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="1"/></filter>';
+
+  // Parapet: painted plaster, trowel marks, eave shadow at the top.
+  body += '<rect x="0" y="0" width="1080" height="' + f1(YL + 12) + '" fill="#D9CFBE"/>';
+  body += '<rect x="0" y="0" width="1080" height="' + f1(YL + 12) + '" filter="url(#trowel)" opacity=".5"/>';
+  body += '<rect x="0" y="0" width="1080" height="' + f1(YL + 12) + '" filter="url(#grain)" opacity=".35"/>';
+  body += '<rect x="0" y="56" width="1080" height="200" fill="url(#eave)"/>';
+  // roof eave seen from below (soffit + fascia) and two cast 'list' lines framing the lettering band (jengki facade)
+  body += '<rect x="0" y="0" width="1080" height="56" fill="#4A4037"/><rect x="0" y="48" width="1080" height="8" fill="#6B5E4F"/><rect x="0" y="56" width="1080" height="3" fill="#2C241D" opacity=".5"/>';
+  for (const [ly, lh] of [[TT - 62, 12], [TT - 40, 6]]) {
+    body += '<rect x="0" y="' + ly + '" width="1080" height="' + lh + '" fill="#E2D8C7"/><rect x="0" y="' + ly + '" width="1080" height="2" fill="#FFF5DF"/>' +
+            '<rect x="0" y="' + (ly + lh) + '" width="1080" height="4" fill="#5A4C3E" opacity=".28"/>';
+  }
+
+  // Floor (terrazzo terrace, in the wall's shade) -------------------------------------
+  const FLOOR_SHADE = "#837D74", SUNLIT = "#EFDDB3";
+  const chipCols = [["#857E74", 0.3], ["#A29A8F", 0.24], ["#FFFFFF", 0.24], ["#4E4840", 0.12], ["#B9927A", 0.10]];
+  const shadeMul = [0.7, 0.7, 0.72], litMul = [1.0, 0.93, 0.78];
+  const mul = (hex, M) => "#" + [1, 3, 5].map((p, i) => Math.min(255, Math.round(parseInt(hex.slice(p, p + 2), 16) * M[i])).toString(16).padStart(2, "0")).join("");
+  const chipD = chipCols.map(() => "");
+  for (let i = 0; i < 1500; i++) {
+    const x = -300 + rnd() * 1680, z = zFE * 1.02 * rnd(), size = 2 + Math.pow(rnd(), 2.6) * 10;
+    let u = rnd(), ci = 0; for (; ci < chipCols.length - 1; ci++) { if (u < chipCols[ci][1]) break; u -= chipCols[ci][1]; }
+    const nv = 4 + Math.floor(rnd() * 3), a0r = rnd() * 6.283;
+    let d = "";
+    for (let v = 0; v < nv; v++) {
+      const ang = a0r + v * 6.283 / nv + (rnd() - 0.5) * 0.9, rr = size * (0.55 + rnd() * 0.6);
+      const p = proj(x + Math.cos(ang) * rr, Yf, z + Math.sin(ang) * rr);
+      d += (v ? "L" : "M") + f1(p[0]) + "," + f1(p[1]);
+    }
+    chipD[ci] += d + "Z";
+  }
+  const chips = (M, op) => '<g opacity="' + op + '">' + chipCols.map((c, i) => '<path d="' + chipD[i] + '" fill="' + mul(c[0], M) + '"/>').join("") + "</g>";
+
+  // Blocks + their light on the floor. Every opening throws plain sunlight; the filters the
+  // window has already read (01 up to the active one) carry the photo's colours.
+  const blocks = [];
+  const tint = {};
+  let plainD = "", allD = "";
+  for (let row = 0; row < 2; row++) for (let col = colMin; col <= colMax; col++) {
+    const bx = x0 + col * P + m / 2, by = Yb + row * P + m / 2;
+    const item = row === 0 && col >= 0 && col < items.length ? col : -1;
+    const O = openings(bx, by, item >= 0 ? KER[item % KER.length] : null);
+    blocks.push({ bx, by, O, item });
+    const read = item >= 0 && item <= hiIdx;
+    for (const o of O) {
+      const d = "M" + o.pts.map(p => sunHit(p[0], p[1])).map(p => f1(p[0]) + "," + f1(p[1])).join("L") + "Z";
+      allD += d;
+      if (read) { const tn = tone(o.cx, o.cy); tint[tn] = (tint[tn] || "") + d; } else plainD += d;
+    }
+  }
+  defs += '<clipPath id="floorClip"><rect x="0" y="' + f1(Yf) + '" width="1080" height="' + f1(FE - Yf) + '"/></clipPath>';
+  defs += '<mask id="litMask" maskUnits="userSpaceOnUse" x="0" y="0" width="1080" height="1920"><rect width="1080" height="1920" fill="#000"/>' +
+          '<path d="' + allD + '" fill="#fff" filter="url(#pen)"/></mask>';
+  body += '<g clip-path="url(#floorClip)">';
+  body += '<rect x="0" y="' + f1(Yf) + '" width="1080" height="' + f1(FE - Yf) + '" fill="' + FLOOR_SHADE + '"/>' + chips(shadeMul, 0.5);
+  body += '<g filter="url(#pen)"><path d="' + plainD + '" fill="' + SUNLIT + '"/>' + Object.keys(tint).map(tn => '<path d="' + tint[tn] + '" fill="' + FLOORLIT[tn] + '"/>').join("") + "</g>";
+  body += '<g mask="url(#litMask)">' + chips(litMul, 0.38) + "</g>";
+  body += '<rect x="0" y="' + f1(Yf) + '" width="1080" height="44" fill="url(#ao)"/>';
+  body += "</g>";
+
+  // Step riser (labels are chiselled into it) + the shaded yard below.
+  body += '<rect x="0" y="' + f1(FE) + '" width="1080" height="' + f1(RH) + '" fill="url(#riser)"/>';
+  body += '<rect x="0" y="' + f1(FE) + '" width="1080" height="3" fill="#E6DDCD"/>';
+  body += '<rect x="0" y="' + f1(FE + 3) + '" width="1080" height="2" fill="#9A9284"/>';
+  body += '<rect x="0" y="' + f1(FE + RH) + '" width="1080" height="' + f1(1920 - FE - RH) + '" fill="url(#yard)"/>';
+  let peb = "";
+  for (let i = 0; i < 420; i++) { const px = rnd() * 1080, py = FE + RH + 6 + rnd() * (1920 - FE - RH), pr = 1 + rnd() * 2.2; peb += "M" + f1(px - pr) + "," + f1(py) + "a" + f1(pr) + "," + f1(pr * 0.7) + " 0 1 0 " + f1(2 * pr) + ",0a" + f1(pr) + "," + f1(pr * 0.7) + " 0 1 0 " + f1(-2 * pr) + ",0Z"; }
+  body += '<path d="' + peb + '" fill="#6B6359" opacity=".55"/>';
+  body += '<rect x="0" y="' + f1(FE + RH) + '" width="1080" height="10" fill="#2C2620" opacity=".5"/>';
+
+  // Roster band ---------------------------------------------------------------
+  body += '<rect x="0" y="' + f1(Yb) + '" width="1080" height="' + f1(Yf - Yb) + '" fill="#857D71"/>';
+  let frontD = "", backD = "", sillD = "", pitsD = "";
+  blocks.forEach((b, i) => {
+    const tone_ = [0, 4, -3, 2, -5, 3, -2, 5, -4, 1][((i * 7) % 10 + 10) % 10];
+    const base = b.item >= 0 ? [176 + tone_, 170 + tone_, 160 + tone_] : [166 + tone_, 159 + tone_, 148 + tone_];
+    body += '<rect x="' + f1(b.bx) + '" y="' + f1(b.by) + '" width="' + f1(B) + '" height="' + f1(B) + '" fill="rgb(' + base.join(",") + ')"/>';
+    body += '<path d="M' + f1(b.bx) + "," + f1(b.by + 1) + "h" + f1(B) + '" stroke="#CDC4B5" stroke-width="2.5"/>' +
+            '<path d="M' + f1(b.bx + B - 1) + "," + f1(b.by + 2) + "V" + f1(b.by + B - 1) + "H" + f1(b.bx + 1) + '" stroke="#7D7569" stroke-width="2.5" fill="none"/>';
+    for (let p = 0; p < 8; p++) { const px = b.bx + 5 + rnd() * (B - 10), py = b.by + 5 + rnd() * (B - 10), pr = 0.7 + rnd() * 1.4; pitsD += "M" + f1(px - pr) + "," + f1(py) + "a" + f1(pr) + "," + f1(pr) + " 0 1 0 " + f1(2 * pr) + ",0a" + f1(pr) + "," + f1(pr) + " 0 1 0 " + f1(-2 * pr) + ",0Z"; }
+    // looking down into each opening: the shaded side face, the sunlit sill, then the photo through it
+    const cxb = b.bx + B / 2, cyb = b.by + B / 2, back = proj(cxb, cyb, T);
+    const dxb = back[0] - cxb, dyb = back[1] - cyb;
+    b.O.forEach(o => { frontD += polyD(o.pts); sillD += polyD(o.pts, dxb, 0); backD += polyD(o.pts, dxb, dyb); });
+  });
+  body += '<path d="' + pitsD + '" fill="#6F675C" opacity=".45"/>';
+  defs += '<clipPath id="holeF"><path d="' + frontD + '"/></clipPath><clipPath id="holeB"><path d="' + backD + '"/></clipPath>';
+  body += '<g clip-path="url(#holeF)"><rect x="0" y="' + f1(Yb) + '" width="1080" height="' + f1(Yf - Yb) + '" fill="#6E665B"/>' +
+          '<path d="' + sillD + '" fill="#EED9A6"/><g clip-path="url(#holeB)">' + photoSVG() +
+          '<rect x="0" y="' + f1(Yb) + '" width="1080" height="' + f1(Yf - Yb) + '" fill="#FFF3D6" opacity=".12"/></g></g>';
+
+  // Ledge (precast lintel) between the parapet and the roster: shaded top face, front face with the maker's stamp.
+  const lT0 = proj(0, YL, -LD), lT1 = proj(1080, YL, -LD), lB0 = proj(0, YL + LH, -LD);
+  body += '<rect x="0" y="' + f1(YL + LH) + '" width="1080" height="16" fill="url(#ledgeSh)"/>';
+  body += '<path d="M-200,' + f1(YL) + "L1280," + f1(YL) + "L" + f1(proj(1280, YL, -LD)[0]) + "," + f1(lT1[1]) + "L" + f1(proj(-200, YL, -LD)[0]) + "," + f1(lT0[1]) + 'Z" fill="#E3D9C7"/>';
+  body += '<rect x="0" y="' + f1(lT0[1]) + '" width="1080" height="' + f1(lB0[1] - lT0[1]) + '" fill="#CCC3B3"/>';
+  body += '<rect x="0" y="' + f1(lT0[1]) + '" width="1080" height="2" fill="#F1E8D8"/>';
+  body += '<rect x="0" y="' + f1(lB0[1] - 3) + '" width="1080" height="3" fill="#958C7E"/>';
+  body += '<rect x="0" y="' + f1(lT0[1]) + '" width="1080" height="' + f1(lB0[1] - lT0[1]) + '" filter="url(#grain)" opacity=".3"/>';
+  body += '<rect x="0" y="' + f1(YL - 18) + '" width="1080" height="18" fill="url(#ledgeSh)" transform="rotate(180 540 ' + f1(YL - 9) + ')" opacity=".35"/>';
+
+  // Sliding 3x3 window (blue) on the active filter + its light footprint ------------
+  const act = blocks.find(b => b.item === hiIdx);
+  if (act) {
+    const pad = 5, fx = act.bx - pad, fy = act.by - pad, fw = B + 2 * pad;
+    const cs = [[act.bx, act.by], [act.bx + B, act.by], [act.bx + B, act.by + B], [act.bx, act.by + B]].map(([x, y]) => sunHit(x, y));
+    body += '<g stroke="#2F4FA0" stroke-width="2.5" stroke-dasharray="3 9" stroke-linecap="round" fill="none" opacity=".9">' +
+            '<path d="M' + f1(act.bx) + "," + f1(act.by) + "L" + f1(cs[0][0]) + "," + f1(cs[0][1]) + '"/>' +
+            '<path d="M' + f1(act.bx + B) + "," + f1(act.by) + "L" + f1(cs[1][0]) + "," + f1(cs[1][1]) + '"/></g>';
+    body += '<path d="M' + cs.map(p => f1(p[0]) + "," + f1(p[1])).join("L") + 'Z" fill="none" stroke="#2F4FA0" stroke-width="4.5" stroke-dasharray="15 8"/>';
+    let ticks = "";
+    for (const tt of [1 / 3, 2 / 3]) { const tx = fx + fw * tt, ty = fy + fw * tt; ticks += "M" + f1(tx) + "," + f1(fy) + "v15M" + f1(tx) + "," + f1(fy + fw) + "v-15M" + f1(fx) + "," + f1(ty) + "h15M" + f1(fx + fw) + "," + f1(ty) + "h-15"; }
+    body += '<rect x="' + f1(fx) + '" y="' + f1(fy) + '" width="' + f1(fw) + '" height="' + f1(fw) + '" fill="none" stroke="#2F4FA0" stroke-width="7"/>';
+    body += '<path d="' + ticks + '" stroke="#2F4FA0" stroke-width="5" fill="none"/>';
+  }
+  $("scene").innerHTML = "<defs>" + defs + "</defs>" + body;
+
+  // ---------- maker's stamp pressed into the ledge ----------
+  const ep = String(D.ep || "").trim(), ser = String(D.series || "").trim();
+  const stamp = $("stamp");
+  stamp.textContent = ser ? ser + (ep ? " · " + ep : "") : String(D.kicker || "");
+  stamp.style.top = f1(lT0[1] + 5) + "px";
+
+  // ---------- hl: the cut gets the same 3x3-ticked blue frame as the window ----------
+  const hlSpan = titleEl.querySelector(".hl");
+  let over = "";
+  if (hlSpan) {
+    const r = hlSpan.getBoundingClientRect();
+    const cvs = document.createElement("canvas").getContext("2d");
+    cvs.font = '800 ' + tfs + 'px "Alumni Sans"';
+    const mt = cvs.measureText("HXE"), asc = mt.fontBoundingBoxAscent, desc = mt.fontBoundingBoxDescent, capH = mt.actualBoundingBoxAscent;
+    const base = r.top + (r.height - (asc + desc)) / 2 + asc;
+    const pad = Math.round(tfs * 0.09), bw = Math.max(5, Math.round(tfs * 0.045));
+    const x = r.left - pad * 0.6, y = base - capH - pad, w = r.width + pad * 1.2, h = capH + 2 * pad;
+    let tk = "";
+    for (const tt of [1 / 3, 2 / 3]) { const tx = x + w * tt, ty = y + h * tt; tk += "M" + f1(tx) + "," + f1(y) + "v" + f1(tfs * 0.12) + "M" + f1(tx) + "," + f1(y + h) + "v" + f1(-tfs * 0.12) + "M" + f1(x) + "," + f1(ty) + "h" + f1(tfs * 0.12) + "M" + f1(x + w) + "," + f1(ty) + "h" + f1(-tfs * 0.12); }
+    over += '<rect x="' + f1(x) + '" y="' + f1(y) + '" width="' + f1(w) + '" height="' + f1(h) + '" fill="none" stroke="#2F4FA0" stroke-width="' + bw + '"/>';
+    over += '<path d="' + tk + '" stroke="#2F4FA0" stroke-width="' + f1(bw * 0.75) + '" fill="none"/>';
+  }
+  $("over").innerHTML = over;
+
+  // ---------- values: dark ink inside each filter's own light patch ----------
+  const valsEl = $("vals");
+  valsEl.innerHTML = items.map(it => '<div class="val">' + esc(it.value) + "</div>").join("");
+  const valEls = [...valsEl.children];
+  const near = items.map((_, i) => {
+    const b = blocks.find(bb => bb.item === i);
+    const y0_ = b.by + eK, y1_ = b.by + eK + qK;                   // the filter's top row lands nearest the viewer
+    const pts = [[b.bx + eK, y0_], [b.bx + B - eK, y0_], [b.bx + B - eK, y1_], [b.bx + eK, y1_]].map(p => sunHit(p[0], p[1]));
+    const foot = [sunHit(b.bx, b.by), sunHit(b.bx + B, b.by)];
+    const mid2 = [sunHit(b.bx + B / 2, b.by + eK + qK + gK), sunHit(b.bx + B / 2, b.by + eK + 2 * qK + gK)];
+    return { cx: (pts[0][0] + pts[1][0] + pts[2][0] + pts[3][0]) / 4, cy: (pts[0][1] + pts[1][1] + pts[2][1] + pts[3][1]) / 4, cy2: (mid2[0][1] + mid2[1][1]) / 2,
+             w: foot[1][0] - foot[0][0], mid: (foot[0][0] + foot[1][0]) / 2 };
+  });
+  // One shared size for the row. If a value is wider than its own patch even at 34 px (5 items, long numbers),
+  // every second value moves up into its patch's middle band, so neighbours never collide.
+  const fits = lim => valEls.every((v, i) => v.offsetWidth <= lim(i));
+  const pitch = near.length > 1 ? near[1].mid - near[0].mid : 810;
+  near.forEach(nr => { nr.w = Math.min(nr.w, pitch - 30); });   // keep a clear gap of shade between neighbouring values
+  let vfs = 48, stagger = false;
+  for (; vfs >= 34; vfs -= 2) { valEls.forEach(v => { v.style.fontSize = vfs + "px"; }); if (fits(i => near[i].w * 0.96)) break; }
+  if (vfs < 34) {
+    stagger = true;
+    for (vfs = 40; vfs >= 34; vfs -= 2) { valEls.forEach(v => { v.style.fontSize = vfs + "px"; }); if (fits(() => 2 * pitch - 30)) break; }
+    vfs = Math.max(vfs, 34);
+  }
+  valEls.forEach((v, i) => {
+    v.style.fontSize = vfs + "px";
+    const lim = stagger ? 2 * pitch - 30 : near[i].w;
+    if (v.offsetWidth > lim) { v.style.whiteSpace = "normal"; v.style.width = f1(lim) + "px"; v.style.lineHeight = "1.02"; }
+    const up = stagger && i % 2 === 1;
+    v.style.left = f1(clamp(near[i].cx - v.offsetWidth / 2, 90, 900 - v.offsetWidth)) + "px";
+    v.style.top = f1((up ? near[i].cy2 : near[i].cy) - v.offsetHeight / 2) + "px";
+  });
+
+  // ---------- labels: centred under their patch, inside the riser ----------
+  labEls.forEach((el, i) => {
+    const cx = clamp(near[i].mid, 90 + slotW / 2, 900 - slotW / 2);
+    el.style.left = f1(cx - slotW / 2) + "px";
+    el.style.top = f1(FE + (RH - el.offsetHeight) / 2 + 2) + "px";
+  });
+  }
+</script>
+</body>
+</html>

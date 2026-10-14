@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Wheel Chart</title>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Extra+Condensed:wght@700;800&family=Saira+Semi+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Wheel Chart (wheel-chart): a mid-century die-cut cardboard wheel chart (volvelle)
+    photographed on a tomato backdrop. A cream square card printed with a mustard
+    scale ring; a navy top disc riveted at the centre with a brass rivet; a pointer
+    tab whose little window shows the stop it is set to (the episode number); a thumb
+    notch cut into the disc edge; die-cut windows in the disc. Every item = one window:
+    the label is printed on the disc, the value is printed on the card underneath and
+    shows through the cut-out. The whole object lies tilted back in CSS 3D.
+    Metaphor: a paper calculator - dial one setting, the windows reveal the matching numbers
+    (e.g. "can my laptop run this model?": dial 7B, read GB of RAM per device).
+    Deterministic: fixed geometry, seeded SVG turbulence, no randomness or clock.
+  */
+  :root { --tomato: #E4572E; --navy: #1F2A44; --cream: #F5EFE0; --brass: #F2B134; --ink: #0E1424; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--tomato); }
+  body { position: relative; color: var(--ink); font-family: "Saira Semi Condensed", sans-serif; }
+
+  #grain { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; mix-blend-mode: multiply; opacity: 0.07; pointer-events: none; }
+
+  .meta { position: absolute; left: 90px; width: 900px; top: 300px; display: flex; align-items: center; gap: 22px;
+          font: 600 28px "IBM Plex Mono", monospace; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink); line-height: 1.2; white-space: nowrap; }
+  .meta .rule { flex: 1; height: 0; border-top: 3px solid var(--ink); }
+  .meta .no { border: 3px solid var(--ink); padding: 1px 12px 2px; border-radius: 22px; }
+
+  .title { position: absolute; left: 90px; width: 900px; top: 352px; font-family: "Saira Extra Condensed", sans-serif; font-weight: 800;
+           text-transform: uppercase; line-height: 0.93; letter-spacing: 0.004em; color: var(--ink); text-wrap: balance; }
+  /* hl = a die-cut window in the backdrop: the cream card shows through, top edge casts a shadow */
+  .title .hl { display: inline-block; position: relative; isolation: isolate; color: var(--navy); padding: 0 0.08em; margin: 0 0.02em; }
+  .title .hl i { position: relative; z-index: 1; font-style: normal; }
+  .title .hl::before { content: ""; position: absolute; z-index: 0; left: 0; right: 0; top: 0.03em; bottom: 0.03em; background: var(--cream); border-radius: 0.07em;
+                       box-shadow: inset 0 0.075em 0 rgba(14, 20, 36, 0.30), inset 0.04em 0 0 rgba(14, 20, 36, 0.12), 0 3px 0 rgba(14, 20, 36, 0.55); }
+
+  /* ---------- the physical object (CSS 3D) ---------- */
+  #plane { position: absolute; left: 130px; top: 640px; width: 820px; height: 820px; transform-origin: 50% 50%; transform-style: preserve-3d; }
+  .edge { position: absolute; left: 0; top: 14px; width: 820px; height: 820px; border-radius: 26px; background: var(--cream);
+          box-shadow: inset 0 0 0 999px rgba(14, 20, 36, 0.34), 0 34px 46px rgba(14, 20, 36, 0.42); }
+  .card { position: absolute; left: 0; top: 0; width: 820px; height: 820px; border-radius: 26px; background: var(--cream); overflow: visible; }
+  svg.print, svg.toprint { position: absolute; left: 0; top: 0; width: 820px; height: 820px; overflow: visible; }
+
+  .disc-edge { position: absolute; left: 62px; top: 74px; width: 696px; height: 696px; border-radius: 50%; background: var(--ink);
+               box-shadow: 0 16px 22px rgba(14, 20, 36, 0.38); }
+  .disc { position: absolute; left: 62px; top: 62px; width: 696px; height: 696px; border-radius: 50%; background: var(--navy); }
+  .disc svg { position: absolute; left: 0; top: 0; width: 696px; height: 696px; overflow: hidden; border-radius: 50%; }
+
+  .lab { position: absolute; text-align: center; color: var(--cream);
+         font: 600 34px "Saira Semi Condensed", sans-serif; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1.02; padding: 0 6px; }
+  .win { position: absolute; display: flex; align-items: center; justify-content: center; background: var(--cream); border-radius: 9px; overflow: hidden;
+         box-shadow: inset 0 11px 9px -6px rgba(14, 20, 36, 0.55), inset 5px 0 6px -4px rgba(14, 20, 36, 0.28), 0 -2px 0 rgba(14, 20, 36, 0.9), 0 2px 0 rgba(245, 239, 224, 0.28); }
+  /* the base ring printed under the disc: cell dividers peeking at both ends of every window */
+  .win::before, .win::after { content: ""; position: absolute; top: 0; bottom: 0; width: 2px; background: rgba(31, 42, 68, 0.32); }
+  .win::before { left: 11px; } .win::after { right: 11px; }
+  .win .vl { font: 800 64px "Saira Extra Condensed", sans-serif; color: var(--ink); line-height: 1; white-space: nowrap; padding-top: 0.06em; }
+
+  .rivet { position: absolute; left: 376px; top: 376px; width: 68px; height: 68px; border-radius: 50%;
+           background: radial-gradient(circle at 36% 32%, #FFF6DC 0 7%, #F2B134 26%, #C98C1F 62%, #7A5312 100%);
+           box-shadow: 0 0 0 3px rgba(14, 20, 36, 0.75), 0 7px 9px rgba(14, 20, 36, 0.5), inset 0 -5px 7px rgba(14, 20, 36, 0.35); }
+  .rivet::after { content: ""; position: absolute; left: 25px; top: 25px; width: 18px; height: 18px; border-radius: 50%;
+                  background: radial-gradient(circle at 60% 65%, rgba(255, 246, 220, 0.6), rgba(122, 83, 18, 0.55) 70%); box-shadow: inset 0 2px 3px rgba(14, 20, 36, 0.45); }
+
+  /* ---------- caption + meta ---------- */
+  #caption { position: absolute; left: 90px; width: 810px; font: 600 44px "Saira Semi Condensed", sans-serif; line-height: 1.24; color: var(--ink); text-wrap: balance; }
+  #caption .w { display: inline; }
+  #caption .on { background: var(--cream); color: var(--navy); border-radius: 7px; padding: 0 0.14em; margin: 0 -0.03em;
+                 box-shadow: inset 0 6px 0 rgba(14, 20, 36, 0.26), 0 2px 0 rgba(14, 20, 36, 0.55); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  .foot { position: absolute; left: 90px; width: 900px; display: flex; justify-content: space-between; align-items: flex-end; gap: 30px;
+          font: 500 26px "IBM Plex Mono", monospace; color: var(--ink); line-height: 1.25; }
+  .foot #src { flex: 1 1 auto; min-width: 0; }
+  .foot #date { flex: 0 0 auto; white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg id="grain" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <filter id="gn" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="11" stitchTiles="stitch" /><feColorMatrix type="saturate" values="0" /></filter>
+  <rect width="1080" height="1920" filter="url(#gn)" />
+</svg>
+<div class="meta"><span id="series"></span><span class="rule"></span><span class="no" id="no"></span></div>
+<div class="title" id="title"></div>
+
+<div id="plane">
+  <div class="edge"></div>
+  <div class="card">
+    <svg class="print" id="print" viewBox="0 0 820 820" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="disc-edge"></div>
+    <div class="disc" id="disc"><svg id="discprint" viewBox="0 0 696 696" xmlns="http://www.w3.org/2000/svg"></svg></div>
+    <svg class="toprint" id="toprint" viewBox="0 0 820 820" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div class="rivet"></div>
+  </div>
+</div>
+
+<div id="caption" data-slot="caption"></div>
+<div class="foot" id="foot"><span id="src"></span><span id="date"></span></div>
+
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Tools AI", ep: "#07", kicker: "Tools AI · #07",
+    title: "Laptopmu kuat jalanin AI sendiri?", hl: "kuat",
+    sub: "Putar ukuran model, baca RAM yang dibutuhkan.",
+    items: [{ label: "HP 8 GB", value: "Tidak" }, { label: "Laptop 16 GB", value: "Pas-pasan" }, { label: "Butuh RAM", value: "±5 GB" }, { label: "GPU 24 GB", value: "Lancar" }],
+    source: "ilustrasi — model 7B, kuantisasi 4-bit", date: "per 14 Okt 2026" };
+
+  const FONTS = ['800 120px "Saira Extra Condensed"', '600 34px "Saira Semi Condensed"', '600 44px "Saira Semi Condensed"', '600 28px "IBM Plex Mono"', '500 26px "IBM Plex Mono"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).then(() => document.fonts.ready).catch(() => {}).then(render);
+
+  function render() {
+    const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const NS = "http://www.w3.org/2000/svg";
+    const INK = "#0E1424", NAVY = "#1F2A44", CREAM = "#F5EFE0", BRASS = "#F2B134", TOMATO = "#E4572E";
+    const $ = id => document.getElementById(id);
+    const rad = a => a * Math.PI / 180;
+    const items = (D.items || []).slice(0, 5);
+    const n = Math.max(1, items.length);
+
+    // ---- meta row ----
+    const epNo = String(D.ep || "").replace(/^#/, "") || "01";
+    $("series").textContent = D.series || D.kicker || "";
+    $("no").textContent = "No. " + epNo;
+
+    // ---- title, hl = die-cut window ----
+    const t = D.title || "", hl = (D.hl || "").trim();
+    const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    const titleEl = $("title");
+    titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl"><i>' + esc(t.slice(at, at + hl.length)) + "</i></span>" + esc(t.slice(at + hl.length));
+    const fits = (fs, lines) => { titleEl.style.fontSize = fs + "px"; return titleEl.scrollWidth <= 902 && titleEl.offsetHeight <= Math.ceil(lines * fs * 0.93 + fs * 0.12); };
+    let tfs = 0;
+    for (let fs = 140; fs >= 104; fs -= 2) if (fits(fs, 2)) { tfs = fs; break; }
+    if (!tfs) for (let fs = 112; fs >= 72; fs -= 2) if (fits(fs, 3)) { tfs = fs; break; }
+    if (!tfs) tfs = 72;
+    titleEl.style.fontSize = tfs + "px";
+    const titleBottom = 352 + titleEl.offsetHeight;
+
+    // ---- caption (karaoke): words in spans, one active word/phrase ----
+    const cap = String(D.caption || D.sub || "").trim();
+    const words = cap.split(/\s+/).filter(Boolean);
+    const active = new Set();
+    if (hl) {
+      const lo = cap.toLowerCase(), h = hl.toLowerCase(), a0 = lo.indexOf(h);
+      if (a0 >= 0) { let pos = 0; words.forEach((w, i) => { const s = lo.indexOf(w.toLowerCase(), pos); const e = s + w.length; pos = e; if (s < a0 + h.length && e > a0) active.add(i); }); }
+    }
+    if (!active.size && words.length) active.add(0);
+    let html = "", open = false;
+    words.forEach((w, i) => {
+      const on = active.has(i);
+      if (on && !open) { html += (i ? " " : "") + '<span class="on">'; open = true; } else if (i) html += open && !on ? "" : " ";
+      if (!on && open) { html += '</span> '; open = false; }
+      html += '<span class="w">' + esc(w) + "</span>";
+    });
+    if (open) html += "</span>";
+    const capEl = $("caption");
+    capEl.innerHTML = html;
+    for (let fs = 46; fs >= 40; fs -= 1) { capEl.style.fontSize = fs + "px"; if (capEl.offsetHeight <= Math.ceil(2 * fs * 1.24) + 2) break; }
+
+    // ---- foot (source + date), bottom-anchored at 1620 ----
+    $("src").textContent = D.source || "";
+    $("date").textContent = D.date || "";
+    const foot = $("foot");
+    const footTop = 1620 - foot.offsetHeight;
+    foot.style.top = footTop + "px";
+    const capTop = footTop - 18 - capEl.offsetHeight;
+    capEl.style.top = capTop + "px";
+
+    // ================= the wheel chart =================
+    const C = 410;                       // card centre (plane coords)
+    const RD = 348;                      // disc radius
+    const RI = 356, RO = 404;            // printed scale ring on the card
+    const print = $("print"), top = $("toprint"), dprint = $("discprint"), disc = $("disc");
+    const el = (tag, attrs, parent, text) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; parent.appendChild(e); return e; };
+    const P = (r, a, c = C) => [c + r * Math.cos(rad(a)), c + r * Math.sin(rad(a))];
+
+    // card print: double border, hang hole, corner flourishes
+    el("rect", { x: 16, y: 16, width: 788, height: 788, rx: 16, fill: "none", stroke: NAVY, "stroke-width": 2.5 }, print);
+    el("rect", { x: 25, y: 25, width: 770, height: 770, rx: 11, fill: "none", stroke: NAVY, "stroke-width": 1.2, opacity: 0.55 }, print);
+    el("circle", { cx: 62, cy: 62, r: 19, fill: TOMATO }, print);                                   // die-cut hang hole (backdrop shows through)
+    el("path", { d: "M45,58 A19,19 0 0 1 79,58", fill: "none", stroke: INK, "stroke-width": 5, opacity: 0.45 }, print);
+    [[758, 62, 0], [62, 758, 180], [758, 758, 90]].forEach(([x, y, rot]) => {   // printed corner quarter-arcs
+      const g = el("g", { transform: `translate(${x} ${y}) rotate(${rot})` }, print);
+      [14, 24, 34].forEach((r, i) => el("path", { d: `M${-r},0 A${r},${r} 0 0 1 0,${r}`, fill: "none", stroke: TOMATO, "stroke-width": i === 1 ? 5 : 2.5 }, g));
+    });
+    // scale ring: mustard band, rules, ticks, 24 numbered stops (stop 0 = the ep number, under the pointer)
+    el("circle", { cx: C, cy: C, r: (RI + RO) / 2, fill: "none", stroke: BRASS, "stroke-width": RO - RI }, print);
+    el("circle", { cx: C, cy: C, r: RO, fill: "none", stroke: INK, "stroke-width": 2.5 }, print);
+    el("circle", { cx: C, cy: C, r: RI, fill: "none", stroke: INK, "stroke-width": 2 }, print);
+    for (let k = 0; k < 72; k++) {
+      const a = -90 + k * 5, major = k % 3 === 0;
+      const [x1, y1] = P(RO, a), [x2, y2] = P(RO - (major ? 12 : 6), a);
+      el("line", { x1, y1, x2, y2, stroke: INK, "stroke-width": major ? 2.5 : 1.5 }, print);
+    }
+    const epInt = parseInt(epNo, 10) || 1;
+    const stopLabel = s => String(((epInt - 1 + s) % 24 + 24) % 24 + 1).padStart(2, "0");
+    for (let s = 1; s < 24; s++) {
+      const [x, y] = P(377, -90 + s * 15);
+      el("text", { x, y: y + 9, "text-anchor": "middle", "font-family": "IBM Plex Mono", "font-weight": 600, "font-size": 26, fill: INK }, print, stopLabel(s));
+    }
+
+    // disc print (disc coords, centre 348): rim rules, thumb notch, rivet band, curved instruction
+    const DC = 348;
+    el("circle", { cx: DC, cy: DC, r: 338, fill: "none", stroke: CREAM, "stroke-width": 2.5, opacity: 0.9 }, dprint);
+    el("circle", { cx: DC, cy: DC, r: 330, fill: "none", stroke: CREAM, "stroke-width": 1.2, opacity: 0.5 }, dprint);
+    el("circle", { cx: DC, cy: DC, r: 53, fill: "none", stroke: BRASS, "stroke-width": 8 }, dprint);
+    el("circle", { cx: DC, cy: DC, r: 63, fill: "none", stroke: CREAM, "stroke-width": 1.5, opacity: 0.55 }, dprint);
+    const NA = 232, [nx, ny] = P(RD, NA, DC);                                                       // thumb notch at the rim
+    el("circle", { cx: nx, cy: ny, r: 30, fill: CREAM }, dprint);
+    el("circle", { cx: nx, cy: ny, r: 30, fill: "none", stroke: INK, "stroke-width": 5, opacity: 0.5 }, dprint);
+    const defs = el("defs", {}, dprint);
+    const R_TXT = 312, A0 = 126, A1 = 54;                                                           // bottom arc, read left -> right
+    const [tx0, ty0] = P(R_TXT, A0, DC), [tx1, ty1] = P(R_TXT, A1, DC);
+    el("path", { id: "arcTxt", d: `M${tx0},${ty0} A${R_TXT},${R_TXT} 0 0 0 ${tx1},${ty1}` }, defs);
+    const tp = el("text", { "font-family": "IBM Plex Mono", "font-weight": 600, "font-size": 26, "letter-spacing": 4, fill: CREAM }, dprint);
+    el("textPath", { href: "#arcTxt", startOffset: "50%", "text-anchor": "middle" }, tp, "PUTAR · BACA JENDELA");
+    [[A0 + 5, -1], [A1 - 5, 1]].forEach(([a, dir]) => {                                             // arrowheads at both ends of the instruction
+      const [x, y] = P(R_TXT - 9, a, DC), tang = a + 90 * dir;
+      const [ax, ay] = [x + 14 * Math.cos(rad(tang)), y + 14 * Math.sin(rad(tang))];
+      const nrm = a;
+      el("path", { d: `M${ax},${ay} L${x + 9 * Math.cos(rad(nrm))},${y + 9 * Math.sin(rad(nrm))} L${x - 9 * Math.cos(rad(nrm))},${y - 9 * Math.sin(rad(nrm))} Z`, fill: BRASS }, dprint);
+    });
+
+    // windows: one per item, evenly around the rivet, first at the top (under the pointer)
+    const G = n <= 3 ? { R: 196, w: 240, h: 96, fs: 72 } : n === 4 ? { R: 194, w: 226, h: 92, fs: 66 } : { R: 200, w: 204, h: 86, fs: 60 };
+    const boxes = [{ x: DC - 54, y: -90, w: 108, h: 118 }];                                         // pointer tab (disc coords)
+    const geo = items.map((it, i) => {
+      const a = -90 + i * 360 / n;
+      const cx = DC + G.R * Math.cos(rad(a)), cy = DC + G.R * Math.sin(rad(a));
+      const win = document.createElement("div");
+      win.className = "win";
+      Object.assign(win.style, { left: (cx - G.w / 2) + "px", top: (cy - G.h / 2) + "px", width: G.w + "px", height: G.h + "px" });
+      win.innerHTML = '<span class="vl">' + esc(it.value) + "</span>";
+      disc.appendChild(win);
+      const vl = win.firstChild;
+      for (let fs = G.fs; fs >= 36; fs -= 2) { vl.style.fontSize = fs + "px"; if (vl.scrollWidth <= G.w - 34) break; }
+      boxes.push({ x: cx - G.w / 2 - 6, y: cy - G.h / 2 - 4, w: G.w + 12, h: G.h + 8 });
+      return { it, a, cx, cy };
+    });
+    // labels: printed on the disc next to their window. Prefer above, centred; otherwise slide sideways or drop below,
+    // never touching the rivet band, the rim rules, the curved instruction, the pointer tab or another window/label.
+    const hit = (p, q) => p.x < q.x + q.w && q.x < p.x + p.w && p.y < q.y + q.h && q.y < p.y + p.h;
+    const okBox = b => {
+      const qx = Math.max(b.x, Math.min(DC, b.x + b.w)), qy = Math.max(b.y, Math.min(DC, b.y + b.h));
+      if (Math.hypot(qx - DC, qy - DC) < 70) return false;                                          // rivet band
+      for (let t = 0; t <= 1.0001; t += 1 / 24) for (const [x, y] of [[b.x + t * b.w, b.y], [b.x + t * b.w, b.y + b.h], [b.x, b.y + t * b.h], [b.x + b.w, b.y + t * b.h]]) {
+        const r = Math.hypot(x - DC, y - DC), ang = Math.atan2(y - DC, x - DC) * 180 / Math.PI;
+        if (r > 322) return false;                                                                  // rim rules
+        if (r > 280 && ang > 42 && ang < 138) return false;                                         // curved "PUTAR · BACA JENDELA"
+      }
+      return !boxes.some(q => hit(b, q));
+    };
+    const labs = geo.map(({ it }) => {
+      const lab = document.createElement("div");
+      lab.className = "lab";
+      Object.assign(lab.style, { left: "0px", top: "0px", maxWidth: (G.w + 40) + "px", whiteSpace: "nowrap", transform: "none" });
+      lab.textContent = it.label;
+      disc.appendChild(lab);
+      for (let fs = 34; fs >= 31; fs -= 1) { lab.style.fontSize = fs + "px"; if (lab.scrollWidth <= G.w + 40) break; }
+      if (lab.scrollWidth > G.w + 40) {                              // too long: break at the space nearest the middle
+        const t = String(it.label), sp = [...t.matchAll(/ /g)].map(m => m.index);
+        if (sp.length) { const k = sp.reduce((p, q) => Math.abs(q - t.length / 2) < Math.abs(p - t.length / 2) ? q : p); lab.innerHTML = esc(t.slice(0, k)) + "<br>" + esc(t.slice(k + 1));
+          for (let fs = 34; fs >= 31; fs -= 1) { lab.style.fontSize = fs + "px"; if (lab.scrollWidth <= G.w + 40) break; } }
+        if (lab.scrollWidth > G.w + 40) { lab.style.whiteSpace = "normal"; lab.style.width = (G.w + 40) + "px"; }
+      }
+      return { lab, lw: lab.offsetWidth, lh: lab.offsetHeight };
+    });
+    const place = (i, side) => {                                    // side 0 = above the window, 1 = below
+      const { cx, cy } = geo[i], { lw, lh } = labs[i];
+      const ly = side ? cy + G.h / 2 + 6 : cy - G.h / 2 - 6 - lh;
+      const out = cx < DC - 1 ? -1 : cx > DC + 1 ? 1 : 0;
+      for (let s = 0; s <= 140; s += 4) for (const dir of out ? [out, -out] : [1, -1]) {
+        const b = { x: cx - lw / 2 + dir * s, y: ly, w: lw, h: lh };
+        if (okBox(b)) return b;
+      }
+      return null;
+    };
+    const commit = (i, b) => { boxes.push({ x: b.x - 4, y: b.y - 2, w: b.w + 8, h: b.h + 4 }); Object.assign(labs[i].lab.style, { left: b.x + "px", top: b.y + "px" }); };
+    // mirror pairs (windows at the same height) always share a side, so the dial stays symmetric
+    const rows = [];
+    geo.forEach((g, i) => { const r = rows.find(r => Math.abs(geo[r[0]].cy - g.cy) < 2); r ? r.push(i) : rows.push([i]); });
+    rows.forEach(row => {
+      for (const side of [0, 1]) {
+        const keep = boxes.length, got = [];
+        for (const i of row) { const b = place(i, side); if (!b) break; got.push(b); boxes.push({ x: b.x - 4, y: b.y - 2, w: b.w + 8, h: b.h + 4 }); }
+        boxes.length = keep;
+        if (got.length === row.length) {
+          if (row.length === 2) {                                      // mirror pair: give both the same inward slide
+            const inward = row.map((i, k) => (got[k].x + got[k].w / 2 - geo[i].cx) * (geo[i].cx < DC ? 1 : -1));
+            const m = Math.max(...inward);
+            if (Math.min(...inward) >= 0 && m > 0) {
+              const sym = row.map(i => ({ x: geo[i].cx - labs[i].lw / 2 + m * (geo[i].cx < DC ? 1 : -1), y: got[row.indexOf(i)].y, w: labs[i].lw, h: labs[i].lh }));
+              if (sym.every(okBox) && !hit(sym[0], sym[1])) sym.forEach((b, k) => { got[k] = b; });
+            }
+          }
+          row.forEach((i, k) => commit(i, got[k])); return;
+        }
+      }
+      row.forEach(i => commit(i, place(i, 0) || place(i, 1) || { x: geo[i].cx - labs[i].lw / 2, y: geo[i].cy - G.h / 2 - 6 - labs[i].lh, w: labs[i].lw, h: labs[i].lh }));
+    });
+
+    // pointer tab (part of the top disc, reaching over the scale ring) with a die-cut index window
+    const tab = `M${C - 46},${C - 330} L${C - 46},${C - 392} L${C},${C - 420} L${C + 46},${C - 392} L${C + 46},${C - 330} Z`;
+    el("path", { d: tab, fill: INK, transform: "translate(0 8)", "stroke-linejoin": "round", stroke: INK, "stroke-width": 10 }, top);
+    el("path", { d: tab, fill: NAVY, "stroke-linejoin": "round", stroke: NAVY, "stroke-width": 10 }, top);
+    el("path", { d: `M${C - 30},${C - 396} L${C},${C - 412}`, stroke: BRASS, "stroke-width": 4, "stroke-linecap": "round" }, top);
+    el("path", { d: `M${C + 30},${C - 396} L${C},${C - 412}`, stroke: BRASS, "stroke-width": 4, "stroke-linecap": "round" }, top);
+    el("rect", { x: C - 34, y: C - 391, width: 68, height: 40, rx: 6, fill: BRASS }, top);
+    el("rect", { x: C - 34, y: C - 391, width: 68, height: 7, rx: 3, fill: INK, opacity: 0.35 }, top);
+    el("text", { x: C, y: C - 362, "text-anchor": "middle", "font-family": "IBM Plex Mono", "font-weight": 600, "font-size": 27, fill: INK }, top, epNo.padStart(2, "0"));
+
+    // ---- place the object in the band between title and caption (CSS 3D, tilted back) ----
+    const plane = $("plane");
+    const tilt = s => `perspective(2800px) scale(${s}) rotateX(21deg)`;
+    const bandTop = titleBottom + 30, bandBot = capTop - 42;
+    plane.style.top = "0px";
+    plane.style.transform = tilt(1);
+    let r = plane.getBoundingClientRect();
+    const s = Math.min(1, (bandBot - bandTop) / (r.height + 24));
+    plane.style.transform = tilt(s);
+    r = plane.getBoundingClientRect();
+    const free = (bandBot - bandTop) - (r.height + 24);
+    plane.style.top = (bandTop - r.top + Math.max(0, free) * 0.5 + 10) + "px";
+  }
+</script>
+</body>
+</html>

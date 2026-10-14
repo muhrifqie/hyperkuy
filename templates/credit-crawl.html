@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800;900&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Credit Crawl: a hand-cranked credit roller under a rostrum camera. A black
+    drum wrapped in black paper printed with white condensed credits turns past
+    the camera; a crank turns it and one hanging lamp throws a shaft of light
+    onto the single row the camera reads.
+    Metaphor: the hidden crew behind every model (labellers, raters, writers,
+    chips, power) = the end credits nobody reads, with numbers.
+
+    Built as real CSS 3D: the drum is a ring of facets (rotateX + translateZ),
+    and everything printed on the paper (credit rows, filler credits, the
+    SUMBER end card) sits on the same cylinder, so it foreshortens over the top
+    and bottom horizon. Items = credit rows in the classic two-column gutter
+    (role right-aligned | number left-aligned). The reading line is defined by
+    light and camera only: the lamp pool, the dimmed rows outside it, and four
+    camera-gate corner marks. Filler credits are drawn silhouettes (decoration,
+    not text). Crank, axle stubs, side frames and bench are a front elevation
+    in SVG. Fully deterministic, no randomness.
+  */
+  :root { --ink: #0C0C0C; --cream: #F1ECE2; --brass: #C7962E; --iron: #3E3933; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #0C0C0C; }
+  body { position: relative; color: var(--cream); font-family: "EB Garamond", serif; }
+
+  #back, #shaft, #front { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  #shaft { mix-blend-mode: screen; }
+
+  .top { position: absolute; left: 90px; right: 90px; top: 296px; text-align: center; white-space: nowrap;
+         font: 700 30px/1 "Big Shoulders Display", sans-serif; letter-spacing: 0.24em; color: var(--brass); }
+
+  .title { position: absolute; left: 90px; width: 900px; top: 350px; text-align: center; font-family: "Big Shoulders Display", sans-serif; font-weight: 800;
+           line-height: 1; letter-spacing: 0.01em; color: var(--cream); text-wrap: balance; }
+  .title .hl { font-family: "EB Garamond", serif; font-style: italic; font-weight: 500; color: var(--brass); font-size: 1.04em; letter-spacing: 0; white-space: nowrap; }
+
+  /* ---------- 3D drum ---------- */
+  #scene { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; perspective: 2000px; perspective-origin: 540px 1032px; }
+  #drum { position: absolute; left: 540px; top: 1032px; width: 0; height: 0; transform-style: preserve-3d; }
+  #drum > div { position: absolute; backface-visibility: hidden; }
+  .row { display: flex; align-items: baseline; }
+  .row .lb { flex: 1 1 0; min-width: 0; text-align: right; font: italic 500 42px/1.1 "EB Garamond", serif; color: #DCD5C8; white-space: nowrap; }
+  .row .gt { flex: 0 0 44px; }
+  /* values are printed exactly as typed (units keep their case: mW, Gb/s, Wh, ms, Rp) */
+  .row .vl { flex: 1 1 0; min-width: 0; text-align: left; font: 800 70px/1 "Big Shoulders Display", sans-serif; letter-spacing: 0.015em; color: var(--cream); white-space: nowrap; }
+  .row .lb.wrap { white-space: normal; line-height: 1.0; align-self: center; }
+  .row.dim { opacity: 0.6; }                 /* outside the lamp pool */
+  .row.on .lb { color: var(--cream); }
+  .row.on .vl { color: var(--brass); }
+
+  /* filler credits: silhouettes of type, not text (role | name, department headers) */
+  .gk { display: flex; align-items: center; }
+  .gk > span { display: flex; align-items: center; gap: 13px; }
+  .gk i { display: block; flex: none; height: 17px; background-repeat: repeat-x;
+          /* condensed caps: stems + top / middle / bottom strokes (E, T, L, H shapes) */
+          background-image:
+            repeating-linear-gradient(90deg, #F1ECE2 0 7px, transparent 7px 13px, #F1ECE2 13px 18px, transparent 18px 31px),
+            repeating-linear-gradient(90deg, transparent 0 3px, #F1ECE2 3px 8px, transparent 8px 22px, #F1ECE2 22px 26px, transparent 26px 34px),
+            repeating-linear-gradient(90deg, transparent 0 9px, #F1ECE2 9px 16px, transparent 16px 25px),
+            repeating-linear-gradient(90deg, #F1ECE2 0 3px, transparent 3px 5px, #F1ECE2 5px 8px, transparent 8px 11px, #F1ECE2 11px 14px, transparent 14px 16px, #F1ECE2 16px 20px, transparent 20px 23px);
+          background-size: auto 3px, auto 2px, auto 3px, auto 100%;
+          background-position: 0 0, 0 50%, 0 100%, 0 0; }
+  /* roles: italic lower case, x-height stems with ascenders */
+  .gk .r i { height: 15px; transform: skewX(-12deg);
+          background-image:
+            repeating-linear-gradient(90deg, #F1ECE2 0 2px, transparent 2px 19px, #F1ECE2 19px 21px, transparent 21px 31px),
+            repeating-linear-gradient(90deg, #F1ECE2 0 3px, transparent 3px 5px, #F1ECE2 5px 7px, transparent 7px 10px, #F1ECE2 10px 13px, transparent 13px 15px);
+          background-size: auto 100%, auto 10px; background-position: 4px 0, 0 100%; }
+  /* department header: wider tracked caps */
+  .gk .h i { height: 18px;
+          background-image:
+            repeating-linear-gradient(90deg, #F1ECE2 0 9px, transparent 9px 27px),
+            repeating-linear-gradient(90deg, #F1ECE2 0 4px, transparent 4px 9px, #F1ECE2 9px 12px, transparent 12px 18px);
+          background-size: auto 3px, auto 100%; background-position: 0 0, 0 0; }
+
+  /* end card printed on the paper after the last credit */
+  .endc { display: flex; flex-direction: column; align-items: center; text-align: center; color: #C9C2B6; }
+  .endc b { font: 700 28px/1 "Big Shoulders Display", sans-serif; letter-spacing: 0.26em; padding-left: 0.26em; color: #C9C2B6; }
+  .endc .es { margin-top: 12px; font: italic 400 34px/1.1 "EB Garamond", serif; text-wrap: balance; }
+  .endc .ed { white-space: nowrap; color: #B9B2A6; }
+
+  /* ---------- caption ---------- */
+  .cap { position: absolute; left: 110px; width: 860px; top: 1478px; text-align: center; font: 500 46px/1.16 "EB Garamond", serif; color: var(--cream); }
+  .cap .w { white-space: nowrap; }
+  .cap .on { color: var(--brass); box-shadow: inset 0 -5px 0 var(--brass); }
+</style>
+</head>
+<body>
+<svg id="back" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+<div class="top" id="ser"></div>
+<div class="title" id="title"></div>
+<div id="scene"><div id="drum"></div></div>
+<svg id="shaft" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+<svg id="front" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+<div class="cap" id="cap" data-slot="caption"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "AI dalam angka", ep: "#01", kicker: "AI dalam angka · #01",
+    title: "1 chat ke AI = oven nyala 1 detik", hl: "1 detik",
+    sub: "Kecil? Kalikan miliaran chat tiap hari.",
+    items: [{ label: "Listrik per chat", value: "0,34 Wh" }, { label: "Setara oven", value: "±1 dtk" }, { label: "Chat per hari", value: "miliaran" }],
+    source: "klaim OpenAI, Jun 2025", date: "per 14 Okt 2026" };
+
+  // Lay out only after the web fonts are in (row fitting measures real glyph widths).
+  Promise.all(['800 100px "Big Shoulders Display"', '700 30px "Big Shoulders Display"', 'italic 500 42px "EB Garamond"', '500 46px "EB Garamond"', 'italic 400 34px "EB Garamond"']
+    .map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+  // Billing-block caps are set here, never with CSS text-transform: a word that carries a digit, or a case-sensitive
+  // unit (mW, kWh, mAh, Gb/s, ms, dB, Rp...), is left exactly as typed so no number changes meaning (mW is not MW).
+  const UNIT = /^(Rp|[kKMGTPmµunp]?(W|Wh|Ah|B|b|Hz|s|g|J|V|A|dB|bps|[bB]\/s|FLOPS?|flops?))$/;
+  const caps = str => String(str == null ? "" : str).split(/(\s+)/).map(w => {
+    const core = w.replace(/^[^0-9A-Za-zµ]+|[^0-9A-Za-z/]+$/g, "");
+    return /\d/.test(w) || (core && UNIT.test(core)) ? w : w.toUpperCase(); }).join("");
+
+  // ---------- meta + title ----------
+  $("ser").textContent = caps([D.series || "", D.ep || ""].filter(Boolean).join(" · ") || D.kicker || "");
+  const t = D.title || "", hl = D.hl || "";
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  titleEl.innerHTML = at < 0 ? esc(caps(t)) : esc(caps(t.slice(0, at))) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(caps(t.slice(at + hl.length)));
+  let titleFs = 132;
+  const fitTitle = () => { for (let fs = 132; fs >= 80; fs -= 2) { titleFs = fs; titleEl.style.fontSize = fs + "px"; if (titleEl.offsetHeight <= 258) break; } };
+  fitTitle();
+  // the italic highlight has long descenders: if it is not on the last line, open the leading so they clear the caps below
+  const hlEl = titleEl.querySelector(".hl");
+  if (hlEl && hlEl.getBoundingClientRect().bottom < titleEl.getBoundingClientRect().bottom - titleEl.offsetHeight * 0.2) { titleEl.style.lineHeight = "1.1"; fitTitle(); }
+  // the title stays the largest element: credit values never exceed ~72% of it
+  const VMAX = Math.min(70, Math.round(titleFs * 0.72));
+
+  // ---------- drum geometry (drum space: x right, rows rotate about x) ----------
+  const CX = 540, CY = 1032;  // screen position of the drum axis
+  const R = 440;              // drum radius (front surface sits at z = 0)
+  const L = 700;              // drum length between flanges
+  const PAD = 30;             // bare drum at each end before the paper
+  const RF = 492, TF = 30;    // flange radius + thickness
+  const STEP = n <= 3 ? 16 : 13; // degrees between credit rows (3 items get more of the drum)
+  const deg = Math.PI / 180;
+  const ARC = (R + 3) * deg;  // px of paper per degree
+  const drum = $("drum");
+  drum.style.transform = `translateZ(${-R}px)`;
+
+  const hex = h => h.match(/\w\w/g).map(v => parseInt(v, 16));
+  const mix = (a, b, k) => { const pa = hex(a), pb = hex(b), q = Math.max(0, Math.min(1, k));
+    return "#" + pa.map((v, i) => Math.round(v + (pb[i] - v) * q).toString(16).padStart(2, "0")).join(""); };
+  // the lamp hangs above and in front of the drum
+  const LY = Math.sin(24 * deg), LZ = Math.cos(24 * deg);
+  const light = phi => { const ny = Math.sin(phi * deg), nz = Math.cos(phi * deg);
+    return { dif: Math.max(0, ny * LY + nz * LZ), spec: Math.pow(Math.max(0, nz), 900) }; };
+
+  let html = "";
+  const FSTEP = 3, FH = 2 * R * Math.tan(FSTEP / 2 * deg) + 1.6;
+  for (let phi = -90; phi <= 90; phi += FSTEP) {
+    const { dif, spec } = light(phi), k = Math.pow(dif, 1.7);
+    const paper = mix(mix("060606", "1B1916", k), "2E281F", spec * 0.8);
+    const metal = mix(mix("0A0A0A", "34302A", k), "5E5038", spec);
+    const edge = mix("121110", "4A453E", k);
+    html += `<div style="left:${-L / 2}px;top:${-FH / 2}px;width:${L}px;height:${FH}px;transform:rotateX(${phi}deg) translateZ(${R}px);` +
+      `background:linear-gradient(90deg,${metal} 0,${metal} ${PAD - 3}px,${edge} ${PAD - 3}px,${edge} ${PAD}px,${paper} ${PAD}px,${paper} ${L - PAD}px,${edge} ${L - PAD}px,${edge} ${L - PAD + 3}px,${metal} ${L - PAD + 3}px)"></div>`;
+  }
+  // flange rims at both ends (cylindrical bands): blackened iron, brass bead on the outer lip, brass rivets
+  const RH = 2 * RF * Math.tan(FSTEP / 2 * deg) + 1.6;
+  for (const side of [-1, 1]) {
+    const cx = side * (L / 2 + TF / 2);
+    for (let phi = -90; phi <= 90; phi += FSTEP) {
+      const { dif, spec } = light(phi);
+      const iron = mix(mix("0C0B0A", "3E3933", Math.pow(dif, 1.4)), "8C8170", spec * 1.2);
+      const bead = mix(mix("2A1E08", "B4862A", Math.pow(dif, 1.2)), "F2D995", spec * 1.3);
+      const rivet = (phi + 90) % 15 === 0 ? `radial-gradient(circle at 50% 50%, ${mix("3A2A0C", "C9A04A", dif)} 0 4px, rgba(0,0,0,0) 5px),` : "";
+      const lip = side < 0 ? `linear-gradient(90deg, ${bead} 0 6px, rgba(0,0,0,0) 6px),` : `linear-gradient(270deg, ${bead} 0 6px, rgba(0,0,0,0) 6px),`;
+      html += `<div style="left:${cx - TF / 2}px;top:${-RH / 2}px;width:${TF}px;height:${RH}px;transform:rotateX(${phi}deg) translateZ(${RF}px);background:${lip}${rivet}${iron}"></div>`;
+    }
+  }
+  // the lamp's pool on the reading line (the only strong light on the paper)
+  const PW = L - 2 * PAD;
+  html += `<div style="left:${-PW / 2}px;top:-80px;width:${PW}px;height:160px;transform:translateZ(${R + 1}px);` +
+    `background:radial-gradient(ellipse 64% 50% at 50% 50%, rgba(199,150,46,0.4), rgba(199,150,46,0.13) 60%, rgba(199,150,46,0) 100%)"></div>`;
+
+  // ---------- credit rows (items) ----------
+  const act = Math.floor((n - 1) / 2);
+  const RW = PW - 36, ROWH = 92;
+  // keep every value exactly as typed; only a word-only value (no digit) is set in caps, like a billing block
+  const val = v => { const s = String(v == null ? "" : v); return /\d/.test(s) ? s : caps(s); };
+  items.forEach((it, i) => {
+    const phi = (act - i) * STEP;
+    html += `<div class="row${i === act ? " on" : " dim"}" style="left:${-RW / 2}px;top:${-ROWH / 2}px;width:${RW}px;height:${ROWH}px;transform:rotateX(${phi}deg) translateZ(${R + 3}px)">` +
+      `<span class="lb">${esc(it.label)}</span><span class="gt"></span><span class="vl" style="font-size:${VMAX}px">${esc(val(it.value))}</span></div>`;
+  });
+  const topPhi = act * STEP, botPhi = -(n - 1 - act) * STEP;
+
+  // ---------- end card on the paper: SUMBER + source + date ----------
+  html += `<div class="endc" id="endc" style="left:${-RW / 2}px;top:0;width:${RW}px"><b>SUMBER</b>` +
+    `<span class="es">${esc(D.source || "")}${D.source && D.date ? " · " : ""}${D.date ? `<span class="ed">${esc(D.date)}</span>` : ""}</span></div>`;
+  drum.innerHTML = html;
+
+  // fit each credit row into its column
+  drum.querySelectorAll(".row").forEach(r => {
+    const lb = r.querySelector(".lb"), vl = r.querySelector(".vl");
+    for (let fs = VMAX; fs > 44 && vl.scrollWidth > vl.clientWidth; fs -= 2) vl.style.fontSize = fs + "px";
+    for (let fs = 42; fs > 34 && lb.scrollWidth > lb.clientWidth; fs -= 1) lb.style.fontSize = fs + "px";
+    if (lb.scrollWidth > lb.clientWidth) { lb.classList.add("wrap"); lb.style.fontSize = "36px"; } // long role: two lines
+  });
+  // place the end card one gap below the last credit
+  const endc = $("endc"), es = endc.querySelector(".es");
+  for (let fs = 34; fs > 28 && es.offsetHeight > 34 * 1.1 * 2 + 2; fs -= 1) es.style.fontSize = fs + "px";
+  const EH = endc.offsetHeight;
+  const endPhi = botPhi - (ROWH / 2 + 18 + EH / 2) / ARC;
+  endc.style.top = (-EH / 2) + "px";
+  endc.style.transform = `rotateX(${endPhi.toFixed(2)}deg) translateZ(${R + 3}px)`;
+
+  // ---------- filler credits (silhouettes, decoration only) ----------
+  const GW = [[150, 210], [230, 130], [0, 300], [180, 170], [110, 240], [250, 150], [0, 250], [200, 140], [130, 260], [210, 190], [0, 330], [170, 120]];
+  const half = RW / 2 - 22;
+  // split a run into words of condensed caps
+  const words = w => { const parts = w > 220 ? [w * 0.28, w * 0.4, w * 0.32] : w > 130 ? [w * 0.44, w * 0.56] : [w];
+    return parts.map(p => `<i style="width:${Math.round(p - 8)}px"></i>`).join(""); };
+  const gk = (phi, j) => {
+    const fade = 0.45 + 0.55 * Math.cos(phi * deg);
+    const [a, b] = GW[j % GW.length], head = j % 4 === 3;
+    const inner = head
+      ? `<span class="h" style="justify-content:center;width:100%;opacity:${(0.34 * fade).toFixed(3)}"><i style="width:${Math.round(b * 0.62)}px"></i><i style="width:${Math.round(b * 0.5)}px"></i></span>`
+      : `<span class="r" style="justify-content:flex-end;width:${half}px;opacity:${(0.26 * fade).toFixed(3)}">${words(a || 140)}</span><span style="width:44px"></span>` +
+        `<span class="n" style="width:${half}px;opacity:${(0.3 * fade).toFixed(3)}">${words(b)}</span>`;
+    return `<div class="gk" style="left:${-RW / 2}px;top:-16px;width:${RW}px;height:32px;transform:rotateX(${phi.toFixed(2)}deg) translateZ(${R + 2}px)">${inner}</div>`;
+  };
+  let fill = "", j = 0;
+  for (let p = topPhi + 10; p <= 86; p += 5.6) fill += gk(p, j++);
+  for (let p = endPhi - (EH / 2 + 44) / ARC; p >= -86; p -= 5.6) fill += gk(p, j++);
+  drum.insertAdjacentHTML("beforeend", fill);
+
+  // ---------- caption (karaoke voice-over line) ----------
+  const cap = String(D.caption || D.sub || "").trim();
+  const ws = []; { const re = /\S+/g; let m; while ((m = re.exec(cap))) ws.push({ w: m[0], s: m.index, e: m.index + m[0].length }); }
+  const hi = hl ? cap.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  let on = hi < 0 ? -1 : ws.findIndex(w => w.e > hi && w.s < hi + hl.length);  // one active word: the first of the match
+  if (on < 0) on = 0;
+  const capEl = $("cap");
+  capEl.innerHTML = ws.map((w, i) => `<span class="w${i === on ? " on" : ""}">${esc(w.w)}</span>`).join(" ");
+  for (let fs = 46; fs > 40 && capEl.offsetHeight > fs * 1.16 * 2 + 4; fs -= 1) capEl.style.fontSize = (fs - 1) + "px";
+
+  // ---------- back plate: room, lamp + beam, side frames, bench ----------
+  const FL = CX - L / 2 - TF, FR = CX + L / 2 + TF;   // outer faces of the flanges (front elevation)
+  const LX = 760, LM = 250;                            // lamp mouth (centre x, y)
+  // the shaft is aimed at the reading line: half-width grows from 66 at the mouth to 330 at the drum axis
+  const sx = y => LX + (CX - LX) * (y - LM) / (CY - LM), sw = y => 66 + 264 * (y - LM) / (CY - LM);
+  const YT = 640;                                      // where the shaft meets the top of the drum
+  $("back").innerHTML = `
+    <defs>
+      <filter id="softb" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="7"/></filter>
+      <radialGradient id="vig" cx="50%" cy="52%" r="72%"><stop offset="0" stop-color="#17140F"/><stop offset="0.55" stop-color="#0D0C0A"/><stop offset="1" stop-color="#070707"/></radialGradient>
+      <linearGradient id="beam" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C7962E" stop-opacity="0.24"/><stop offset="1" stop-color="#C7962E" stop-opacity="0.07"/></linearGradient>
+      <linearGradient id="shade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5A4314"/><stop offset="0.42" stop-color="#DDB35A"/><stop offset="1" stop-color="#6E5218"/></linearGradient>
+      <linearGradient id="iron" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#121212"/><stop offset="0.5" stop-color="#2A2826"/><stop offset="1" stop-color="#121212"/></linearGradient>
+      <linearGradient id="bench" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1B1813"/><stop offset="1" stop-color="#0A0A09"/></linearGradient>
+    </defs>
+    <rect width="1080" height="1920" fill="url(#vig)"/>
+    <path d="M${LX - 66} ${LM} L${LX + 66} ${LM} L${sx(YT) + sw(YT)} ${YT} L${sx(YT) - sw(YT)} ${YT} Z" fill="url(#beam)" filter="url(#softb)"/>
+    <path d="M${LX} 0 V146" stroke="#2C2924" stroke-width="7"/>
+    <path d="M${LX - 20} 146 h40 l8 22 h-56 z" fill="#3A2C10"/>
+    <path d="M${LX - 28} 168 h56 l42 80 h-140 z" fill="url(#shade)"/>
+    <ellipse cx="${LX}" cy="249" rx="70" ry="9" fill="#F1ECE2"/>
+    <path d="M${FL - 48} ${CY - 40} L${FL - 16} ${CY - 40} L${FL + 2} 1690 L${FL - 70} 1690 Z" fill="url(#iron)"/>
+    <path d="M${FR + 16} ${CY - 40} L${FR + 48} ${CY - 40} L${FR + 70} 1690 L${FR - 2} 1690 Z" fill="url(#iron)"/>
+    <rect x="${FL - 82}" y="1676" width="96" height="14" rx="3" fill="#1E1C19"/>
+    <rect x="${FR - 14}" y="1676" width="96" height="14" rx="3" fill="#1E1C19"/>
+    <g fill="none" stroke="#1C1915" stroke-width="2"><path d="M0 1752 H1080"/><path d="M0 1806 C300 1800 620 1814 1080 1804"/><path d="M0 1866 H1080"/></g>
+    <rect x="0" y="1690" width="1080" height="230" fill="url(#bench)"/>
+    <rect x="0" y="1690" width="1080" height="3" fill="#C7962E" opacity="0.55"/>
+    <rect x="0" y="1700" width="1080" height="1" fill="#3A342A"/>`;
+
+  // the same shaft continues in front of the drum (haze between lamp and paper), ending in the pool
+  $("shaft").innerHTML = `
+    <defs><filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="9"/></filter><linearGradient id="haze" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C7962E" stop-opacity="0.07"/><stop offset="1" stop-color="#C7962E" stop-opacity="0.12"/></linearGradient></defs>
+    <path d="M${sx(YT) - sw(YT)} ${YT} L${sx(YT) + sw(YT)} ${YT} L${CX + 320} ${CY - 30} Q${CX} ${CY + 30} ${CX - 320} ${CY - 30} Z" fill="url(#haze)" filter="url(#soft)"/>`;
+
+  // ---------- front plate: axle stubs, crank, camera-gate marks on the reading line ----------
+  const ax = (x1, x2) => `<rect x="${Math.min(x1, x2)}" y="${CY - 15}" width="${Math.abs(x2 - x1)}" height="30" fill="url(#axle)"/>`;
+  const armX = FL - 82;
+  const GX1 = CX - L / 2 + 10, GX2 = CX + L / 2 - 10, GY1 = CY - 60, GY2 = CY + 60, GA = 34;
+  $("front").innerHTML = `
+    <defs>
+      <linearGradient id="axle" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5E4614"/><stop offset="0.35" stop-color="#E6C374"/><stop offset="1" stop-color="#4A370F"/></linearGradient>
+      <linearGradient id="arm" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#6A4E16"/><stop offset="0.45" stop-color="#D9AE52"/><stop offset="1" stop-color="#5A4212"/></linearGradient>
+      <linearGradient id="knob" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3B2A1E"/><stop offset="0.35" stop-color="#7A5A40"/><stop offset="1" stop-color="#1E140D"/></linearGradient>
+    </defs>
+    ${ax(FL - 12, armX)}
+    ${ax(FR + 12, FR + 62)}
+    <rect x="${FL - 50}" y="${CY - 30}" width="22" height="60" rx="4" fill="#B4862A"/>
+    <rect x="${FR + 28}" y="${CY - 30}" width="22" height="60" rx="4" fill="#B4862A"/>
+    <rect x="${armX - 13}" y="${CY - 22}" width="26" height="258" rx="13" fill="url(#arm)"/>
+    <circle cx="${armX}" cy="${CY}" r="8" fill="#5A4212"/>
+    <rect x="${armX - 62}" y="${CY + 200}" width="52" height="36" rx="18" fill="url(#knob)"/>
+    <rect x="${armX - 16}" y="${CY + 205}" width="9" height="26" rx="2" fill="#B4862A"/>
+    <g fill="none" stroke="#F1ECE2" stroke-width="3" stroke-linecap="square" opacity="0.92">
+      <path d="M${GX1} ${GY1 + GA} V${GY1} H${GX1 + GA}"/>
+      <path d="M${GX2 - GA} ${GY1} H${GX2} V${GY1 + GA}"/>
+      <path d="M${GX1} ${GY2 - GA} V${GY2} H${GX1 + GA}"/>
+      <path d="M${GX2 - GA} ${GY2} H${GX2} V${GY2 - GA}"/>
+    </g>`;
+  }
+</script>
+</body>
+</html>

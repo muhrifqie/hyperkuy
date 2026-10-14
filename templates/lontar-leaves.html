@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,500;0,600;0,700;1,500;1,600;1,700&family=Space+Mono:wght@400;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Lontar Leaves: an opened Balinese-style lontar bundle seen from straight above on a dark teak table.
+    Top cakepan board (kicker carved in its tumpal band) -> the title leaf (title incised in soot-dark ink,
+    tied on the red cord through its centre hole) -> one leaf per item, threaded on the same cord through the
+    centre of three holes -> the shut rest of the bundle (the "library") -> bottom board (colophon) -> kepeng
+    coin on the cord tail -> a loose palm-leaf strip carrying the caption.
+    Every item leaf is drawn as the WHOLE leaf outline (faint incised ghost). When all values share a unit,
+    only value/max of the leaf is really there (a torn fragment); the empty outline is the rest.
+    Mixed units -> every leaf is whole. Rows of pseudo-script (SVG hairline loops, not text) fill the
+    written part of each real leaf. Deterministic: fixed paths, fixed noise seeds, sin-based grain.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #1C1410; }
+  body { position: relative; color: #EFE4CC; font-family: "Spectral", serif; }
+
+  #table { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  #lamp { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px;
+    background:
+      radial-gradient(ellipse 760px 980px at 540px 900px, rgba(216,192,142,.10), rgba(216,192,142,.03) 55%, rgba(0,0,0,0) 76%),
+      radial-gradient(ellipse 900px 1300px at 540px 980px, rgba(0,0,0,0) 58%, rgba(8,5,3,.55) 100%); }
+  #defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+  .abs { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+
+  /* carved boards (cakepan) */
+  .board { position: absolute; left: 60px; width: 960px; }
+  .board > svg { position: absolute; left: 0; top: 0; overflow: visible; }
+  .kick { position: absolute; top: 50%; transform: translateY(-50%); font: 700 28px "Space Mono", monospace; letter-spacing: .1em;
+    text-transform: uppercase; color: #D8C08E; line-height: 1.2; white-space: nowrap;
+    text-shadow: 0 -1.5px 0 rgba(6,4,2,.75), 0 1px 0 rgba(239,228,204,.16); }
+  .colo { position: absolute; left: 92px; right: 140px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; column-gap: 28px;
+    font: 700 26px "Space Mono", monospace; line-height: 1.3; color: #D8C08E; letter-spacing: .02em;
+    text-shadow: 0 -1.5px 0 rgba(6,4,2,.75), 0 1px 0 rgba(239,228,204,.16); }
+  .colo span:last-child { white-space: nowrap; font-weight: 400; margin-left: auto; }
+
+  /* leaves */
+  .lf { position: absolute; left: 0; top: 0; overflow: visible; }
+  .ink { color: #24180F; text-shadow: 0 1.8px 0 rgba(255,248,226,.62), 0 -1px 0 rgba(28,20,16,.28); }
+  #titleLeaf { position: absolute; left: 72px; width: 936px; z-index: 4; }
+  .title { position: absolute; left: 40px; width: 864px; font-weight: 600; line-height: 1.04; letter-spacing: -.014em; text-wrap: balance; }
+  .title .hl { font-style: italic; color: #6E2619; }
+  #tie { position: absolute; left: 0; top: 0; overflow: visible; }
+
+  .row { position: absolute; left: 0; width: 1080px; transform-origin: 540px 50%; }
+  .row.g { z-index: 2; } .row.r { z-index: 4; }
+  .row .t { position: absolute; top: 50%; transform: translateY(-50%); white-space: nowrap; line-height: 1.05; }
+  .row .lb { font-weight: 600; font-style: italic; }
+  .row .vl { font-family: "Space Mono", monospace; font-weight: 700; letter-spacing: -.02em; line-height: 1; }
+  .row .fo { font: 700 30px "Space Mono", monospace; }
+  .row .off { color: #EFE4CC; text-shadow: 0 2px 0 rgba(6,4,2,.6); }
+  .row .vl.off { color: #D8C08E; }
+
+  #cordUnder { z-index: 3; } #cordOver { z-index: 6; }
+  #stack { position: absolute; left: 72px; z-index: 4; overflow: visible; }
+  #botBoard { z-index: 7; }
+  #tail { z-index: 6; }
+  #capLeaf { position: absolute; left: 52px; width: 884px; z-index: 8; transform: rotate(-.45deg); transform-origin: 50% 50%; }
+  #cap { position: absolute; left: 40px; width: 796px; font-weight: 500; line-height: 1.3; text-wrap: balance; }
+  #cap .w.on { color: #6E2619; font-weight: 700; font-style: italic; }
+</style>
+</head>
+<body>
+<svg id="table" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap data-layout-allow-overflow aria-hidden="true">
+  <defs>
+    <filter id="grainTex" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.09 0.0035" numOctaves="3" seed="7" result="n" />
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.05  0 0 0 0 0.03  0 0 0 0 0.02  2.2 0 0 0 -1.05" />
+    </filter>
+    <filter id="grainHi" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.21 0.006" numOctaves="2" seed="31" result="n" />
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.85  0 0 0 0 0.70  0 0 0 0 0.50  1.6 0 0 0 -0.98" />
+    </filter>
+  </defs>
+  <rect width="1080" height="1920" fill="#1C1410" />
+  <rect width="1080" height="1920" fill="#2A1D15" opacity=".55" filter="url(#grainHi)" />
+  <rect width="1080" height="1920" filter="url(#grainTex)" />
+  <g id="grain" fill="none" data-layout-allow-overflow></g>
+</svg>
+<div id="lamp" data-layout-allow-overlap></div>
+<svg id="defs" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <linearGradient id="lfV" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#A88A55" /><stop offset=".13" stop-color="#D2B884" /><stop offset=".5" stop-color="#DFC999" />
+      <stop offset=".86" stop-color="#D3B985" /><stop offset="1" stop-color="#A3844E" />
+    </linearGradient>
+    <linearGradient id="lfH" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#4E3218" stop-opacity=".55" /><stop offset=".035" stop-color="#4E3218" stop-opacity=".12" /><stop offset=".09" stop-color="#4E3218" stop-opacity="0" />
+      <stop offset=".93" stop-color="#4E3218" stop-opacity="0" /><stop offset=".975" stop-color="#4E3218" stop-opacity=".16" /><stop offset="1" stop-color="#4E3218" stop-opacity=".55" />
+    </linearGradient>
+    <pattern id="fib" patternUnits="userSpaceOnUse" width="480" height="27">
+      <path d="M0,3.5H480M0,10H480M0,16.5H480M0,23H480" stroke="#6E5130" stroke-opacity=".12" stroke-width="1" />
+      <path d="M0,6.5H480M0,19.5H480" stroke="#FFF8E6" stroke-opacity=".16" stroke-width="1" />
+      <path d="M30,13H190M260,0.8H420M90,26H300" stroke="#6E5130" stroke-opacity=".1" stroke-width="1.4" />
+    </pattern>
+    <linearGradient id="wood" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#5A4230" /><stop offset=".55" stop-color="#3A2A1E" /><stop offset="1" stop-color="#2C2017" />
+    </linearGradient>
+    <pattern id="woodGr" patternUnits="userSpaceOnUse" width="520" height="13">
+      <path d="M0,1H520M0,7H520" stroke="#0A0604" stroke-opacity=".28" stroke-width="1" />
+      <path d="M40,4H300M330,10H500" stroke="#EFE4CC" stroke-opacity=".05" stroke-width="1" />
+    </pattern>
+    <linearGradient id="stackShade" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#1C1410" stop-opacity=".55" /><stop offset=".07" stop-color="#1C1410" stop-opacity=".08" />
+      <stop offset=".93" stop-color="#1C1410" stop-opacity=".08" /><stop offset="1" stop-color="#1C1410" stop-opacity=".55" />
+    </linearGradient>
+    <linearGradient id="stackV" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#FFF8E6" stop-opacity=".1" /><stop offset=".5" stop-color="#1C1410" stop-opacity="0" /><stop offset="1" stop-color="#1C1410" stop-opacity=".35" />
+    </linearGradient>
+    <g id="glyphs"></g>
+  </defs>
+</svg>
+
+<div id="topBoard" class="board" data-layout-allow-overlap><svg id="topCarve" aria-hidden="true" data-layout-allow-overlap></svg><span class="kick" id="kick"></span><span class="kick" id="count"></span></div>
+<div id="titleLeaf" data-layout-allow-overlap><svg class="lf" id="titleSvg" aria-hidden="true" data-layout-allow-overlap></svg><div class="title ink" id="title"></div><svg id="tie" aria-hidden="true" data-layout-allow-overlap></svg></div>
+<div id="rows"></div>
+<svg id="cordUnder" class="abs" width="1080" height="1920" viewBox="0 0 1080 1920" aria-hidden="true" data-layout-allow-overlap></svg>
+<svg id="cordOver" class="abs" width="1080" height="1920" viewBox="0 0 1080 1920" aria-hidden="true" data-layout-allow-overlap></svg>
+<svg id="stack" aria-hidden="true" data-layout-allow-overlap></svg>
+<div id="botBoard" class="board" data-layout-allow-overlap><svg id="botCarve" aria-hidden="true" data-layout-allow-overlap></svg><div class="colo" id="colo"><span id="src"></span><span id="date"></span></div></div>
+<svg id="tail" class="abs" width="1080" height="1920" viewBox="0 0 1080 1920" aria-hidden="true" data-layout-allow-overlap></svg>
+<div id="capLeaf" data-layout-allow-overlap><svg class="lf" id="capSvg" aria-hidden="true" data-layout-allow-overlap></svg><div id="cap" class="ink" data-slot="caption"></div></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser (illustrative shares, labelled as such).
+  const D = window.D || { series: "AI dalam angka", ep: "#07", kicker: "AI dalam angka · #07",
+    title: "Bahasa kita cuma secuil data AI", hl: "secuil",
+    sub: "Makanya AI masih kaku pakai bahasa daerah.",
+    items: [{ label: "Inggris", value: "46%" }, { label: "Indonesia", value: "0,6%" }, { label: "Jawa", value: "0,01%" }, { label: "Sunda", value: "0,005%" }],
+    source: "ilustrasi — perkiraan porsi data web", date: "per 14 Okt 2026" };
+
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const r1 = v => Math.round(v * 10) / 10;
+  const rope = (p, w) => '<path d="' + p + '" stroke="#A8432F" stroke-width="' + w + '" fill="none" stroke-linecap="round"/>' +
+    '<path d="' + p + '" stroke="#6E2619" stroke-width="' + w + '" fill="none" stroke-dasharray="2.4 4.6"/>' +
+    '<path d="' + p + '" stroke="#DA7A5F" stroke-opacity=".5" stroke-width="2.2" fill="none" stroke-dasharray="1.4 5.6" stroke-dashoffset="-2.6"/>';
+  const ropeShadow = (p, w) => '<path d="' + p + '" transform="translate(3,5)" stroke="#000" stroke-opacity=".42" stroke-width="' + (w + 1) + '" fill="none" stroke-linecap="round"/>';
+
+  // Teak grain: long vertical wavy lines (sin-based, deterministic) + two plank seams.
+  (function grain() {
+    let s = "";
+    for (let i = 0; i < 74; i++) {
+      const x0 = i * 14.8 + Math.sin(i * 2.13) * 5;
+      let d = "M" + x0.toFixed(1) + ",-20";
+      for (let y = 60; y <= 1960; y += 80) d += "L" + (x0 + Math.sin(y / 330 + i * 0.83) * 9 + Math.sin(y / 113 + i * 1.7) * 2.4).toFixed(1) + "," + y;
+      const dark = i % 3 !== 1;
+      s += '<path d="' + d + '" stroke="' + (dark ? "#0E0907" : "#3A2A1E") + '" stroke-width="' + (1 + (i * 7 % 5) * 0.45).toFixed(2) + '" opacity="' + (dark ? 0.42 : 0.5) + '"/>';
+    }
+    for (const sx of [318, 742]) s += '<path d="M' + sx + ',0V1920" stroke="#090605" stroke-width="4"/><path d="M' + (sx + 3) + ',0V1920" stroke="#EFE4CC" stroke-opacity=".06" stroke-width="1.5"/>';
+    $("grain").innerHTML = s;
+  })();
+
+  // Pseudo-script: hairline loops in a 10-unit x-height (decoration, not text).
+  const GL = [
+    [11, "M0,-3C0,-9 5,-9 5,-4C5,-9 10,-9 10,-4C10,0 6,1 6,-2"], [9, "M0,-5C0,-10 8,-10 8,-5C8,-1 3,-1 3,-4C3,-6 6,-6 6,-4"],
+    [12, "M0,-2C0,-8 4,-9 5,-5C6,-9 11,-9 11,-3C11,1 8,1 7,-1M11,-3C12,2 9,5 6,5"], [8, "M1,-1C-1,-6 3,-14 7,-12C10,-10 7,-6 4,-7"],
+    [13, "M0,-6C3,-10 7,-9 7,-5C7,-1 2,-1 2,-4M7,-5C8,-1 12,-1 12,-5C12,-8 9,-9 9,-6"], [12, "M5,-8C1,-8 1,-1 5,-1C9,-1 9,-8 5,-8M9,-4C11,-4 12,-2 12,0"],
+    [12, "M0,-1C0,-7 3,-9 6,-9C9,-9 10,-6 8,-4C6,-2 4,-4 6,-6M8,-4C10,-2 12,-3 12,-6"], [13, "M0,-5C2,-9 4,-9 5,-5C6,-1 8,-1 9,-5C10,-9 12,-9 13,-5"],
+    [10, "M0,-4C0,-9 7,-9 7,-4C7,0 2,0 2,-3M7,-4C8,-8 10,-8 10,-5"], [11, "M2,-9C-1,-6 1,-1 4,-1C7,-1 8,-4 6,-6C4,-8 9,-10 11,-7"]];
+  const MK = ["M4,-13a2,2 0 1,1 .1,0", "M1,-12C3,-15 7,-15 9,-12", "M2,2C3,6 8,6 9,2"];
+  $("glyphs").innerHTML = GL.map((g, i) => '<path id="g' + i + '" d="' + g[1] + '"/>').join("") + MK.map((m, i) => '<path id="m' + i + '" d="' + m + '"/>').join("");
+  function script(x0, x1, base, xh, seed, op) {
+    if (x1 - x0 < 3 * xh) return "";
+    const s = xh / 10; let out = "", x = x0, k = 0;
+    for (;;) {
+      const gi = (k * 7 + seed * 3 + (k >> 2)) % GL.length, w = GL[gi][0] * s;
+      if (x + w > x1) break;
+      const tr = ' transform="translate(' + r1(x) + "," + r1(base) + ") scale(" + s.toFixed(3) + ')"';
+      out += '<use href="#g' + gi + '"' + tr + "/>";
+      if ((k * 5 + seed) % 7 === 0) out += '<use href="#m' + ((k + seed) % 3) + '"' + tr + "/>";
+      x += w + 2.8 * s + ((k + seed) % 6 === 5 ? 7 * s : 0); k++;
+    }
+    return '<g fill="none" stroke="#24180F" stroke-opacity="' + (op || 0.5) + '" stroke-width="' + (1.45 / s).toFixed(2) + '" stroke-linecap="round" stroke-linejoin="round">' + out + "</g>";
+  }
+
+  // Leaf shapes (local coords, height h). torn = right end is a torn edge at x1.
+  const TEAR = [[0, 0], [-6, .1], [3, .21], [-8, .33], [2, .45], [-5, .57], [5, .68], [-7, .8], [1, .9], [-3, 1]];
+  function leafD(x0, x1, h, torn, seed) {
+    const t = Math.min(16, h * .2), y0 = 1.5, y1 = h - 1.5;
+    let d = "M" + (x0 + t) + "," + y0 + "L" + (torn ? x1 : x1 - t) + "," + y0;
+    if (torn) TEAR.forEach(([dx, f], i) => { if (i) d += "L" + r1(x1 + TEAR[(i + seed) % TEAR.length][0]) + "," + r1(y0 + f * (y1 - y0)); });
+    else d += "C" + (x1 + 3) + "," + (y0 + 3) + " " + (x1 + 3) + "," + (y1 - 3) + " " + (x1 - t) + "," + y1;
+    return d + "L" + (x0 + t) + "," + y1 + "C" + (x0 - 3) + "," + (y1 - 3) + " " + (x0 - 3) + "," + (y0 + 3) + " " + (x0 + t) + "," + y0 + "Z";
+  }
+  function leafBody(d, h, seed, x0, x1) {
+    const sp = [[.18, .3], [.62, .7], [.4, .25], [.8, .6], [.3, .75], [.55, .35]];
+    let blot = "";
+    if (x1 - x0 > 240) for (let j = 0; j < 2; j++) { const p = sp[(seed + j * 3) % sp.length];
+      blot += '<ellipse cx="' + r1(x0 + 60 + (x1 - x0 - 120) * p[0]) + '" cy="' + r1(h * (.3 + .4 * p[1])) + '" rx="' + Math.min(40 + 30 * ((seed + j) % 3), (x1 - x0) * .2) + '" ry="' + r1(Math.min(14, h * .14)) + '" fill="#7A5428" fill-opacity=".08"/>'; }
+    return '<path d="' + d + '" fill="url(#lfV)"/><path d="' + d + '" fill="url(#fib)"/>' + blot +
+      '<path d="' + d + '" fill="url(#lfH)"/><path d="' + d + '" fill="none" stroke="#4E3218" stroke-opacity=".7" stroke-width="2.4"/>' +
+      '<path d="' + d + '" transform="translate(0,1.4)" fill="none" stroke="#FFF8E6" stroke-opacity=".18" stroke-width="1"/>';
+  }
+  const hole = (x, y) => '<circle cx="' + x + '" cy="' + (y + 1.4) + '" r="11.5" fill="#FFF8E6" fill-opacity=".45"/><circle cx="' + x + '" cy="' + y + '" r="11" fill="#110B07"/>' +
+    '<circle cx="' + x + '" cy="' + y + '" r="11" fill="none" stroke="#3A2A1E" stroke-width="2"/><circle cx="' + x + '" cy="' + (y - 2) + '" r="6" fill="#000" fill-opacity=".5"/>';
+  const ghostHole = (x, y) => '<circle cx="' + x + '" cy="' + y + '" r="11" fill="none" stroke="#D8C08E" stroke-opacity=".34" stroke-width="2"/>';
+
+  Promise.all(['600 104px Spectral', 'italic 600 104px Spectral', '500 46px Spectral', 'italic 700 46px Spectral', 'italic 600 38px Spectral',
+    '700 44px "Space Mono"', '400 26px "Space Mono"'].map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+    const items = (D.items || []).slice(0, 5), n = items.length;
+    const X0 = 96, X1 = 984, XC = 540, LB0 = 200, LB1 = 498, VB0 = 582, VB1 = 886, MINL = 56;
+
+    // ---- Top board: kicker carved in the tumpal band, knot of the cord in the middle.
+    const TB = { top: 292, h: 58 };
+    const tb = $("topBoard"); tb.style.top = TB.top + "px"; tb.style.height = TB.h + "px";
+    const ep = D.ep ? String(D.ep) : "";
+    const kick = $("kick"), count = $("count");
+    kick.textContent = D.series ? D.series + (ep ? " · " + ep : "") : (D.kicker || ep);
+    count.textContent = n + " lembar";
+    kick.style.left = "40px"; count.style.right = "40px";
+    for (let f = 28; f >= 26 && kick.offsetLeft + kick.offsetWidth > 440; f -= 2) kick.style.fontSize = f - 2 + "px";
+    if (kick.offsetLeft + kick.offsetWidth > 440) kick.style.letterSpacing = ".03em";
+    const kEnd = kick.offsetLeft + kick.offsetWidth, cStart = 960 - 40 - count.offsetWidth;
+    let tri = "";
+    const tumpal = (a, b) => { for (let x = a; x + 30 <= b; x += 30) tri += "M" + x + "," + (TB.h - 15) + "L" + (x + 15) + ",15L" + (x + 30) + "," + (TB.h - 15) + "Z"; };
+    tumpal(kEnd + 26, 480 - 34); tumpal(480 + 34, cStart - 26);
+    const frame = (w, h) => '<rect x="0" y="0" width="' + w + '" height="' + h + '" rx="8" fill="url(#wood)"/><rect x="0" y="0" width="' + w + '" height="' + h + '" rx="8" fill="url(#woodGr)"/>' +
+      '<rect x="7" y="6" width="' + (w - 14) + '" height="' + (h - 12) + '" rx="5" fill="none" stroke="#0E0907" stroke-opacity=".6" stroke-width="2.5"/>' +
+      '<rect x="8.5" y="7.5" width="' + (w - 14) + '" height="' + (h - 12) + '" rx="5" fill="none" stroke="#EFE4CC" stroke-opacity=".12" stroke-width="1"/>' +
+      '<rect x="0" y="0" width="' + w + '" height="' + h + '" rx="8" fill="none" stroke="#0A0604" stroke-width="2"/>';
+    const tc = $("topCarve"); tc.setAttribute("width", 960); tc.setAttribute("height", TB.h);
+    tc.innerHTML = '<rect x="4" y="10" width="960" height="' + TB.h + '" rx="8" fill="#000" fill-opacity=".5"/>' + frame(960, TB.h) +
+      '<path d="' + tri + '" fill="#0E0907" fill-opacity=".45" stroke="#0E0907" stroke-opacity=".6" stroke-width="2" stroke-linejoin="round"/>' +
+      '<path d="' + tri + '" transform="translate(1.3,1.6)" fill="none" stroke="#D8C08E" stroke-opacity=".22" stroke-width="1.2" stroke-linejoin="round"/>';
+
+    const t = D.title || "", hl = D.hl || "";
+
+    // ---- Caption on a loose palm-leaf strip (karaoke: the active word is incised in red-brown).
+    const capText = String(D.caption || D.sub || "");
+    const words = capText.split(/\s+/).filter(Boolean);
+    const capL = capText.toLowerCase(), hlL = hl.toLowerCase();
+    let active = 0;
+    if (hlL && capL.indexOf(hlL) >= 0) {
+      const pos = capL.indexOf(hlL); let c = 0;
+      for (let i = 0; i < words.length; i++) { const s = capL.indexOf(words[i].toLowerCase(), c); if (s <= pos && pos < s + words[i].length) { active = i; break; } c = s + words[i].length; }
+    }
+    const cap = $("cap"), capLeafEl = () => $("capLeaf");
+    cap.innerHTML = words.map((w, i) => '<span class="w' + (i === active ? " on" : "") + '">' + esc(w) + "</span>").join(" ");
+    const capFit = () => { for (let fs = 46; fs >= 40; fs -= 2) { cap.style.fontSize = fs + "px"; if (cap.offsetHeight <= fs * 1.3 * 2 + 4) return true; } return false; };
+    // a very long caption (80-90 characters) gets a wider strip that sits wholly below y 1500, clear of the side buttons
+    const wide = !capFit();
+    if (wide) { capLeafEl().style.width = "944px"; cap.style.width = "880px"; capFit(); }
+    const CH = cap.offsetHeight + 50, capTop = wide ? 1475 : 1614 - CH;
+    const capLeaf = $("capLeaf"); capLeaf.style.top = capTop + "px"; capLeaf.style.height = CH + "px";
+    cap.style.top = "25px";
+    const CW = wide ? 944 : 884, cd = leafD(4, CW - 6, CH, false, 5);
+    $("capSvg").setAttribute("width", CW); $("capSvg").setAttribute("height", CH);
+    $("capSvg").innerHTML = '<path d="' + cd + '" transform="translate(3,7)" fill="#000" fill-opacity=".45"/>' + leafBody(cd, CH, 5, 4, CW - 6);
+
+    // ---- Bottom board: colophon (source + date); the cord tail leaves it to a kepeng coin.
+    $("src").textContent = D.source || ""; $("date").textContent = D.date || "";
+    const colo = $("colo");
+    const BH = Math.max(72, colo.offsetHeight + 34), BB = { h: BH, top: capTop - 38 - BH };
+    const bb = $("botBoard"); bb.style.top = BB.top + "px"; bb.style.height = BH + "px";
+    colo.style.top = Math.round((BH - colo.offsetHeight) / 2) + "px";
+    const bc = $("botCarve"); bc.setAttribute("width", 960); bc.setAttribute("height", BH);
+    const fx = 930, fy = BH / 2, pet = "M0,-4C-6,-10 -6,-19 0,-22C6,-19 6,-10 0,-4Z";
+    const flower = [0, 90, 180, 270].map(a => '<path d="' + pet + '" transform="translate(' + fx + "," + fy + ") rotate(" + a + ')"/>').join("");
+    bc.innerHTML = '<rect x="4" y="10" width="960" height="' + BH + '" rx="8" fill="#000" fill-opacity=".5"/>' + frame(960, BH) +
+      '<g fill="#0E0907" fill-opacity=".5" stroke="#0E0907" stroke-opacity=".6" stroke-width="1.6">' + flower + '</g>' +
+      '<g fill="none" stroke="#D8C08E" stroke-opacity=".22" stroke-width="1.1" transform="translate(1.2,1.5)">' + flower + '</g>' +
+      '<path d="M900,14V' + (BH - 14) + 'M906,14V' + (BH - 14) + '" stroke="#0E0907" stroke-opacity=".55" stroke-width="2"/>' +
+      '<path d="M54,14V' + (BH - 14) + 'M60,14V' + (BH - 14) + '" stroke="#0E0907" stroke-opacity=".55" stroke-width="2"/>';
+
+    // ---- Title leaf: soot-dark incised title on palm, threaded through its centre hole.
+    const TL = { left: 72, top: TB.top + TB.h + 10, w: 936, padT: 54, padB: 28 };
+    const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    const titleEl = $("title");
+    titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+    titleEl.style.top = TL.padT + "px";
+    // The leaves keep a minimum (n x 64-66 px + the 150 px shut stack); the title takes what is left:
+    // 2 lines at 112-96 px, else 3 lines at 104-96, else 4 lines at 96; only when that would crowd the leaves
+    // (a 50-60 character title with 4-5 items) does it step down, to 84 px at the least within the contract.
+    const lhMin = n >= 5 ? 60 : 64, gMin = 8;
+    const maxTH = (BB.top + 22) - TL.top - (16 + 172 + n * lhMin + (n + 1) * gMin);
+    const tryT = (f, maxL) => { titleEl.style.fontSize = f + "px"; const h = titleEl.offsetHeight;
+      return h <= f * 1.04 * maxL + 4 && TL.padT + h + TL.padB <= maxTH; };
+    let tfs = 0;
+    const plan = [[2, 112, 96], [3, 104, 96], [4, 96, 96], [3, 94, 84], [4, 94, 84], [4, 82, 72]];
+    fit: for (const [maxL, hi, lo] of plan) for (let f = hi; f >= lo; f -= 2) if (tryT(f, maxL)) { tfs = f; break fit; }
+    if (!tfs) tfs = 72;
+    titleEl.style.fontSize = tfs + "px";
+    const lines = Math.round(titleEl.offsetHeight / (tfs * 1.04));
+    const TH = TL.padT + titleEl.offsetHeight + TL.padB;
+    const titleLeaf = $("titleLeaf"); titleLeaf.style.top = TL.top + "px"; titleLeaf.style.height = TH + "px";
+    const titleBottom = TL.top + TH;
+    // measure (before anything is transformed) the last line end and the highlight boxes, in leaf coordinates
+    const tlb = titleLeaf.getBoundingClientRect();
+    const rng = document.createRange(); rng.selectNodeContents(titleEl);
+    const lrects = [...rng.getClientRects()].filter(r => r.width > 4);
+    const last = lrects.reduce((a, r) => (r.top > a.top + 2 || (Math.abs(r.top - a.top) <= 2 && r.right > a.right) ? r : a), lrects[0]);
+    let tsvg = '<path d="' + leafD(6, TL.w - 6, TH, false, 2) + '" transform="translate(3,7)" fill="#000" fill-opacity=".45"/>' + leafBody(leafD(6, TL.w - 6, TH, false, 2), TH, 2, 6, TL.w - 6);
+    const hy = 27, hxs = [64, XC - TL.left, TL.w - 64];
+    hxs.forEach(x => { tsvg += hole(x, hy); });
+    tsvg += script(96, hxs[1] - 30, hy + 5, 9, 1, .45) + script(hxs[1] + 30, hxs[2] - 32, hy + 5, 9, 4, .45);
+    tsvg += '<path d="M40,' + (hy + 18) + "H" + (TL.w - 40) + '" stroke="#4E3218" stroke-opacity=".28" stroke-width="1.4"/><path d="M40,' + (hy + 19.4) + "H" + (TL.w - 40) + '" stroke="#FFF8E6" stroke-opacity=".3" stroke-width="1"/>';
+    if (last) {   // the rest of the last line is written on in script
+      const lx = last.right - tlb.left + 34, ly = last.top - tlb.top;
+      const rows = [.38, .6, .82].map(f => ly + last.height * f);
+      rows.forEach((y, k) => { tsvg += script(lx, TL.w - 52, y, 10, 3 + k * 2, .5); });
+    }
+    const ts = $("titleSvg"); ts.setAttribute("width", TL.w); ts.setAttribute("height", TH); ts.innerHTML = tsvg;
+    // the highlight is lashed with a length of the red cord, knotted at its end (baseline from a probe in the LAST line box)
+    const hlEl = titleEl.querySelector(".hl");
+    if (hlEl) {
+      const rects = [...hlEl.getClientRects()].filter(r => r.width > 8);
+      // baseline offset inside each line fragment, measured on a detached copy so the balanced title never re-wraps
+      const pr = document.createElement("div");
+      pr.style.cssText = "position:absolute;left:0;top:0;visibility:hidden;white-space:nowrap;font:600 " + tfs + "px Spectral;line-height:1.04";
+      pr.innerHTML = '<span style="font-style:italic">Hg<i style="display:inline-block;width:0;height:0;vertical-align:baseline"></i></span>';
+      document.body.appendChild(pr);
+      const base = pr.querySelector("i").getBoundingClientRect().top - pr.querySelector("span").getClientRects()[0].top;
+      pr.remove();
+      let tie = "";
+      rects.forEach((r, k) => {
+        const y = r.top - tlb.top + base + tfs * 0.1, x0 = r.left - tlb.left + 4, x1 = r.right - tlb.left - 2, mid = (x0 + x1) / 2;
+        const p = "M" + r1(x0) + "," + r1(y - 1) + "Q" + r1(mid) + "," + r1(y + 7) + " " + r1(x1) + "," + r1(y);
+        tie += ropeShadow(p, 8) + rope(p, 8);
+        if (k === rects.length - 1) tie += '<circle cx="' + r1(x1 + 4) + '" cy="' + r1(y) + '" r="8" fill="#A8432F"/><path d="M' + r1(x1 + 9) + "," + r1(y + 1) + (x1 > TL.w - 90 ? "q4,8 0,18M" + r1(x1 + 5) + "," + r1(y + 6) + 'q-3,7 -10,13"' : "q12,1 22,8M" + r1(x1 + 7) + "," + r1(y + 5) + 'q8,5 12,14"') + ' stroke="#A8432F" stroke-width="5" fill="none" stroke-linecap="round"/><circle cx="' + r1(x1 + 2) + '" cy="' + r1(y - 2) + '" r="2.4" fill="#DA7A5F" opacity=".7"/>';
+      });
+      const tieSvg = $("tie"); tieSvg.setAttribute("width", TL.w); tieSvg.setAttribute("height", TH); tieSvg.innerHTML = tie;
+    }
+
+    // ---- Vertical rhythm: item leaves, then the shut rest of the bundle (>= 150 px of leaf edges).
+    const stackBottom = BB.top + 22;
+    const regionTop = titleBottom + 16, region = stackBottom - regionTop;   // the bottom board hides the last 22 px of the stack
+    const lhMax = n >= 5 ? 84 : 92;
+    const lh = Math.max(56, Math.min(lhMax, Math.floor((region - 172 - (n + 1) * Math.max(gMin, Math.min(14, (region - 172 - n * lhMax) / (n + 1)))) / Math.max(n, 1))));
+    let extra = region - 172 - n * lh - (n + 1) * 12;
+    // >= 150 px of shut leaves visible above the board (it grows with spare room); only input past the contract eats into it
+    const S = Math.max(112, Math.min(172 + Math.max(0, Math.min(110, Math.round(extra * 0.45))), region - n * lh - (n + 1) * gMin));
+    extra = region - S - n * lh;
+    const gap = Math.max(gMin, Math.min(36, extra / (n + 1)));
+    const lead = Math.max(0, extra - gap * (n + 1)) / 2;
+    const stackTop = stackBottom - S;
+
+    // ---- Lengths: same unit everywhere -> proportional to the largest value; else whole leaves.
+    const parse = v => { const m = String(v).trim().match(/^[^\d]*?(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d+))?\s*(.*)$/); if (!m) return null;
+      return { n: parseFloat(m[1].replace(/\./g, "") + (m[2] ? "." + m[2] : "")), u: m[3].trim().toLowerCase() }; };
+    const P = items.map(it => parse(it.value));
+    const comparable = n > 1 && P.every(p => p && p.u === P[0].u && p.n >= 0) && Math.max(...P.map(p => p.n)) > 0;
+    const vmax = comparable ? Math.max(...P.map(p => p.n)) : 1;
+
+    // one size for every leaf: the longest label must fit the left block, the longest value the right block
+    const meas = document.createElement("div"); meas.className = "row"; meas.style.cssText = "visibility:hidden;top:0;height:0";
+    document.body.appendChild(meas);
+    meas.innerHTML = items.map(it => '<span class="t lb">' + esc(it.label) + '</span><span class="t vl">' + esc(it.value) + "</span>").join("");
+    const lbs = [...meas.querySelectorAll(".lb")], vls = [...meas.querySelectorAll(".vl")];
+    let lbF = Math.max(30, Math.min(38, Math.floor(lh * .46))), vlF = Math.max(34, Math.min(44, Math.floor(lh * .52)));
+    const fitAll = (els, f, max) => { els.forEach(e => e.style.fontSize = f + "px"); return Math.max(...els.map(e => e.offsetWidth)) <= max; };
+    while (lbF > 30 && !fitAll(lbs, lbF, LB1 - LB0)) lbF -= 2;
+    while (vlF > 32 && !fitAll(vls, vlF, VB1 - VB0)) vlF -= 2;
+    fitAll(lbs, lbF, 9999); fitAll(vls, vlF, 9999);
+    // a label longer than the left block even at 30 px wraps to two lines inside it
+    const wrapL = lbs.map(e => e.offsetWidth > LB1 - LB0);
+    lbs.forEach((e, i) => { if (wrapL[i]) e.style.cssText += ";white-space:normal;width:" + (LB1 - LB0) + "px;line-height:1"; });
+    const W = items.map((it, i) => ({ lw: lbs[i].offsetWidth, vw: vls[i].offsetWidth }));
+    meas.remove();
+
+    const okL = (E, w) => E >= LB0 + w + 28 ? "on" : (Math.max(LB0, E + 24) + w <= LB1 ? "off" : null);
+    const okV = (E, w) => E >= VB0 + w + 40 ? "on" : (E + 24 <= VB1 - w ? "off" : null);
+    const ends = items.map((it, i) => {
+      if (!comparable) return X1;
+      const E0 = X0 + Math.max(MINL, Math.round((X1 - X0) * P[i].n / vmax));
+      // a leaf whose words would straddle its torn edge moves to the nearest length where they do not (equal values stay equal)
+      const grp = items.map((_, j) => j).filter(j => P[j].n === P[i].n);
+      const cands = [E0]; grp.forEach(j => cands.push(LB0 + W[j].lw + 28, LB1 - W[j].lw - 24, VB0 + W[j].vw + 40, VB1 - W[j].vw - 24));
+      const ok = cands.map(e => Math.min(X1, Math.max(X0 + MINL, Math.round(e)))).filter(e => grp.every(j => okL(e, W[j].lw) && okV(e, W[j].vw)));
+      return ok.length ? ok.sort((a, b) => Math.abs(a - E0) - Math.abs(b - E0))[0] : E0;
+    });
+
+    const fan = comparable ? [-.6, .45, -.35, .55, -.45] : [-.5, .4, -.3, .5, -.4];
+    const rowsEl = $("rows"), holesY = [];
+    let under = "", over = "";
+    items.forEach((it, i) => {
+      const yt = Math.round(regionTop + lead + gap * (i + 1) + lh * i), E = ends[i], full = E >= X1, cy = yt + lh / 2;
+      const rot = "rotate(" + fan[i] + "deg)";
+      // ghost: the whole leaf, incised faintly on nothing
+      const g = document.createElement("div"); g.className = "row g"; g.style.cssText = "top:" + yt + "px;height:" + lh + "px;transform:" + rot;
+      g.setAttribute("data-layout-allow-overlap", "");
+      const gd = leafD(X0, X1, lh, false, i);
+      g.innerHTML = '<svg class="lf" width="1080" height="' + lh + '" aria-hidden="true">' +
+        '<path d="' + gd + '" fill="#D8C08E" fill-opacity=".045" stroke="#0A0604" stroke-opacity=".7" stroke-width="3" transform="translate(0,1.5)"/>' +
+        '<path d="' + gd + '" fill="none" stroke="#D8C08E" stroke-opacity=".42" stroke-width="1.8"/>' +
+        [X0 + 64, XC, X1 - 64].map(x => ends[i] < x - 26 ? ghostHole(x, lh / 2) : "").join("") + "</svg>";
+      rowsEl.appendChild(g);
+      // the real leaf (whole, or a torn fragment)
+      const r = document.createElement("div"); r.className = "row r"; r.style.cssText = "top:" + yt + "px;height:" + lh + "px;transform:" + rot;
+      r.setAttribute("data-layout-allow-overlap", "");
+      const d = leafD(X0, E, lh, !full, i + 1);
+      let s = '<path d="' + d + '" transform="translate(3,7)" fill="#000" fill-opacity=".5"/>' + leafBody(d, lh, i + 1, X0, E);
+      [X0 + 64, XC, X1 - 64].forEach(x => { if (E >= x + 20) s += hole(x, lh / 2); });
+      if (E > X0 + 100) s += '<path d="M' + (X0 + 92) + ",9V" + (lh - 9) + "M" + (X0 + 98) + ",9V" + (lh - 9) + '" stroke="#4E3218" stroke-opacity=".5" stroke-width="2"/>';
+      const lOn = okL(E, W[i].lw) === "on", vOn = okV(E, W[i].vw) === "on";
+      const lx = lOn ? LB0 : Math.max(LB0, E + 24), vr = vOn ? Math.min(VB1, E - 40) : VB1;
+      // script fills the written part of the leaf around the words
+      const sx = [[lOn ? LB0 + W[i].lw + 26 : X0 + 112, Math.min(E - 26, XC - 32)], [XC + 32, vOn ? vr - W[i].vw - 26 : E - 26]];
+      sx.forEach(([a, b], k) => { if (b - a > 40) [.36, .72].forEach((f, j) => { s += script(a, b, lh * f + 4, Math.max(8, lh * .1), i * 3 + k * 2 + j, .48); }); });
+      r.innerHTML = '<svg class="lf" width="1080" height="' + lh + '" aria-hidden="true">' + s + "</svg>" +
+        '<span class="t fo ink" style="left:' + (X0 + 12) + 'px">' + (i + 1) + "</span>" +
+        '<span class="t lb ' + (lOn ? "ink" : "off") + '" style="left:' + lx + "px;font-size:" + lbF + "px" + (wrapL[i] ? ";white-space:normal;width:" + (LB1 - LB0) + "px;line-height:1" : "") + '">' + esc(it.label) + "</span>" +
+        '<span class="t vl ' + (vOn ? "ink" : "off") + '" style="right:' + (1080 - vr) + "px;font-size:" + vlF + 'px">' + esc(it.value) + "</span>";
+      rowsEl.appendChild(r);
+      holesY.push([yt, cy, yt + lh, E >= XC + 20]);
+    });
+
+    // ---- The shut rest of the bundle: a wad of leaf edges; its top leaf shows its script and centre hole.
+    const SW = 936, st = $("stack");
+    st.setAttribute("width", SW); st.setAttribute("height", S + 20); st.style.top = stackTop + "px";
+    const faceH = 26, endsJ = [8, 20, 3, 14, 26, 6, 17, 10, 23, 1, 12, 19, 5, 15, 9, 24, 2, 13, 7, 21, 11, 4, 18, 16, 25, 0, 22];
+    let edges = "";
+    for (let k = 0, y = faceH + 3; y < S - 2; k++, y += 3.5) {
+      const rr = SW - 14 - endsJ[k % endsJ.length] * .7, ll = 12 + endsJ[(k * 7) % endsJ.length] % 9;
+      edges += '<path d="M' + ll + "," + y.toFixed(1) + "H" + r1(rr) + '" stroke="' + (k % 9 === 8 ? "#8E7246" : k % 4 === 3 ? "#B99C67" : k % 2 ? "#CDB27F" : "#DCC596") + '" stroke-width="2.5" stroke-linecap="round"/>';
+    }
+    const fd = leafD(10, SW - 10, faceH, false, 3);
+    st.innerHTML = '<rect x="10" y="6" width="' + (SW - 12) + '" height="' + S + '" rx="10" fill="#000" fill-opacity=".5"/>' +
+      '<rect x="8" y="2" width="' + (SW - 16) + '" height="' + (S - 2) + '" rx="9" fill="#4A3626"/>' + edges +
+      '<rect x="8" y="2" width="' + (SW - 16) + '" height="' + (S - 2) + '" rx="9" fill="url(#stackShade)"/><rect x="8" y="2" width="' + (SW - 16) + '" height="' + (S - 2) + '" rx="9" fill="url(#stackV)"/>' +
+      leafBody(fd, faceH, 3, 10, SW - 10) + hole(XC - 72, faceH / 2) + '<circle cx="' + (X0 - 72 + 64) + '" cy="' + faceH / 2 + '" r="7" fill="#110B07"/><circle cx="' + (X1 - 72 - 64) + '" cy="' + faceH / 2 + '" r="7" fill="#110B07"/>' +
+      script(110, XC - 72 - 28, faceH * .72, 8, 7, .45) + script(XC - 72 + 28, SW - 110, faceH * .72, 8, 9, .45);
+
+    // ---- Cord: knot on the top board -> over the title leaf's margin into its centre hole -> under it ->
+    // through every leaf's centre hole (over the upper half, under the lower) -> into the shut stack.
+    const knotY = TB.top + TB.h / 2, tHole = TL.top + hy;
+    let d = "M" + XC + "," + tHole + "L" + XC + "," + titleBottom;
+    let py = titleBottom;
+    holesY.forEach(([yt, cy, yb], i) => {
+      const w = i % 2 ? 5 : -5;
+      d += "C" + (XC + w) + "," + r1(py + (yt - py) * .4) + " " + (XC - w) + "," + r1(py + (yt - py) * .6) + " " + XC + "," + yt + "L" + XC + "," + yb;
+      py = yb;
+    });
+    d += "C" + (XC + 4) + "," + r1(py + (stackTop - py) * .4) + " " + (XC - 4) + "," + r1(py + (stackTop - py) * .6) + " " + XC + "," + (stackTop + 16);
+    under = ropeShadow(d, 11) + rope(d, 11);
+    let ov = "M" + XC + "," + knotY + "L" + XC + "," + (tHole - 4);
+    holesY.forEach(([yt, cy, yb, real]) => { if (real) ov += "M" + XC + "," + (yt - 1) + "L" + XC + "," + (cy - 4); });
+    ov += "M" + XC + "," + (stackTop - 1) + "L" + XC + "," + (stackTop + faceH / 2 - 3);
+    over = ropeShadow(ov, 11) + rope(ov, 11) +
+      '<g transform="translate(' + (XC - 20) + "," + (knotY - 17) + ')"><ellipse cx="22" cy="21" rx="15" ry="9" fill="#000" opacity=".4"/>' +
+      '<path d="M7,22C3,10 16,3 21,10C26,17 33,11 32,4" stroke="#A8432F" stroke-width="8" fill="none" stroke-linecap="round"/>' +
+      '<path d="M7,22C3,10 16,3 21,10C26,17 33,11 32,4" stroke="#6E2619" stroke-width="8" fill="none" stroke-dasharray="2.4 4.6"/>' +
+      '<circle cx="19" cy="18" r="8.5" fill="#A8432F"/><path d="M13,15l10,7M15,12l9,6" stroke="#6E2619" stroke-width="2"/><circle cx="16" cy="15" r="2.4" fill="#DA7A5F" opacity=".7"/></g>';
+    $("cordUnder").innerHTML = under; $("cordOver").innerHTML = over;
+
+    // ---- Cord tail out from under the bottom board, to the kepeng coin (round, square hole) and its tassel.
+    const ty = BB.top + BH - 6, coinX = 742, coinY = BB.top + BH + 19;
+    const tail = "M" + XC + "," + ty + "C" + XC + "," + (ty + 26) + " " + (XC + 60) + "," + (coinY + 4) + " " + (coinX - 30) + "," + coinY;
+    let strands = "";
+    [[-9, 1], [-3, .94], [3, .88], [9, .8]].forEach(([dy, k], j) => {
+      strands += '<path d="M' + (coinX + 24) + "," + r1(coinY + dy * .4) + "C" + (coinX + 52) + "," + r1(coinY + dy) + " " + r1(coinX + 80 * k) + "," + r1(coinY + dy * 1.5 + 6) + " " + r1(coinX + 112 * k) + "," + r1(coinY + dy * 1.9 + 12) + '" stroke="' + (j % 2 ? "#8E3424" : "#A8432F") + '" stroke-width="3.4" fill="none" stroke-linecap="round"/>';
+    });
+    $("tail").innerHTML = ropeShadow(tail, 10) + rope(tail, 10) + strands +
+      '<g transform="translate(' + coinX + "," + coinY + ')"><circle r="31" fill="#000" opacity=".45" transform="translate(4,6)"/>' +
+      '<circle r="29" fill="#8C7046"/><circle r="29" fill="none" stroke="#D8C08E" stroke-opacity=".55" stroke-width="2"/><circle r="23" fill="none" stroke="#3A2A1E" stroke-opacity=".7" stroke-width="2"/>' +
+      '<path d="M-18,-10h5M-18,-4h5M13,-10h5M13,-4h5M-4,-19v5M4,-19v5M-4,14v5M4,14v5" stroke="#3A2A1E" stroke-opacity=".65" stroke-width="2.2"/>' +
+      '<rect x="-9" y="-9" width="18" height="18" fill="#120C09" stroke="#D8C08E" stroke-opacity=".5" stroke-width="1.5"/></g>';
+  }
+</script>
+</body>
+</html>

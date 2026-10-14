@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@500;600;700;800&family=Red+Hat+Mono:wght@500;600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Water Computer (water-computer): a Phillips-style hydraulic computer bolted to a
+    cobalt pegboard. The board sets all the type:
+      - kicker = cream enamel nameplate with two screws;
+      - title  = cream lettering on the front glass of the INPUT reservoir; amber water
+                 fills it up to just above the line that holds hl, so hl is ink-on-amber
+                 because it is under water;
+      - caption= a bolted instruction placard (sub + karaoke line + source/date).
+    Machine: reservoir -> 3 brass taps (weights, x0,9 / x0,2 / x0,7) -> 3 big sum tanks
+    with one dashed overflow line (activation; the x0,2 tank stays under it, its outlet is
+    a dry stub over an X drip tray) -> manifold -> one tap + one short tank per item.
+    Each tank's float drives a rigid rod down to a pen on ONE shared strip chart; the item
+    labels are marks on that strip. Drains run to a collector down the LEFT margin into the
+    sump; a pump at the top-left lifts the water up the left edge, across the top band and
+    pours it back into the reservoir (the loop).
+    Levels are honest: same unit -> proportional (floor 0.12); mixed units -> one shared
+    level and only the item the title points at brims. Fully deterministic.
+  */
+  :root { --cobalt: #2346A0; --cream: #F3EAD7; --amber: #E9A23B; --ink: #1B1E27; --glass: #C9D3E6; --slate: #4E5670; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #2346A0; }
+  body { position: relative; color: var(--cream); font-family: "Host Grotesk", sans-serif; }
+  #board { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  .screw { position: absolute; width: 17px; height: 17px; border-radius: 50%; border: 2px solid var(--ink);
+           background: linear-gradient(135deg, transparent 40%, #1B1E27 40% 60%, transparent 60%), #C9D3E6; }
+
+  /* enamel nameplate (kicker) */
+  .name { position: absolute; left: 100px; top: 300px; height: 50px; padding: 0 50px; display: flex; align-items: center;
+          background: var(--cream); color: var(--ink); border: 3px solid var(--ink); border-radius: 9px; white-space: nowrap;
+          font: 700 28px "Red Hat Mono", monospace; letter-spacing: 0.08em; text-transform: uppercase; box-shadow: 7px 8px 0 rgba(23, 50, 118, 0.6); }
+  .name .screw { top: 50%; margin-top: -8.5px; }
+
+  /* title = lettering on the reservoir's front glass; .wet lines sit under the waterline */
+  .title { position: absolute; font-weight: 800; letter-spacing: -0.025em; line-height: 0.94; color: var(--cream); }
+  .title .dry { text-wrap: balance; }
+  .title .wet { margin-top: 0.22em; color: #6A4310; text-wrap: balance; }
+  .title .hl { color: var(--ink); }
+
+  /* engraved plates fixed to the machine */
+  .tag { position: absolute; background: var(--cream); color: var(--ink); border: 2.5px solid var(--ink); border-radius: 7px;
+         font: 700 30px "Red Hat Mono", monospace; line-height: 1; padding: 8px 12px 8px 33px; white-space: nowrap; }
+  .tag::before { content: ""; position: absolute; left: 8px; top: 50%; width: 14px; height: 14px; margin-top: -7px; border-radius: 50%; background: var(--cobalt); border: 3px solid #C98A2E; box-shadow: 0 0 0 1.5px var(--ink); }
+
+  /* item marks printed on the strip chart */
+  .mark { position: absolute; color: var(--ink); text-align: center; display: flex; flex-direction: column; align-items: center; padding: 6px 7px 8px; border-radius: 7px; }
+  .mark .lb { width: 100%; font: 600 32px "Host Grotesk", sans-serif; line-height: 1.06; letter-spacing: -0.015em;
+              hyphens: auto; -webkit-hyphens: auto; overflow-wrap: anywhere; }
+  .mark .vl { width: 100%; margin-top: auto; padding-top: 5px; font: 700 40px "Red Hat Mono", monospace; line-height: 1.04; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+  .mark.win { background: linear-gradient(#F6CF84 0 8px, #B06F1E 8px 10px, #E9A23B 10px); }
+
+  /* bolted instruction placard: sub + karaoke caption + source */
+  .placard { position: absolute; left: 90px; width: 810px; background: var(--cream); color: var(--ink); border: 3px solid var(--ink); border-radius: 10px;
+             padding: 14px 24px 12px; box-shadow: 8px 9px 0 rgba(23, 50, 118, 0.6); }
+  .placard .screw { width: 15px; height: 15px; }
+  .psub { font: 600 40px "Host Grotesk", sans-serif; line-height: 1.14; letter-spacing: -0.01em; color: var(--ink);
+          padding-bottom: 10px; margin-bottom: 10px; border-bottom: 2.5px dashed rgba(27, 30, 39, 0.45); }
+  .cap { font-weight: 600; line-height: 1.2; color: var(--slate); letter-spacing: -0.005em; }
+  .cap .w { white-space: nowrap; }
+  .cap .said { color: var(--ink); }
+  .cap .act { color: var(--ink); border-radius: 0 0 8px 8px; padding: 0 0.13em 0.02em; margin: 0 -0.03em;
+              background: linear-gradient(transparent 0 26%, #F6CF84 26% 34%, #B06F1E 34% 36%, #E9A23B 36% 100%); }
+  .src .nw { white-space: nowrap; }
+  .src { margin-top: 8px; font: 500 26px "Red Hat Mono", monospace; line-height: 1.25; color: var(--slate); letter-spacing: 0.01em; }
+</style>
+</head>
+<body>
+<svg id="board" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+<div class="name" id="name"><span class="screw" style="left:14px"></span><span id="nm"></span><span class="screw" style="right:14px"></span></div>
+<div class="title" id="title"><div class="dry" id="tdry"></div><div class="wet" id="twet"></div></div>
+<div id="labels"></div>
+<div class="placard" id="placard">
+  <span class="screw" style="left:8px;top:8px"></span><span class="screw" style="right:8px;top:8px"></span>
+  <span class="screw" style="left:8px;bottom:8px"></span><span class="screw" style="right:8px;bottom:8px"></span>
+  <div class="psub" id="psub"></div>
+  <div class="cap" id="cap" data-slot="caption"></div>
+  <div class="src" id="src"></div>
+</div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const FACES = ['800 100px "Host Grotesk"', '600 44px "Host Grotesk"', '600 32px "Host Grotesk"', '700 40px "Red Hat Mono"', '700 28px "Red Hat Mono"', '500 26px "Red Hat Mono"'];
+  Promise.all(FACES.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  // Indonesian soft hyphens for long words (V-CV, VC-CV; ng/ny/kh/sy stay together; stop+r/l onsets kept).
+  function hyph(w) {
+    if (w.length < 9 || /[^A-Za-z]/.test(w)) return w;
+    const lw = w.toLowerCase(), V = "aeiou", U = [];
+    for (let i = 0; i < lw.length;) {
+      const two = lw.slice(i, i + 2);
+      if (["ng", "ny", "kh", "sy"].includes(two)) { U.push([i, false, two]); i += 2; } else { U.push([i, V.includes(lw[i]), lw[i]]); i++; }
+    }
+    const br = [];
+    for (let k = 1; k < U.length - 1; k++) {
+      if (U[k][1] || !U[k + 1][1]) continue;
+      if ((U[k][2] === "r" || U[k][2] === "l") && k >= 2 && !U[k - 1][1] && "bdfgkpt".includes(U[k - 1][2]) && U[k - 2][1]) br.push(U[k - 1][0]);
+      else br.push(U[k][0]);
+    }
+    let out = "", last = 0;
+    br.filter(b => b >= 3 && w.length - b >= 3).forEach(b => { if (b > last) { out += w.slice(last, b) + "­"; last = b; } });
+    return out + w.slice(last);
+  }
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+  const COB = "#2346A0", CREAM = "#F3EAD7", AMB = "#E9A23B", INK = "#1B1E27", GLASS = "#C9D3E6";
+  const AMB_SIDE = "#C27F27", AMB_TOP = "#F6CF84", AMB_DEEP = "#B06F1E", BRASS = "#C98A2E", COB_DEEP = "#173276", COB_IN = "#2C52B0";
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(1, items.length);
+  const f = v => (+v).toFixed(1);
+  const P = pts => "M" + pts.map(p => f(p[0]) + "," + f(p[1])).join("L");
+
+  // ---------- nameplate (series + ep, else kicker) ----------
+  const ep = D.ep ? String(D.ep) : "";
+  $("nm").textContent = D.series ? D.series + (ep ? " · " + ep : "") : (D.kicker || "");
+  const nameEl = $("name");
+  for (let fs = 28; fs >= 26; fs--) { nameEl.style.fontSize = fs + "px"; if (nameEl.offsetWidth <= 680) break; }
+
+  // ---------- placard: sub (when a separate caption exists) + karaoke caption + source/date ----------
+  const sub = String(D.sub || "").trim();
+  const capText = String(D.caption || D.sub || "").trim();
+  const showSub = !!(D.caption && sub && String(D.caption).trim() !== sub);
+  const hl = String(D.hl || "").trim();
+  $("psub").textContent = showSub ? sub : "";
+  $("psub").style.display = showSub ? "block" : "none";
+  const capEl = $("cap");
+  {
+    const words = capText.split(/\s+/).filter(Boolean);
+    const low = capText.toLowerCase();
+    const hAt = hl ? low.indexOf(hl.toLowerCase()) : -1;
+    let pos = 0, actStart = -1, actEnd = -1;
+    const spans = words.map((w, i) => { const s = capText.indexOf(w, pos); pos = s + w.length; return { w, s, e: pos, i }; });
+    if (hAt >= 0) spans.forEach(sp => { if (sp.e > hAt && sp.s < hAt + hl.length) { if (actStart < 0) actStart = sp.i; actEnd = sp.i; } });
+    if (actStart < 0) { actStart = 0; actEnd = 0; }
+    let html = "";
+    spans.forEach(sp => {
+      if (sp.i < actStart) html += '<span class="w said">' + esc(sp.w) + "</span> ";
+      else if (sp.i === actStart) html += '<span class="w act">' + spans.slice(actStart, actEnd + 1).map(x => esc(x.w)).join(" ") + "</span> ";
+      else if (sp.i > actEnd) html += '<span class="w">' + esc(sp.w) + "</span> ";
+    });
+    capEl.innerHTML = html.trim();
+  }
+  // one line if it fits at >= 42 px, else up to two lines (46 -> 40 px)
+  let capFs = 0;
+  for (let fs = 46; fs >= 42; fs -= 2) { capEl.style.fontSize = fs + "px"; if (capEl.offsetHeight <= fs * 1.2 + 4) { capFs = fs; break; } }
+  if (!capFs) {
+    for (let fs = 46; fs >= 40; fs -= 2) { capFs = fs; capEl.style.fontSize = fs + "px"; if (capEl.offsetHeight <= fs * 1.2 * 2 + 4) break; }
+    // balance a two-line caption: narrowest width that still keeps the same number of lines
+    const h0 = capEl.offsetHeight, full = capEl.clientWidth;
+    let lo = Math.round(full * 0.5), hi = full;
+    if (Math.round(h0 / (capFs * 1.2)) === 2) while (hi - lo > 4) { const mid = (lo + hi) >> 1; capEl.style.width = mid + "px"; if (capEl.offsetHeight <= h0) hi = mid; else lo = mid; }
+    capEl.style.width = Math.min(full, hi + 6) + "px";
+  }
+  const meta = [D.source ? esc("Sumber: " + D.source) : "", D.date ? '<span class="nw">' + esc(D.date) + "</span>" : ""].filter(Boolean).join(" · ");
+  $("src").innerHTML = meta;
+  $("src").style.display = meta ? "block" : "none";
+  const placard = $("placard");
+  const PT = 1616 - placard.offsetHeight;
+  placard.style.top = PT + "px";
+
+  // ---------- data -> levels (honest) ----------
+  const MAGW = [["triliun", 1e12], ["miliar", 1e9], ["juta", 1e6], ["jt", 1e6], ["ribu", 1e3], ["rb", 1e3]];
+  const parseVal = v => {
+    const s = String(v == null ? "" : v).toLowerCase().trim();
+    const m = s.match(/\d+(?:[.,]\d+)*/);
+    let num = NaN, rest = s;
+    if (m) { num = parseFloat(m[0].replace(/\.(?=\d{3}(?!\d))/g, "").replace(",", ".")); rest = s.replace(m[0], " "); }
+    for (const [k, mul] of MAGW) { const re = new RegExp("(^|[^a-z])" + k + "[a-z]*"); if (re.test(rest)) { if (m) num *= mul; rest = rest.replace(re, " "); break; } }
+    return { num, has: !!m && isFinite(num), unit: rest.replace(/[±~≈<>+\s]+/g, " ").trim() };
+  };
+  const PV = items.map(it => parseVal(it.value));
+  const sameUnit = items.length > 1 && PV.every(p => p.has && p.num >= 0 && p.unit === PV[0].unit);
+  // which items does the title point at? (hl substring, else a shared number / word)
+  const STOP = new Set(["yang", "dan", "per", "dari", "untuk", "dengan", "itu", "ini", "ada", "atau", "jadi", "the", "and", "for"]);
+  const toks = s => { s = String(s || "").toLowerCase(); const nums = s.match(/\d+(?:[.,]\d+)*/g) || [];
+    const words = (s.replace(/\d+(?:[.,]\d+)*/g, " ").match(/[a-zÀ-ɏ]{3,}/g) || []).filter(w => !STOP.has(w)); return new Set(nums.concat(words)); };
+  const hlT = toks(hl);
+  const score = items.map(it => { const t = ((it.label || "") + " " + (it.value || "")).toLowerCase();
+    if (hl && t.includes(hl.toLowerCase())) return 100; const b = toks(t); let c = 0; hlT.forEach(x => { if (b.has(x)) c++; }); return c; });
+  const best = Math.max(0, ...score);
+  let R = best > 0 ? items.map((_, i) => i).filter(i => score[i] === best) : [];
+  if (R.length === items.length || (best < 100 && R.length > Math.max(1, Math.floor(items.length / 2)))) R = [];
+  let levels; const brim = new Set(), mark = new Set();
+  if (sameUnit) {
+    const max = Math.max(...PV.map(p => p.num));
+    levels = PV.map(p => (max > 0 ? Math.max(0.12, p.num / max) : 0.12));
+    const top = items.map((_, i) => i).filter(i => PV[i].num === max);
+    if (max > 0 && top.length < items.length) top.forEach(i => brim.add(i));
+    else levels = levels.map(() => 0.86);          // all equal: full, nobody overflows
+    (R.length ? R : [...brim]).forEach(i => mark.add(i));
+  } else {
+    levels = items.map(() => 0.5);                  // units differ: one shared level, no false comparison
+    R.forEach(i => { levels[i] = 1; brim.add(i); mark.add(i); });
+  }
+
+  // ---------- item marks on the strip (measure first) ----------
+  const X0 = n >= 5 ? 94 : 104, X1 = n >= 5 ? 896 : 886, gap = n >= 5 ? 10 : 18;
+  const ow = (X1 - X0 - gap * (n - 1)) / n;
+  const ox = i => X0 + i * (ow + gap);
+  const labels = $("labels");
+  labels.innerHTML = items.map((it, i) =>
+    '<div class="mark' + (mark.has(i) ? " win" : "") + '" id="mk' + i + '" style="left:' + f(ox(i)) + "px;width:" + f(ow) + 'px">' +
+    '<div class="lb" lang="id">' + String(it.label == null ? "" : it.label).split(/(\s+)/).map(w => esc(hyph(w))).join("") + '</div><div class="vl">' + esc(it.value) + "</div></div>").join("");
+  const maxLbLines = n >= 5 ? 3 : 2;
+  let markH = 0;
+  items.forEach((_, i) => {
+    const p = $("mk" + i), lb = p.querySelector(".lb"), vl = p.querySelector(".vl");
+    for (let fs = 32; fs >= 30; fs--) { lb.style.fontSize = fs + "px"; if (lb.offsetHeight <= fs * 1.06 * maxLbLines + 2 && lb.scrollWidth <= lb.clientWidth + 1) break; }
+    for (let fs = 40; fs >= 30; fs -= 2) { vl.style.fontSize = fs + "px"; if (vl.offsetHeight <= fs * 1.04 + 8 && vl.scrollWidth <= vl.clientWidth + 1) break; }
+    markH = Math.max(markH, p.offsetHeight);
+  });
+
+  // ---------- title on the reservoir glass + vertical budget ----------
+  const RX0 = 100, RX1 = 962, RY0 = 348, DXR = 16, DYR = -11;
+  const TX = RX0 + 28, TW = 790, TT = RY0 + 22;
+  const t = String(D.title || "");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const pre = (at < 0 ? t : t.slice(0, at)).trim().replace(/ ([=:–—])/g, " $1");
+  const wetHtml = at < 0 ? "" : '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  const titleEl = $("title"), dryEl = $("tdry"), wetEl = $("twet");
+  dryEl.textContent = pre; dryEl.style.display = pre ? "block" : "none";
+  wetEl.innerHTML = wetHtml; wetEl.style.display = wetHtml ? "block" : "none";
+  if (!pre) wetEl.style.marginTop = "0";
+  Object.assign(titleEl.style, { left: TX + "px", top: TT + "px", width: TW + "px" });
+  const fits = fs => { titleEl.style.fontSize = fs + "px"; const lines = Math.round(titleEl.offsetHeight / (fs * 0.94));
+    return titleEl.scrollWidth <= TW + 2 && dryEl.scrollWidth <= TW + 2 && wetEl.scrollWidth <= TW + 2 && lines <= (fs >= 84 ? 3 : 4); };
+  // [part, nominal, soft min, max, hard min]
+  const PARTS = [["g1", 92, 84, 124, 72], ["hid", 204, 150, 236, 110], ["gM", 44, 36, 64, 28], ["g3", 60, 52, 80, 44], ["out", 104, 76, 128, 56], ["gD", 40, 34, 52, 28]];
+  const cost = k => (k === "out" ? 2 : 1);
+  const budget = avail => {
+    const g = {}; let T = 28 + markH;
+    PARTS.forEach(([k, nom]) => { g[k] = nom; T += nom * cost(k); });
+    const d = avail - T;
+    if (d >= 0) {
+      const share = { hid: 0.45, out: 0.2, g1: 0.15, g3: 0.08, gM: 0.06, gD: 0.06 };
+      let left = d;
+      PARTS.forEach(([k, nom, mn, mx]) => { const add = Math.min(mx - nom, (d * share[k]) / cost(k)); g[k] += add; left -= add * cost(k); });
+      g.g1 += left * 0.4; g.gM += left * 0.3; g.g3 += left * 0.3; g.extra = 0;
+    } else {
+      // shrink the gaps and output tanks first, then the sum tanks (the hero), then everything to hard minimums
+      let need = -d;
+      const tiers = [[PARTS.filter(p => p[0] !== "hid"), 2], [PARTS.filter(p => p[0] === "hid"), 2], [PARTS, 4]];
+      tiers.forEach(([group, mi]) => {
+        let S = 0; group.forEach(p => { S += (g[p[0]] - p[mi]) * cost(p[0]); });
+        const r = S > 0 ? Math.min(1, need / S) : 0;
+        group.forEach(p => { g[p[0]] -= (g[p[0]] - p[mi]) * r; });
+        need -= S * r;
+      });
+      g.extra = -need;                              // < 0 when even the minimums do not fit
+    }
+    return g;
+  };
+  let fs = 94, RY1 = 0, G = null;
+  for (; fs >= 72; fs -= 2) {
+    if (!fits(fs) && fs > 72) continue;
+    RY1 = TT + titleEl.offsetHeight + 24;
+    G = budget(PT - 18 - RY1);
+    if (G.extra >= 0 || fs <= 72) break;
+  }
+  let wy;                                            // reservoir waterline
+  if (wetHtml && pre) wy = TT + wetEl.offsetTop + fs * 0.06;
+  else if (wetHtml) wy = RY0 + 12;
+  else wy = TT + titleEl.offsetHeight + 6;
+
+  // ---------- machine geometry ----------
+  const hidTop = RY1 + G.g1, hidH = G.hid, hidBot = hidTop + hidH;
+  const M = hidBot + G.gM;                           // manifold centre line
+  const outTop = M + G.g3, outH = G.out, outBot = outTop + outH;
+  const CY = outBot + G.gD * 0.46;                   // drain collector
+  const ST = outBot + G.gD, BT = ST + 10, BB = BT + outH;   // strip top, pen band (rigid rods: band = tank height)
+  const MT = BB + 8, SB = MT + markH + 10;
+  items.forEach((_, i) => { const p = $("mk" + i); p.style.top = f(MT) + "px"; p.style.height = f(markH) + "px"; });
+
+  const W = [0.9, 0.2, 0.7], hidLv = [0.68, 0.36, 0.66], TH = 0.6;
+  const hidW = 182, hidC = [205, 485, 765], DXH = 14, DYH = -10, DXO = 12, DYO = -9;
+  let back = "", mid = "", front = "";
+
+  back += '<defs><pattern id="peg" width="54" height="54" patternUnits="userSpaceOnUse" x="13" y="20"><circle cx="27" cy="27" r="3.4" fill="' + COB_DEEP + '" opacity="0.55"/></pattern>' +
+          '<linearGradient id="wf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F4BC5E" stop-opacity="0.74"/><stop offset="0.13" stop-color="#EEAA46" stop-opacity="0.88"/><stop offset="0.16" stop-color="#E9A23B" stop-opacity="0.97"/><stop offset="1" stop-color="#D88C2E" stop-opacity="0.98"/></linearGradient>' +
+          '<linearGradient id="rf" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#F3EAD7" stop-opacity="0"/><stop offset="0.5" stop-color="#F3EAD7" stop-opacity="0.22"/><stop offset="1" stop-color="#F3EAD7" stop-opacity="0"/></linearGradient>' +
+          '<linearGradient id="curlL" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#B9AC90"/><stop offset="1" stop-color="#F3EAD7" stop-opacity="0"/></linearGradient>' +
+          '<linearGradient id="curlR" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="#B9AC90"/><stop offset="1" stop-color="#F3EAD7" stop-opacity="0"/></linearGradient></defs>';
+  back += '<rect width="1080" height="1920" fill="' + COB + '"/><rect width="1080" height="1920" fill="url(#peg)"/>';
+  back += '<rect x="22" y="22" width="1036" height="1876" rx="26" fill="none" stroke="' + GLASS + '" stroke-opacity="0.26" stroke-width="2"/>';
+  [[1018, 62], [1018, 1858], [62, 1858]].forEach(([x, y], k) => {
+    back += '<circle cx="' + x + '" cy="' + y + '" r="11" fill="' + GLASS + '" opacity="0.85"/><path d="M' + (x - 7) + "," + (y + (k % 2 ? 3 : -3)) + "L" + (x + 7) + "," + (y + (k % 2 ? -3 : 3)) + '" stroke="' + COB_DEEP + '" stroke-width="2.5"/>';
+  });
+
+  // acrylic tube; flow = amber water inside, else dry
+  function pipe(pts, flow, w) {
+    w = w || 18;
+    const d = P(pts);
+    return '<path d="' + d + '" fill="none" stroke="' + COB_DEEP + '" stroke-opacity="0.45" stroke-width="' + w + '" stroke-linejoin="round" transform="translate(6,8)"/>' +
+           '<path d="' + d + '" fill="none" stroke="' + GLASS + '" stroke-width="' + w + '" stroke-linejoin="round"/>' +
+           '<path d="' + d + '" fill="none" stroke="' + (flow ? AMB : COB_IN) + '" stroke-width="' + (w - 7) + '" stroke-linejoin="round"/>' +
+           (flow ? '<path d="' + d + '" fill="none" stroke="' + AMB_TOP + '" stroke-opacity="0.8" stroke-width="2" stroke-linejoin="round" transform="translate(-2,-1)"/>' : "");
+  }
+  // falling stream of water with a splash ring
+  function stream(x, y1, y2, w) {
+    w = w || 8;
+    return '<rect x="' + f(x - w / 2) + '" y="' + f(y1) + '" width="' + f(w) + '" height="' + f(Math.max(0, y2 - y1)) + '" fill="' + AMB + '"/>' +
+           '<rect x="' + f(x - w / 2 + 1.5) + '" y="' + f(y1) + '" width="2" height="' + f(Math.max(0, y2 - y1)) + '" fill="' + AMB_TOP + '"/>' +
+           '<ellipse cx="' + f(x + 4) + '" cy="' + f(y2 - 3) + '" rx="' + f(w * 1.7 + 4) + '" ry="' + f(w * 0.5 + 2) + '" fill="none" stroke="' + CREAM + '" stroke-opacity="0.8" stroke-width="2.5"/>';
+  }
+  // brass quarter-turn tap on a vertical tube: lever horizontal = shut, upright = open
+  function tap(x, y, open, big) {
+    const bw = big ? 54 : 36, bh = big ? 44 : 30, L = big ? 54 : 36, sw = big ? 13 : 9, hr = big ? 9 : 6.5;
+    const a = (180 + 68 * open) * Math.PI / 180, hx = x + Math.cos(a) * L, hy = y + Math.sin(a) * L;
+    return '<rect x="' + f(x - bw / 2) + '" y="' + f(y - bh / 2) + '" width="' + bw + '" height="' + bh + '" rx="' + (big ? 10 : 7) + '" fill="' + BRASS + '" stroke="' + INK + '" stroke-width="3.5"/>' +
+           '<rect x="' + f(x - bw / 2 + 7) + '" y="' + f(y - bh / 2 + 6) + '" width="' + (bw - 14) + '" height="5" rx="2.5" fill="' + AMB_TOP + '"/>' +
+           '<path d="M' + f(x) + "," + f(y) + "L" + f(hx) + "," + f(hy) + '" stroke="' + INK + '" stroke-width="' + sw + '" stroke-linecap="round"/>' +
+           '<circle cx="' + f(x) + '" cy="' + f(y) + '" r="' + hr + '" fill="' + CREAM + '" stroke="' + INK + '" stroke-width="3"/>';
+  }
+  // acrylic tank in oblique 2.5D, water level lv (0..1)
+  function tank(x, y, w, h, lv, opt) {
+    opt = opt || {};
+    const dx = opt.dx || 14, dy = opt.dy || -10;
+    let s = "";
+    const hull = [[x, y], [x + dx, y + dy], [x + w + dx, y + dy], [x + w + dx, y + h + dy], [x + w, y + h], [x, y + h]];
+    s += '<path d="' + P(hull) + 'Z" fill="' + COB_DEEP + '" opacity="0.5" transform="translate(12,14)"/>';
+    s += '<path d="' + P(hull) + 'Z" fill="' + GLASS + '" opacity="0.13"/>';
+    s += '<path d="' + P([[x + dx, y + h + dy], [x + dx, y + dy]]) + P([[x + dx, y + h + dy], [x + w + dx, y + h + dy]]) + '" stroke="' + GLASS + '" stroke-opacity="0.35" stroke-width="2" fill="none"/>';
+    if (lv > 0) {
+      const t3 = 3, wy = lv >= 1 ? y + t3 : y + h * (1 - lv);
+      const xi = x + t3, xr = x + w - t3, yb = y + h - t3;
+      s += '<path d="' + P([[xr, wy], [xr + dx, wy + dy], [xr + dx, yb + dy], [xr, yb]]) + 'Z" fill="' + AMB_SIDE + '"/>';
+      s += '<rect x="' + f(xi) + '" y="' + f(wy) + '" width="' + f(xr - xi) + '" height="' + f(yb - wy) + '" fill="url(#wf)"/>';
+      s += '<path d="' + P([[xi, wy], [xi + dx, wy + dy], [xr + dx, wy + dy], [xr, wy]]) + 'Z" fill="' + AMB_TOP + '" fill-opacity="0.92"/>';
+      s += '<path d="' + P([[xi, wy + 1.5], [xr, wy + 1.5]]) + '" stroke="' + AMB_DEEP + '" stroke-width="3"/>';
+      const deep = yb - wy;
+      if (deep > 24 && !opt.noband) s += '<rect x="' + f(xi + (xr - xi) * 0.6) + '" y="' + f(wy + 4) + '" width="' + f(Math.min(54, (xr - xi) * 0.18)) + '" height="' + f(deep - 8) + '" fill="url(#rf)"/>';
+      if (opt.bub != null && deep > 50) {
+        [[-14, 0.8, 5], [10, 0.62, 4], [-5, 0.44, 6.5], [13, 0.28, 3.5], [-11, 0.16, 4.5]].forEach(([bx, u, r]) => {
+          const by = wy + deep * u;
+          if (by - r > wy + 10) s += '<circle cx="' + f(opt.bub + bx) + '" cy="' + f(by) + '" r="' + r + '" fill="none" stroke="' + CREAM + '" stroke-opacity="0.8" stroke-width="2"/>';
+        });
+      }
+    }
+    s += '<rect x="' + f(x) + '" y="' + f(y) + '" width="' + f(w) + '" height="' + f(h) + '" fill="' + GLASS + '" fill-opacity="0.07" stroke="' + GLASS + '" stroke-width="4"/>';
+    s += '<path d="' + P([[x, y], [x + dx, y + dy], [x + w + dx, y + dy], [x + w, y]]) + '" fill="none" stroke="' + GLASS + '" stroke-width="3" stroke-linejoin="round"/>';
+    s += '<path d="' + P([[x + w + dx, y + dy], [x + w + dx, y + h + dy], [x + w, y + h]]) + '" fill="none" stroke="' + GLASS + '" stroke-width="3" stroke-linejoin="round"/>';
+    s += '<path d="M' + f(x + 9) + "," + f(y + 12) + "v" + f(h - 24) + '" stroke="' + CREAM + '" stroke-opacity="0.45" stroke-width="3" stroke-linecap="round"/>';
+    return s;
+  }
+  function funnel(x, y) {   // small glass funnel; x = stream centre, mouth at y
+    return '<path d="' + P([[x - 20, y], [x + 10, y], [x + 2, y + 24], [x - 12, y + 24]]) + 'Z" fill="' + GLASS + '" fill-opacity="0.25" stroke="' + GLASS + '" stroke-width="3" stroke-linejoin="round"/>';
+  }
+
+  // ---- return loop: sump -> left edge -> pump (top-left) -> top band -> pour into the reservoir ----
+  const SPX = 944, sumpY = 1684, sumpX0 = 132, sumpW = 720, sumpH = 84;
+  mid += pipe([[sumpX0 + 6, sumpY + 62], [44, sumpY + 62], [44, 224], [SPX, 224], [SPX, 290]], true, 20);
+  mid += stream(SPX, 290, RY0 - 4, 9);
+
+  // ---- input reservoir (title lettering on its front glass) ----
+  hidC.forEach(cx => { mid += pipe([[cx, RY1 - 4], [cx, hidTop - 18]], true, 20); });
+  mid += tank(RX0, RY0, RX1 - RX0, RY1 - RY0, (RY1 - wy) / (RY1 - RY0), { dx: DXR, dy: DYR, noband: true });
+  mid += pipe([[SPX, RY0 - 2], [SPX, RY1 - 34]], true, 14);       // inlet tube inside the right wall
+  mid += funnel(SPX + 5, RY0 - 30);
+  [[-6, 0.5, 5], [7, 0.28, 4], [-3, 0.12, 3.5]].forEach(([bx, u, r]) => {
+    const by = RY1 - 30 - (RY1 - 30 - wy) * u; if (by > wy + 10) mid += '<circle cx="' + f(SPX - 22 + bx) + '" cy="' + f(by) + '" r="' + r + '" fill="none" stroke="' + CREAM + '" stroke-opacity="0.8" stroke-width="2"/>';
+  });
+
+  // ---- weights: 3 big taps, streams into the sum tanks ----
+  const tapY = RY1 + Math.min(40, G.g1 - 32);
+
+  // ---- sum tanks: one dashed overflow line = activation ----
+  const oy = hidTop + hidH * (1 - TH) + 4, funnelY = M - 36;
+  hidC.forEach((cx, k) => {
+    const x = cx - hidW / 2, active = hidLv[k] >= TH;
+    const sx = x + hidW + DXH * 0.5, ex = sx + 26;
+    if (active) {
+      mid += pipe([[sx - 4, oy], [ex, oy], [ex, oy + 18]], true, 16);
+      mid += stream(ex, oy + 18, funnelY + 12, 8);
+      mid += funnel(ex, funnelY);
+    } else {
+      // dry stub: empty glass, capped, over an X drip tray
+      mid += pipe([[sx - 4, oy], [ex, oy], [ex, oy + 14]], false, 16);
+      mid += '<rect x="' + f(ex - 10) + '" y="' + f(oy + 14) + '" width="20" height="7" rx="2" fill="' + GLASS + '"/>';
+      const ty = oy + 34;
+      mid += '<path d="' + P([[ex - 30, ty], [ex + 24, ty], [ex + 16, ty + 34], [ex - 22, ty + 34]]) + 'Z" fill="' + COB_DEEP + '" fill-opacity="0.75" stroke="' + GLASS + '" stroke-width="3.5" stroke-linejoin="round"/>';
+      mid += '<path d="M' + f(ex - 11) + "," + f(ty + 7) + "L" + f(ex + 5) + "," + f(ty + 27) + "M" + f(ex + 5) + "," + f(ty + 7) + "L" + f(ex - 11) + "," + f(ty + 27) + '" stroke="' + CREAM + '" stroke-width="5.5" stroke-linecap="round"/>';
+      mid += funnel(ex, funnelY);
+    }
+    mid += tank(x, hidTop, hidW, hidH, hidLv[k], { bub: cx, dx: DXH, dy: DYH });
+    mid += stream(cx, hidTop - 18, hidTop + hidH * (1 - hidLv[k]) + 3, 4 + 9 * W[k]);   // stream width = how far the tap is open
+  });
+  {
+    const xa = 106, xb = Math.min(884, hidC[2] + hidW / 2 + DXH);
+    mid += '<path d="M' + f(xa + 18) + "," + f(oy) + "H" + f(xb) + '" stroke="' + CREAM + '" stroke-width="4.5" stroke-dasharray="16 10"/>';
+    mid += '<path d="' + P([[xa, oy - 13], [xa + 20, oy], [xa, oy + 13]]) + 'Z" fill="' + CREAM + '" stroke="' + INK + '" stroke-width="2"/>';
+  }
+  hidC.forEach((cx, k) => { mid += tap(cx, tapY, W[k], true); mid += '<path d="M' + f(cx + 22) + "," + f(tapY + 10) + "C" + f(cx + 30) + "," + f(tapY + 26) + " " + f(cx + 36) + "," + f(tapY + 24) + " " + f(cx + 46) + "," + f(tapY + 18) + '" stroke="' + CREAM + '" stroke-width="3" fill="none"/>'; });
+
+  // ---- manifold ----
+  const mX0 = Math.min(ox(0) + ow / 2, 205) - 16, mX1 = 888;
+  mid += pipe([[mX0, M], [mX1, M]], true, 22);
+  [mX0, mX1].forEach(x => { mid += '<rect x="' + f(x - 8) + '" y="' + f(M - 16) + '" width="16" height="32" rx="4" fill="' + GLASS + '"/>'; });
+
+  // ---- output tanks = items; float rods drive pens on one strip chart ----
+  const tw = ow - DXO - 6;
+  const fxOf = i => ox(i) + 2 + tw - 22;
+  // collector (closed drains) down the left margin into the sump
+  mid += pipe([[ox(n - 1) + 22, CY], [74, CY], [74, sumpY - 30], [sumpX0 + 30, sumpY - 30], [sumpX0 + 30, sumpY - 6]], false, 16);
+  items.forEach((it, i) => {
+    const x = ox(i) + 2, cx = x + tw / 2, lv = levels[i];
+    const surf = outTop + outH * (1 - Math.min(lv, 1));
+    mid += pipe([[cx, M + 8], [cx, outTop - 18]], true, 16);
+    mid += '<rect x="' + f(x + 15) + '" y="' + f(outBot - 2) + '" width="14" height="' + f(CY - outBot) + '" fill="' + GLASS + '"/><rect x="' + f(x + 12) + '" y="' + f(outBot + (CY - outBot) / 2 - 7) + '" width="20" height="9" rx="2" fill="' + BRASS + '" stroke="' + INK + '" stroke-width="2"/>';
+    mid += tank(x, outTop, tw, outH, lv, { bub: cx - 8, dx: DXO, dy: DYO });
+    mid += stream(cx, outTop - 18, surf + 3, 4 + 5 * lv);
+    mid += tap(cx, M + G.g3 * 0.52, lv, false);
+  });
+  // strip chart paper (one shared scale)
+  const SX0 = n >= 5 ? 90 : 96, SX1 = n >= 5 ? 900 : 894;
+  mid += '<rect x="' + SX0 + '" y="' + f(ST) + '" width="' + (SX1 - SX0) + '" height="' + f(SB - ST) + '" fill="' + COB_DEEP + '" opacity="0.55" transform="translate(' + (SX1 > 894 ? 0 : 6) + ',9)"/>';
+  mid += '<rect x="' + SX0 + '" y="' + f(ST) + '" width="' + (SX1 - SX0) + '" height="' + f(SB - ST) + '" fill="' + CREAM + '" stroke="' + INK + '" stroke-width="2.5"/>';
+  for (let gx = SX0 + 22; gx < SX1 - 10; gx += 26) mid += '<path d="M' + gx + "," + f(BT) + "V" + f(BB) + '" stroke="' + COB + '" stroke-opacity="0.12" stroke-width="1.5"/>';
+  for (let k = 0; k <= 4; k++) mid += '<path d="M' + (SX0 + 8) + "," + f(BT + (outH * k) / 4) + "H" + (SX1 - 8) + '" stroke="' + COB + '" stroke-opacity="' + (k === 0 || k === 4 ? 0.42 : 0.2) + '" stroke-width="' + (k === 0 || k === 4 ? 2 : 1.5) + '"' + (k === 0 ? ' stroke-dasharray="9 6"' : "") + "/>";
+  for (let i = 1; i < n; i++) { const sx = ox(i) - gap / 2; mid += '<path d="M' + f(sx) + "," + f(ST + 8) + "V" + f(SB - 8) + '" stroke="' + INK + '" stroke-opacity="0.35" stroke-width="2" stroke-dasharray="6 6"/>'; }
+  mid += '<rect x="' + (SX0 + 1.5) + '" y="' + f(ST + 1.5) + '" width="16" height="' + f(SB - ST - 3) + '" fill="url(#curlL)"/><rect x="' + (SX1 - 17.5) + '" y="' + f(ST + 1.5) + '" width="16" height="' + f(SB - ST - 3) + '" fill="url(#curlR)"/>';
+  items.forEach((_, i) => {
+    const x0 = ox(i) + 12, x1 = fxOf(i), yL = BT + outH * (1 - Math.min(levels[i], 1)), y0 = BB - 1;
+    const xa = x0 + (x1 - x0) * 0.2, xb = x0 + (x1 - x0) * 0.62, xm = (xa + xb) / 2;
+    mid += '<path d="M' + f(x0) + "," + f(y0) + "L" + f(xa) + "," + f(y0) + "C" + f(xm) + "," + f(y0) + " " + f(xm) + "," + f(yL) + " " + f(xb) + "," + f(yL) + "L" + f(x1) + "," + f(yL) + '" fill="none" stroke="' + INK + '" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>';
+  });
+  // floats, rods, pens
+  items.forEach((_, i) => {
+    const fx = fxOf(i), lv = Math.min(levels[i], 1), surf = outTop + outH * (1 - lv), yL = BT + outH * (1 - lv);
+    mid += '<path d="M' + f(fx) + "," + f(surf) + "V" + f(yL - 14) + '" stroke="' + INK + '" stroke-width="3.5"/>';
+    mid += '<rect x="' + f(fx - 7) + '" y="' + f(outBot - 4) + '" width="14" height="8" rx="2" fill="' + INK + '"/>';
+    mid += '<ellipse cx="' + f(fx) + '" cy="' + f(surf + 1) + '" rx="13" ry="8.5" fill="' + CREAM + '" stroke="' + INK + '" stroke-width="3"/>';
+    mid += '<rect x="' + f(fx - 7) + '" y="' + f(yL - 26) + '" width="14" height="18" rx="3" fill="' + BRASS + '" stroke="' + INK + '" stroke-width="2.5"/>';
+    mid += '<path d="' + P([[fx - 5, yL - 9], [fx + 5, yL - 9], [fx, yL + 1]]) + 'Z" fill="' + INK + '"/>';
+  });
+  // overflow on the tanks that brim
+  items.forEach((_, i) => {
+    if (!brim.has(i)) return;
+    const x = ox(i) + 2, r = outTop, ow2 = tw, dx = DXO, dy = DYO;
+    front += '<path d="M' + f(x - 3) + "," + f(r + 3) + "C" + f(x + ow2 * 0.1) + "," + f(r - 18) + " " + f(x + ow2 * 0.9) + "," + f(r - 18 + dy) + " " + f(x + ow2 + dx + 3) + "," + f(r + dy + 3) + "L" + f(x + ow2 + 3) + "," + f(r + 4) + 'Z" fill="' + AMB_TOP + '" stroke="' + AMB + '" stroke-width="3" stroke-linejoin="round"/>';
+    const sheet = (rimX, rimY, cx0, dir, yEnd) => {
+      const L = [], Rr = [];
+      for (let yy = rimY + 20; yy <= yEnd; yy += 8) {
+        const u = (yy - rimY - 20) / Math.max(1, yEnd - rimY - 20);
+        const c = cx0 + 1.5 * Math.sin((yy - rimY) / 19), w = 9 - 4.5 * u;
+        L.push([c - w / 2, yy]); Rr.unshift([c + w / 2, yy]);
+      }
+      if (!L.length) return "";
+      const o = dir < 0 ? L : Rr.slice().reverse();
+      let d = "M" + f(rimX) + "," + f(rimY - 4) + "Q" + f(cx0 + dir * 12) + "," + f(rimY - 6) + " " + f(o[0][0]) + "," + f(o[0][1]);
+      d += P(dir < 0 ? L : Rr.slice().reverse()).replace("M", "L");
+      d += P(dir < 0 ? Rr : L.slice().reverse()).replace("M", "L");
+      d += "Q" + f(cx0 - dir * 2) + "," + f(rimY + 8) + " " + f(rimX - dir * 4) + "," + f(rimY + 6) + "Z";
+      return '<path d="' + d + '" fill="' + AMB_TOP + '" stroke="' + AMB + '" stroke-width="2.5" stroke-linejoin="round"/>' +
+             '<ellipse cx="' + f(cx0) + '" cy="' + f(yEnd + 14) + '" rx="3.5" ry="5.5" fill="' + AMB_TOP + '" stroke="' + AMB + '" stroke-width="1.5"/>';
+    };
+    if (x - 12 >= 88) front += sheet(x + 4, r, x - 7, -1, outBot - 18);
+    front += sheet(x + ow2 + dx - 3, r + dy, x + ow2 + dx * 0.5 + 2, 1, outBot - 26);
+  });
+
+  // ---- sump + pump (decoration outside the safe zone) ----
+  mid += tank(sumpX0, sumpY, sumpW, sumpH, 0.55, { noband: true });
+  {
+    const px = 50, py = 224;
+    mid += '<circle cx="' + px + '" cy="' + py + '" r="38" fill="' + INK + '" stroke="' + GLASS + '" stroke-width="5"/>';
+    for (let k = 0; k < 6; k++) {
+      const a = (k * 60 + 15) * Math.PI / 180;
+      mid += '<path d="M' + f(px) + "," + f(py) + "Q" + f(px + Math.cos(a) * 20 - Math.sin(a) * 8) + "," + f(py + Math.sin(a) * 20 + Math.cos(a) * 8) + " " + f(px + Math.cos(a) * 28) + "," + f(py + Math.sin(a) * 28) + '" stroke="' + BRASS + '" stroke-width="5.5" fill="none" stroke-linecap="round"/>';
+    }
+    mid += '<circle cx="' + px + '" cy="' + py + '" r="8" fill="' + CREAM + '"/>';
+  }
+
+  $("board").innerHTML = back + mid + front;
+
+  // ---- engraved plates on the machine ----
+  let tags = "";
+  hidC.forEach((cx, k) => { tags += '<div class="tag" style="left:' + f(cx + 44) + "px;top:" + f(tapY - 2) + 'px">×' + String(W[k].toFixed(1)).replace(".", ",") + "</div>"; });
+  tags += '<div class="tag" id="masuk" style="top:' + f(RY0 - 40) + 'px">MASUK</div>';
+  labels.insertAdjacentHTML("beforeend", tags);
+  const mk = $("masuk"); mk.style.left = f(SPX - 26 - mk.offsetWidth) + "px";
+  }
+</script>
+</body>
+</html>

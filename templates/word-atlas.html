@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Martian+Mono:wght@400;500;600&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Word Atlas (word-atlas): one sheet of an old printed town plan of the
+    imaginary city "Kota Kata": paper margin, a ruled neatline with an
+    alternating graticule band, warm city blocks, white avenues, a pale river,
+    hatched squares, an engraved compass rose and scale bar.
+    Centre: the search query (D.hl) as a big navy cluster bubble with a double
+    halo, inside a dotted vermilion search radius full of tiny word dots.
+    The episode's items are its nearest neighbours: lettered vermilion key
+    badges (A-E) on flat engraved label plates, each joined to the query by a
+    dotted, tick-marked distance line. On how-ai-works, A's line carries a small
+    coordinate tag (A's position on the sheet, labelled "ilustrasi"); it is
+    skipped on other series and when the item values already are coordinates.
+    Metaphor: embeddings. Every word has an address; similar meanings live in
+    the same neighbourhood; semantic search = finding the nearest pins.
+    Meta = the sheet header strip (LEMBAR + ep | series | date box).
+    Caption = the legend cartouche: double rule, LEGENDA tab, vermilion pin key,
+    karaoke active word in blue with a blue underline. Source flows under it.
+    No hard-coded copy apart from the sheet furniture words LEMBAR / LEGENDA.
+    Fully deterministic: hard-coded street lattice, hashed street skips.
+  */
+  :root {
+    --paper: #F5F2EA; --plate: #FCFAF4; --ink: #24324A; --slate: #5D6678;
+    --verm: #C4472C; --verm-d: #A93B23; --blue: #3D63C2;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--paper); }
+  body { position: relative; color: var(--ink); font-family: "Young Serif", Georgia, serif; font-variant-numeric: lining-nums; font-feature-settings: "lnum" 1; }
+  #map, #rg, #ov { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  .wash { position: absolute; left: 0; top: 0; width: 1080px; pointer-events: none; }
+
+  /* map-sheet header strip: LEMBAR + ep | series | date corner box */
+  .head { position: absolute; left: 90px; top: 300px; width: 900px; height: 76px; display: flex; align-items: stretch;
+    background: var(--plate); border: 7px double var(--ink); }
+  .head > div { display: flex; align-items: center; white-space: nowrap; }
+  .head .c1 { flex: none; padding: 0 20px 0 18px; gap: 12px; font: 400 26px/1 "Martian Mono", monospace; letter-spacing: .08em; color: var(--slate); }
+  .head .c1 b { font-weight: 600; font-size: 28px; letter-spacing: 0; color: var(--verm-d); }
+  .head .c2 { flex: 1; min-width: 0; overflow: hidden; padding: 0 18px; border-left: 2px solid var(--ink); font-size: 28px; line-height: 1.05; letter-spacing: .14em; text-transform: uppercase; color: var(--ink); }
+  .head .c3 { flex: none; padding: 0 18px; border-left: 2px solid var(--ink); font: 400 26px/1 "Martian Mono", monospace; color: var(--slate); }
+
+  .title { position: absolute; z-index: 1; left: 90px; width: 900px; top: 404px; font-weight: 400; font-variant-numeric: lining-nums; font-feature-settings: "lnum" 1; line-height: 1.09; letter-spacing: -0.012em; color: var(--ink); text-wrap: balance; }
+  .title .tx { position: relative; }
+  .title .hl { color: var(--verm-d); background: #F6DED4; border-radius: 0.16em; padding: 0 0.07em 0 0.07em; box-decoration-break: clone; -webkit-box-decoration-break: clone; white-space: nowrap; }
+  .title .hl svg { display: inline-block; width: 0.5em; height: 0.66em; vertical-align: -0.02em; margin-right: 0.08em; }
+
+  /* the query bubble (hero) */
+  .hero { position: absolute; border-radius: 50%; background: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    box-shadow: 0 0 0 5px #FFFFFF, 0 8px 18px rgba(36,50,74,.28); }
+  .hero .q { color: #FFFFFF; text-align: center; line-height: 1.04; font-size: 46px; max-width: 78%; }
+
+  /* engraved label plates (items) + lettered key badges */
+  .plate { position: absolute; left: 0; top: 0; background: var(--plate); border: 2px solid var(--ink); padding: 12px 22px 15px; white-space: nowrap;
+    box-shadow: inset 0 0 0 4px var(--plate), inset 0 0 0 5.5px rgba(36,50,74,.42), 0 0 0 5px rgba(245,242,234,.88); }
+  .plate.up { padding-bottom: 22px; } .plate.dn { padding-top: 21px; }
+  .plate .l { font-size: 38px; line-height: 1.1; color: var(--ink); }
+  .plate .v { margin-top: 5px; font: 500 30px/1.2 "Martian Mono", monospace; color: var(--blue); }
+  .badge { position: absolute; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%; background: var(--verm); color: #FFFFFF;
+    display: flex; align-items: center; justify-content: center; font: 600 30px/1 "Martian Mono", monospace; box-shadow: 0 0 0 4px #FFFFFF, 0 0 0 6px var(--ink); }
+  .tag { position: absolute; left: 0; top: 0; background: var(--plate); border: 2px dashed var(--verm); padding: 6px 12px 7px; font: 500 26px/1.25 "Martian Mono", monospace; letter-spacing: -0.02em; color: var(--ink); white-space: nowrap; }
+  .tag i { display: block; font-style: normal; font-weight: 400; color: var(--slate); }
+
+  /* legend cartouche = caption slot */
+  .legend { position: absolute; left: 90px; top: 1380px; width: 900px; background: var(--plate); border: 7px double var(--ink); padding: 34px 26px 20px 22px; display: flex; gap: 16px; align-items: flex-start; }
+  .legend .tab { position: absolute; left: 24px; top: -27px; background: var(--plate); border: 2px solid var(--ink); padding: 6px 14px 5px 16px; font: 500 26px/1 "Martian Mono", monospace; letter-spacing: .24em; color: var(--ink); }
+  .legend .key { flex: none; width: 30px; height: 40px; }
+  .legend .body { flex: 1; min-width: 0; }
+  .cap { position: relative; font-size: 46px; line-height: 1.28; color: var(--slate); }
+  .cap .w { white-space: nowrap; }
+  .cap .said { color: var(--ink); }
+  .cap .on { color: var(--blue); text-decoration: underline; text-decoration-color: var(--blue); text-decoration-thickness: 5px; text-underline-offset: 9px; text-decoration-skip-ink: none; }
+  .src { margin-top: 12px; font: 400 26px/1.32 "Martian Mono", monospace; color: var(--slate); overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<svg id="map" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<svg id="rg" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="wash" id="wash"></div>
+<svg id="ov" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="head">
+  <div class="c1" id="c1">LEMBAR <b id="ep"></b></div>
+  <div class="c2" id="ser"></div>
+  <div class="c3" id="date"></div>
+</div>
+<h1 class="title" id="title"></h1>
+<div id="world"></div>
+<div class="legend" id="leg">
+  <div class="tab">LEGENDA</div>
+  <svg class="key" id="key" viewBox="0 0 30 40" aria-hidden="true"><path d="M15 39 C13 32 1 25 1 15 A14 14 0 1 1 29 15 C29 25 17 32 15 39 Z" fill="#C4472C" stroke="#24324A" stroke-width="1.6"/><circle cx="15" cy="15" r="5" fill="#FCFAF4"/></svg>
+  <div class="body">
+    <div class="cap" id="cap" data-slot="caption"></div>
+    <div class="src" id="src"></div>
+  </div>
+</div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  Promise.all(['400 100px "Young Serif"', '400 38px "Young Serif"', '500 30px "Martian Mono"', '600 30px "Martian Mono"', '400 26px "Martian Mono"']
+    .map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+  const PAPER = "#F5F2EA", BLOCK = "#D9CFB8", ST = "#F3EEE2", CASE = "#C9BC9C", INK = "#24324A", VERM = "#C4472C";
+  const h01 = (a, b) => { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return x - Math.floor(x); }; // deterministic hash
+  const P = pts => pts.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ");
+  const f1 = v => v.toFixed(1);
+  const items = (D.items || []).slice(0, 5), n = items.length;
+
+  // ---------- sheet header strip ----------
+  const ep = String(D.ep || "").trim();
+  $("ep").textContent = ep;
+  if (!ep) $("c1").style.display = "none";
+  const ser = $("ser");
+  ser.textContent = D.series || D.kicker || "";
+  $("date").textContent = D.date || "";
+  if (!D.date) $("date").style.display = "none";
+  for (let ls = 0.12; ls >= 0 && ser.scrollWidth > ser.clientWidth; ls -= 0.04) ser.style.letterSpacing = Math.max(0, ls).toFixed(2) + "em";
+  if (ser.scrollWidth > ser.clientWidth) { ser.style.fontSize = "26px"; ser.style.whiteSpace = "normal"; }
+
+  // ---------- title ----------
+  const t = D.title || "", hl = D.hl || "";
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const pinIco = '<svg viewBox="0 0 20 26" aria-hidden="true"><path d="M10 26 C9 21 0 16 0 10 A10 10 0 1 1 20 10 C20 16 11 21 10 26 Z" fill="#C4472C"/><circle cx="10" cy="10" r="3.6" fill="#F6DED4"/></svg>';
+  const titleEl = $("title");
+  // plain words are positioned spans so they paint above the highlight band (descenders stay visible)
+  const tx = x => x ? '<span class="tx">' + esc(x) + "</span>" : "";
+  titleEl.innerHTML = at < 0 ? tx(t) : tx(t.slice(0, at)) + '<span class="hl">' + pinIco + esc(t.slice(at, at + hl.length)) + "</span>" + tx(t.slice(at + hl.length));
+  for (let fs = 108; fs >= 72; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (titleEl.offsetHeight <= 238 && titleEl.scrollWidth <= 900) break; }
+  const titleBottom = 404 + titleEl.offsetHeight;
+
+  // ---------- legend cartouche: karaoke caption (max 2 lines) + source in normal flow ----------
+  const cap = String(D.caption || D.sub || "").trim();
+  const capEl = $("cap");
+  const words = cap.split(/\s+/).filter(Boolean);
+  let on = [0, 0];
+  if (hl) {
+    const ci = cap.toLowerCase().indexOf(hl.toLowerCase());
+    if (ci >= 0) { let pos = 0, first = -1, last = -1;
+      words.forEach((wd, k) => { const st = cap.indexOf(wd, pos); const en = st + wd.length; pos = en; if (en > ci && st < ci + hl.length) { if (first < 0) first = k; last = k; } });
+      if (first >= 0) on = [first, last]; }
+  }
+  const spans = [];
+  for (let k = 0; k < words.length; k++) {
+    if (k === on[0]) { spans.push('<span class="w on">' + esc(words.slice(on[0], on[1] + 1).join(" ")) + "</span>"); k = on[1]; continue; }
+    spans.push('<span class="w' + (k < on[0] ? " said" : "") + '">' + esc(words[k]) + "</span>");
+  }
+  capEl.innerHTML = spans.join(" ");
+  const capLines = () => { const g = []; let last = null;
+    for (const s of capEl.children) { const y = Math.round(s.offsetTop); if (last === null || Math.abs(y - last) > 6) { g.push([]); last = y; } g[g.length - 1].push(s); }
+    return g; };
+  for (let fs = 46; fs >= 40; fs -= 2) { capEl.style.fontSize = fs + "px"; if (capLines().length <= 2) break; }
+  let lines = capLines();
+  if (lines.length > 2) {
+    // karaoke window: only the 2 lines around the active word; the video pages through the rest
+    const ai = Math.max(0, lines.findIndex(L => L.some(s => s.classList.contains("on"))));
+    const start = Math.max(0, Math.min(ai, lines.length - 2)), more = start + 2 < lines.length;
+    const keep = lines.slice(start, start + 2).flat().map(s => s.outerHTML);
+    capEl.innerHTML = keep.join(" ");
+    const tryMark = (el, pre) => { const old = el.textContent; el.textContent = pre ? "…" + old : old + "…"; if (capLines().length > 2) el.textContent = old; };
+    if (more) tryMark(capEl.lastElementChild, false);
+    if (start > 0) tryMark(capEl.firstElementChild, true);
+  }
+  const capFs = parseFloat(capEl.style.fontSize || "46");
+  $("key").style.marginTop = Math.round((capFs * 1.28 - 40) / 2) + "px";
+  const src = $("src");
+  src.textContent = D.source || "";
+  if (!D.source) src.style.display = "none";
+  const leg = $("leg");
+  const legTop = 1636 - leg.offsetHeight;
+  leg.style.top = legTop + "px";
+
+  // ---------- street plan (hard-coded junction lattice) ----------
+  const J = [
+    [[0, 0], [328, 0], [722, 0], [1080, 0]],
+    [[0, 606], [350, 584], [700, 618], [1080, 571]],
+    [[0, 962], [306, 918], [734, 958], [1080, 898]],
+    [[0, 1295], [352, 1244], [690, 1278], [1080, 1197]],
+    [[0, 1646], [320, 1612], [742, 1662], [1080, 1605]],
+    [[0, 1920], [338, 1920], [714, 1920], [1080, 1920]]
+  ];
+  const ANG = [[8, -6, 14], [-4, 17, 3], [11, 0, -9], [-14, 6, 19], [3, -8, 10]];
+  const SP = [[96, 84, 104], [88, 78, 92], [82, 100, 86], [92, 84, 98], [90, 96, 84]];
+  let s = '<rect width="1080" height="1920" fill="' + BLOCK + '"/><defs>';
+  for (let r = 0; r < 5; r++) for (let c = 0; c < 3; c++)
+    s += '<clipPath id="k' + r + c + '"><polygon points="' + P([J[r][c], J[r][c + 1], J[r + 1][c + 1], J[r + 1][c]]) + '"/></clipPath>';
+  s += '<pattern id="hatch" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><rect width="14" height="14" fill="#E3DAC6"/><line x1="0" y1="0" x2="0" y2="14" stroke="#C3B693" stroke-width="4"/></pattern>';
+  s += '</defs>';
+  // minor streets per cell: a rotated grid, a few lines skipped (superblocks), all hashed = deterministic
+  for (let r = 0; r < 5; r++) for (let c = 0; c < 3; c++) {
+    const q = [J[r][c], J[r][c + 1], J[r + 1][c + 1], J[r + 1][c]];
+    const cx = q.reduce((a, p) => a + p[0], 0) / 4, cy = q.reduce((a, p) => a + p[1], 0) / 4;
+    const a = ANG[r][c] * Math.PI / 180, sp = SP[r][c], ux = Math.cos(a), uy = Math.sin(a);
+    let g = "";
+    for (const dir of [0, 1]) {
+      const dx = dir ? -uy : ux, dy = dir ? ux : uy, nx = -dy, ny = dx, step = dir ? sp * 1.18 : sp;
+      for (let k = -8; k <= 8; k++) {
+        const hv = h01(r * 7 + c * 3 + dir * 11, k);
+        if (hv < 0.16) continue;
+        const ox = cx + nx * (k * step + (hv - 0.5) * 14), oy = cy + ny * (k * step + (hv - 0.5) * 14);
+        const half = hv > 0.86, L = 700; // occasionally a street stops halfway (dead end / T-junction)
+        const x1 = ox - dx * (half ? 0 : L), y1 = oy - dy * (half ? 0 : L), x2 = ox + dx * L, y2 = oy + dy * L;
+        g += '<line x1="' + f1(x1) + '" y1="' + f1(y1) + '" x2="' + f1(x2) + '" y2="' + f1(y2) + '"/>';
+      }
+    }
+    s += '<g clip-path="url(#k' + r + c + ')" stroke="' + ST + '" stroke-width="' + (r === 0 ? 7 : 8) + '">' + g + '</g>';
+  }
+  // hatched squares (alun-alun), warm not green
+  s += '<polygon points="' + P([[760, 1010], [930, 990], [948, 1130], [776, 1150]]) + '" fill="url(#hatch)" stroke="' + CASE + '" stroke-width="3"/>';
+  s += '<polygon points="' + P([[58, 1012], [214, 994], [226, 1118], [70, 1136]]) + '" fill="url(#hatch)" stroke="' + CASE + '" stroke-width="3"/>';
+  s += '<polygon points="' + P([[640, 170], [790, 152], [804, 262], [652, 278]]) + '" fill="url(#hatch)" stroke="' + CASE + '" stroke-width="3"/>';
+  // river along lattice row 3 (Catmull-Rom smoothing)
+  const RV = [[0, 1300], [150, 1262], [352, 1244], [520, 1290], [690, 1278], [900, 1206], [1080, 1194]];
+  let rd = "M" + RV[0][0] + "," + RV[0][1];
+  for (let i = 0; i < RV.length - 1; i++) {
+    const p0 = RV[Math.max(0, i - 1)], p1 = RV[i], p2 = RV[i + 1], p3 = RV[Math.min(RV.length - 1, i + 2)];
+    rd += " C" + f1(p1[0] + (p2[0] - p0[0]) / 6) + "," + f1(p1[1] + (p2[1] - p0[1]) / 6) + " " + f1(p2[0] - (p3[0] - p1[0]) / 6) + "," + f1(p2[1] - (p3[1] - p1[1]) / 6) + " " + p2[0] + "," + p2[1];
+  }
+  s += '<path d="' + rd + '" fill="none" stroke="#97ABD6" stroke-width="76" stroke-linecap="round"/>';
+  s += '<path d="' + rd + '" fill="none" stroke="#C3D1EE" stroke-width="64" stroke-linecap="round"/>';
+  // avenues: horizontal rows 1,2,4 and vertical columns 1,2 (verticals cross the river = bridges)
+  const av = [];
+  for (const r of [1, 2, 4]) av.push(J[r]);
+  for (const c of [1, 2]) av.push(J.map(row => row[c]));
+  const BLV = [[0, 757], [300, 742], [520, 800], [760, 790], [1080, 726]]; av.push(BLV); // a minor boulevard
+  for (const line of av) s += '<polyline points="' + P(line) + '" fill="none" stroke="' + CASE + '" stroke-width="' + (line === BLV ? 19 : 26) + '" stroke-linejoin="round"/>';
+  for (const line of av) s += '<polyline points="' + P(line) + '" fill="none" stroke="#FFFFFF" stroke-width="' + (line === BLV ? 13 : 19) + '" stroke-linejoin="round"/>';
+  $("map").innerHTML = s;
+
+  // paper wash behind the header + title so the title reads on calm paper; the plan shows through below
+  const wEnd = Math.max(titleBottom + 20, 560);
+  const wash = $("wash");
+  wash.style.height = (wEnd + 110) + "px";
+  wash.style.background = "linear-gradient(180deg, rgba(245,242,234,.35) 0, rgba(245,242,234,.94) 290px, rgba(245,242,234,.95) " + (wEnd - 30) + "px, rgba(245,242,234,0) " + (wEnd + 110) + "px)";
+
+  // ---------- items: label plates in measured rows around the query ----------
+  // rows: plates above the query (badges hang under them) and below it (badges sit on top)
+  const ROWS = { 1: [[0], []], 2: [[0, 1], []], 3: [[0, 1], [2]], 4: [[0, 1], [2, 3]], 5: [[0, 1, 2], [3, 4]] };
+  const rows = ROWS[Math.max(1, Math.min(5, n))] || [[], []];
+  const HX = 490; // query x (keeps the object clear of the right-hand action buttons)
+  // column regions [left, right, align]; row 1 sits above y 900 so 3 columns may run to x 986
+  const COLS = { 1: [[210, 770, "c"]], 2: [[94, 474, "l"], [506, 886, "r"]], 3: [[94, 374, "l"], [400, 680, "c"], [706, 986, "r"]] };
+  const world = $("world");
+  const plates = [];
+  rows.forEach((row, ri) => row.forEach((idx, ci) => {
+    const it = items[idx] || {};
+    const el = document.createElement("div");
+    el.className = "plate " + (ri === 0 ? "up" : "dn");
+    el.innerHTML = '<div class="l">' + esc(it.label) + '</div><div class="v">' + esc(it.value) + "</div>";
+    world.appendChild(el);
+    const col = (ri === 1 && row.length === 1) ? [HX - 280, HX + 280, "c"] : COLS[row.length][ci];
+    plates.push({ el, idx, ri, col, n: row.length, ci });
+  }));
+  // fit: shrink whichever line is wider (label 38 -> 30 px, value tracking), wrap only as the last resort
+  for (const p of plates) {
+    const el = p.el, lab = el.querySelector(".l"), val = el.querySelector(".v"), mw = p.col[1] - p.col[0];
+    let lf = 38, ls = 0;
+    while (el.offsetWidth > mw) {
+      if (lab.scrollWidth >= val.scrollWidth && lf > 30) { lf -= 2; lab.style.fontSize = lf + "px"; }
+      else if (ls < 0.06) { ls += 0.02; val.style.letterSpacing = "-" + ls.toFixed(2) + "em"; }
+      else if (lf > 30) { lf -= 2; lab.style.fontSize = lf + "px"; }
+      else break;
+    }
+    if (el.offsetWidth > mw) { el.style.whiteSpace = "normal"; el.style.width = mw + "px"; }
+    p.w = el.offsetWidth; p.h = el.offsetHeight;
+    p.left = p.col[2] === "l" ? p.col[0] : p.col[2] === "r" ? p.col[1] - p.w : Math.round((p.col[0] + p.col[1]) / 2 - p.w / 2);
+  }
+  const Y0 = Math.max(titleBottom + 36, 612), Y1 = legTop - 36;
+  const r0 = plates.filter(p => p.ri === 0), r1 = plates.filter(p => p.ri === 1);
+  const h0 = Math.max(0, ...r0.map(p => p.h)), h1 = Math.max(0, ...r1.map(p => p.h));
+  r0.forEach(p => { p.top = Y0; });
+  const row1Top = Math.round(Y1 - h1);
+  r1.forEach(p => { p.top = row1Top; });
+  const OH = 52; // badge overhang below / above a plate
+  const upper = Y0 + h0 + OH, lower = r1.length ? row1Top - OH : Y1;
+  const HD = Math.max(220, Math.min(246, lower - upper - 28));
+  const HY = Math.round((upper + lower) / 2);
+  // badges: on the outer corner of each plate (middle plate of a row of 3 / a lone plate: its centre)
+  for (const p of plates) {
+    const outerL = p.n > 1 && p.ci === 0, outerR = p.n > 1 && p.ci === p.n - 1;
+    p.bx = outerL ? p.left + 44 : outerR ? p.left + p.w - 44 : Math.round(p.left + p.w / 2);
+    p.by = p.ri === 0 ? p.top + p.h + 22 : p.top - 22;
+    p.el.style.left = p.left + "px"; p.el.style.top = p.top + "px";
+  }
+  plates.sort((a, b) => a.idx - b.idx);
+
+  // ---------- overlay: search radius + word dots (under the wash), rays, halos, sheet furniture ----------
+  const HR = HD / 2;
+  const far = Math.max(HR + 140, ...plates.map(p => Math.hypot(p.bx - HX, p.by - HY)));
+  const RR = Math.min(452, far + 50);
+  let g = '<circle cx="' + HX + '" cy="' + HY + '" r="' + f1(RR) + '" fill="rgba(255,253,248,.5)"/>';
+  g += '<circle cx="' + HX + '" cy="' + HY + '" r="' + f1(RR) + '" fill="rgba(196,71,44,.07)" stroke="' + VERM + '" stroke-width="5" stroke-dasharray="0.1 15" stroke-linecap="round"/>';
+  // the other words of the neighbourhood: tiny dots, sunflower spread + hashed jitter
+  for (let i = 0; i < 110; i++) {
+    const rr = RR * 0.95 * Math.sqrt((i + 0.5) / 110) + (h01(i, 3) - 0.5) * 24, aa = i * 2.39996 + (h01(i, 9) - 0.5) * 0.5;
+    if (rr < HR + 46) continue;
+    const x = HX + Math.cos(aa) * rr, y = HY + Math.sin(aa) * rr;
+    g += '<circle cx="' + f1(x) + '" cy="' + f1(y) + '" r="' + (4.2 + h01(i, 5) * 2.8).toFixed(1) + '" fill="' + INK + '" fill-opacity="' + (0.3 + h01(i, 7) * 0.24).toFixed(2) + '"/>';
+  }
+  $("rg").innerHTML = g;
+
+  // ---------- HTML layer: query bubble, badges, coordinate tag ----------
+  let w = "";
+  const qtxt = hl || (n + " pin");
+  w += '<div class="hero" id="hero" style="left:' + f1(HX - HR) + 'px;top:' + f1(HY - HR) + 'px;width:' + HD + 'px;height:' + HD + 'px">' +
+    '<svg width="34" height="44" viewBox="0 0 30 40" aria-hidden="true"><path d="M15 39 C13 32 1 25 1 15 A14 14 0 1 1 29 15 C29 25 17 32 15 39 Z" fill="#C4472C" stroke="#FFFFFF" stroke-width="2"/><circle cx="15" cy="15" r="5" fill="#FFFFFF"/></svg>' +
+    '<div class="q" id="q">' + esc(qtxt) + "</div></div>";
+  plates.forEach((p, i) => { w += '<div class="badge" style="left:' + p.bx + 'px;top:' + p.by + 'px">' + "ABCDE"[i] + "</div>"; });
+  // skip the tag when the items already are coordinates (no second, conflicting pair for A)
+  const isCoord = v => /[-−]?\d+([.,]\d+)?\s*;\s*[-−]?\d/.test(String(v || ""));
+  // only on how-ai-works (the metaphor's own series): never an extra illustrative number beside sourced stats
+  const showTag = (D.series_id || "how-ai-works") === "how-ai-works";
+  if (plates.length && showTag && !isCoord(items[0] && items[0].value)) {
+    // the address of A on this sheet (x, y from the sheet centre), labelled as an illustration
+    const a = plates[0], nf = v => (v < 0 ? "−" : "") + Math.abs(v).toFixed(2).replace(".", ",");
+    w += '<div class="tag" id="tag">(' + nf((a.bx - 540) / 540) + "; " + nf((960 - a.by) / 540) + ")<i>ilustrasi</i></div>";
+  }
+  world.insertAdjacentHTML("beforeend", w);
+  // the tag sits just under A's distance line, like a dimension note, joined to it by a short vermilion leader
+  let lead = "";
+  const tag = $("tag");
+  if (tag) {
+    const a = plates[0], tw = tag.offsetWidth, th = tag.offsetHeight;
+    let tl, tt;
+    if (a.ri === 0 && HX - a.bx > 120) {
+      const k = (HY - a.by) / (HX - a.bx), ry = x => a.by + (x - a.bx) * k;
+      tl = Math.max(96, a.bx - 40);
+      tt = Math.round(Math.max(a.by + 46, ry(tl + tw) + 18));
+      const lx = tl + tw - 34;
+      lead = '<line x1="' + lx + '" y1="' + tt + '" x2="' + lx + '" y2="' + f1(ry(lx) + 7) + '" stroke="' + VERM + '" stroke-width="3" stroke-linecap="round"/>';
+    } else { tl = Math.max(96, a.bx - 40 - tw); tt = a.ri === 0 ? a.by + 46 : a.by - 46 - th; }
+    tag.style.left = tl + "px"; tag.style.top = tt + "px";
+  }
+  // fit the query word inside the bubble (max 2 lines)
+  const q = $("q");
+  for (let fs = 48; fs >= 30; fs -= 2) { q.style.fontSize = fs + "px"; if (q.scrollWidth <= HD * 0.78 && q.offsetHeight <= fs * 1.04 * 2 + 2 && q.offsetHeight <= HD * 0.5) break; }
+  let o = lead;
+  // query halos (double)
+  o += '<circle cx="' + HX + '" cy="' + HY + '" r="' + f1(HR + 42) + '" fill="' + INK + '" fill-opacity=".07"/>';
+  o += '<circle cx="' + HX + '" cy="' + HY + '" r="' + f1(HR + 20) + '" fill="' + INK + '" fill-opacity=".13"/>';
+  // distance lines query -> badge: dotted with engraved tick marks, A (nearest) in vermilion
+  plates.forEach((p, i) => {
+    const dx = p.bx - HX, dy = p.by - HY, L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L;
+    const a0 = HR + 48, a1 = L - 40;
+    if (a1 - a0 < 24) return;
+    const col = i === 0 ? VERM : INK, op = i === 0 ? 1 : 0.62;
+    o += '<g stroke="' + col + '" stroke-opacity="' + op + '" stroke-linecap="round">';
+    o += '<line x1="' + f1(HX + ux * a0) + '" y1="' + f1(HY + uy * a0) + '" x2="' + f1(HX + ux * a1) + '" y2="' + f1(HY + uy * a1) + '" stroke-width="5" stroke-dasharray="0.1 11"/>';
+    for (let d = a0 + 12; d <= a1 - 6; d += 34) {
+      const mx = HX + ux * d, my = HY + uy * d;
+      o += '<line x1="' + f1(mx - uy * 9) + '" y1="' + f1(my + ux * 9) + '" x2="' + f1(mx + uy * 9) + '" y2="' + f1(my - ux * 9) + '" stroke-width="2.4"/>';
+    }
+    o += '</g>';
+  });
+  // other neighbourhoods: closed clusters with no numerals, only a tally of dots
+  const CLU = [[188, 196, 3], [884, 224, 4], [560, 1752, 5]];
+  const TAL = { 3: [[-8, 6], [8, 6], [0, -8]], 4: [[-8, -8], [8, -8], [-8, 8], [8, 8]], 5: [[-10, -10], [10, -10], [0, 0], [-10, 10], [10, 10]] };
+  for (const [x, y, k] of CLU) {
+    o += '<circle cx="' + x + '" cy="' + y + '" r="62" fill="' + INK + '" fill-opacity=".07"/><circle cx="' + x + '" cy="' + y + '" r="48" fill="' + INK + '" fill-opacity=".13"/>';
+    o += '<circle cx="' + x + '" cy="' + y + '" r="34" fill="' + INK + '" stroke="#FFFFFF" stroke-width="4"/>';
+    for (const d of TAL[k]) o += '<circle cx="' + (x + d[0]) + '" cy="' + (y + d[1]) + '" r="5" fill="#FFFFFF"/>';
+  }
+  // engraved compass rose (decoration, no text)
+  const CR = [930, 1772];
+  o += '<g transform="translate(' + CR[0] + ',' + CR[1] + ')"><circle r="76" fill="' + PAPER + '" stroke="' + INK + '" stroke-width="2.5"/><circle r="64" fill="none" stroke="' + INK + '" stroke-width="1.2"/>';
+  for (let i = 0; i < 72; i++) { const aa = i * Math.PI / 36, r1 = i % 9 === 0 ? 54 : 59; o += '<line x1="' + f1(Math.cos(aa) * r1) + '" y1="' + f1(Math.sin(aa) * r1) + '" x2="' + f1(Math.cos(aa) * 64) + '" y2="' + f1(Math.sin(aa) * 64) + '" stroke="' + INK + '" stroke-width="1.2"/>'; }
+  for (let i = 0; i < 8; i++) {
+    const aa = i * Math.PI / 4 - Math.PI / 2, L = i % 2 ? 33 : 56, wq = i % 2 ? 7 : 11;
+    const tip = [Math.cos(aa) * L, Math.sin(aa) * L], l = [Math.cos(aa - Math.PI / 2) * wq, Math.sin(aa - Math.PI / 2) * wq], rr = [Math.cos(aa + Math.PI / 2) * wq, Math.sin(aa + Math.PI / 2) * wq];
+    o += '<path d="M0,0 L' + f1(l[0]) + ',' + f1(l[1]) + ' L' + f1(tip[0]) + ',' + f1(tip[1]) + ' Z" fill="' + (i === 0 ? VERM : INK) + '"/>';
+    o += '<path d="M0,0 L' + f1(rr[0]) + ',' + f1(rr[1]) + ' L' + f1(tip[0]) + ',' + f1(tip[1]) + ' Z" fill="#FFFFFF" stroke="' + (i === 0 ? VERM : INK) + '" stroke-width="1.5"/>';
+  }
+  o += '<circle r="5" fill="#FFFFFF" stroke="' + INK + '" stroke-width="2"/></g>';
+  // engraved scale bar (no numerals) on a paper strip
+  o += '<rect x="84" y="1770" width="304" height="44" fill="' + PAPER + '" stroke="' + INK + '" stroke-width="1.5"/>';
+  for (let i = 0; i < 5; i++) o += '<rect x="' + (100 + i * 54) + '" y="1792" width="54" height="10" fill="' + (i % 2 ? "#FFFFFF" : INK) + '" stroke="' + INK + '" stroke-width="2"/>';
+  for (let i = 0; i <= 5; i++) o += '<line x1="' + (100 + i * 54) + '" y1="1781" x2="' + (100 + i * 54) + '" y2="1792" stroke="' + INK + '" stroke-width="2"/>';
+  // sheet neatline: paper margin, outer rule, alternating graticule band, inner hairline
+  o += '<path fill-rule="evenodd" fill="' + PAPER + '" d="M0,0H1080V1920H0Z M30,30V1890H1050V30Z"/>';
+  o += '<rect x="31.5" y="31.5" width="1017" height="1857" fill="none" stroke="' + INK + '" stroke-width="3"/>';
+  const B0 = 33, B1 = 45, seg = 62;
+  for (let x = B0, k = 0; x < 1047; x += seg, k++) if (k % 2 === 0) { const w2 = Math.min(seg, 1047 - x); o += '<rect x="' + x + '" y="' + B0 + '" width="' + w2 + '" height="' + (B1 - B0) + '" fill="' + INK + '"/><rect x="' + x + '" y="' + (1887 - (B1 - B0)) + '" width="' + w2 + '" height="' + (B1 - B0) + '" fill="' + INK + '"/>'; }
+  for (let y = B0, k = 0; y < 1887; y += seg, k++) if (k % 2 === 1) { const h2 = Math.min(seg, 1887 - y); o += '<rect x="' + B0 + '" y="' + y + '" width="' + (B1 - B0) + '" height="' + h2 + '" fill="' + INK + '"/><rect x="' + (1047 - (B1 - B0)) + '" y="' + y + '" width="' + (B1 - B0) + '" height="' + h2 + '" fill="' + INK + '"/>'; }
+  o += '<rect x="' + B1 + '" y="' + B1 + '" width="' + (1080 - 2 * B1) + '" height="' + (1920 - 2 * B1) + '" fill="none" stroke="' + INK + '" stroke-width="1.5"/>';
+  $("ov").innerHTML = o;
+
+  }
+</script>
+</body>
+</html>

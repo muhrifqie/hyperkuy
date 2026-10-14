@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@500;600&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Approval Prompt: a dimmed desktop where an AI agent's terminal window is
+    paused mid-task (its last log line carries an amber "waiting for approval"
+    chip), and a light system permission sheet has risen over it. The title is
+    the sheet's request ("aksi berikutnya:"); D.hl is the request's parameter,
+    set as a mono argument chip in the same red as the risky button. Items are
+    the sheet's definition list (key left, mono value right, hairlines only).
+    The safe button carries the default focus ring; the cursor rests under it
+    in frame 0 and glides toward the red one in the hook. Two queued sheets peek
+    out underneath: the agent will ask again. Caption = OS live-caption strip.
+    Request chrome is data-overridable: D.ask, D.step, D.action, D.no, D.yes, D.status.
+  */
+  :root {
+    --desk: #1B1D22; --paper: #FFFFFF; --ink: #1F1F1F; --red: #C2362A; --blue: #2F6BEA; --amber: #F0AE3C;
+    --ink2: #3F444D; --ink3: #5E636E; --rule: #E6E7EA;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--desk); }
+  body { position: relative; font-family: "Geist", sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+
+  /* desktop + paused agent window (pushed back, dimmed) */
+  #desk { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  .win { position: absolute; left: 44px; top: 196px; width: 992px; height: 1634px; border-radius: 30px; background: #22252B; box-shadow: 0 0 0 2px #2E323A inset; }
+  .wmeta { position: absolute; left: 92px; right: 92px; top: 290px; height: 40px; display: flex; justify-content: space-between; align-items: center; gap: 24px; }
+  .wmeta .k { font: 500 28px "Geist", sans-serif; color: #C9CDD5; letter-spacing: 0.005em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .wmeta .d { font: 500 26px "Geist Mono", monospace; color: #AEB3BC; white-space: nowrap; flex: none; }
+
+  /* the agent's paused status chip (on its last log line) */
+  #wait { position: absolute; right: 92px; height: 52px; padding: 0 22px 0 16px; border-radius: 14px; display: flex; align-items: center; gap: 12px;
+    background: #3A2E16; box-shadow: 0 0 0 2px #6A5122 inset; font: 500 30px "Geist Mono", monospace; color: var(--amber); letter-spacing: -0.03em; white-space: nowrap; }
+
+  /* queued sheets underneath */
+  .ghost { position: absolute; border-radius: 40px; }
+  .g1 { left: 140px; width: 800px; background: #C3C7CE; }
+  .g2 { left: 180px; width: 720px; background: #838892; }
+
+  /* the permission sheet */
+  #sheet { position: absolute; left: 104px; width: 872px; top: 512px; background: var(--paper); border-radius: 40px;
+    padding: 44px 76px 52px 64px; --gap: 28px; --btn: 104px;
+    box-shadow: 0 2px 0 rgba(255,255,255,0.6) inset, 0 50px 90px rgba(0,0,0,0.55), 0 14px 28px rgba(0,0,0,0.35); }
+  .hd { display: flex; align-items: center; gap: 22px; }
+  .app { width: 64px; height: 64px; border-radius: 17px; background: var(--ink); display: flex; align-items: center; justify-content: center; flex: none; }
+  .hd-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .hd-t b { font: 600 32px "Geist", sans-serif; color: var(--ink); letter-spacing: -0.005em; white-space: nowrap; }
+  .hd-t span { font: 500 26px "Geist Mono", monospace; color: var(--ink3); white-space: nowrap; }
+
+  .act { margin-top: var(--gap); font: 500 28px "Geist Mono", monospace; color: var(--ink3); letter-spacing: -0.02em; white-space: nowrap; }
+  #tw { position: relative; margin-top: 6px; }
+  #title { position: relative; margin-right: -28px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.06; color: var(--ink); font-size: 96px; }
+  /* hl = the request's parameter: a mono argument chip. Its fill is drawn in #hlbg, an EARLIER sibling
+     layer measured from the hl's client rects, so it paints behind every title glyph (no descender clipping) */
+  #title .hl { white-space: nowrap; font-family: "Geist Mono", monospace; font-weight: 600; font-size: 0.86em; letter-spacing: -0.05em; color: var(--red); padding: 0 0.13em; margin: 0 0.03em; }
+  #hlbg { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+  #hlbg i { position: absolute; display: block; background: #FBE9E6; box-shadow: inset 0 0 0 3px #F1C1B9; }
+
+  /* definition list = items */
+  #rows { margin-top: var(--gap); border-top: 2px solid var(--rule); }
+  .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 28px; align-items: center; height: 88px; border-bottom: 2px solid var(--rule); }
+  .lab { font: 500 36px "Geist", sans-serif; color: var(--ink3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -0.005em; }
+  .val { font: 600 40px "Geist Mono", monospace; color: var(--ink); white-space: nowrap; letter-spacing: -0.03em; text-align: right; }
+
+  .fine { margin-top: calc(var(--gap) * 0.7); display: grid; grid-template-columns: 30px 1fr; column-gap: 14px; align-items: start; font: 500 26px/1.32 "Geist", sans-serif; color: var(--ink3); }
+  .fine svg { margin-top: 3px; }
+
+  .btns { margin-top: var(--gap); display: grid; grid-template-columns: 1fr 1fr; column-gap: 22px; }
+  .btn { height: var(--btn); border-radius: 26px; display: flex; align-items: center; justify-content: center; padding: 0 18px; font: 600 40px "Geist", sans-serif; letter-spacing: -0.01em; white-space: nowrap; overflow: hidden; }
+  .no { background: #ECEEF1; color: var(--ink); box-shadow: 0 0 0 4px var(--paper), 0 0 0 9px var(--blue); }
+  .yes { background: var(--red); color: #FFFFFF; box-shadow: 0 2px 0 rgba(255,255,255,0.18) inset, 0 6px 14px rgba(194,54,42,0.28); }
+
+  #cursor { position: absolute; width: 50px; height: 72px; filter: drop-shadow(0 6px 8px rgba(0,0,0,0.35)); }
+
+  /* live caption strip (voice-over): said = white, upcoming = grey, active = white on a blue focus underline */
+  #cap { position: absolute; left: 90px; width: 900px; border-radius: 24px; background: #0F1114; box-shadow: 0 0 0 2px #2A2E35 inset;
+    padding: 18px 30px 22px; }
+  #capt { font: 500 44px/1.26 "Geist", sans-serif; color: #9DA2AC; letter-spacing: -0.01em; }
+  #capt .said { color: #FFFFFF; }
+  #capt .on { color: #FFFFFF; font-weight: 600; white-space: nowrap; text-decoration: underline; text-decoration-color: var(--blue); text-decoration-thickness: 0.15em; text-underline-offset: 0.16em; text-decoration-skip-ink: none; }
+</style>
+</head>
+<body>
+<svg id="desk" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+<div class="win" data-layout-allow-overlap></div>
+<svg id="winart" style="position:absolute;left:0;top:0" width="1080" height="1920" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" data-layout-allow-overlap></svg>
+<div class="wmeta"><span class="k" id="kick"></span><span class="d" id="date"></span></div>
+<div id="wait"><svg width="22" height="26" viewBox="0 0 22 26" aria-hidden="true"><rect x="2" y="2" width="6" height="22" rx="2" fill="#F0AE3C"/><rect x="14" y="2" width="6" height="22" rx="2" fill="#F0AE3C"/></svg><span id="waitT"></span></div>
+<div class="ghost g2" id="g2" data-layout-allow-overlap></div>
+<div class="ghost g1" id="g1" data-layout-allow-overlap></div>
+<div id="sheet">
+  <div class="hd">
+    <div class="app"><svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7.5l4.5 4.5L5 16.5"/><path d="M12.5 17h6.5"/></svg></div>
+    <div class="hd-t"><b id="ask"></b><span id="step"></span></div>
+  </div>
+  <div class="act" id="act"></div>
+  <div id="tw"><div id="hlbg" aria-hidden="true" data-layout-allow-overlap></div><h1 id="title"></h1></div>
+  <div id="rows"></div>
+  <div class="fine"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#5E636E" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><path d="M12 7.6v.2"/></svg><span id="src"></span></div>
+  <div class="btns"><div class="btn no" id="no"></div><div class="btn yes" id="yes"></div></div>
+</div>
+<svg id="cursor" viewBox="0 0 50 72" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" data-layout-allow-overlap>
+  <path d="M3 3 L3 56 L16 43.5 L25.5 66 L34.5 62 L25 40 L42.5 40 Z" fill="#FFFFFF" stroke="#1F1F1F" stroke-width="3.2" stroke-linejoin="round"/>
+</svg>
+<div id="cap" data-slot="caption"><div id="capt"></div></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Tools AI", ep: "#07", kicker: "Tools AI · #07",
+    title: "Agen boleh kirim email ke 240 kontak?", hl: "240 kontak",
+    sub: "Agen yang baik berhenti dulu sebelum aksi yang nggak bisa dibatalkan.",
+    items: [{ label: "Aksi", value: "kirim email" }, { label: "Penerima", value: "240 kontak" }, { label: "Bisa dibatalkan", value: "tidak" }],
+    source: "ilustrasi alur human-in-the-loop", date: "per 14 Okt 2026" };
+
+  const fontsIn = Promise.all(['700 96px "Geist"', '500 36px "Geist"', '600 32px "Geist"', '600 40px "Geist Mono"', '500 26px "Geist Mono"']
+    .map(f => document.fonts.load(f))).catch(() => {});
+  fontsIn.then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  // ---------- request chrome (overridable, with fallbacks) ----------
+  $("ask").textContent = D.ask || "Agen minta izin";
+  $("step").textContent = D.step || "langkah 7/12 · dijeda";
+  $("act").textContent = D.action || "aksi berikutnya:";
+  $("no").textContent = D.no || "Jangan izinkan";
+  $("yes").textContent = D.yes || "Izinkan sekali";
+  $("waitT").textContent = D.status || "menunggu persetujuan";
+  [$("no"), $("yes")].forEach(b => { for (let fs = 40; fs >= 32 && b.scrollWidth > b.clientWidth + 1; fs -= 2) b.style.fontSize = fs + "px"; });
+
+  // ---------- meta ----------
+  $("kick").textContent = D.kicker || [D.series, D.ep].filter(Boolean).join(" · ");
+  $("date").textContent = D.date || "";
+  $("src").textContent = D.source ? "Sumber: " + D.source : "";
+  if (!D.source) $("src").parentNode.style.display = "none";
+
+  // ---------- title with the request's parameter (hl) as a mono argument chip ----------
+  const t = String(D.title || ""), hl = String(D.hl || "");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  $("title").innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+
+  // ---------- definition list = items (key left, mono value right, hairlines) ----------
+  const items = (D.items || []).slice(0, 5);
+  $("rows").innerHTML = items.map(it => '<div class="row"><span class="lab">' + esc(it.label) + '</span><span class="val">' + esc(it.value) + "</span></div>").join("");
+  document.querySelectorAll(".row").forEach(r => {
+    const lab = r.querySelector(".lab"), val = r.querySelector(".val");
+    for (let fs = 40; fs >= 32 && lab.scrollWidth > lab.clientWidth + 1; fs -= 2) val.style.fontSize = fs + "px";
+    for (let fs = 36; fs >= 30 && lab.scrollWidth > lab.clientWidth + 1; fs -= 2) lab.style.fontSize = fs + "px";
+  });
+
+  // ---------- caption (karaoke voice-over line, max 2 lines like a live-caption box) ----------
+  const capTxt = String(D.caption || D.sub || "");
+  const cap = $("cap"), capt = $("capt");
+  const ws = [...capTxt.matchAll(/\S+/g)].map(m => ({ w: m[0], s: m.index, e: m.index + m[0].length }));
+  const hlL = hl.toLowerCase(), ci = hlL ? capTxt.toLowerCase().indexOf(hlL) : -1;
+  let onIdx = ci >= 0 ? ws.map((w, k) => (w.e > ci && w.s < ci + hlL.length) ? k : -1).filter(k => k >= 0) : [];
+  if (!onIdx.length && ws.length) onIdx = [0];
+  // tokens: the contiguous active words become ONE token (one underline)
+  const toks = [];
+  ws.forEach((w, k) => {
+    if (k === onIdx[0]) toks.push({ on: true, html: onIdx.map(j => esc(ws[j].w)).join(" ") });
+    else if (!onIdx.includes(k)) toks.push({ on: false, said: k < onIdx[0], html: esc(w.w) });
+  });
+  const onT = toks.findIndex(x => x.on);
+  let s0 = 0, s1 = toks.length;
+  const draw = () => capt.innerHTML = (s0 > 0 ? "… " : "") + toks.slice(s0, s1).map(x => '<span class="' + (x.on ? "on" : x.said ? "said" : "") + '">' + x.html + "</span>").join(" ") + (s1 < toks.length ? "…" : "");
+  const fits = fs => capt.offsetHeight <= Math.ceil(fs * 1.26 * 2) + 2;
+  let cfs = 44;
+  for (; cfs >= 40; cfs -= 2) { capt.style.fontSize = cfs + "px"; draw(); if (fits(cfs)) break; }
+  cfs = Math.max(cfs, 40); capt.style.fontSize = cfs + "px"; draw();
+  while (!fits(cfs) && s1 - 1 > onT) { s1--; draw(); }
+  while (!fits(cfs) && s0 < onT) { s0++; draw(); }
+  if (!capTxt) cap.style.display = "none";
+  const capTop = 1620 - cap.offsetHeight;
+  cap.style.top = capTop + "px";
+
+  // ---------- fit the sheet between the agent's log and the caption ----------
+  const sheet = $("sheet"), title = $("title"), rowsEl = [...document.querySelectorAll(".row")];
+  const PEEK = 30, BOTTOM = (capTxt ? capTop : 1620) - 20 - PEEK;
+  const TOP_PREF = 512, TOP_MIN = 432;     // TOP_MIN still leaves the paused log line + status chip visible
+  const setRows = h => rowsEl.forEach(r => r.style.height = h + "px");
+  const LEVELS = [{ gap: 28, btn: 104, row: 80 }, { gap: 22, btn: 98, row: 72 }, { gap: 18, btn: 94, row: 66 }];
+  const titleOk = () => title.scrollWidth <= title.clientWidth + 2;
+  const fit = (wide, maxH) => {
+    title.style.marginRight = wide ? "-28px" : "0px";
+    for (const L of LEVELS) {
+      sheet.style.setProperty("--gap", L.gap + "px"); sheet.style.setProperty("--btn", L.btn + "px");
+      for (let fs = 104; fs >= 64; fs -= 2) {
+        title.style.fontSize = fs + "px";
+        if (!titleOk()) continue;
+        for (let rh = 96; rh >= L.row; rh -= 2) { setRows(rh); if (sheet.offsetHeight <= maxH) return true; }
+      }
+    }
+    return false;
+  };
+  // the title may use the sheet's right margin only while it stays above the action-button rail (y 900)
+  const place = () => { const t0 = Math.max(TOP_MIN, Math.min(TOP_PREF, BOTTOM - sheet.offsetHeight)); sheet.style.top = t0 + "px"; return t0; };
+  const fitAll = wide => fit(wide, BOTTOM - TOP_PREF) || fit(wide, BOTTOM - TOP_MIN);
+  fitAll(true); place();
+  if (title.getBoundingClientRect().bottom > 896) { fitAll(false); place(); }
+  const sh = sheet.offsetHeight, top = place();
+
+  // hl chip fill, measured after the final fit (one rect per line fragment)
+  const hlEl = title.querySelector(".hl");
+  if (hlEl) {
+    const tw = $("tw").getBoundingClientRect(), em = parseFloat(getComputedStyle(hlEl).fontSize);
+    $("hlbg").innerHTML = [...hlEl.getClientRects()].map(r => '<i style="left:' + (r.left - tw.left).toFixed(1) + 'px;top:' + (r.top - tw.top + 0.12 * em).toFixed(1) +
+      'px;width:' + r.width.toFixed(1) + 'px;height:' + (r.height - 0.16 * em).toFixed(1) + 'px;border-radius:' + (0.14 * em).toFixed(1) + 'px"></i>').join("");
+  }
+
+  // queued sheets peeking out underneath
+  const g1 = $("g1"), g2 = $("g2");
+  g1.style.top = (top + 40) + "px"; g1.style.height = (sh - 40 + 16) + "px";
+  g2.style.top = (top + 80) + "px"; g2.style.height = (sh - 80 + PEEK) + "px";
+
+  // cursor (frame 0): resting under the SAFE button; the hook glides it right toward the red one
+  const no = $("no").getBoundingClientRect();
+  const cur = $("cursor");
+  cur.style.left = Math.round(no.left + no.width * 0.56 - 3) + "px";
+  cur.style.top = Math.round(no.bottom + 14 - 3) + "px";
+
+  // ---------- desktop + agent window art (decoration only, no text) ----------
+  const W = 992, X0 = 44;
+  $("desk").innerHTML = '<defs><radialGradient id="glow" cx="540" cy="' + (top + sh / 2) + '" r="760" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#292C34"/><stop offset="1" stop-color="#1B1D22"/></radialGradient></defs><rect width="1080" height="1920" fill="url(#glow)"/>';
+
+  let a = '';
+  // title bar: three neutral dots + hairline
+  [86, 116, 146].forEach(cx => a += '<circle cx="' + cx + '" cy="230" r="8.5" fill="#454A54"/>');
+  a += '<rect x="' + (X0 + 2) + '" y="262" width="' + (W - 4) + '" height="2" fill="#2E323A"/>';
+  // log lines drawn as monospaced word-cells (15 px per character), not text
+  const cells = (x, y, words, fill, first) => words.map((n, i) => { const w = n * 15; const r = '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="14" rx="2.5" fill="' + (i === 0 && first ? first : fill) + '"/>'; x += w + 15; return r; }).join("");
+  const tick = (x, y) => '<path d="M' + x + ',' + (y + 7) + ' l7,7 l13,-15" fill="none" stroke="#7D8594" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>';
+  // the paused (current) line sits just above the sheet: amber chevron + pending command + status chip
+  const pY = top - 24 - 52;                // chip box top
+  const wait = $("wait");
+  wait.style.top = pY + "px";
+  a += '<path d="M92,' + (pY + 15) + ' l11,11 l-11,11" fill="none" stroke="#F0AE3C" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>';
+  a += cells(128, pY + 19, [5, 9, 6], "#6A5A3C", "#8C7443");
+  // finished lines above it, as many as fit under the meta row
+  const DONE = [[4, 9, 6], [6, 3, 11, 4], [5, 8, 2, 7], [7, 4, 9], [3, 10, 5, 3]];
+  for (let y = pY - 40, k = 0; y >= 350 && k < DONE.length; y -= 40, k++) {
+    a += tick(90, y) + cells(128, y + 4, DONE[k], "#3E434D", "#555B67");
+    a += '<rect x="' + (1036 - 48 - 75) + '" y="' + (y + 4) + '" width="75" height="14" rx="2.5" fill="#363A43"/>';
+  }
+  // agent input box at the window bottom, disabled while it waits (below the caption, decoration)
+  const iy = 1676;
+  a += '<rect x="92" y="' + iy + '" width="896" height="92" rx="24" fill="#1D2025" stroke="#343943" stroke-width="2"/>';
+  a += '<path d="M126,' + (iy + 34) + ' l12,12 l-12,12" fill="none" stroke="#4A505B" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>';
+  a += '<rect x="160" y="' + (iy + 39) + '" width="3" height="18" fill="#4A505B"/>';
+  a += '<circle cx="942" cy="' + (iy + 46) + '" r="24" fill="#2A2E35"/><rect x="933" y="' + (iy + 35) + '" width="6" height="22" rx="2" fill="#5A606B"/><rect x="945" y="' + (iy + 35) + '" width="6" height="22" rx="2" fill="#5A606B"/>';
+  $("winart").innerHTML = a;
+  }
+</script>
+</body>
+</html>

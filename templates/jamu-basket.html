@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Rammetto+One&family=Caveat+Brush&family=Patrick+Hand&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Jamu Basket (jamu-basket): a jamu seller's corner on a sunlit, whitewashed warung
+    wall. A painted signboard hangs on two strings; below it the bottles have been lifted
+    out of the woven bakul and tipped over one big ribbed glass that is already brimming.
+    Metaphor: model merging - a new model is blended from the weights of a few existing
+    models in set shares, like jamu mixed to order, instead of being trained from scratch.
+    Items = bottles; each one carries a hand-lettered sticker label along its body
+    (label = model / part, value = its share). hl = the bottle pouring the most:
+    turmeric brew, the only thick stream, its value ringed in turmeric marker.
+    Title = the signboard (sign-painter lettering, hl repainted in turmeric).
+    Caption = a resep scribbled on a sheet torn from a school exercise book.
+    Fully deterministic: hard-coded shapes, no randomness.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #F1EBDD; }
+  body { position: relative; color: #2A1F18; }
+  #scene { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* ---------- hanging signboard ---------- */
+  .sign { position: absolute; left: 74px; width: 932px; top: 300px; padding: 30px 52px 26px; text-align: center; border-radius: 12px;
+          color: #F6E8C9; transform: rotate(-0.35deg); transform-origin: 50% 0;
+          background:
+            repeating-linear-gradient(179deg, rgba(255, 236, 214, 0.035) 0 3px, transparent 3px 13px),
+            linear-gradient(100deg, #A1352B 0%, #8E2A22 46%, #84251E 100%);
+          box-shadow: 0 9px 0 #5A1A14, 0 9px 0 1px rgba(60, 18, 12, 0.5); }
+  .sign::before { content: ""; position: absolute; inset: 13px; border: 3px solid rgba(246, 232, 201, 0.8); border-radius: 10px; pointer-events: none; }
+  .sign.tight { padding-top: 22px; padding-bottom: 18px; }
+  .sign.tight .title { margin: 6px 0 8px; }
+  .kick { font: 400 28px "Rammetto One", serif; letter-spacing: 0.07em; line-height: 1.2; color: #F2C462; text-transform: uppercase; white-space: nowrap; }
+  .kick i { display: inline-block; width: 12px; height: 12px; background: #F2C462; transform: rotate(45deg); margin: 0 18px; vertical-align: 0.16em; }
+  .title { font-family: "Rammetto One", serif; font-weight: 400; line-height: 1.12; letter-spacing: -0.01em; margin: 12px 0 14px; color: #F6E8C9; text-wrap: balance;
+           text-shadow: 1px 1px 0 #4B1410, 2px 2px 0 #4B1410, 3px 3px 0 #4B1410, 4px 4px 0 #4B1410, 5px 5px 0 #4B1410; }
+  .title .hl { color: #F2AB24; }
+  .date { font: 400 26px "Rammetto One", serif; letter-spacing: 0.06em; line-height: 1.2; color: #F2C462; text-transform: uppercase; white-space: nowrap; }
+
+  /* ---------- sticker labels on the bottles ---------- */
+  .lab { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #2A1F18; border-radius: 12px; padding: 11px 22px 12px;
+         background: linear-gradient(to bottom, #ECE6D8 0%, #FFFDF6 24%, #FFFDF6 70%, #E9E2D2 100%); }
+  .lab::before { content: ""; position: absolute; inset: 6px; border: 2.5px solid #3A64AE; border-radius: 8px; pointer-events: none; }
+  .lab .lb { font: 400 35px "Caveat Brush", cursive; line-height: 1.14; }
+  .lab .vl { position: relative; display: inline-block; font: 400 46px "Caveat Brush", cursive; line-height: 1.1; white-space: nowrap; margin-top: 2px; }
+  .lab.hl .vl { color: #A3302A; }
+  .ring { position: absolute; pointer-events: none; overflow: visible; }
+
+  /* ---------- torn exercise-book sheet with the caption ---------- */
+  .sheetw { position: absolute; left: 78px; width: 924px; filter: drop-shadow(10px 14px 9px rgba(96, 68, 38, 0.30)); transform: rotate(-0.7deg); }
+  .sheet { position: relative; padding: 20px 34px 8px 100px; color: #1F2B57;
+           background:
+             linear-gradient(to right, transparent 70px, #DE7F78 70px 72.5px, transparent 72.5px 77px, #DE7F78 77px 79.5px, transparent 79.5px),
+             linear-gradient(to bottom, transparent 0 45px, #AFC3E4 45px 47.5px, transparent 47.5px) 0 20px / 100% 52px repeat-y,
+             #FCFAF3;
+           clip-path: polygon(0 9px, 2.5% 4px, 5% 10px, 7.5% 5px, 10% 11px, 13% 4px, 16% 9px, 19% 3px, 22% 10px, 25% 5px, 28% 9px, 31% 3px, 34% 10px, 37% 6px, 40% 11px, 43% 4px, 46% 9px, 49% 3px, 52% 10px, 55% 5px, 58% 11px, 61% 4px, 64% 9px, 67% 3px, 70% 10px, 73% 5px, 76% 9px, 79% 3px, 82% 10px, 85% 5px, 88% 11px, 91% 4px, 94% 9px, 97% 3px, 100% 8px, 100% 100%, 0 100%); }
+  .cap { position: relative; font: 400 46px "Patrick Hand", cursive; line-height: 52px; letter-spacing: 0.005em; text-wrap: balance; }
+  .cap .w { color: #56638C; }
+  .cap .w.done { color: #1F2B57; }
+  .cap .w.on { position: relative; color: #1F2B57; }
+  .src { font: 400 27px "Patrick Hand", cursive; line-height: 36px; color: #4A4F66; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+</style>
+</head>
+<body>
+<svg id="scene" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="sign" id="sign"><div class="kick" id="kick"></div><div class="title" id="title"></div><div class="date" id="date"></div></div>
+<div id="labs"></div>
+<div class="sheetw" id="sheetw"><div class="sheet" id="sheet"><div class="cap" id="cap" data-slot="caption"></div><div class="src" id="src"></div></div></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  Promise.all(['400 90px "Rammetto One"', '400 46px "Caveat Brush"', '400 46px "Patrick Hand"'].map(f => document.fonts.load(f)))
+    .catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const f1 = v => Math.round(v * 10) / 10;
+  const rad = a => a * Math.PI / 180;
+  const TURM = "#E8A11C", SECANG = "#A23128", BLUE = "#2F5DA8", INK = "#2A1F18";
+  // hand-drawn marker loop (viewBox 0 0 100 40), shared by the hl label value and the active caption word
+  const LOOP = "M10 25 C4 12 30 3 56 4 C80 5 98 11 96 22 C94 34 68 39 44 38 C20 37 3 31 5 19 C7 10 24 6 38 6";
+  const ringSvg = (x, y, w, h, sw) => `<svg class="ring" style="left:${f1(x)}px;top:${f1(y)}px;width:${f1(w)}px;height:${f1(h)}px" viewBox="0 0 100 40" preserveAspectRatio="none"><path d="${LOOP}" fill="none" stroke="${TURM}" stroke-width="${sw}" stroke-linecap="round" vector-effect="non-scaling-stroke" opacity="0.92"/></svg>`;
+
+  // ---------- sign: kicker + date (the title is fitted after the bottles know their room) ----------
+  const ep = String(D.ep || "").trim();
+  const ser = String(D.series || D.kicker || "").trim();
+  $("kick").innerHTML = "<i></i>" + esc(ser) + (ep && !ser.includes(ep) ? " · " + esc(ep) : "") + "<i></i>";
+  $("date").textContent = D.date || "";
+  const t = String(D.title || ""), hl = String(D.hl || "").trim();
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl"' + (hl.length <= 18 ? ' style="white-space:nowrap"' : '') + '>' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+
+  // ---------- items: which bottle pours the most ----------
+  const items = (D.items && D.items.length ? D.items : [{ label: "model A", value: "50%" }, { label: "model B", value: "30%" }, { label: "model C", value: "20%" }]).slice(0, 5);
+  const n = items.length;
+  const num = v => { const m = String(v || "").replace(/\./g, "").replace(",", ".").match(/-?\d+(\.\d+)?/); return m ? parseFloat(m[0]) : NaN; };
+  const unit = v => String(v || "").replace(/[±~≈\d.,\s%-]+/, "").trim().toLowerCase();
+  const nums = items.map(it => num(it.value));
+  // hl: among the items that mention D.hl, the one with the biggest value (ties: first); else the biggest value; else the first
+  const pick = idx => { let b = -1, bv = -Infinity; idx.forEach(i => { const v = isNaN(nums[i]) ? -1e9 : nums[i]; if (v > bv) { bv = v; b = i; } }); return b; };
+  let hi = -1;
+  if (hl) { const m = items.map((it, i) => i).filter(i => (String(items[i].label) + " " + String(items[i].value)).toLowerCase().includes(hl.toLowerCase())); if (m.length) hi = pick(m); }
+  if (hi < 0 && nums.some(v => !isNaN(v))) hi = pick(items.map((it, i) => i));
+  if (hi < 0) hi = 0;
+  // stream width: the hl stream is the only thick one; the rest scale a little with the share when they share a unit
+  const sameUnit = n > 1 && nums.every(v => !isNaN(v) && v > 0) && items.every(it => unit(it.value) === unit(items[0].value));
+  const maxV = Math.max(...nums.filter(v => !isNaN(v)), 1);
+  const width = items.map((it, i) => i === hi ? 32 : sameUnit ? 7 + 5 * nums[i] / maxV : 9);
+  // brews: hl = turmeric (kunyit asam); the rest secang, beras kencur, cabe puyang, temulawak
+  const OTHERS = [[SECANG, "#6E1C16"], ["#E9D8AA", "#A88C5A"], ["#7D4B25", "#4A2A12"], ["#D57F2A", "#8E4E14"]];
+  let oi = 0;
+  const brew = items.map((it, i) => i === hi ? [TURM, "#A86A08"] : OTHERS[oi++ % OTHERS.length]);
+  // rows alternate sides, top to bottom: L, R, L, R, L (the left gets the extra row: the right is fenced by the action buttons)
+  const side = items.map((it, i) => i % 2 === 0 ? "L" : "R");
+
+  // ---------- sticker labels: measured first, they size the bottles ----------
+  const labsEl = $("labs");
+  labsEl.innerHTML = items.map((it, i) => '<div class="lab' + (i === hi ? " hl" : "") + '" id="lab' + i + '"><div class="lb">' + esc(it.label) + '</div><div class="vl" id="vl' + i + '">' + esc(it.value) + "</div></div>").join("");
+  const MAXW = { L: 330, R: 286 }, MINW = 176;
+  const FS = n <= 3 ? [37, 50] : n === 4 ? [35, 46] : [33, 42];
+  let labW = {}, labH = 0;
+  function measureLabels(lbFs, vlFs) {
+    const nat = { L: MINW, R: MINW };
+    items.forEach((it, i) => {
+      const el = $("lab" + i);
+      el.style.width = "auto"; el.style.height = "auto"; el.style.maxWidth = MAXW[side[i]] + "px";
+      el.querySelector(".lb").style.fontSize = lbFs + "px";
+      const vl = $("vl" + i);
+      for (let fs = vlFs; fs >= 38; fs -= 2) { vl.style.fontSize = fs + "px"; if (vl.offsetWidth <= MAXW[side[i]] - 44) break; }
+      nat[side[i]] = Math.max(nat[side[i]], Math.ceil(el.getBoundingClientRect().width));
+    });
+    labW = { L: Math.min(MAXW.L, nat.L), R: Math.min(MAXW.R, nat.R) };
+    labH = 0;
+    items.forEach((it, i) => { const el = $("lab" + i); el.style.width = labW[side[i]] + "px"; labH = Math.max(labH, el.offsetHeight); });
+    items.forEach((it, i) => { $("lab" + i).style.height = labH + "px"; });
+  }
+
+  // ---------- bottle geometry ----------
+  // local frame: base at (0,0), mouth at (0,-L); a bottle is placed by its mouth (mx,my) and tilt a (deg, clockwise from upright)
+  function bottle(lw, lh) {
+    const w = lh / 2 + 12, bodyLen = lw + 54, shL = w * 0.9, neckW = Math.max(15, w * 0.29), neckLen = 46, lipW = neckW + 5, lipH = 12, r = 12;
+    const L = bodyLen + shL + neckLen + lipH;
+    const d = `M${f1(-w + r)} 0 Q${f1(-w)} 0 ${f1(-w)} ${-r} L${f1(-w)} ${f1(-bodyLen)} C${f1(-w)} ${f1(-bodyLen - shL * 0.62)} ${f1(-neckW)} ${f1(-bodyLen - shL * 0.5)} ${f1(-neckW)} ${f1(-bodyLen - shL)}` +
+      ` L${f1(-neckW)} ${f1(-(L - lipH))} L${f1(-lipW)} ${f1(-(L - lipH))} L${f1(-lipW)} ${f1(-L + 3)} Q${f1(-lipW)} ${f1(-L)} ${f1(-lipW + 3)} ${f1(-L)}` +
+      ` L${f1(lipW - 3)} ${f1(-L)} Q${f1(lipW)} ${f1(-L)} ${f1(lipW)} ${f1(-L + 3)} L${f1(lipW)} ${f1(-(L - lipH))} L${f1(neckW)} ${f1(-(L - lipH))}` +
+      ` L${f1(neckW)} ${f1(-bodyLen - shL)} C${f1(neckW)} ${f1(-bodyLen - shL * 0.5)} ${f1(w)} ${f1(-bodyLen - shL * 0.62)} ${f1(w)} ${f1(-bodyLen)} L${f1(w)} ${-r} Q${f1(w)} 0 ${f1(w - r)} 0 Z`;
+    const outline = [[-w, 0], [w, 0], [-w, -bodyLen], [w, -bodyLen], [-neckW, -bodyLen - shL], [neckW, -bodyLen - shL], [-lipW, -L], [lipW, -L]];
+    return { L, w, bodyLen, shL, neckW, lipW, lipH, d, outline };
+  }
+  const toW = (B, mx, my, a, px, py) => { const c = Math.cos(rad(a)), s = Math.sin(rad(a)), x = px, y = py + B.L; return [mx + x * c - y * s, my + x * s + y * c]; };
+  const TILT = { L: 97, R: -97 };
+  const setTilt = d => { TILT.L = d; TILT.R = -d; };
+  const tiltOf = i => TILT[side[i]] + (i === hi ? (side[i] === "L" ? 6 : -6) : 0);
+  const rotOf = i => side[i] === "L" ? tiltOf(i) - 90 : tiltOf(i) + 90; // label text runs along the bottle and reads left to right
+  // boxes relative to the mouth at (0,0)
+  function boxes(i, B) {
+    const a = tiltOf(i);
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    B.outline.forEach(p => { const q = toW(B, 0, 0, a, p[0], p[1]); x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); });
+    const c = toW(B, 0, 0, a, 0, -B.bodyLen / 2), r = rad(rotOf(i)), lw = labW[side[i]];
+    const hx = lw / 2 * Math.abs(Math.cos(r)) + labH / 2 * Math.abs(Math.sin(r)), hy = lw / 2 * Math.abs(Math.sin(r)) + labH / 2 * Math.abs(Math.cos(r));
+    return { b: [x0, x1, y0, y1], l: [c[0] - hx, c[0] + hx, c[1] - hy, c[1] + hy], c };
+  }
+
+  // ---------- glass, basket, bench (fixed) ----------
+  const GT = 1162, GB = 1442, GTR = 142, GBR = 110, GRY = 21, GBRY = 15;
+  const BENCH_Y = 1372, BX = 540, RIM_Y = 1250, BRX = 404, BRY = 44, BASE_Y = 1420, BBX = 348, BBY = 30;
+  const MOUTH_MAX = GT - 62, LAB_MAX = GT - 14;
+
+  // ---------- vertical solver ----------
+  // same-side bottles stack without touching; rows step down in item order; the lowest mouth stays above
+  // the glass so every stream shows; no label may come down to the rim (the glass is a no-go zone).
+  let B = {}, BX_ = [], mx = [], GX = 540;
+  function layout(lbFs, vlFs, GAP, STEP, tilt) {
+    setTilt(tilt);
+    measureLabels(lbFs, vlFs);
+    B = { L: bottle(labW.L, labH), R: bottle(labW.R, labH) };
+    BX_ = items.map((it, i) => boxes(i, B[side[i]]));
+    // mouths: labels pinned inside x 92..898 (the right side is fenced by the action buttons)
+    mx = items.map((it, i) => side[i] === "L" ? 92 - BX_[i].l[0] : 898 - BX_[i].l[1]);
+    const mL = items.map((it, i) => i).filter(i => side[i] === "L").map(i => mx[i]);
+    const mR = items.map((it, i) => i).filter(i => side[i] === "R").map(i => mx[i]);
+    GX = Math.max(492, Math.min(588, ((mL.length ? Math.min(...mL) : 540) + (mR.length ? Math.max(...mR) : 540)) / 2));
+    // keep the mouths over the glass opening
+    mx = mx.map((x, i) => side[i] === "L" ? Math.min(x, GX + 86) : Math.max(x, GX - 86));
+    // relative rows (objTop = 0)
+    const top = BX_.map(b => Math.min(b.b[2], b.l[2])), bot = BX_.map(b => Math.max(b.b[3], b.l[3]));
+    const Y = [];
+    for (let i = 0; i < n; i++) {
+      let y = i === 0 ? -top[0] : Y[i - 1] + STEP;
+      for (let j = i - 1; j >= 0; j--) if (side[j] === side[i]) { y = Math.max(y, Y[j] + bot[j] + GAP - top[i]); break; }
+      Y.push(y);
+    }
+    const need = Math.max(...Y.map((y, i) => Math.max(y - MOUTH_MAX, y + BX_[i].l[3] - LAB_MAX)));
+    return { Y, need, top, bot };
+  }
+  // the sign at its smallest decides how tight the bottles must pack (long titles need a third line)
+  const signEl = $("sign");
+  const TW = 828, TITLE_MIN = 56;
+  const signAt = fs => { titleEl.style.fontSize = fs + "px"; return 300 + signEl.offsetHeight + 9; };
+  let signMin = signAt(TITLE_MIN);
+  if (signMin > 640) { signEl.classList.add("tight"); signMin = signAt(TITLE_MIN); }
+  const tries = [[FS[0], FS[1], 16, 56, 97], [FS[0], FS[1], 8, 46, 97], [32, 40, 8, 46, 96], [31, 38, 6, 42, 95], [30, 36, 3, 38, 94]];
+  let L;
+  for (const tr of tries) { L = layout(...tr); if (-L.need - 24 >= signMin || tr === tries[tries.length - 1]) break; }
+  const signBottomMax = Math.min(-L.need - 24, n <= 3 ? 700 : 680);
+
+  // ---------- fit the title on the sign ----------
+  for (let fs = 104; fs >= TITLE_MIN; fs -= 2) {
+    titleEl.style.fontSize = fs + "px";
+    if (300 + signEl.offsetHeight + 9 <= signBottomMax && titleEl.scrollWidth <= TW) break;
+  }
+  const signBottom = 300 + signEl.offsetHeight + 9;
+
+  // ---------- place the rows, spreading spare room ----------
+  const objTop = signBottom + 24;
+  let Y = L.Y.map(y => y + objTop);
+  const spare = -L.need - objTop; // >= 0 when everything fits
+  if (spare > 0 && n > 1) {
+    const s = Math.min(spare, 300);
+    Y = Y.map((y, i) => y + s * 0.3 + s * 0.7 * i / (n - 1));
+  }
+
+  // ---------- caption on the exercise-book sheet ----------
+  const capEl = $("cap");
+  const cap = String(D.caption || D.sub || "").trim();
+  let words = cap.split(/\s+/).filter(Boolean);
+  const norm = w => w.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+  let s0 = -1, s1 = -1;
+  if (hl) {
+    const hw = hl.split(/\s+/).map(norm).filter(Boolean);
+    for (let i = 0; i + hw.length <= words.length && s0 < 0; i++) {
+      if (hw.every((h, k) => norm(words[i + k]) === h || (hw.length === 1 && norm(words[i]).includes(h)))) { s0 = i; s1 = i + hw.length - 1; }
+    }
+  }
+  if (s0 < 0) { s0 = 0; s1 = 0; }
+  function capHtml(ws, cut) {
+    const parts = [];
+    for (let i = 0; i < ws.length; i++) {
+      const last = cut && i === ws.length - 1 ? "…" : "";
+      if (i === s0) { parts.push('<span class="w on" id="won">' + esc(ws.slice(s0, Math.min(s1, ws.length - 1) + 1).join(" ")) + last + "</span>"); i = s1; continue; }
+      parts.push('<span class="w' + (i < s0 ? " done" : "") + '">' + esc(ws[i]) + last + "</span>");
+    }
+    return parts.join(" ");
+  }
+  capEl.innerHTML = capHtml(words, false);
+  let capFs = 46;
+  for (; capFs >= 40; capFs -= 2) { capEl.style.fontSize = capFs + "px"; if (capEl.offsetHeight <= 52 * 2 + 2) break; }
+  capFs = Math.max(capFs, 40); capEl.style.fontSize = capFs + "px";
+  // still more than 2 lines at 40 px: trim words and end with an ellipsis (never drop the active word)
+  let ws = words.slice();
+  while (capEl.offsetHeight > 52 * 2 + 2 && ws.length > s1 + 2) { ws.pop(); capEl.innerHTML = capHtml(ws, true); }
+  $("src").textContent = D.source ? "sumber: " + D.source : "";
+  const sheetw = $("sheetw");
+  const SHEET_B = 1628;
+  const sheetTop = Math.max(GB + 14, SHEET_B - sheetw.offsetHeight);
+  sheetw.style.top = sheetTop + "px";
+  // turmeric marker loop around the active word
+  const won = $("won");
+  if (won) {
+    const x = won.offsetLeft, y = won.offsetTop, w = won.offsetWidth, h = won.offsetHeight;
+    capEl.insertAdjacentHTML("beforeend", ringSvg(x - 18, y - 2, w + 36, h + 8, 5));
+  }
+
+  // ---------- SVG scene ----------
+  let S = `<defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#EEE7D8"/><stop offset="0.5" stop-color="#F3EDE1"/><stop offset="1" stop-color="#E9E0CE"/></linearGradient>
+    <linearGradient id="bench" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9C7547"/><stop offset="0.1" stop-color="#B98E5C"/><stop offset="0.55" stop-color="#CFA874"/><stop offset="1" stop-color="#D9B786"/></linearGradient>
+    <linearGradient id="benchX" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FFF4DC" stop-opacity="0.22"/><stop offset="0.5" stop-color="#FFF4DC" stop-opacity="0"/><stop offset="1" stop-color="#5A3E22" stop-opacity="0.18"/></linearGradient>
+    <linearGradient id="beam" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5E4128"/><stop offset="0.7" stop-color="#7C5836"/><stop offset="1" stop-color="#4E3420"/></linearGradient>
+    <filter id="b30" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="30"/></filter>
+    <filter id="b12" x="-30%" y="-40%" width="160%" height="180%"><feGaussianBlur stdDeviation="12"/></filter>
+    <filter id="b6" x="-30%" y="-60%" width="160%" height="220%"><feGaussianBlur stdDeviation="6"/></filter>
+    <pattern id="weave" width="22" height="22" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="22" height="22" fill="#7A5A36"/>
+      <rect x="0.6" y="0.6" width="9.8" height="9.8" fill="#D9B27A"/><rect x="0.6" y="1.2" width="9.8" height="1.6" fill="#EDD0A0"/>
+      <rect x="11.6" y="11.6" width="9.8" height="9.8" fill="#D9B27A"/><rect x="11.6" y="12.2" width="9.8" height="1.6" fill="#EDD0A0"/>
+      <rect x="11.6" y="0.6" width="9.8" height="9.8" fill="#B48B58"/><rect x="12.2" y="0.6" width="1.6" height="9.8" fill="#C9A06A"/>
+      <rect x="0.6" y="11.6" width="9.8" height="9.8" fill="#B48B58"/><rect x="1.2" y="11.6" width="1.6" height="9.8" fill="#C9A06A"/>
+    </pattern>
+    <pattern id="lurik" width="40" height="40" patternUnits="userSpaceOnUse" patternTransform="rotate(-8)">
+      <rect width="40" height="40" fill="#2E4A78"/><rect x="0" width="5" height="40" fill="#E9DFC8"/><rect x="9" width="2.5" height="40" fill="#A23128"/>
+      <rect x="15" width="2" height="40" fill="#E9DFC8"/><rect x="26" width="7" height="40" fill="#22385E"/>
+    </pattern>
+    <linearGradient id="cyl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3B2814" stop-opacity="0.08"/><stop offset="0.28" stop-color="#FFF6E4" stop-opacity="0.22"/><stop offset="0.6" stop-color="#3B2814" stop-opacity="0.1"/><stop offset="1" stop-color="#3B2814" stop-opacity="0.55"/></linearGradient>
+  </defs>`;
+  S += `<rect width="1080" height="1920" fill="url(#wall)"/>`;
+  // limewash: soft blotches, a hairline crack
+  [[180, 860, 210, 120, "#E3D9C5", 0.55], [860, 760, 240, 140, "#E5DBC8", 0.5], [640, 1180, 260, 110, "#E2D7C2", 0.45], [300, 1250, 200, 90, "#FBF8F1", 0.7], [900, 1080, 160, 120, "#FAF6EE", 0.6]]
+    .forEach(([cx, cy, rx, ry, c, o]) => { S += `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${c}" opacity="${o}" filter="url(#b30)"/>`; });
+  // morning sun through a two-pane window, falling from the upper left; bar shadows slant with it
+  S += `<g filter="url(#b12)"><path d="M-40 150 L470 96 L1120 1080 L1120 1330 L-40 1420 Z" fill="#FFF7E2" opacity="0.62"/></g>`;
+  S += `<g filter="url(#b6)" opacity="0.16" fill="#8A7558"><path d="M150 132 L178 129 L760 1360 L728 1364 Z"/><path d="M-40 640 L-40 668 L1120 560 L1120 532 Z"/></g>`;
+  S += `<path d="M-40 1420 L1120 1330 L1120 1372 L-40 1372 Z" fill="#E6DCC8" opacity="0.5"/>`;
+  // beam under the eaves + the strings the signboard hangs from
+  S += `<rect x="0" y="0" width="1080" height="64" fill="url(#beam)"/><rect x="0" y="64" width="1080" height="16" fill="#6B5A44" opacity="0.18" filter="url(#b6)"/>`;
+  [[214, 0], [866, 0]].forEach(([x]) => {
+    S += `<path d="M${x} 52 C${x + 2} 160 ${x - 2} 230 ${x} 306" fill="none" stroke="#6E5E48" stroke-width="3"/>`;
+    S += `<path d="M${x - 10} 46 Q${x} 64 ${x + 10} 46" fill="none" stroke="#6E5E48" stroke-width="3"/>`;
+    S += `<circle cx="${x}" cy="304" r="7" fill="none" stroke="#7A6A55" stroke-width="3"/>`;
+  });
+  // the sign's shadow on the wall (sun upper left -> shadow to the lower right)
+  S += `<rect x="${74 + 22}" y="${300 + 30}" width="932" height="${signBottom - 300}" rx="14" fill="#6E5638" opacity="0.26" filter="url(#b12)"/>`;
+
+  // bench: sunlit planks, wall line, grain
+  S += `<rect x="0" y="${BENCH_Y}" width="1080" height="${1920 - BENCH_Y}" fill="url(#bench)"/><rect x="0" y="${BENCH_Y}" width="1080" height="${1920 - BENCH_Y}" fill="url(#benchX)"/>`;
+  S += `<rect x="0" y="${BENCH_Y - 6}" width="1080" height="8" fill="#6B5034" opacity="0.25" filter="url(#b6)"/><rect x="0" y="${BENCH_Y}" width="1080" height="3" fill="#E8CFA0" opacity="0.7"/>`;
+  [[1500, 3], [1676, 4], [1860, 5]].forEach(([y, h]) => { S += `<rect x="0" y="${y}" width="1080" height="${h}" fill="#6E4F2E" opacity="0.5"/><rect x="0" y="${y + h}" width="1080" height="2" fill="#F0D9AE" opacity="0.55"/>`; });
+  ["M0 1420 C240 1412 420 1428 660 1418 S940 1412 1080 1422", "M0 1560 C200 1552 460 1570 720 1556 S980 1550 1080 1562", "M0 1744 C260 1736 500 1756 780 1740 S990 1734 1080 1746",
+   "M0 1800 C220 1794 540 1812 840 1798 S1010 1794 1080 1802", "M0 1900 C300 1892 600 1910 900 1896"].forEach((g, k) => { S += `<path d="${g}" fill="none" stroke="#7A5832" stroke-width="${k % 2 ? 2 : 1.5}" opacity="0.2"/>`; });
+
+  // ---------- the bakul (behind the glass) ----------
+  S += `<g filter="url(#b12)"><ellipse cx="${BX + 70}" cy="${BASE_Y + 4}" rx="${BBX + 60}" ry="26" fill="#5A3E22" opacity="0.4"/></g>`;
+  S += `<ellipse cx="${BX}" cy="${RIM_Y}" rx="${BRX}" ry="${BRY}" fill="url(#weave)"/><ellipse cx="${BX}" cy="${RIM_Y}" rx="${BRX}" ry="${BRY}" fill="#2B1C0F" opacity="0.62"/>`;
+  const bodyP = `M${BX - BRX} ${RIM_Y} A${BRX} ${BRY} 0 0 0 ${BX + BRX} ${RIM_Y} L${BX + BBX} ${BASE_Y - BBY} A${BBX} ${BBY} 0 0 1 ${BX - BBX} ${BASE_Y - BBY} Z`;
+  S += `<path d="${bodyP}" fill="url(#weave)"/><path d="${bodyP}" fill="url(#cyl)"/>`;
+  S += `<path d="M${BX - BBX - 4} ${BASE_Y - BBY - 16} A${BBX + 4} ${BBY + 2} 0 0 0 ${BX + BBX + 4} ${BASE_Y - BBY - 16} L${BX + BBX} ${BASE_Y - BBY} A${BBX} ${BBY} 0 0 1 ${BX - BBX} ${BASE_Y - BBY} Z" fill="#8A6640"/>`;
+  S += `<path d="M${BX - BRX} ${RIM_Y} A${BRX} ${BRY} 0 0 1 ${BX + BRX} ${RIM_Y}" fill="none" stroke="#9C7748" stroke-width="12" stroke-linecap="round"/>`;
+  S += `<path d="M${BX - BRX} ${RIM_Y} A${BRX} ${BRY} 0 0 0 ${BX + BRX} ${RIM_Y}" fill="none" stroke="#B48A55" stroke-width="22" stroke-linecap="round"/>`;
+  for (let k = 2; k <= 54; k++) {
+    const th = Math.PI * k / 56, x = BX - BRX * Math.cos(th), y = RIM_Y + BRY * Math.sin(th);
+    S += `<line x1="${f1(x - 6)}" y1="${f1(y - 9)}" x2="${f1(x + 6)}" y2="${f1(y + 9)}" stroke="#EBCB92" stroke-width="4" stroke-linecap="round" opacity="0.85"/>`;
+  }
+  S += `<path d="M${BX - BRX} ${RIM_Y} A${BRX} ${BRY} 0 0 0 ${BX + BRX} ${RIM_Y}" fill="none" stroke="url(#cyl)" stroke-width="22" stroke-linecap="round"/>`;
+  // lurik selendang (the sling a jamu gendong seller carries the bakul with), draped over the left rim
+  { const x0 = BX - BRX;
+    const over = `M${x0 + 14} ${RIM_Y - 12} C${x0 + 70} ${RIM_Y - 32} ${x0 + 150} ${RIM_Y - 22} ${x0 + 204} ${RIM_Y + 4} L${x0 + 202} ${RIM_Y + 26} C${x0 + 140} ${RIM_Y + 12} ${x0 + 70} ${RIM_Y - 10} ${x0 + 14} ${RIM_Y - 12} Z`;
+    const hang = `M${x0 + 14} ${RIM_Y - 12} C${x0 + 70} ${RIM_Y - 10} ${x0 + 140} ${RIM_Y + 12} ${x0 + 202} ${RIM_Y + 26} C${x0 + 214} ${RIM_Y + 60} ${x0 + 220} ${BASE_Y - 90} ${x0 + 230} ${BASE_Y - 44}` +
+      ` C${x0 + 196} ${BASE_Y - 30} ${x0 + 160} ${BASE_Y - 20} ${x0 + 130} ${BASE_Y - 24} C${x0 + 106} ${BASE_Y - 28} ${x0 + 84} ${BASE_Y - 36} ${x0 + 66} ${BASE_Y - 44} C${x0 + 40} ${BASE_Y - 110} ${x0 + 22} ${RIM_Y + 50} ${x0 + 14} ${RIM_Y - 12} Z`;
+    S += `<defs><linearGradient id="folds" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#0E1626" stop-opacity="0.45"/><stop offset="0.16" stop-color="#FFFFFF" stop-opacity="0.08"/><stop offset="0.32" stop-color="#0E1626" stop-opacity="0.3"/><stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0.1"/><stop offset="0.68" stop-color="#0E1626" stop-opacity="0.32"/><stop offset="0.84" stop-color="#FFFFFF" stop-opacity="0.04"/><stop offset="1" stop-color="#0E1626" stop-opacity="0.5"/></linearGradient></defs>`;
+    S += `<path d="${over}" fill="url(#lurik)"/><path d="${over}" fill="#0E1626" opacity="0.35"/>`;
+    S += `<path d="${hang}" fill="url(#lurik)"/><path d="${hang}" fill="url(#folds)"/>`;
+    let fr = "";
+    for (let k = 0; k <= 20; k++) { const t = k / 20, fx = x0 + 70 + t * 156, fy = BASE_Y - 42 + Math.sin(t * Math.PI) * 20 - t * 2; fr += `M${f1(fx)} ${f1(fy)} l${f1(-1 + t * 2)} 13 `; }
+    S += `<path d="${fr}" stroke="#E9DFC8" stroke-width="2.4" stroke-linecap="round" opacity="0.85"/>`; }
+
+  // ---------- streams: tapered liquid, leaving the lower lip and falling into the glass ----------
+  const LS = GT + 9; // brimming
+  const rAt = yy => GTR + (GBR - GTR) * (yy - GT) / (GB - GT);
+  const order = { L: 0, R: 0 };
+  const bez = (P, t) => { const m = 1 - t; return [0, 1].map(k => m * m * m * P[0][k] + 3 * m * m * t * P[1][k] + 3 * m * t * t * P[2][k] + t * t * t * P[3][k]); };
+  const bezD = (P, t) => { const m = 1 - t; return [0, 1].map(k => 3 * m * m * (P[1][k] - P[0][k]) + 6 * m * t * (P[2][k] - P[1][k]) + 3 * t * t * (P[3][k] - P[2][k])); };
+  const streams = items.map((it, i) => {
+    const s = side[i], a = tiltOf(i), Bq = B[s], x = mx[i], y = Y[i];
+    const u = [Math.sin(rad(a)), -Math.cos(rad(a))];
+    const j = order[s]++, dir = s === "L" ? 1 : -1, big = i === hi;
+    const p0 = toW(Bq, x, y, a, (s === "L" ? 1 : -1) * Bq.lipW * 0.15, -Bq.L - 2);
+    let xe = p0[0] + dir * (big ? 80 : 22 + 10 * j);
+    xe = Math.max(GX - GTR + 36, Math.min(GX + GTR - 36, xe));
+    const k = big ? Math.min(62, Math.abs(xe - p0[0]) * 0.8) : 16;
+    const P = [p0, [p0[0] + u[0] * k, p0[1] + u[1] * k], [xe, p0[1] + (LS - p0[1]) * (big ? 0.4 : 0.22)], [xe, LS]];
+    const w = width[i], w0 = Math.min(w * 1.05, Bq.neckW * 2 - 2), w1 = w * 0.86;
+    const Lp = [], Rp = [], C = [], Nn = [];
+    for (let q = 0; q <= 40; q++) {
+      const t = q / 40, c = bez(P, t), dv = bezD(P, t), len = Math.hypot(dv[0], dv[1]) || 1, nx = -dv[1] / len, ny = dv[0] / len;
+      let ww = (t < 0.3 ? w0 + (w1 - w0) * Math.sqrt(t / 0.3) : w1) / 2;
+      ww *= 1 + (big ? 0.07 : 0.04) * Math.sin(t * 19 + i * 1.7) * Math.min(1, t * 4); // a pour necks and swells; it is not a pipe
+      Lp.push([c[0] + nx * ww, c[1] + ny * ww]); Rp.push([c[0] - nx * ww, c[1] - ny * ww]); C.push(c); Nn.push([nx * ww, ny * ww]);
+    }
+    const pts = a => a.map(p => f1(p[0]) + " " + f1(p[1])).join(" L");
+    // light comes from the upper left: highlight on the left edge, shade on the right
+    const lit = q => Nn[q][0] < 0 ? 1 : -1;
+    const band = (q0, q1, f) => "M" + pts(C.slice(q0, q1).map((c, k) => [c[0] + Nn[q0 + k][0] * lit(q0 + k) * f, c[1] + Nn[q0 + k][1] * lit(q0 + k) * f]));
+    return { i, big, d: "M" + pts(Lp) + " L" + pts(Rp.slice().reverse()) + " Z", hl1: band(3, 15, 0.45), hl2: band(19, 38, 0.5), sh: band(6, 40, -0.55),
+             C, Nn, w, c: brew[i][0], e: brew[i][1], xe };
+  });
+  // each thin stream is drawn right after its bottle, so it falls behind the bottles below; the thick hl stream goes on top of all
+  function drawStream(st) {
+    if (st.big) {
+      S += `<path d="${st.d}" fill="${st.c}"/>`;
+      S += `<path d="${st.sh}" fill="none" stroke="${st.e}" stroke-width="${f1(st.w * 0.22)}" stroke-linecap="round" opacity="0.35"/>`;
+      S += `<path d="${st.hl1}" fill="none" stroke="#FFF8E6" stroke-width="${f1(st.w * 0.16)}" stroke-linecap="round" opacity="0.75"/>`;
+      S += `<path d="${st.hl2}" fill="none" stroke="#FFF8E6" stroke-width="${f1(st.w * 0.12)}" stroke-linecap="round" opacity="0.6"/>`;
+      // droplets thrown off the arc
+      [[7, 1.15, 5], [11, -1.2, 3.5], [16, 1.5, 3], [27, -1.35, 3]].forEach(([q, f, r]) => {
+        const c = st.C[q], nn = st.Nn[q];
+        S += `<circle cx="${f1(c[0] + nn[0] * f * 1.6)}" cy="${f1(c[1] + nn[1] * f * 1.6)}" r="${r}" fill="${st.c}"/>`;
+      });
+    } else {
+      S += `<path d="${st.d}" fill="${st.c}" stroke="${st.e}" stroke-width="1.6" stroke-opacity="0.5" stroke-linejoin="round"/>`;
+      S += `<path d="${st.hl2}" fill="none" stroke="#FFF8E6" stroke-width="1.6" stroke-linecap="round" opacity="0.55"/>`;
+    }
+  }
+
+  // ---------- bottles ----------
+  items.forEach((it, i) => {
+    const s = side[i], a = tiltOf(i), Bq = B[s], x = mx[i], y = Y[i];
+    const tf = `translate(${f1(x)} ${f1(y)}) rotate(${a}) translate(0 ${f1(Bq.L)})`;
+    const inv = `translate(0 ${f1(-Bq.L)}) rotate(${-a}) translate(${f1(-x)} ${f1(-y)})`;
+    const surf = y - Bq.lipW * 0.5; // the brew runs to the mouth: the bottle is pouring
+    const hiX = (s === "L" ? -1 : 1) * Bq.w * 0.6;
+    S += `<g filter="url(#b12)" opacity="0.18"><path d="${Bq.d}" fill="#6B5034" transform="translate(${f1(x + 26)} ${f1(y + 40)}) rotate(${a}) translate(0 ${f1(Bq.L)})"/></g>`;
+    S += `<g transform="${tf}">`;
+    S += `<path d="${Bq.d}" fill="#E9E3D6" opacity="0.55"/>`;
+    S += `<clipPath id="bc${i}"><path d="${Bq.d}"/></clipPath>`;
+    S += `<g clip-path="url(#bc${i})"><g transform="${inv}"><rect x="${f1(x - Bq.L - 40)}" y="${f1(surf)}" width="${f1(2 * Bq.L + 80)}" height="${f1(Bq.L + 80)}" fill="${brew[i][0]}"/><rect x="${f1(x - Bq.L - 40)}" y="${f1(surf)}" width="${f1(2 * Bq.L + 80)}" height="3" fill="#FFF6E0" opacity="0.6"/></g>`;
+    S += `<rect x="${f1(-Bq.w)}" y="${f1(-Bq.L)}" width="${f1(Bq.w * 2)}" height="${f1(Bq.L)}" fill="url(#cyl)" opacity="0.5" transform="rotate(${s === "L" ? 90 : -90} 0 ${f1(-Bq.L / 2)}) "/></g>`;
+    S += `<path d="${Bq.d}" fill="none" stroke="#5B4B3A" stroke-width="2.6" opacity="0.62"/>`;
+    S += `<rect x="${f1(hiX - 3.5)}" y="${f1(-Bq.bodyLen + 16)}" width="7" height="${f1(Bq.bodyLen - 34)}" rx="3.5" fill="#FFFFFF" opacity="0.7"/>`;
+    S += `<rect x="${f1(-Bq.lipW)}" y="${f1(-Bq.L)}" width="${f1(Bq.lipW * 2)}" height="${Bq.lipH}" fill="none" stroke="#5B4B3A" stroke-width="2" opacity="0.6"/>`;
+    S += `</g>`;
+    if (i !== hi) drawStream(streams[i]);
+  });
+  drawStream(streams[hi]);
+
+
+  // ---------- the glass (gelas belimbing), brimming ----------
+  S += `<g filter="url(#b12)"><ellipse cx="${GX + 96}" cy="${GB + 8}" rx="170" ry="17" fill="#4E361E" opacity="0.42"/></g>`;
+  S += `<path d="M${GX - GTR} ${GT} L${GX - GBR} ${GB} A${GBR} ${GBRY} 0 0 0 ${GX + GBR} ${GB} L${GX + GTR} ${GT} A${GTR} ${GRY} 0 0 0 ${GX - GTR} ${GT} Z" fill="#F4EFE4" opacity="0.45"/>`;
+  const hex = h => [1, 3, 5].map(k => parseInt(h.slice(k, k + 2), 16));
+  const tot = width.reduce((p, q) => p + q, 0) || 1;
+  const mix = [0, 1, 2].map(c => Math.round(brew.reduce((p, b, i) => p + hex(b[0])[c] * width[i], 0) / tot));
+  const mixD = `rgb(${mix.map(v => Math.round(v * 0.8)).join(",")})`, mixL = `rgb(${mix.map(v => Math.min(255, Math.round(v * 1.08 + 10))).join(",")})`;
+  const rS = rAt(LS) - 3, rB = GBR - 7, sRY = GRY * rS / GTR;
+  const liq = `M${f1(GX - rS)} ${f1(LS)} L${GX - rB} ${GB - 18} A${rB} ${GBRY - 2} 0 0 0 ${GX + rB} ${GB - 18} L${f1(GX + rS)} ${f1(LS)} A${f1(rS)} ${f1(sRY)} 0 0 1 ${f1(GX - rS)} ${f1(LS)} Z`;
+  S += `<defs><linearGradient id="mixg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${mixL}"/><stop offset="0.35" stop-color="${mixL}"/><stop offset="0.8" stop-color="${mixD}"/><stop offset="1" stop-color="${mixD}"/></linearGradient><clipPath id="lclip"><path d="${liq}"/></clipPath></defs>`;
+  S += `<path d="${liq}" fill="url(#mixg)"/>`;
+  // each brew still swirling in
+  S += `<g clip-path="url(#lclip)" opacity="0.75">`;
+  streams.forEach((st, k) => {
+    const x = st.xe, dir = k % 2 ? 1 : -1;
+    const d = `M${f1(x)} ${f1(LS)} C${f1(x + dir * 70)} ${f1(LS + 50)} ${f1(x - dir * 90)} ${f1(LS + 130)} ${f1(GX + dir * 30 + (k - 2) * 16)} ${GB}`;
+    S += `<path d="${d}" fill="none" stroke="${st.c}" stroke-width="${f1(st.i === hi ? 22 : st.w + 4)}" stroke-linecap="round"/>`;
+  });
+  S += `</g>`;
+  S += `<ellipse cx="${GX}" cy="${f1(LS)}" rx="${f1(rS)}" ry="${f1(sRY)}" fill="${mixL}"/>`;
+  S += `<ellipse cx="${GX}" cy="${f1(LS)}" rx="${f1(rS)}" ry="${f1(sRY)}" fill="none" stroke="#FFF3D6" stroke-width="2" opacity="0.6"/>`;
+  // froth along the rim + rings where the streams land; a crown splash under the thick stream
+  [[-0.82, -0.2, 5], [-0.7, 0.45, 4], [-0.52, 0.72, 6], [0.6, 0.66, 5], [0.78, 0.3, 4], [0.86, -0.15, 5], [0.34, -0.8, 4], [-0.3, -0.82, 4]].forEach(([fx, fy, r]) => {
+    S += `<circle cx="${f1(GX + fx * rS)}" cy="${f1(LS + fy * sRY)}" r="${r}" fill="#FFF6DE" opacity="0.8"/>`;
+  });
+  streams.forEach(st => {
+    const rr = st.i === hi ? 46 : st.w * 1.8 + 6;
+    S += `<ellipse cx="${f1(st.xe)}" cy="${f1(LS)}" rx="${f1(rr)}" ry="${f1(rr * 0.2)}" fill="none" stroke="#FFF3D6" stroke-width="2.4" opacity="0.7"/>`;
+  });
+  { const st = streams.find(q => q.i === hi);
+    [[-30, -16, 5], [-20, -30, 4], [-6, -38, 5], [12, -34, 4], [26, -22, 5], [36, -10, 4], [-40, -6, 3], [44, -2, 3]].forEach(([dx, dy, r]) => {
+      S += `<circle cx="${f1(st.xe + dx)}" cy="${f1(LS + dy)}" r="${r}" fill="${TURM}"/><circle cx="${f1(st.xe + dx - 1)}" cy="${f1(LS + dy - 1)}" r="${f1(r * 0.4)}" fill="#FFF6DE" opacity="0.8"/>`;
+    });
+    S += `<path d="M${f1(st.xe - 24)} ${f1(LS)} Q${f1(st.xe)} ${f1(LS - 22)} ${f1(st.xe + 24)} ${f1(LS)}" fill="${TURM}"/>`;
+  }
+  // front glass: belimbing facets, thick base, rim
+  for (let k = 0; k < 10; k++) {
+    const th = Math.PI * (k + 0.5) / 10, c = Math.cos(th), s = Math.sin(th);
+    const hiF = k === 2 || k === 3;
+    S += `<line x1="${f1(GX - GTR * c)}" y1="${f1(GT + GRY * s)}" x2="${f1(GX - GBR * c)}" y2="${f1(GB + GBRY * s - 22)}" stroke="${hiF ? "#FFFFFF" : "#6A5A48"}" stroke-width="${hiF ? 6 : 2}" opacity="${hiF ? 0.55 : 0.28}"/>`;
+  }
+  S += `<path d="M${GX - GTR} ${GT} L${GX - GBR} ${GB} A${GBR} ${GBRY} 0 0 0 ${GX + GBR} ${GB} L${GX + GTR} ${GT}" fill="none" stroke="#5E4F3E" stroke-width="3" opacity="0.6"/>`;
+  S += `<path d="M${GX - GBR + 2} ${GB - 22} A${GBR - 2} ${GBRY} 0 0 0 ${GX + GBR - 2} ${GB - 22} L${GX + GBR} ${GB} A${GBR} ${GBRY} 0 0 1 ${GX - GBR} ${GB} Z" fill="#FFFFFF" opacity="0.35"/>`;
+  S += `<path d="M${GX - GBR + 2} ${GB - 22} A${GBR - 2} ${GBRY} 0 0 0 ${GX + GBR - 2} ${GB - 22}" fill="none" stroke="#5E4F3E" stroke-width="2" opacity="0.4"/>`;
+  S += `<path d="M${GX - GTR} ${GT} A${GTR} ${GRY} 0 0 0 ${GX + GTR} ${GT}" fill="none" stroke="#FFFFFF" stroke-width="4" opacity="0.9"/>`;
+  S += `<path d="M${GX - GTR} ${GT} A${GTR} ${GRY} 0 0 1 ${GX + GTR} ${GT}" fill="none" stroke="#5E4F3E" stroke-width="2" opacity="0.45"/>`;
+
+  // ---------- bench props below the safe zone: rhizomes + a blue-rim enamel ceret ----------
+  S += `<g><path d="M120 1732 C118 1714 160 1706 196 1712 C208 1696 234 1692 244 1706 C252 1718 240 1726 230 1729 C250 1730 276 1724 290 1734 C302 1746 288 1760 268 1758 C240 1762 212 1756 194 1754 C160 1762 122 1754 120 1732 Z" fill="#B97C2E"/>
+    <path d="M156 1714 C162 1728 162 1744 156 1758 M190 1712 C196 1726 196 1742 192 1754 M236 1732 C242 1740 242 1750 238 1758" stroke="#7A5226" stroke-width="2.4" fill="none" opacity="0.7"/>
+    <ellipse cx="122" cy="1734" rx="9" ry="19" fill="${TURM}"/><ellipse cx="122" cy="1734" rx="5" ry="12" fill="#C98A14"/>
+    <g transform="translate(330 1780) rotate(-12)"><ellipse rx="34" ry="13" fill="#9A6A26"/><ellipse cy="-4" rx="30" ry="10" fill="${TURM}"/><ellipse cy="-4" rx="17" ry="5" fill="#F3C153"/></g>
+    <g transform="translate(408 1752) rotate(8)"><ellipse rx="26" ry="10" fill="#A27A4E"/><ellipse cy="-3" rx="22" ry="8" fill="#F1E6CC"/></g></g>`;
+  // blue-rim enamel ceret (kettle), sun from the upper left
+  S += `<g filter="url(#b12)"><ellipse cx="${940 + 40}" cy="1886" rx="140" ry="16" fill="#4E361E" opacity="0.38"/></g>`;
+  S += `<defs><linearGradient id="enamel" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FFFFFF"/><stop offset="0.35" stop-color="#F6F3EC"/><stop offset="0.75" stop-color="#DCD6CA"/><stop offset="1" stop-color="#BDB6A8"/></linearGradient></defs>`;
+  S += `<g transform="translate(940 1884) scale(0.9)">
+    <path d="M-60 -150 C-56 -246 56 -246 60 -150" fill="none" stroke="#3B3A38" stroke-width="7" stroke-linecap="round"/>
+    <path d="M-92 -44 C-124 -64 -146 -112 -176 -152 L-162 -162 C-132 -130 -112 -104 -84 -92 Z" fill="url(#enamel)" stroke="#9A9284" stroke-width="1.5"/>
+    <path d="M-176 -152 L-162 -162 L-158 -156 L-172 -146 Z" fill="${BLUE}"/>
+    <path d="M-92 0 C-108 -44 -104 -112 -72 -146 L72 -146 C104 -112 108 -44 92 0 Z" fill="url(#enamel)"/>
+    <path d="M-92 0 C-96 -6 -98 -12 -99 -18 L99 -18 C98 -12 96 -6 92 0 Z" fill="${BLUE}"/>
+    <path d="M-74 -144 L74 -144 L72 -134 L-72 -134 Z" fill="${BLUE}"/>
+    <path d="M-64 -144 C-58 -178 58 -178 64 -144 Z" fill="url(#enamel)" stroke="${BLUE}" stroke-width="5"/>
+    <circle cx="0" cy="-176" r="10" fill="${BLUE}"/>
+    <path d="M-92 0 C-108 -44 -104 -112 -72 -146" fill="none" stroke="#9A9284" stroke-width="1.5"/>
+    <ellipse cx="-58" cy="-84" rx="9" ry="34" fill="#FFFFFF" opacity="0.8"/>
+    <circle cx="66" cy="-140" r="4" fill="#2A2A2A" opacity="0.7"/><circle cx="-80" cy="-14" r="3" fill="#2A2A2A" opacity="0.6"/></g>`;
+
+  $("scene").innerHTML = S;
+
+  // ---------- labels onto the bottles ----------
+  items.forEach((it, i) => {
+    const el = $("lab" + i), bx = BX_[i], lw = labW[side[i]];
+    const cx = mx[i] + bx.c[0], cy = Y[i] + bx.c[1];
+    el.style.left = f1(cx - lw / 2) + "px"; el.style.top = f1(cy - labH / 2) + "px";
+    el.style.transform = "rotate(" + rotOf(i) + "deg)";
+    if (i === hi) {
+      const vl = $("vl" + i);
+      // turmeric marker swash under the value (double stroke, like a seller marking the big one)
+      const ux = vl.offsetLeft - 8, uy = vl.offsetTop + vl.offsetHeight - 10, uw = vl.offsetWidth + 16;
+      el.insertAdjacentHTML("beforeend", `<svg class="ring" style="left:${f1(ux)}px;top:${f1(uy)}px;width:${f1(uw)}px;height:16px" viewBox="0 0 100 16" preserveAspectRatio="none"><path d="M2 7 C24 3 56 4 98 5 M8 13 C36 9 66 10 94 11" fill="none" stroke="${TURM}" stroke-width="5" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>`);
+    }
+  });
+  }
+</script>
+</body>
+</html>

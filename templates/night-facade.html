@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&display=block" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Martian+Mono:wdth,wght@75..112.5,100..800&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Night Facade: an office tower at night, seen from the street looking up.
+    The title is the tower's rooftop sign (backlit channel letters on a steel
+    lattice, struts down to the parapet); the parapet carries the legend.
+    Every item is a band of floors: an illuminated band sign (the header) and,
+    directly under it, the windows that count its value (unit chart, legend
+    "1 jendela = <step> <unit>"), then a thick floor slab. Only items in the
+    active item's unit are lit; % has its own per-band scale; a word value is
+    hatched "tak terhitung". The caption runs on an LED ticker in the lobby
+    canopy. Neighbour towers (side faces converging on the same vanishing
+    point, sparse lit offices, roof plant, beacons) and a low city glow set
+    the night street.
+
+    Palette: #070A12 night · #121A2B glass · #FFB547 sodium amber · #F4EEE2 warm light · #4E6A9E steel
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #070A12; }
+  body { position: relative; color: #F4EEE2; font-family: "Archivo", sans-serif; }
+  #city { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* rooftop sign: channel letters (face + returns seen from below + faint halo) */
+  #title { position: absolute; top: 340px; text-align: center; font-weight: 800; line-height: 1.16; letter-spacing: 0.012em; color: #FFF3DF;
+           text-shadow: 0 1px 0 #D9CDB8, 0 2px 0 #B3A68F, 0 3px 0 #8D816D, 0 4px 0 #6A6052, 0 5px 0 #4B443C, 0 6px 0 #322E2B, 0 0 26px rgba(255,236,204,0.28); }
+  #title .w { white-space: nowrap; }
+  #title .hl { color: #FFB547; text-shadow: 0 1px 0 #E99D33, 0 2px 0 #C98428, 0 3px 0 #A66B20, 0 4px 0 #82541B, 0 5px 0 #5E3E17, 0 6px 0 #3C2914, 0 0 30px rgba(255,181,71,0.40); }
+  #title .probe { display: inline-block; width: 0; height: 0; vertical-align: baseline; }
+
+  .plate { position: absolute; font-family: "Martian Mono", monospace; font-stretch: 75%; font-weight: 600; font-size: 26px; line-height: 1;
+           letter-spacing: 0.03em; text-transform: uppercase; color: #DCE3EF; background: #141C2D; border: 2px solid #3A4A6B; padding: 6px 12px 7px; white-space: nowrap; }
+  .plate b { color: #FFB547; font-weight: 700; }
+
+  #legend { position: absolute; display: flex; align-items: center; justify-content: center; gap: 16px; font-family: "Martian Mono", monospace; font-stretch: 80%;
+            font-weight: 600; font-size: 30px; line-height: 1; color: #F4EEE2; background: #10172A; white-space: nowrap; }
+  #legend i { width: 22px; height: 30px; flex: none; background: linear-gradient(#FFF0CF 0 14%, #FFC062 14% 40%, #E8982C); box-shadow: 0 0 10px rgba(255,181,71,0.6); }
+
+  .sign { position: absolute; display: flex; align-items: center; gap: 14px; background: #0B101B; color: #F4EEE2; white-space: nowrap;
+          border-top: 3px solid #4E6A9E; padding: 0 16px; }
+  .sign .no { font-family: "Martian Mono", monospace; font-stretch: 75%; font-weight: 600; font-size: 30px; color: #A9B6CC; flex: none; }
+  .sign .lb { font-weight: 600; font-stretch: 88%; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .sign .tag { font-family: "Martian Mono", monospace; font-stretch: 75%; font-weight: 600; font-size: 30px; color: #C9D3E4; flex: none; letter-spacing: 0; }
+  .sign .vl { font-weight: 800; font-stretch: 94%; flex: none; letter-spacing: -0.005em; }
+  .sign.on { background: #FFB547; color: #0B0F18; border-top-color: #FFE3AE; }
+  .sign.on .no, .sign.on .tag { color: #2E220E; }
+
+  .note { position: absolute; font-family: "Martian Mono", monospace; font-stretch: 75%; font-weight: 600; font-size: 30px; line-height: 1;
+          letter-spacing: 0.02em; text-transform: uppercase; color: #C9D3E4; background: #0B101B; border: 2px solid #34445F; padding: 5px 12px 6px; white-space: nowrap; }
+
+  #cap { position: absolute; left: 96px; width: 804px; padding: 12px 18px 13px; font-weight: 600; line-height: 1.18; letter-spacing: 0;
+         color: #8E97AB; background-color: #05070B; border-top: 3px solid #26314A; border-bottom: 3px solid #26314A;
+         background-image: radial-gradient(circle at 2px 2px, rgba(120,140,180,0.10) 1.1px, transparent 1.5px); background-size: 6px 6px; }
+  #cap span { white-space: nowrap; }
+  #cap .said { color: #F4EEE2; }
+  #cap .now { color: #FFB547; text-shadow: 0 0 14px rgba(255,181,71,0.55); }
+  #src { position: absolute; left: 114px; width: 776px; font-family: "Martian Mono", monospace; font-stretch: 75%; font-weight: 500; font-size: 26px;
+         line-height: 1.2; color: #AEB9CC; background: #161E30; }
+</style>
+</head>
+<body>
+<svg id="city" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap data-layout-allow-overflow></svg>
+<div id="title"></div>
+<div class="plate" id="kick"></div>
+<div class="plate" id="date"></div>
+<div id="legend"></div>
+<div id="bands"></div>
+<div id="cap" data-slot="caption"></div>
+<div id="src"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "AI dalam angka", ep: "#01", kicker: "AI dalam angka · #01",
+    title: "1 chat ke AI = oven nyala 1 detik", hl: "1 detik",
+    sub: "Kecil? Kalikan miliaran chat tiap hari.",
+    items: [{ label: "Listrik per chat", value: "0,34 Wh" }, { label: "Setara oven", value: "±1 dtk" }, { label: "Chat per hari", value: "miliaran" }],
+    source: "klaim OpenAI, Jun 2025", date: "per 14 Okt 2026" };
+
+  Promise.all(['800 100px "Archivo"', '600 40px "Archivo"', '600 30px "Martian Mono"', '500 26px "Martian Mono"'].map(f => document.fonts.load(f)))
+    .catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const AMBER = "#FFB547", WARM = "#F4EEE2", STEEL = "#4E6A9E";
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(1, items.length);
+  const hl = String(D.hl || "").trim();
+  const f1 = v => (Math.round(v * 10) / 10).toString();
+  const P = (pts) => "M" + pts.map(p => f1(p[0]) + "," + f1(p[1])).join("L") + "Z";
+  const poly = (pts, fill, extra = "") => '<path d="' + P(pts) + '" fill="' + fill + '"' + extra + '/>';
+  const line = (a, b, stroke, w, extra = "") => '<path d="M' + f1(a[0]) + "," + f1(a[1]) + "L" + f1(b[0]) + "," + f1(b[1]) + '" stroke="' + stroke + '" stroke-width="' + w + '" fill="none"' + extra + '/>';
+  const hash = (a, b, s = 0) => { let x = (a * 374761393 + b * 668265263 + s * 2246822519) >>> 0; x = Math.imul(x ^ (x >>> 13), 1274126177) >>> 0; return (x ^ (x >>> 16)) >>> 0; };
+
+  // ---- camera: eye at street level, pitched up; the main facade is the plane z = 0 ----------------
+  const CX = 520;                          // tower axis = camera axis (keeps the facade left of the action rail)
+  const YB = 1720, VPY = -1350;            // street line (= horizon) and vertical vanishing point
+  const PHI = 30 * Math.PI / 180, SP = Math.sin(PHI), CP = Math.cos(PHI);
+  const F = (YB - VPY) * SP * CP, CY = YB - F * SP / CP;
+  const kAt = y => (y - VPY) / (YB - VPY);                       // horizontal scale at screen y (1 at the street)
+  const HWB = 372 / kAt(1440);                                   // facade right edge stays <= 892 down to y 1440
+  const hw = y => HWB * kAt(y);
+  const xL = y => CX - hw(y), xR = y => CX + hw(y);
+  const COLS = 15, WT = 36;
+  const DIST = F * (WT / 2) / (HWB * CP);
+  const pr = (x, y, z = 0) => { const Z = DIST - z; const yc = y * CP - Z * SP, zc = y * SP + Z * CP; return [CX + F * x / zc, CY - F * yc / zc]; };
+  const worldY = (sy, z = 0) => { const Z = DIST - z, s = (CY - sy) / F; return Z * (SP + s * CP) / (CP - s * SP); };
+
+  // ---- 1. rooftop sign: the title as channel letters ------------------------------------------
+  const titleEl = document.getElementById("title");
+  const t = String(D.title || "");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const words = []; let cur = [];
+  for (let i = 0; i < t.length; i++) {
+    if (/\s/.test(t[i])) { if (cur.length) words.push(cur); cur = []; }
+    else cur.push({ ch: t[i], h: at >= 0 && i >= at && i < at + hl.length });
+  }
+  if (cur.length) words.push(cur);
+  const wordHtml = w => {
+    let s = "", run = "", h = null;
+    const flush = () => { if (run) s += h ? '<span class="hl">' + esc(run) + "</span>" : esc(run); run = ""; };
+    w.forEach(c => { if (c.h !== h) { flush(); h = c.h; } run += c.ch; }); flush();
+    return '<span class="w">' + s + "</span>";
+  };
+  titleEl.innerHTML = '<i class="probe"></i>' + words.map(wordHtml).join(" ");
+  const TW = 840, TL = CX - TW / 2;
+  titleEl.style.left = TL + "px"; titleEl.style.width = TW + "px";
+  const rowsOf = () => {
+    const rows = [];
+    titleEl.querySelectorAll(".w").forEach(w => {
+      let r = rows.find(r => Math.abs(r.top - w.offsetTop) < 6);
+      if (!r) { r = { top: w.offsetTop, l: 1e9, r: -1e9 }; rows.push(r); }
+      r.l = Math.min(r.l, w.offsetLeft); r.r = Math.max(r.r, w.offsetLeft + w.offsetWidth);
+    });
+    return rows.sort((a, b) => a.top - b.top);
+  };
+  let tfs = 72, tRows = [];
+  fit: for (let fs = 112; fs >= 72; fs -= 2) for (const wd of [116, 108, 100]) {
+    titleEl.style.fontSize = fs + "px"; titleEl.style.fontStretch = wd + "%";
+    const rows = rowsOf();
+    if (rows.length <= 3 && titleEl.offsetHeight <= 270 && rows.every(r => r.r - r.l <= TW)) { tfs = fs; tRows = rows; break fit; }
+  }
+  if (!tRows.length) { titleEl.style.fontSize = "72px"; titleEl.style.fontStretch = "92%"; tRows = rowsOf(); tfs = 72; }
+  const tLH = tfs * 1.16;
+  const base0 = 340 + titleEl.querySelector(".probe").offsetTop;            // baseline of line 1 (page y)
+  const baseOf = k => base0 + k * tLH;
+  const capTop = k => baseOf(k) - 0.74 * tfs;
+  const titleBottom = 340 + titleEl.offsetHeight;
+  const LAT_L = TL + Math.min(...tRows.map(r => r.l)) - 24, LAT_R = TL + Math.max(...tRows.map(r => r.r)) + 24;
+  const lastBase = baseOf(tRows.length - 1);
+  const CATWALK = [lastBase + 8, lastBase + 22];
+
+  // plates on the sign frame: kicker left, date right
+  const kick = document.getElementById("kick"), dateEl = document.getElementById("date");
+  const epNo = String(D.ep || "").trim();
+  kick.innerHTML = D.series ? esc(D.series) + (epNo ? " · <b>" + esc(epNo) + "</b>" : "") : esc(D.kicker || "");
+  dateEl.textContent = D.date || "";
+  const plateTop = Math.max(titleBottom + 6, CATWALK[1] + 4);
+  kick.style.top = dateEl.style.top = plateTop + "px";
+  let kx = Math.max(90, LAT_L + 10), dx = Math.min(990, LAT_R - 10) - dateEl.offsetWidth;
+  if (kx + kick.offsetWidth + 16 > dx) { kx = 90; dx = 990 - dateEl.offsetWidth; }
+  if (kx + kick.offsetWidth + 16 > dx) { kick.style.maxWidth = (dx - 16 - kx) + "px"; kick.style.overflow = "hidden"; kick.style.textOverflow = "ellipsis"; }
+  kick.style.left = kx + "px"; dateEl.style.left = dx + "px";
+  if (!D.date) dateEl.style.display = "none";
+  const plateBottom = plateTop + Math.max(kick.offsetHeight, dateEl.offsetHeight);
+
+  // parapet (legend) and the top of the facade
+  const PAR0 = plateBottom + 20, PAR_H = 52;
+  const facadeTop = PAR0 + PAR_H + 8;
+
+  // ---- 2. caption: LED ticker on the lobby canopy + source -------------------------------------
+  const capText = String(D.caption || D.sub || "");
+  const capEl = document.getElementById("cap");
+  const cw = capText.split(/\s+/).filter(Boolean);
+  let aS = -1, aE = -1;
+  if (hl) {
+    const low = capText.toLowerCase(), pos = low.indexOf(hl.toLowerCase());
+    if (pos >= 0) { let c = 0; cw.forEach((w, i) => { const wp = low.indexOf(w.toLowerCase(), c), we = wp + w.length; if (we > pos && wp < pos + hl.length) { if (aS < 0) aS = i; aE = i; } c = we; }); }
+  }
+  if (aS < 0) { aS = 0; aE = 0; }
+  let ch = "";
+  cw.forEach((w, i) => {
+    if (i === aS) ch += '<span class="now">' + esc(cw.slice(aS, aE + 1).join(" ")) + "</span> ";
+    else if (i > aS && i <= aE) return;
+    else ch += "<span" + (i < aS ? ' class="said"' : "") + ">" + esc(w) + "</span> ";
+  });
+  capEl.innerHTML = ch.trim();
+  capfit: for (let fs = 46; fs >= 40; fs -= 2) for (const wd of [94, 86, 78]) {
+    capEl.style.fontSize = fs + "px"; capEl.style.fontStretch = wd + "%";
+    if (capEl.offsetHeight <= Math.ceil(fs * 1.18 * 2) + 32) break capfit;
+  }
+  const srcEl = document.getElementById("src");
+  srcEl.textContent = D.source ? "Sumber: " + D.source : "";
+  const FASCIA_BOT = 1612;
+  const srcH = D.source ? srcEl.offsetHeight : 0;
+  const srcTop = FASCIA_BOT - 8 - srcH;
+  const capTopY = srcTop - (srcH ? 8 : 0) - capEl.offsetHeight;
+  capEl.style.top = capTopY + "px"; srcEl.style.top = srcTop + "px";
+  if (!D.source) srcEl.style.display = "none";
+  const fasciaTop = capTopY - 14;
+  const bandsBottom = fasciaTop - 18;
+
+  // ---- 3. values -> lit windows (unit chart) ----------------------------------------------------
+  const ALIAS = { dtk: "detik", det: "detik", s: "detik", sec: "detik", mnt: "menit", min: "menit", j: "jam", hr: "hari", org: "orang", bln: "bulan", th: "tahun", thn: "tahun" };
+  const magOf = w => /^(ribu|rb|rbu|k)$/i.test(w) ? 1e3 : /^(juta|jt)$/i.test(w) ? 1e6 : (/^(miliar|milyar|mlyr)$/i.test(w) || /^(M|B|bn)$/.test(w)) ? 1e9 : (/^(triliun|tn)$/i.test(w) || w === "T") ? 1e12 : 0;
+  const parse = v => {
+    const s = String(v == null ? "" : v).trim();
+    const m = s.match(/^(?:[±~≈<>≥≤+]|sekitar|hampir|lebih dari|kurang dari)?\s*(Rp\.?|US\$|\$|€)?\s*(\d[\d.,]*)\s*(.*)$/i);
+    if (!m) return { num: NaN, unit: "", key: "", pct: false };
+    let raw = m[2];
+    if (/,/.test(raw)) raw = raw.replace(/\./g, "").replace(",", ".");              // 0,34 · 1.250,5
+    else if (/^\d{1,3}(\.\d{3})+$/.test(raw)) raw = raw.replace(/\./g, "");       // 3.000 · 2.500.000
+    let num = parseFloat(raw), rest = m[3].trim();
+    if (/^(%|persen\b)/i.test(rest)) return { num, unit: "%", key: "%", pct: true };
+    let toks = rest.split(/\s+/).filter(Boolean);
+    const mg = toks.length ? magOf(toks[0].replace(/[.,]$/, "")) : 0;
+    if (mg) { num *= mg; toks = toks.slice(1); }
+    const unit = (toks[0] || "").replace(/[.,;:]$/, ""), cur = m[1] ? m[1].replace(/\.$/, "") : "";
+    const k = (unit || cur).toLowerCase();
+    return { num, unit, cur, key: ALIAS[k] || k, pct: false };
+  };
+  const vals = items.map(it => parse(it.value));
+  const numeric = v => isFinite(v.num);
+  const low = s => String(s || "").toLowerCase();
+  let active = hl ? items.findIndex(it => (low(it.label) + " " + low(it.value)).includes(low(hl))) : -1;
+  let litFrom = active >= 0 && numeric(vals[active]) ? active : vals.findIndex(numeric);   // which unit group is lit
+  if (active < 0) active = litFrom >= 0 ? litFrom : 0;
+  const G = litFrom >= 0 ? vals[litFrom] : null;
+
+  // ---- 4. vertical programme (screen px): sign, window rows, slab -----------------------------
+  const SIGN_H = n >= 5 ? 52 : 56, SLAB = n >= 5 ? 18 : 22, TOPGAP = 10;
+  const rowsAvail = bandsBottom - facadeTop - TOPGAP - n * (SIGN_H + SLAB);
+  const R = Math.max(2, Math.min(5, Math.round(rowsAvail / n / 48)));   // tall office windows, ~45-55 px rows
+  let hs = new Array(n * R).fill(rowsAvail / (n * R));
+  for (let pass = 0; pass < 3; pass++) {             // row height follows the perspective scale
+    let y = facadeTop + TOPGAP; const ks = [];
+    for (let k = 0; k < n; k++) { y += SIGN_H; for (let r = 0; r < R; r++) { const j = k * R + r; ks.push(kAt(y + hs[j] / 2)); y += hs[j]; } y += SLAB; }
+    const sum = ks.reduce((a, b) => a + b, 0); hs = ks.map(v => rowsAvail * v / sum);
+  }
+  const bands = [];
+  { let y = facadeTop + TOPGAP;
+    for (let k = 0; k < n; k++) {
+      const b = { i: k, s0: y, s1: y + SIGN_H, rows: [] }; y += SIGN_H;
+      for (let r = 0; r < R; r++) { const h = hs[k * R + r]; b.rows.push([y, y + h]); y += h; }
+      b.slab = [y, y + SLAB]; y += SLAB; bands.push(b);
+    } }
+  const CAP = COLS * R;
+
+  // unit chart: one step for the lit unit group
+  const nice = []; for (let e = -4; e <= 13; e++) [1, 2, 5].forEach(m => nice.push(m * Math.pow(10, e)));
+  let step = 1;
+  if (G && !G.pct) {
+    const grp = vals.filter(v => numeric(v) && !v.pct && v.key === G.key).map(v => Math.abs(v.num));
+    const maxv = Math.max(...grp, 1e-12), ints = grp.every(v => Math.abs(v - Math.round(v)) < 1e-9);
+    const fits = nice.filter(s => maxv / s <= CAP * 0.9 && (!ints || s >= 1));
+    // prefer a round step (1·10^k) when it still lights at least 30% of a band
+    step = fits.find(s => Math.abs(Math.log10(s) - Math.round(Math.log10(s))) < 1e-9 && maxv / s >= CAP * 0.3) || fits[0] || nice[nice.length - 1];
+  }
+  const fmtStep = s => {
+    const num = x => (+x.toPrecision(6)).toLocaleString("id-ID", { maximumFractionDigits: 6 });
+    return s >= 1e12 ? num(s / 1e12) + " triliun" : s >= 1e9 ? num(s / 1e9) + " miliar" : s >= 1e6 ? num(s / 1e6) + " juta" : num(s);
+  };
+  const plan = vals.map((v, i) => {
+    if (!numeric(v)) return { mode: "nan", n: 0 };
+    if (v.pct) return { mode: "pct", n: Math.max(0, Math.min(1, v.num / 100)) * CAP };
+    if (!G || G.pct || v.key !== G.key) return { mode: "other", n: 0 };
+    const c = Math.max(0, v.num / step);
+    return { mode: "count", n: c, tiny: c > 0 && c < 0.5 };
+  });
+  const legendText = !G ? "nilai tanpa angka" : G.pct ? "1 blok lantai = 100%" :
+    "1 jendela = " + (G.cur ? G.cur + " " : "") + fmtStep(step) + (G.unit ? " " + G.unit : "");
+
+  // ---- 5. draw the street ----------------------------------------------------------------------
+  const S = [];
+  S.push("<defs>" +
+    '<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1920" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#04060C"/><stop offset="0.36" stop-color="#090D19"/><stop offset="0.62" stop-color="#141626"/><stop offset="0.82" stop-color="#2A2131"/><stop offset="0.9" stop-color="#3B2A30"/></linearGradient>' +
+    '<radialGradient id="halo" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#FFD9A0" stop-opacity="0.16"/><stop offset="1" stop-color="#FFD9A0" stop-opacity="0"/></radialGradient>' +
+    '<linearGradient id="refl" gradientUnits="userSpaceOnUse" x1="150" y1="700" x2="900" y2="1460"><stop offset="0" stop-color="' + STEEL + '" stop-opacity="0"/><stop offset="0.34" stop-color="' + STEEL + '" stop-opacity="0"/><stop offset="0.43" stop-color="' + STEEL + '" stop-opacity="0.26"/><stop offset="0.48" stop-color="' + STEEL + '" stop-opacity="0.06"/><stop offset="0.57" stop-color="' + STEEL + '" stop-opacity="0.15"/><stop offset="0.63" stop-color="' + STEEL + '" stop-opacity="0"/></linearGradient>' +
+    '<linearGradient id="litA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFF1CF"/><stop offset="0.16" stop-color="#FFF1CF"/><stop offset="0.17" stop-color="#FFC66E"/><stop offset="1" stop-color="#E8962A"/></linearGradient>' +
+    '<linearGradient id="litW" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="0.16" stop-color="#FFFFFF"/><stop offset="0.17" stop-color="#F4EEE2"/><stop offset="1" stop-color="#C9C0AE"/></linearGradient>' +
+    '<linearGradient id="off" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FBE3B2"/><stop offset="1" stop-color="#C99A55"/></linearGradient>' +
+    '<linearGradient id="lob" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F3DCA8"/><stop offset="0.22" stop-color="#B8915A"/><stop offset="0.7" stop-color="#4A3A2A"/><stop offset="1" stop-color="#2A221E"/></linearGradient>' +
+    '<pattern id="hatch" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="12" height="12" fill="#101727"/><rect width="4" height="12" fill="#2C3A58"/></pattern>' +
+    '<filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="8"/></filter>' +
+    '<filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter>' +
+    "</defs>");
+  S.push('<rect width="1080" height="1920" fill="url(#sky)"/>');
+
+  // neighbour towers behind: front face (z = zf), inner side face (x = xi), sparse lit offices, roof plant
+  const tower = (side, xi, xo, zf, zb, topY, seed) => {
+    const H = worldY(topY, zf), out = [];
+    const q = (xa, xb, ya, yb, z) => [pr(xa, yb, z), pr(xb, yb, z), pr(xb, ya, z), pr(xa, ya, z)];
+    const qs = (x, za, zb2, ya, yb) => [pr(x, yb, za), pr(x, yb, zb2), pr(x, ya, zb2), pr(x, ya, za)];
+    out.push(poly(q(xo, xi, 0, H, zf), "#0B111E"));
+    out.push(poly(qs(xi, zf, zb, 0, H), "#151D30"));
+    const FL = 3.6;
+    // front face windows
+    for (let f = 0, y = 1.2; y + FL <= H + 0.01; f++, y += FL) {
+      for (let c = 0, x = Math.min(xi, xo); x + 2.6 <= Math.max(xi, xo) + 0.01; c++, x += 2.6) {
+        const hsh = hash(f, c, seed) % 100;
+        const fill = hsh < 9 ? "url(#off)" : hsh < 12 ? "#CFDDF2" : hsh < 17 ? "#3A3A44" : "#0E1524";
+        out.push(poly(q(x + 0.35, x + 2.25, y + 0.9, y + FL - 0.3, zf), fill, hsh < 12 ? ' opacity="' + (hsh % 3 ? 0.92 : 0.7) + '"' : ""));
+      }
+    }
+    // side face windows
+    for (let f = 0, y = 1.2; y + FL <= H + 0.01; f++, y += FL) {
+      for (let c = 0, z = zf; z - 2.6 >= zb - 0.01; c++, z -= 2.6) {
+        const hsh = hash(f, c, seed + 7) % 100;
+        const fill = hsh < 10 ? "url(#off)" : hsh < 13 ? "#CFDDF2" : hsh < 19 ? "#3B3A45" : "#111A2B";
+        out.push(poly(qs(xi, z - 0.35, z - 2.25, y + 0.9, y + FL - 0.3), fill, hsh < 13 ? ' opacity="' + (hsh % 3 ? 0.9 : 0.68) + '"' : ""));
+      }
+    }
+    // corner edge + roof edges
+    out.push(line(pr(xi, 0, zf), pr(xi, H, zf), "#3A4866", 2.4));
+    out.push(line(pr(xi, H, zf), pr(xi, H, zb), "#3A4866", 2));
+    out.push(line(pr(xo, H, zf), pr(xi, H, zf), "#3A4866", 2));
+    return { svg: out.join(""), top: pr(xi, H, zf) };
+  };
+  const NL = tower("L", -27, -64, -6, -26, 858, 3);
+  const NR = tower("R", 26, 64, -2, -20, 962, 11);
+  S.push(NL.svg, NR.svg);
+  // roof plant: water tank + mast with a red beacon (left), plant room + lattice mast (right)
+  const beacon = (x, y) => '<circle cx="' + f1(x) + '" cy="' + f1(y) + '" r="16" fill="#E5483F" opacity="0.22" filter="url(#soft)"/><circle cx="' + f1(x) + '" cy="' + f1(y) + '" r="5.5" fill="#FF5A4E"/>';
+  { const [tx, ty] = NL.top;
+    const wx = tx - 62;
+    S.push('<g fill="#0A0F1A" stroke="#33415E" stroke-width="2">' +
+      '<path d="M' + f1(wx - 26) + "," + f1(ty) + "L" + f1(wx - 20) + "," + f1(ty - 34) + "M" + f1(wx + 26) + "," + f1(ty) + "L" + f1(wx + 20) + "," + f1(ty - 34) + "M" + f1(wx - 24) + "," + f1(ty - 14) + "L" + f1(wx + 24) + "," + f1(ty - 14) + '" fill="none"/>' +
+      '<rect x="' + f1(wx - 30) + '" y="' + f1(ty - 92) + '" width="60" height="58" rx="3"/>' +
+      '<path d="M' + f1(wx - 32) + "," + f1(ty - 92) + "L" + f1(wx) + "," + f1(ty - 112) + "L" + f1(wx + 32) + "," + f1(ty - 92) + 'Z"/>' +
+      "</g>");
+    S.push('<path d="M' + f1(wx - 30) + "," + f1(ty - 78) + "h60M" + f1(wx - 30) + "," + f1(ty - 50) + 'h60" stroke="#26324B" stroke-width="2"/>');
+    const mx = tx - 8;
+    S.push(line([mx, ty], [mx, ty - 150], "#2E3B57", 3));
+    S.push(line([mx - 12, ty], [mx, ty - 70], "#2E3B57", 1.6) + line([mx + 10, ty], [mx, ty - 70], "#2E3B57", 1.6));
+    S.push(beacon(mx, ty - 154)); }
+  { const [tx, ty] = NR.top;
+    S.push('<rect x="' + f1(tx + 18) + '" y="' + f1(ty - 44) + '" width="96" height="44" fill="#0A0F1A" stroke="#33415E" stroke-width="2"/>');
+    S.push('<path d="M' + f1(tx + 30) + "," + f1(ty - 30) + "h70" + '" stroke="#26324B" stroke-width="2"/>');
+    const mx = tx + 70;
+    let g = ""; for (let k = 0; k < 6; k++) { const ya = ty - 44 - k * 24, yb = ya - 24, wa = 9 - k * 1.2, wb = 9 - (k + 1) * 1.2;
+      g += "M" + f1(mx - wa) + "," + f1(ya) + "L" + f1(mx + wb) + "," + f1(yb) + "M" + f1(mx + wa) + "," + f1(ya) + "L" + f1(mx - wb) + "," + f1(yb); }
+    S.push('<path d="M' + f1(mx - 9) + "," + f1(ty - 44) + "L" + f1(mx - 1.8) + "," + f1(ty - 188) + "M" + f1(mx + 9) + "," + f1(ty - 44) + "L" + f1(mx + 1.8) + "," + f1(ty - 188) + g + '" stroke="#2E3B57" stroke-width="2" fill="none"/>');
+    S.push(beacon(mx, ty - 192)); }
+
+  // main tower: spire behind the sign
+  S.push(line([CX, PAR0], [CX, 150], "#1C2539", 7) + line([CX - 22, PAR0], [CX - 4, 330], "#1C2539", 3) + line([CX + 22, PAR0], [CX + 4, 330], "#1C2539", 3));
+  S.push(beacon(CX, 146));
+  // halo of the channel letters on the haze
+  S.push('<ellipse cx="' + CX + '" cy="' + f1((340 + titleBottom) / 2) + '" rx="520" ry="' + f1((titleBottom - 340) / 2 + 110) + '" fill="url(#halo)"/>');
+
+  // facade body + corner piers
+  const fq = (ya, yb, inset = 0) => [[xL(ya) + inset * kAt(ya), ya], [xR(ya) - inset * kAt(ya), ya], [xR(yb) - inset * kAt(yb), yb], [xL(yb) + inset * kAt(yb), yb]];
+  S.push(poly(fq(PAR0 + PAR_H, YB), "#0C1220"));
+  const PIER = 12;
+
+  // windows
+  const colX = (c, y) => { const a = xL(y) + PIER * kAt(y), b = xR(y) - PIER * kAt(y); return a + (b - a) * c / COLS; };
+  const tints = ["#121A2B", "#0F1626", "#16203A", "#121A2B", "#111829", "#141D31"];
+  const panes = [], lits = [], hatch = [];
+  bands.forEach(b => {
+    const L = plan[b.i] || { mode: "nan", n: 0 }, on = b.i === active;
+    b.rows.forEach((rw, r) => {
+      const k0 = kAt(rw[0]);
+      const ya = rw[0] + 2 * k0, yb = rw[1] - 5 * k0;
+      for (let c = 0; c < COLS; c++) {
+        const m = 2.4 * k0;
+        const quad = (y0, y1) => [[colX(c, y0) + m, y0], [colX(c + 1, y0) - m, y0], [colX(c + 1, y1) - m, y1], [colX(c, y1) + m, y1]];
+        panes.push(poly(quad(ya, yb), L.mode === "nan" ? "url(#hatch)" : tints[hash(b.i * 7 + r, c) % tints.length]));
+        if (L.mode === "count" || L.mode === "pct") {
+          const remain = L.n - (r * COLS + c);
+          if (remain > 0.02) {
+            const frac = Math.min(1, remain), yl = yb - (yb - ya) * frac;
+            lits.push(poly(quad(yl, yb), frac < 1 ? (on ? "#FFC66E" : "#ECE4D4") : (on ? "url(#litA)" : "url(#litW)")));
+          }
+        }
+      }
+    });
+  });
+  S.push(panes.join(""));
+  S.push('<clipPath id="fc">' + poly(fq(facadeTop, bandsBottom), "#000") + "</clipPath>");
+  S.push('<rect width="1080" height="1920" fill="url(#refl)" clip-path="url(#fc)"/>');
+  if (lits.length) { S.push('<g filter="url(#glow)" opacity="0.6">' + lits.join("") + "</g>"); S.push(lits.join("")); }
+  // floor slabs under every band (the band ends here)
+  bands.forEach(b => {
+    S.push(poly(fq(b.slab[0], b.slab[1], -3), "#1B2437"));
+    S.push(line([xL(b.slab[0]) - 3, b.slab[0]], [xR(b.slab[0]) + 3, b.slab[0]], "#3D4C6C", 2.5));
+    S.push(poly(fq(b.slab[1] - 5, b.slab[1], -3), "#070A12", ' opacity="0.7"'));
+  });
+
+  // continuous vertical mullion caps every 3 bays: one tower, not stacked shelves
+  bands.forEach(b => {
+    const y0 = b.rows[0][0], y1 = b.slab[1];
+    for (let c = 3; c < COLS; c += 3) S.push(line([colX(c, y0), y0], [colX(c, y1), y1], "#2A3654", 2.6 * kAt(y0)));
+  });
+  // corner piers run unbroken from the parapet to the street (the band signs sit between them)
+  { const y0 = PAR0 + PAR_H, k0 = kAt(y0);
+    S.push(poly([[xL(y0), y0], [xL(y0) + PIER * k0, y0], [xL(YB) + PIER, YB], [xL(YB), YB]], "#1C2539"));
+    S.push(poly([[xR(y0) - PIER * k0, y0], [xR(y0), y0], [xR(YB), YB], [xR(YB) - PIER, YB]], "#1C2539"));
+    S.push(line([xL(y0), y0], [xL(YB), YB], "#4A5B7E", 2.2) + line([xR(y0), y0], [xR(YB), YB], "#4A5B7E", 2.2)); }
+
+  // parapet + cornice soffit
+  S.push(poly([[xL(PAR0) - 16, PAR0], [xR(PAR0) + 16, PAR0], [xR(PAR0 + PAR_H) + 16, PAR0 + PAR_H], [xL(PAR0 + PAR_H) - 16, PAR0 + PAR_H]], "#10172A"));
+  S.push(line([xL(PAR0) - 16, PAR0], [xR(PAR0) + 16, PAR0], "#3D4C6C", 3));
+  S.push(poly([[xL(PAR0 + PAR_H) - 16, PAR0 + PAR_H], [xR(PAR0 + PAR_H) + 16, PAR0 + PAR_H], [xR(PAR0 + PAR_H + 7), PAR0 + PAR_H + 7], [xL(PAR0 + PAR_H + 7), PAR0 + PAR_H + 7]], "#3A4561"));
+
+  // sign lattice: chords per line, posts, X-bracing, catwalk, raking struts to the parapet
+  { const top = capTop(0) - 14, L0 = LAT_L, R0 = LAT_R, st = "#24304A", g = [];
+    const posts = Math.max(4, Math.round((R0 - L0) / 70));
+    const px = j => L0 + (R0 - L0) * j / posts;
+    for (let k = 0; k < tRows.length; k++) {
+      const a = capTop(k) - 12, b = baseOf(k) + 8;
+      g.push(line([L0, a], [R0, a], st, 3));
+      for (let j = 0; j < posts; j++) { g.push(line([px(j), a], [px(j + 1), b], "#1D2740", 1.6)); g.push(line([px(j + 1), a], [px(j), b], "#1D2740", 1.6)); }
+      g.push(poly([[L0, b], [R0, b], [R0, b + 8], [L0, b + 8]], "#2A3552"));
+    }
+    for (let j = 0; j <= posts; j++) g.push(line([px(j), top], [px(j), CATWALK[1]], st, 3.2));
+    g.push(poly([[L0 - 8, CATWALK[0]], [R0 + 8, CATWALK[0]], [R0 + 8, CATWALK[1]], [L0 - 8, CATWALK[1]]], "#2E3A58"));
+    g.push(line([L0 - 8, CATWALK[0]], [R0 + 8, CATWALK[0]], "#56678A", 2));
+    const pl = xL(PAR0) + 10, prr = xR(PAR0) - 10;
+    [[L0 + 6, pl], [L0 + (R0 - L0) * 0.3, pl + (prr - pl) * 0.22], [R0 - (R0 - L0) * 0.3, prr - (prr - pl) * 0.22], [R0 - 6, prr]].forEach(([a, b]) => g.push(line([a, CATWALK[1]], [b, PAR0], st, 4)));
+    g.push(line([L0 + 6, CATWALK[1]], [pl + (prr - pl) * 0.22, PAR0], "#1D2740", 2) + line([R0 - 6, CATWALK[1]], [prr - (prr - pl) * 0.22, PAR0], "#1D2740", 2));
+    S.push(g.join("")); }
+
+  // canopy fascia (holds the LED ticker), soffit, lobby, street
+  { const ft = fasciaTop, fb = FASCIA_BOT + 4, l = 88, r = 912;
+    S.push(poly(fq(bandsBottom, YB), "#0C1220"));
+    S.push(poly([[l, ft], [r, ft], [r, fb], [l, fb]], "#161E30"));
+    S.push(line([l, ft], [r, ft], "#56678A", 3) + line([l, fb], [r, fb], "#2A3552", 3));
+    S.push(poly([[l, fb], [r, fb], [xR(fb + 26) - 6, fb + 26], [xL(fb + 26) + 6, fb + 26]], "#2C3247"));
+    for (let j = 0; j < 7; j++) { const x = l + 70 + j * ((r - l - 140) / 6); S.push('<ellipse cx="' + f1(x) + '" cy="' + f1(fb + 13) + '" rx="16" ry="4" fill="#FFE2B0"/>'); }
+    const ly = fb + 26;
+    S.push(poly(fq(ly, YB), "url(#lob)"));
+    for (let c = 0; c <= COLS; c += 1) { const xa = colX(c, ly), xb = colX(c, YB); S.push(line([xa, ly], [xb, YB], "#1A140F", c % 3 ? 1.6 : 4)); }
+    { const dx = 64, dy0 = ly + 22; S.push('<path d="M' + f1(CX - dx) + "," + f1(YB) + "V" + f1(dy0) + "H" + f1(CX + dx) + "V" + f1(YB) + '" fill="#3A2C1E" stroke="#120E0B" stroke-width="4"/>' + line([CX, dy0], [CX, YB], "#120E0B", 3) + line([CX - dx, dy0 + 10], [CX + dx, dy0 + 10], "#120E0B", 2)); }
+    S.push('<rect x="0" y="' + YB + '" width="1080" height="' + (1920 - YB) + '" fill="#07090F"/>');
+    S.push('<rect x="0" y="' + YB + '" width="1080" height="38" fill="#10141E"/>' + line([0, YB + 38], [1080, YB + 38], "#232B3D", 2));
+    S.push('<ellipse cx="' + CX + '" cy="' + (YB + 24) + '" rx="400" ry="30" fill="#FFCF8A" opacity="0.16" filter="url(#glow)"/>');
+    S.push('<rect x="0" y="' + (YB + 40) + '" width="1080" height="10" fill="#0D1119"/>' + '<path d="M140,' + (YB + 120) + 'h120M420,' + (YB + 120) + 'h120M700,' + (YB + 120) + 'h120" stroke="#1C2230" stroke-width="6"/>'); }
+  document.getElementById("city").innerHTML = S.join("");
+
+  // ---- 6. type on the building ------------------------------------------------------------------
+  const legend = document.getElementById("legend");
+  legend.innerHTML = "<i></i><span>" + esc(legendText) + "</span>";
+  { const l = xL(PAR0) - 8, r = xR(PAR0) + 8;
+    legend.style.left = l + "px"; legend.style.width = (r - l) + "px"; legend.style.top = (PAR0 + 6) + "px"; legend.style.height = (PAR_H - 8) + "px";
+    if (legend.scrollWidth > legend.clientWidth) legend.style.fontStretch = "75%"; }
+
+  const host = document.getElementById("bands");
+  bands.forEach(b => {
+    const it = items[b.i] || { label: "", value: "" }, L = plan[b.i] || { mode: "nan", n: 0 };
+    const ym = (b.s0 + b.s1) / 2, pk = PIER * kAt(ym), l = xL(ym) + pk + 1, w = xR(ym) - xL(ym) - 2 * pk - 2;
+    const el = document.createElement("div");
+    el.className = "sign" + (b.i === active ? " on" : "");
+    el.style.left = l + "px"; el.style.top = b.s0 + "px"; el.style.width = w + "px"; el.style.height = SIGN_H + "px";
+    el.innerHTML = '<span class="no">' + String(b.i + 1).padStart(2, "0") + '</span><span class="lb">' + esc(it.label) + "</span>" +
+      (L.mode === "pct" ? '<span class="tag">% LANTAI</span>' : "") + '<span class="vl">' + esc(it.value) + "</span>";
+    host.appendChild(el);
+    const lb = el.querySelector(".lb"), vl = el.querySelector(".vl");
+    lb.style.fontSize = "33px"; vl.style.fontSize = "40px";
+    if (lb.scrollWidth > lb.clientWidth) lb.style.fontSize = "30px";
+    for (let v = 38; v >= 34 && lb.scrollWidth > lb.clientWidth; v -= 2) vl.style.fontSize = v + "px";
+    // a note in the window block when the windows do not count against the legend
+    const note = L.mode === "nan" ? "tak terhitung" : L.mode === "other" ? "beda satuan" : L.tiny ? "< 1 jendela" : "";
+    if (note) {
+      const ne = document.createElement("div");
+      ne.className = "note"; ne.textContent = note; host.appendChild(ne);
+      const r0 = b.rows[0][0], r1 = b.rows[b.rows.length - 1][1];
+      ne.style.left = (CX - ne.offsetWidth / 2) + "px"; ne.style.top = ((r0 + r1) / 2 - ne.offsetHeight / 2) + "px";
+    }
+  });
+  }
+</script>
+</body>
+</html>

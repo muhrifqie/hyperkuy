@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Spectral:wght@500;600&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Angklung Rack (angklung-rack): a school / sanggar angklung stand against a warm
+    off-white wall. The set supplies the lettering:
+      - the title is painted on the cream NAME BOARD lashed with rattan between the two
+        front-stand finials; the kicker is stencilled on the board's lower edge;
+      - each sounding frame carries its VALUE painted on its big base tube and its
+        LABEL on a folded paper note tab tied under the base;
+      - every frame has a cipher-notation note tab on its top rail (1 2 3 ... 1. 2.); the
+        sounding frames are the upper-octave pentatonic notes (1. 2. 3. 5. 6.), the silent
+        ones hang hazed on the back rail;
+      - the hl word on the board and the active caption word are marked with the cipher
+        note of the frame that rings loudest, like lyrics under a song sheet.
+    Rattle strength is mapped from the RANK of each parsed value (0-4 arcs, ghost opacity
+    0.1-0.35, quietest frame almost still); the hl frame steps forward (scale 1.08) with
+    5 px vermilion arcs; tilts are eased until no value text collides.
+    Metaphor: neurons/features - no single unit holds the meaning; the melody only exists
+    when the right few sound together. Deterministic: fixed rules, no randomness.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #F1ECE1; }
+  body { position: relative; color: #1F2A44; font-family: "Spectral", serif; }
+
+  #scene { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* name board lettering */
+  .title { position: absolute; left: 110px; width: 860px; top: 322px; text-align: center; font-family: "Spectral", serif; font-weight: 500;
+           line-height: 1.04; letter-spacing: -0.012em; color: #1F2A44; text-wrap: balance; }
+  .title .hl { color: #B13A26; }
+  .title .nw { white-space: nowrap; }
+  .title .note { display: inline-block; width: 0.3em; height: 0.42em; vertical-align: 0.36em; margin: 0 -0.2em 0 0.04em; transform: rotate(-6deg); }
+  .kick { position: absolute; left: 110px; width: 860px; text-align: center; font: 600 26px/1.3 "IBM Plex Mono", monospace;
+          letter-spacing: 0.16em; text-transform: uppercase; color: #5A4024; white-space: nowrap; }
+
+  /* values painted on the base tubes (no stencil bridges: they turned "1" into "i") */
+  .val { position: absolute; left: 0; top: 0; font-family: "IBM Plex Mono", monospace; font-weight: 600; line-height: 1.06; color: #1F2A44;
+         text-align: center; white-space: pre; letter-spacing: -0.02em; }
+
+  /* folded paper note tabs (labels) */
+  .tab { position: absolute; left: 0; top: 0; background: #FBF8F0; color: #1F2A44; padding: 24px 14px 20px; text-align: center;
+         font-family: "Spectral", serif; font-weight: 600; line-height: 1.08; overflow-wrap: anywhere; hyphens: manual;
+         clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 9px), 0 100%); }
+  .tab::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 12px; background: linear-gradient(#E3D5B5, #F2EAD6); }
+  .tab.hot::before { background: linear-gradient(#8E2C1C, #B13A26); }
+  .tabsh { position: absolute; filter: drop-shadow(4px 7px 5px rgba(77, 55, 28, 0.24)); }
+
+  /* karaoke caption, read like lyrics under a cipher song sheet */
+  .cap { position: absolute; left: 152px; width: 748px; font-family: "Spectral", serif; font-weight: 500; line-height: 1.7; color: #1F2A44; text-wrap: balance; }
+  .cap .next { color: #665D4E; }
+  .cap .nw { white-space: nowrap; }
+  .cap .on { font-weight: 600; text-decoration: underline #B13A26; text-decoration-thickness: 4px; text-underline-offset: 0.2em; text-decoration-skip-ink: none; }
+  #cue { position: absolute; width: 30px; height: 44px; }
+  #voice { position: absolute; left: 100px; width: 44px; height: 48px; }
+
+  .foot { position: absolute; left: 100px; width: 880px; font: 500 26px/1.3 "IBM Plex Mono", monospace; color: #5C5446; }
+</style>
+</head>
+<body>
+<svg id="scene" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap data-layout-allow-overflow></svg>
+<div class="title" id="title"></div>
+<div class="kick" id="kick"></div>
+<div id="vals"></div>
+<div id="tabs"></div>
+<svg id="voice" viewBox="0 0 44 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <path d="M6 24 h4" stroke="#B13A26" stroke-width="5" stroke-linecap="round" fill="none"/>
+  <path d="M17 14 Q25 24 17 34" stroke="#B13A26" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <path d="M27 7 Q39 24 27 41" stroke="#B13A26" stroke-width="4" stroke-linecap="round" fill="none" opacity=".55"/>
+</svg>
+<div class="cap" id="cap" data-slot="caption"></div>
+<svg id="cue" viewBox="0 0 26 38" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" data-layout-allow-overlap></svg>
+<div class="foot" id="foot"></div>
+<script>
+  // Built-in sample so the file also opens standalone in a browser.
+  const D = window.D || { series_id: "how-ai-works", series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const FONTS = ['500 100px Spectral', '600 100px Spectral', '600 40px "IBM Plex Mono"', '500 26px "IBM Plex Mono"', '600 26px "IBM Plex Mono"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).then(() => document.fonts.ready).catch(() => {}).then(render);
+
+  function render() {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const f1 = v => (Math.round(v * 10) / 10).toString();
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const NAVY = "#1F2A44", VERM = "#B13A26", WOOD = "#6D4F2E", BAMBOO = "#C7A56B";
+  const items = (Array.isArray(D.items) ? D.items : []).slice(0, 5);
+  const n = Math.max(1, items.length);
+
+  // ---------- the set: 12 frames in cipher notation; the sounding ones form a chord ----------
+  const SET = [[1, 0], [2, 0], [3, 0], [4, 0], [5, 0], [6, 0], [7, 0], [1, 1], [2, 1], [3, 1], [5, 1], [6, 1]];
+  const CHORD = ({ 1: [7], 2: [7, 10], 3: [7, 9, 10], 4: [7, 9, 10, 11], 5: [7, 8, 9, 10, 11] })[n];   // upper-octave pentatonic: 1. 2. 3. 5. 6.
+  const frontNote = CHORD.map(k => SET[k]), backNote = SET.filter((_, k) => !CHORD.includes(k));
+
+  // ---------- values: parse (incl. Indonesian magnitude words) and rank ----------
+  const num = v => {
+    const s = String(v == null ? "" : v).toLowerCase();
+    const m = s.replace(/(\d)\.(\d{3})/g, "$1$2").replace(",", ".").match(/\d+(\.\d+)?/);
+    const mag = /triliun/.test(s) ? 1e12 : /miliar|billion|\d\s?b\b/.test(s) ? 1e9 : /juta|\bjt\b|million/.test(s) ? 1e6 : /ribu|\brb\b|\d\s?k\b/.test(s) ? 1e3 : 1;
+    if (!m) return mag > 1 ? mag : -1;
+    return parseFloat(m[0]) * mag;
+  };
+  const hl = String(D.hl || "");
+  let hot = 0;
+  { const hw = hl.toLowerCase().split(/\s+/).filter(Boolean); let best = -Infinity;
+    items.forEach((it, i) => {
+      const txt = (String(it.label || "") + " " + String(it.value || "")).toLowerCase();
+      const sc = (hl && txt.includes(hl.toLowerCase()) ? 10 : 0) + hw.filter(w => txt.includes(w)).length * 2 + Math.min(Math.max(num(it.value), 0), 1e13) / 1e14;
+      if (sc > best) { best = sc; hot = i; }
+    }); }
+  const vals = items.map(it => num(it.value));
+  const uniq = [...new Set(vals.filter((_, i) => i !== hot))].sort((a, b) => a - b);
+  const rankT = i => i === hot ? 1 : uniq.length < 2 ? 0.5 : uniq.indexOf(vals[i]) / (uniq.length - 1);   // 0 = quietest, 1 = loudest
+  const hotNote = frontNote[hot] || [1, 0];
+
+  // ---------- cipher digits (hand paths, 20 x 30 box) ----------
+  const DIG = {
+    1: "M6 7 L11 2 L11 28", 2: "M3 8 C3 1 17 1 17 9 C17 15 3 21 3 28 L18 28", 3: "M3 3 L17 3 L9 13 C15 12 18 17 17 22 C15 29 5 29 3 24",
+    4: "M13 28 L13 2 L2 20 L18 20", 5: "M16 2 L5 2 L4 13 C9 10 17 12 17 19 C17 27 6 29 3 24",
+    6: "M15 3 C8 4 3 11 3 19 C3 26 7 28 10 28 C15 28 17 24 17 20 C17 15 14 12 10 12 C6 12 3 15 3 19", 7: "M3 2 L17 2 L8 28" };
+  const noteTab = ([d, dot]) => `<svg class="note" viewBox="0 0 34 50" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">`
+    + `<rect x="2" y="2" width="30" height="46" rx="3" fill="#FBF8F0" stroke="${BAMBOO}" stroke-width="3"/>`
+    + (dot ? `<circle cx="17" cy="9" r="3.2" fill="${VERM}"/>` : "")
+    + `<path d="${DIG[d]}" transform="translate(7,15) scale(1,1)" fill="none" stroke="${VERM}" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+  // ---------- title painted on the name board (largest text) ----------
+  const t = String(D.title || "");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  if (at < 0) titleEl.innerHTML = esc(t);
+  else {
+    const hs = t.slice(at, at + hl.length), cut = hs.lastIndexOf(" ");
+    const head = cut >= 0 ? hs.slice(0, cut + 1) : "", last = cut >= 0 ? hs.slice(cut + 1) : hs;
+    const after = t.slice(at + hl.length), glue = (after.match(/^[^\s]*/) || [""])[0];
+    titleEl.innerHTML = esc(t.slice(0, at)) + (head ? '<span class="hl">' + esc(head) + "</span>" : "")
+      + '<span class="nw"><span class="hl">' + esc(last) + "</span>" + noteTab(hotNote) + esc(glue) + "</span>" + esc(after.slice(glue.length));
+  }
+  let tfs = 112;
+  for (; tfs >= 84; tfs -= 2) { titleEl.style.fontSize = tfs + "px"; if (titleEl.offsetHeight <= tfs * 1.04 * 2 + 6) break; }
+  if (tfs < 84) for (tfs = 112; tfs >= 84; tfs -= 2) { titleEl.style.fontSize = tfs + "px"; if (titleEl.offsetHeight <= tfs * 1.04 * 3 + 6) break; }
+  if (tfs < 84) titleEl.style.fontSize = "84px";
+  const BY0 = 290;                                         // board top
+  const kick = $("kick");
+  const ser = D.series || "", ep = D.ep || "";
+  kick.textContent = [ser ? ser + (ep ? " · " + ep : "") : (D.kicker || ""), D.date || ""].filter(Boolean).join("  —  ");
+  for (let ks = 26, ls = 0.16; kick.scrollWidth > 860 && ls > 0; ls -= 0.04) kick.style.letterSpacing = ls.toFixed(2) + "em";
+  const kickTop = 322 + titleEl.offsetHeight + 22;
+  kick.style.top = kickTop + "px";
+  const BY1 = kickTop + kick.offsetHeight + 24;           // board bottom
+
+  // ---------- bottom block, laid out bottom-up: source, caption (+ cipher cue) ----------
+  const foot = $("foot");
+  foot.textContent = D.source ? "Sumber: " + D.source : "";
+  const footTop = 1616 - foot.offsetHeight;
+  foot.style.top = footTop + "px";
+
+  const cap = $("cap");
+  const ct = String(D.caption || D.sub || "");
+  const words = ct.split(/\s+/).filter(Boolean);
+  let pos = 0; const ranges = words.map(w => { const s = ct.indexOf(w, pos); pos = s + w.length; return [s, pos]; });
+  let act = [];
+  const ha = hl ? ct.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  if (ha >= 0) ranges.forEach((r, i) => { if (r[0] < ha + hl.length && r[1] > ha) act.push(i); });
+  if (!act.length) act = [0];
+  const a0 = Math.min(...act), a1 = Math.max(...act);
+  let w0 = 0, w1 = words.length - 1;
+  const seg = (i0, i1, cls) => i0 > i1 ? "" : '<span class="' + cls + '">' + words.slice(i0, i1 + 1).map(esc).join(" ") + "</span>";
+  const paint = () => { cap.innerHTML = [w0 > 0 ? "…" : "", seg(w0, a0 - 1, "said"), '<span class="on' + (words.slice(a0, a1 + 1).join(" ").length <= 24 ? " nw" : "") + '"><span id="w0">' + esc(words[a0]) + "</span>" + (a1 > a0 ? " " + words.slice(a0 + 1, a1 + 1).map(esc).join(" ") : "") + "</span>", seg(a1 + 1, w1, "next"), w1 < words.length - 1 ? '<span class="next">…</span>' : ""].filter(Boolean).join(" "); };
+  const LH = 1.7;
+  const fits = fs => cap.offsetHeight <= fs * LH * 2 + 4;
+  paint();
+  let capFs = 46;   // prefer ONE line (40-46 px); otherwise the largest size that fits two balanced lines
+  for (; capFs >= 40; capFs -= 1) { cap.style.fontSize = capFs + "px"; if (cap.offsetHeight <= capFs * LH + 4) break; }
+  if (capFs < 40) for (capFs = 46; capFs >= 40; capFs -= 1) { cap.style.fontSize = capFs + "px"; if (fits(capFs)) break; }
+  if (capFs < 40) { capFs = 40; cap.style.fontSize = "40px";
+    while (!fits(40) && w1 - w0 > a1 - a0) { if (w1 > a1 && (w1 - a1 >= a0 - w0 - 1)) w1--; else w0++; paint(); } }
+  // the cue needs clear air above the active word: if the active run starts on line 2, slide the window forward
+  const onLine1 = () => cap.querySelector("#w0").getBoundingClientRect().top - cap.getBoundingClientRect().top < capFs * LH * 0.6;
+  for (let g = 0; g < 40 && !onLine1() && w0 < a0; g++) { w0++; w1 = words.length - 1; paint(); while (!fits(capFs) && w1 > a1) { w1--; paint(); } }
+  const capTop = footTop - 14 - cap.offsetHeight;
+  cap.style.top = capTop + "px";
+  $("voice").style.top = (capTop + Math.round(capFs * LH / 2) - 24) + "px";
+  // cipher cue above the active word: bamboo numeral, ink outline, octave dot when the note is in the upper octave
+  const r0 = cap.querySelector("#w0").getBoundingClientRect();
+  const cue = $("cue");
+  cue.innerHTML = (hotNote[1] ? `<circle cx="13" cy="5" r="4.2" fill="${BAMBOO}" stroke="${NAVY}" stroke-width="1.8"/>` : "")
+    + `<path d="${DIG[hotNote[0]]}" transform="translate(3,11) scale(1,0.88)" fill="none" stroke="${NAVY}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>`
+    + `<path d="${DIG[hotNote[0]]}" transform="translate(3,11) scale(1,0.88)" fill="none" stroke="${BAMBOO}" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>`;
+  const cueTop = r0.top + capFs * 0.3 - 44;
+  cue.style.left = f1(Math.max(150, r0.left + Math.min(r0.width, 220) / 2 - 15)) + "px";
+  cue.style.top = f1(cueTop) + "px";
+  const blockTop = Math.min(capTop, cueTop);
+
+  // ---------- front tier geometry ----------
+  const pitch = 810 / n;
+  const cx = i => 90 + pitch * (i + 0.5);
+  const rad = d => d * Math.PI / 180;
+  const tilt = items.map((_, i) => i === hot ? (cx(i) <= 540 ? 3.6 : -3.6) : (0.3 + 1.5 * rankT(i)) * (i < hot ? 1 : -1));
+  const scl = i => i === hot ? 1.08 : 1;
+  const Rb = BY1 + 54;                    // back rail (centre)
+  const Rf = Rb + 80;                     // front rail
+  const pivotY = Rf + 9;                  // frames hang from the front rail by a twine loop
+  const frameTop = pivotY + 16;
+  const fwBase = Math.min(pitch * 0.62, 200);
+  const fw = i => fwBase * (1 - (n > 1 ? 0.12 * i / (n - 1) : 0));
+  const grade = i => 1 - (n > 1 ? 0.18 * i / (n - 1) : 0);
+  const postW = w => clamp(w * 0.065, 7, 13);
+
+  // ---------- values on the base tubes: fit 40 -> 30 px, wrap at a space, then tighten ----------
+  const valsEl = $("vals"), tabsEl = $("tabs");
+  valsEl.innerHTML = items.map(() => '<div class="val"></div>').join("");
+  tabsEl.innerHTML = items.map((_, i) => '<div class="tabsh"><div class="tab' + (i === hot ? " hot" : "") + '"></div></div>').join("");
+  const valEls = [...valsEl.children], tabWraps = [...tabsEl.children], tabEls = tabWraps.map(w => w.firstChild);
+  const base = items.map((it, i) => {
+    const el = valEls[i], txt = String(it.value == null ? "" : it.value), w = fw(i), p = postW(w);
+    const room = Math.min(pitch - 8, 320) - 60;  // text room inside the widest allowed base (end caps + nodes 30 px each side)
+    let lines = 1, fs = 40, body = txt;
+    const tryFit = (s, from) => { for (let f = from; f >= 30; f -= 2) { el.style.fontSize = f + "px"; el.textContent = s; if (el.offsetWidth <= room) return f; } return 0; };
+    let ok = tryFit(txt, 36);
+    if (ok) fs = ok;
+    else {
+      const sp = [...txt.matchAll(/ /g)].map(m => m.index);
+      if (sp.length) { const mid = txt.length / 2, k = sp.reduce((a, b) => Math.abs(b - mid) < Math.abs(a - mid) ? b : a);
+        body = txt.slice(0, k) + "\n" + txt.slice(k + 1); ok = tryFit(body, 34); }
+      if (ok) { fs = ok; lines = 2; }
+      else { if (!sp.length) body = txt; lines = body.includes("\n") ? 2 : 1; fs = 30; el.style.fontSize = "30px"; el.style.letterSpacing = "-0.04em"; el.textContent = body; }
+    }
+    const tw = el.offsetWidth, th = el.offsetHeight;
+    const bt = Math.max(60, th + 18), bw = Math.max(w + p * 1.8 + 10, tw + 60 <= pitch - 8 ? tw + 60 : Math.max(pitch - 8, tw + 30));
+    return { tw, th, bt, bw, fs };
+  });
+
+  // ---------- label tabs: fit 34 -> 30 px within the column ----------
+  const tabMax = Math.min(pitch - 14, 280);
+  tabEls.forEach((tb, i) => {
+    tb.textContent = String(items[i].label == null ? "" : items[i].label);
+    tb.style.width = "max-content"; tb.style.maxWidth = tabMax + "px"; tb.style.minWidth = Math.min(116, tabMax) + "px";
+    for (let fs = 34; fs >= 30; fs -= 2) { tb.style.fontSize = fs + "px"; if (tb.offsetHeight - 44 <= fs * 1.08 * 2 + 2) break; }
+  });
+  const tabH = tabEls.map(tb => tb.offsetHeight), tabW = tabEls.map(tb => tb.offsetWidth);
+
+  // ---------- frame height: tallest frame whose tab still clears the caption block ----------
+  const TIE = 18, tabFloor = blockTop - 34;
+  let Hmax = 560;
+  items.forEach((_, i) => { const lim = ((tabFloor - tabH[i] - TIE - pivotY) / scl(i) - 16) / grade(i); Hmax = Math.min(Hmax, lim); });
+  Hmax = Math.max(240, Hmax);
+
+  // ---------- ease tilts until value text stays in x 92-898 and clears neighbour values + tabs ----------
+  const tabCol = i => [Math.max(92, cx(i) - pitch / 2 + 6), Math.min(898, cx(i) + pitch / 2 - 6)];
+  function boxes() {
+    return items.map((_, i) => {
+      const s = scl(i), tr = rad(tilt[i]), h = Hmax * grade(i), b = base[i];
+      const Lv = (16 + h - b.bt / 2) * s, vx = cx(i) - Math.sin(tr) * Lv, vy = pivotY + Math.cos(tr) * Lv;
+      const L = (16 + h) * s, ax = cx(i) - Math.sin(tr) * L, ay = pivotY + Math.cos(tr) * L;
+      const [cL, cR] = tabCol(i), tl = clamp(ax - tabW[i] / 2, cL, cR - tabW[i]);
+      return { v: [vx - s * b.tw / 2 - 3, vy - s * b.th / 2 - 3, vx + s * b.tw / 2 + 3, vy + s * b.th / 2 + 3], t: [tl, ay + TIE, tl + tabW[i], ay + TIE + tabH[i]], ax, ay };
+    });
+  }
+  const hit = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+  for (let it = 0; it < 24; it++) {
+    const B = boxes(); let moved = false;
+    const ease = i => { if (Math.abs(tilt[i]) > 0.05) { tilt[i] *= 0.7; moved = true; } };
+    B.forEach((b, i) => {
+      if (b.v[0] < 92 || b.v[2] > 898) ease(i);
+      B.forEach((o, j) => { if (j !== i && (hit(b.v, o.v) || hit(b.v, o.t))) { ease(i); ease(j); } });
+    });
+    if (!moved) break;
+  }
+
+  // ---------- SVG helpers ----------
+  const rect = (x, y, w, h, fill, rx = 0, extra = "") => `<rect x="${f1(x)}" y="${f1(y)}" width="${f1(w)}" height="${f1(h)}" rx="${f1(rx)}" fill="${fill}" ${extra}/>`;
+  const line = (x1, y1, x2, y2, st, sw, extra = "") => `<line x1="${f1(x1)}" y1="${f1(y1)}" x2="${f1(x2)}" y2="${f1(y2)}" stroke="${st}" stroke-width="${sw}" ${extra}/>`;
+
+  function tube(cxT, tw, top, cut, bot) {
+    return `<path d="M${f1(cxT - tw * 0.42)},${f1(cut)} L${f1(cxT - tw * 0.25)},${f1(top + tw * 0.3)} Q${f1(cxT - tw * 0.25)},${f1(top)} ${f1(cxT)},${f1(top)} Q${f1(cxT + tw * 0.25)},${f1(top)} ${f1(cxT + tw * 0.25)},${f1(top + tw * 0.3)} L${f1(cxT + tw * 0.42)},${f1(cut)} Z" fill="url(#gTongue)"/>`
+      + line(cxT, top + tw * 0.45, cxT, cut - 8, "rgba(50,32,12,.35)", 1.6)
+      + rect(cxT - tw / 2, cut, tw, bot - cut, "url(#gTube)", tw * 0.1)
+      + line(cxT - tw / 2 + 1, cut + (bot - cut) * 0.56, cxT + tw / 2 - 1, cut + (bot - cut) * 0.56, "#6F5029", 2.4)
+      + line(cxT - tw / 2 + 2, cut + (bot - cut) * 0.56 + 3, cxT + tw / 2 - 2, cut + (bot - cut) * 0.56 + 3, "rgba(255,240,205,.55)", 1.4)
+      + `<ellipse cx="${f1(cxT)}" cy="${f1(cut)}" rx="${f1(tw / 2)}" ry="${f1(tw * 0.14)}" fill="#47301A" stroke="#EAD3A2" stroke-width="1.6"/>`;
+  }
+
+  // One angklung frame in local coords: (0,0) = top-left of the top rail; w x h = rail to bottom of the base tube.
+  function frame(w, h, o = {}) {
+    const p = postW(w), bt = o.bt || clamp(w * 0.17, 22, 36), bw = o.bw || w + p * 1.8, bx = w / 2 - bw / 2;
+    const big = [w * 0.375, w * 0.29, p * 0.2, h * 0.38, h - bt * 0.6];
+    const small = [w * 0.70, w * 0.22, p * 0.2, h * 0.56, h - bt * 0.6];
+    const tubes = tube(...big) + tube(...small);
+    let s = "";
+    s += `<path d="M${f1(w / 2 - 7)},${f1(p * 0.5)} C${f1(w / 2 - 9)},-12 ${f1(w / 2 + 9)},-12 ${f1(w / 2 + 7)},${f1(p * 0.5)}" fill="none" stroke="${o.twine || WOOD}" stroke-width="3"/>`;
+    s += rect(0, -p * 0.7, p, h - bt * 0.3 + p * 0.7, "url(#gTube)", p / 2) + rect(w - p, -p * 0.7, p, h - bt * 0.3 + p * 0.7, "url(#gTube)", p / 2);
+    [0.3, 0.7].forEach(k => { s += line(0, h * k, p, h * k, "#6F5029", 2) + line(w - p, h * k, w, h * k, "#6F5029", 2); });
+    s += rect(p * 0.5, h * 0.62, w - p, p * 0.75, "url(#gRod)", p * 0.35);
+    (o.ghosts || []).forEach(([dx, op]) => { s += `<g transform="translate(${dx},0)" opacity="${op}">${tubes}</g>`; });
+    s += tubes;
+    s += rect(-p * 0.6, 0, w + p * 1.2, p, "url(#gRod)", p / 2);
+    [0.22, 0.78].forEach(k => { s += line(w * k, 1, w * k, p - 1, "#6F5029", 1.8); });
+    // base tube (the big horizontal resonator the frame stands in)
+    s += rect(bx, h - bt, bw, bt, o.bt ? "url(#gBaseL)" : "url(#gBase)", Math.min(bt * 0.32, 14));
+    const capR = o.bt ? bt * 0.12 : bt * 0.16;
+    s += `<ellipse cx="${f1(bx + capR + 1)}" cy="${f1(h - bt / 2)}" rx="${f1(capR)}" ry="${f1(bt * 0.45)}" fill="#E6CD98" stroke="#8C6A3C" stroke-width="1.4"/>`
+       + `<ellipse cx="${f1(bx + bw - capR - 1)}" cy="${f1(h - bt / 2)}" rx="${f1(capR)}" ry="${f1(bt * 0.45)}" fill="#B89155" stroke="#7A5A31" stroke-width="1.4"/>`;
+    const nodeIn = o.bt ? clamp((bw - (o.tw || 0)) / 2 - 8, capR * 2 + 3, bt * 0.27) : bw * 0.1;
+    [bx + nodeIn, bx + bw - nodeIn].forEach(x => { s += line(x, h - bt + 2, x, h - 2, "#7A5A31", 2.2) + line(x + 2.4, h - bt + 3, x + 2.4, h - 3, "rgba(255,240,205,.5)", 1.2); });
+    [big, small].forEach(([c, tw]) => { s += `<ellipse cx="${f1(c)}" cy="${f1(h - bt + 3)}" rx="${f1(tw * 0.56)}" ry="4" fill="#4E3519" opacity=".45"/>`; });
+    s += rect(-p * 0.2, h - bt - 4, p * 1.4, 7, o.twine || WOOD, 2) + rect(w - p * 1.2, h - bt - 4, p * 1.4, 7, o.twine || WOOD, 2);
+    if (o.digit) {   // cipher-notation note tab on the top rail
+      const [d, dot] = o.digit, tx = w / 2 - 16, ty = p + 6, ink = o.digitInk || NAVY;
+      s += rect(tx, ty, 32, 52, "#FBF8F0", 3, `stroke="${o.digitInk ? VERM : "#C9B48A"}" stroke-width="${o.digitInk ? 2.4 : 1.5}"`);
+      if (dot) s += `<circle cx="${f1(w / 2)}" cy="${f1(ty + 8)}" r="3.4" fill="${ink}"/>`;
+      s += `<path d="${DIG[d]}" transform="translate(${f1(w / 2 - 10)},${f1(ty + 17)}) scale(0.95,1.05)" fill="none" stroke="${ink}" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>`;
+    }
+    if (o.arcs) {
+      const { count, col, sw, sp, maxL, maxR, op } = o.arcs, yl = big[3], yr = small[3];
+      for (let k = 0; k < count; k++) {
+        const r = 15 + k * sp, a = r * Math.cos(rad(48)), b = r * Math.sin(rad(48)), xl = -p - 4, xr = w + p + 4, opa = (op * (1 - k * 0.18)).toFixed(2);
+        if (r <= maxL) s += `<path d="M${f1(xl - a)},${f1(yl - b)} A${r} ${r} 0 0 0 ${f1(xl - a)},${f1(yl + b)}" fill="none" stroke="${col}" stroke-width="${sw}" stroke-linecap="round" opacity="${opa}"/>`;
+        if (r <= maxR) s += `<path d="M${f1(xr + a)},${f1(yr - b)} A${r} ${r} 0 0 1 ${f1(xr + a)},${f1(yr + b)}" fill="none" stroke="${col}" stroke-width="${sw}" stroke-linecap="round" opacity="${opa}"/>`;
+      }
+    }
+    return s;
+  }
+
+  // ---------- scene ----------
+  const FLOOR = 1652, VP = [540, 900];
+  let svg = `<defs>
+    <linearGradient id="gTube" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#7A5830"/><stop offset=".16" stop-color="#B48D50"/><stop offset=".36" stop-color="#E8D09A"/><stop offset=".52" stop-color="#D4B57A"/><stop offset=".82" stop-color="#A68047"/><stop offset="1" stop-color="#6A4B27"/></linearGradient>
+    <linearGradient id="gTongue" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#7E5C31"/><stop offset=".3" stop-color="#B8935A"/><stop offset=".55" stop-color="#C9A66B"/><stop offset=".8" stop-color="#A07B46"/><stop offset="1" stop-color="#6E4F2A"/></linearGradient>
+    <linearGradient id="gRod" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#EBD5A3"/><stop offset=".42" stop-color="#C9A86C"/><stop offset="1" stop-color="#7E5D33"/></linearGradient>
+    <linearGradient id="gBase" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#B8955C"/><stop offset=".1" stop-color="#EDD7A6"/><stop offset=".3" stop-color="#E6CD98"/><stop offset=".72" stop-color="#D9BD85"/><stop offset=".9" stop-color="#A9844C"/><stop offset="1" stop-color="#6F512B"/></linearGradient>
+    <linearGradient id="gBaseL" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#E8CF99"/><stop offset=".3" stop-color="#CFB074"/><stop offset=".75" stop-color="#9C7843"/><stop offset="1" stop-color="#6A4C28"/></linearGradient>
+    <linearGradient id="gWoodH" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#93704A"/><stop offset=".45" stop-color="#6D4F2E"/><stop offset="1" stop-color="#45301A"/></linearGradient>
+    <linearGradient id="gWoodV" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#45301A"/><stop offset=".35" stop-color="#86653F"/><stop offset=".62" stop-color="#6D4F2E"/><stop offset="1" stop-color="#3E2B16"/></linearGradient>
+    <linearGradient id="gBoard" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#F6EEDC"/><stop offset=".08" stop-color="#F1E6CD"/><stop offset=".9" stop-color="#EBDDBE"/><stop offset="1" stop-color="#D2BC92"/></linearGradient>
+    <linearGradient id="gRattan" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#E2BE7E"/><stop offset=".5" stop-color="#C39350"/><stop offset="1" stop-color="#8A6232"/></linearGradient>
+    <linearGradient id="gFloor" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#DCCDB0"/><stop offset="1" stop-color="#CDBB98"/></linearGradient>
+    <linearGradient id="gWall" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#E6DECF"/><stop offset=".22" stop-color="#EEE8DC"/><stop offset=".45" stop-color="#F1ECE1"/><stop offset=".85" stop-color="#F1ECE1"/><stop offset="1" stop-color="#E7DFCF"/></linearGradient>
+    <filter id="shF" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur in="SourceAlpha" stdDeviation="9" result="b"/><feFlood flood-color="#5A3F20" flood-opacity=".2"/><feComposite in2="b" operator="in"/></filter>
+    <filter id="shH" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur in="SourceAlpha" stdDeviation="14" result="b"/><feFlood flood-color="#4A3218" flood-opacity=".34"/><feComposite in2="b" operator="in"/></filter>
+    <filter id="shB" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur in="SourceAlpha" stdDeviation="5" result="b"/><feFlood flood-color="#5A3F20" flood-opacity=".13"/><feComposite in2="b" operator="in"/></filter>
+    <filter id="blurL" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="28"/></filter>
+    <filter id="soft" x="-30%" y="-100%" width="160%" height="300%"><feGaussianBlur stdDeviation="6"/></filter>
+  </defs>`;
+  svg += rect(0, 0, 1080, FLOOR, "url(#gWall)");
+  svg += `<g filter="url(#blurL)" fill="#FBF9F4" opacity=".9"><path d="M-60 -40 L330 -40 L760 640 L370 640 Z"/><path d="M380 -40 L640 -40 L1070 640 L810 640 Z"/></g>`;
+
+  // a cipher song sheet pinned to the wall above the stand (decoration only: digit paths + lyric bars, no text)
+  { const SX = 612, SY = 74, SW = 360, SH = 196;
+    let sh = `<g transform="rotate(2.2 ${SX + SW / 2} ${SY + SH / 2})">`;
+    sh += `<rect x="${SX + 6}" y="${SY + 9}" width="${SW}" height="${SH}" fill="#5A3F20" opacity=".12" filter="url(#soft)"/>`;
+    sh += rect(SX, SY, SW, SH, "#F8F2E3", 2, 'stroke="#DCCDAE" stroke-width="1.2"');
+    const ROWS = [[1, 1, 3, 5, 0, 5, 3, 1, 0, 2, 3, 2], [5, 5, 6, 5, 0, 3, 1, 2, 0, 1, 1, 0]];
+    ROWS.forEach((row, ri) => {
+      const y = SY + 34 + ri * 82;
+      row.forEach((d, k) => {
+        const x = SX + 26 + k * 27;
+        if (d === 0) { sh += line(x + 8, y - 4, x + 8, y + 30, "#B7A788", 1.4); return; }
+        sh += `<path d="${DIG[d]}" transform="translate(${x},${y}) scale(0.62,0.72)" fill="none" stroke="#A8987A" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>`;
+        if ((ri + k) % 4 === 1) sh += `<circle cx="${x + 6.5}" cy="${y - 7}" r="2" fill="#A8987A"/>`;
+        sh += rect(x - 1, y + 34, 14 + (k * 7) % 9, 5, "#D8CCB2", 2.5);
+      });
+    });
+    sh += `<circle cx="${SX + 22}" cy="${SY + 12}" r="6" fill="${VERM}" opacity=".85"/><circle cx="${SX + SW - 22}" cy="${SY + 12}" r="6" fill="${VERM}" opacity=".85"/>`;
+    svg += sh + "</g>"; }
+
+  // floor in perspective (boards run toward the vanishing point)
+  svg += rect(0, FLOOR, 1080, 1920 - FLOOR, "url(#gFloor)");
+  svg += rect(0, FLOOR - 16, 1080, 16, "#E4DACA") + line(0, FLOOR - 16, 1080, FLOOR - 16, "#CDBEA2", 2) + line(0, FLOOR, 1080, FLOOR, "#BFAE8E", 2);
+  for (let k = -14; k <= 14; k++) {
+    const x0 = VP[0] + k * 74, x1 = VP[0] + (x0 - VP[0]) * (1920 - VP[1]) / (FLOOR - VP[1]);
+    let ex = x1, ey = 1920;
+    if (x1 < 0) { ey = FLOOR + (1920 - FLOOR) * (0 - x0) / (x1 - x0); ex = 0; }
+    if (x1 > 1080) { ey = FLOOR + (1920 - FLOOR) * (1080 - x0) / (x1 - x0); ex = 1080; }
+    if (x0 >= 0 && x0 <= 1080) svg += line(x0, FLOOR, ex, ey, "#BEAC8B", 1.6, 'opacity=".75"');
+  }
+  [1676, 1712, 1762, 1830].forEach((y, j) => { svg += line(0, y, 1080, y, "#C4B293", 1.2, `opacity="${0.5 - j * 0.06}"`); });
+
+  // back tier: the silent frames, numbered in cipher notation, smaller + hazed = further away
+  const m = backNote.length, sB = 0.6;
+  const pitchB = 860 / m, wB = Math.min(pitchB * 0.6, 120), hBmax = Math.max(170, Hmax * 0.6);
+  let back = "";
+  for (let j = 0; j < m; j++) {
+    const w = wB * (1 - 0.18 * j / Math.max(1, m - 1)), h = hBmax * (1 - 0.26 * j / Math.max(1, m - 1));
+    const x = 110 + pitchB * (j + 0.5) - w / 2, y = Rb + 18;
+    back += `<g transform="translate(${f1(x)},${f1(y)}) scale(${sB})">${frame(w / sB, h / sB, { digit: backNote[j] })}</g>`;
+  }
+  // back stand: uprights (x 60-74 / 1006-1020) + rail
+  const backStand = rect(60, Rb - 30, 14, 1690 - (Rb - 30), "url(#gWoodV)", 5) + rect(1006, Rb - 30, 14, 1690 - (Rb - 30), "url(#gWoodV)", 5)
+    + rect(54, Rb - 7, 972, 14, "url(#gWoodH)", 6) + `<circle cx="67" cy="${Rb - 32}" r="10" fill="${WOOD}"/><circle cx="1013" cy="${Rb - 32}" r="10" fill="${WOOD}"/>`;
+  svg += `<g filter="url(#shB)" transform="translate(9,14)">${backStand}${back}</g>`;
+  svg += backStand + `<g opacity=".5">${back}</g>`;
+
+  // floor contact shadows, side runners, side braces (depth of the stand)
+  svg += `<g filter="url(#soft)" fill="#4E3519" opacity=".28"><ellipse cx="67" cy="1692" rx="30" ry="6"/><ellipse cx="1013" cy="1692" rx="30" ry="6"/><ellipse cx="35" cy="1768" rx="50" ry="9"/><ellipse cx="1045" cy="1768" rx="50" ry="9"/></g>`;
+  svg += `<path d="M60 1684 L74 1684 L46 1766 L24 1766 Z" fill="url(#gWoodV)"/><path d="M1006 1684 L1020 1684 L1056 1766 L1034 1766 Z" fill="url(#gWoodV)"/>`;
+  svg += `<path d="M58 ${Rb - 6} L74 ${Rb + 6} L46 ${Rf + 9} L24 ${Rf - 9} Z" fill="url(#gWoodV)"/><path d="M1022 ${Rb - 6} L1006 ${Rb + 6} L1034 ${Rf + 9} L1056 ${Rf - 9} Z" fill="url(#gWoodV)"/>`;
+
+  // front stand: tall uprights (x 24-46 / 1034-1056) rising to turned finials, front rail
+  const POST_TOP = BY0 - 22;
+  const finial = cxF => `<rect x="${cxF - 8}" y="${POST_TOP - 14}" width="16" height="16" rx="3" fill="url(#gWoodV)"/>`
+    + `<ellipse cx="${cxF}" cy="${POST_TOP - 24}" rx="16" ry="14" fill="url(#gWoodV)"/><ellipse cx="${cxF - 4}" cy="${POST_TOP - 29}" rx="5" ry="3.5" fill="#A2805A" opacity=".7"/>`
+    + `<rect x="${cxF - 14}" y="${POST_TOP - 4}" width="28" height="8" rx="3" fill="${WOOD}"/>`;
+  const frontStand = rect(24, POST_TOP, 22, 1766 - POST_TOP, "url(#gWoodV)", 6) + rect(1034, POST_TOP, 22, 1766 - POST_TOP, "url(#gWoodV)", 6)
+    + finial(35) + finial(1045) + rect(14, Rf - 9, 1052, 18, "url(#gWoodH)", 8);
+  svg += `<g filter="url(#shB)" transform="translate(10,16)">${frontStand}</g>` + frontStand;
+
+  // name board: cream painted plank, painted rule, rattan lashings to both uprights
+  const BX0 = 12, BX1 = 1068, BH = BY1 - BY0;
+  let board = rect(BX0, BY0, BX1 - BX0, BH, "url(#gBoard)", 8, 'stroke="#BFA77A" stroke-width="2"');
+  [[0.22, 0.012], [0.47, -0.01], [0.71, 0.008], [0.88, -0.006]].forEach(([k, s], j) => {
+    const y = BY0 + BH * k; board += `<path d="M${BX0 + 20} ${f1(y)} C 300 ${f1(y + 900 * s)}, 700 ${f1(y - 700 * s)}, ${BX1 - 20} ${f1(y + 300 * s)}" fill="none" stroke="#CDB68A" stroke-width="${j % 2 ? 1.2 : 1.6}" opacity=".45"/>`; });
+  board += `<rect x="${BX0 + 46}" y="${BY0 + 14}" width="${BX1 - BX0 - 92}" height="${BH - 28}" rx="5" fill="none" stroke="${WOOD}" stroke-width="2.4" opacity=".55"/>`;
+  board += line(BX0 + 120, kickTop - 11, BX1 - 120, kickTop - 11, "#B9A074", 1.6);
+  const lash = (xL, y) => { let s = ""; for (let k = 0; k < 6; k++) s += `<rect x="${xL}" y="${f1(y + k * 8.5)}" width="44" height="7.5" rx="3.6" fill="url(#gRattan)" stroke="#7A5428" stroke-width=".8" transform="rotate(-8 ${xL + 22} ${f1(y + k * 8.5 + 4)})"/>`;
+    return s + `<path d="M${xL + 4} ${f1(y - 2)} L${xL + 40} ${f1(y + 52)} M${xL + 40} ${f1(y - 2)} L${xL + 4} ${f1(y + 52)}" stroke="#9A6E38" stroke-width="3" stroke-linecap="round" opacity=".8"/>`; };
+  board += lash(13, BY0 + 14) + lash(13, BY1 - 66) + lash(1023, BY0 + 14) + lash(1023, BY1 - 66);
+  svg += `<g filter="url(#shF)" transform="translate(8,14)">${rect(BX0, BY0, BX1 - BX0, BH, "#000", 8)}</g>` + board;
+
+  // front tier: the sounding frames (hot frame drawn last, stepping forward)
+  const order = items.map((_, i) => i).filter(i => i !== hot).concat(items.length ? [hot] : []);
+  let front = "", frontSh = "", strings = "";
+  const att = [];
+  const geo = items.map((_, i) => {
+    const w = fw(i), h = Hmax * grade(i), c = cx(i), isHot = i === hot, T = rankT(i), p = postW(w);
+    const gap = pitch - w;
+    const room = gap / 2 - p - 4 + (isHot ? 18 : 8);
+    const count = isHot ? 4 : T === 0 ? 0 : 1 + Math.round(T * 3);   // quietest frame: no arcs, faint echo only
+    const sp = clamp((room - 15) / Math.max(1, count - 1), isHot ? 9 : 6, isHot ? 13 : 10);
+    const edgeL = c - w / 2 - p - 4, edgeR = c + w / 2 + p + 4;
+    const maxL = i === 0 ? edgeL - 52 : 99, maxR = i === n - 1 ? 1030 - edgeR : 99;
+    const d = 3 + 7 * T, go = 0.1 + 0.25 * T;
+    const ghosts = isHot ? [[-22, 0.14], [-11, 0.3], [11, 0.3], [22, 0.14]] : [[-d, go], [d, go]];
+    const arcs = { count, col: isHot ? VERM : NAVY, sw: isHot ? 5 : 3, sp, maxL, maxR, op: isHot ? 1 : 0.45 + 0.55 * T };
+    const inner = frame(w, h, { ghosts, arcs, bt: base[i].bt, bw: base[i].bw, tw: base[i].tw, digit: frontNote[i], digitInk: isHot ? VERM : null, twine: isHot ? VERM : null });
+    const tr = `translate(${f1(c)},${pivotY}) rotate(${f1(tilt[i])}) scale(${scl(i)}) translate(${f1(-w / 2)},16)`;
+    return { w, h, c, inner, tr };
+  });
+  order.forEach(i => { const g = geo[i];
+    front += (i === hot ? `<g filter="url(#shH)" transform="translate(26,34)"><g transform="${g.tr}">${g.inner}</g></g>` : "") + `<g transform="${g.tr}">${g.inner}</g>`;
+    if (i !== hot) frontSh += `<g transform="${g.tr}">${g.inner}</g>`; });
+  svg += `<g filter="url(#shF)" transform="translate(20,28)">${frontSh}</g>`;
+  svg += front;
+
+  // ---------- place values (same transform as their frame) + tabs + twine ----------
+  items.forEach((_, i) => {
+    const g = geo[i], b = base[i], s = scl(i), tr = rad(tilt[i]);
+    const el = valEls[i];
+    const left = g.c - b.tw / 2, top = frameTop + g.h - b.bt + (b.bt - b.th) / 2;
+    el.style.left = f1(left) + "px"; el.style.top = f1(top) + "px";
+    el.style.transformOrigin = f1(g.c - left) + "px " + f1(pivotY - top) + "px";
+    el.style.transform = `rotate(${f1(tilt[i])}deg) scale(${s})`;
+    // base bottom centre in world coordinates
+    const L = (16 + g.h) * s; const ax = g.c - Math.sin(tr) * L, ay = pivotY + Math.cos(tr) * L;
+    const wrap = tabWraps[i], tw = tabW[i];
+    const colL = Math.max(92, cx(i) - pitch / 2 + 6), colR = Math.min(898, cx(i) + pitch / 2 - 6);
+    const tl = clamp(ax - tw / 2, colL, colR - tw), tt = ay + TIE;
+    wrap.style.left = f1(tl) + "px"; wrap.style.top = f1(tt) + "px";
+    wrap.style.transform = `rotate(${i === hot ? 0 : (i % 2 ? 0.8 : -0.8)}deg)`;
+    const col = i === hot ? VERM : WOOD;
+    strings += `<path d="M${f1(ax)},${f1(ay - 3)} L${f1(tl + tw / 2)},${f1(tt + 7)}" stroke="${col}" stroke-width="${i === hot ? 3.4 : 2.6}" fill="none" stroke-linecap="round"/>`
+      + `<circle cx="${f1(tl + tw / 2)}" cy="${f1(tt + 6)}" r="4.6" fill="${col}"/>`;
+  });
+  svg += strings;
+  $("scene").innerHTML = svg;
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Fira+Sans+Extra+Condensed:wght@700;800&family=Fira+Sans+Condensed:wght@500;600&family=Fira+Mono:wght@500&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Filter Preset: a dark photo-editing app on a phone.
+    One illustrated street photo (a warung at dusk) split by a before/after handle:
+    left = the same picture flat and grey (the frozen base), right = graded (the preset).
+    Both halves are the SAME <g id="scene"> drawn once; the left half only gets a tiny
+    colour filter. That is the metaphor (LoRA): the big base never changes, a small preset
+    restyles it. Below it, a bottom sheet with a preset filmstrip (same scene, other filters)
+    and 3-5 centre-zero adjustment sliders = the items. Caption sits in the sheet.
+    Deterministic: every shape is hard-coded or built from fixed loops.
+  */
+  :root {
+    --bg: #121316;      /* app chrome */
+    --sheet: #1B1D22;   /* bottom sheet */
+    --cream: #EDE8DF;   /* text */
+    --amber: #F2A03D;   /* preset / active */
+    --grey: #8A8F98;    /* secondary text, tracks */
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--bg); }
+  body { position: relative; color: var(--cream); font-family: "Fira Sans Condensed", sans-serif; }
+
+  #chrome { position: absolute; left: 0; top: 0; width: 1080px; height: 300px; }
+
+  .kick { position: absolute; left: 90px; right: 90px; top: 300px; display: flex; justify-content: space-between; align-items: baseline; gap: 30px;
+          font: 500 27px/1.2 "Fira Mono", monospace; letter-spacing: 0.04em; text-transform: uppercase; color: var(--grey); white-space: nowrap; }
+  .kick b { font-weight: 500; color: var(--cream); }
+  .kick .dot { display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: var(--amber); margin-right: 14px; vertical-align: 1px; }
+
+  .title { position: absolute; left: 90px; width: 900px; top: 350px; font-family: "Fira Sans Extra Condensed", sans-serif; font-weight: 800;
+           line-height: 0.98; letter-spacing: -0.005em; color: var(--cream); }
+  /* the highlighted word is itself a before/after split: grey half | amber half, with the handle line */
+  .title .hl { position: relative; white-space: nowrap; color: var(--amber);
+               background: linear-gradient(90deg, #9A9EA6 0 50%, var(--amber) 50% 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .title .hl::after { content: ""; position: absolute; left: calc(50% - 3px); top: 0.1em; bottom: 0.02em; width: 6px; border-radius: 3px; background: var(--cream); }
+
+  #photoBox { position: absolute; left: 0; width: 1080px; overflow: hidden; z-index: 1; background: #2A2833; }
+  #photo { position: absolute; left: 0; top: 0; width: 1080px; height: 100%; display: block; }
+  .pill { position: absolute; top: 26px; font: 600 30px/1 "Fira Sans Condensed", sans-serif; letter-spacing: 0.1em; text-transform: uppercase;
+          color: var(--cream); background: rgba(18, 19, 22, 0.86); border-radius: 30px; padding: 12px 22px 12px; white-space: nowrap; }
+  .pill.l { left: 90px; }
+  .pill.l svg { display: inline-block; margin-right: 12px; vertical-align: -2px; }
+  .pill.r { right: 90px; }
+  .pill.r i { display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: var(--amber); margin-right: 12px; vertical-align: 2px; }
+  .handle { position: absolute; left: 537px; top: 0; width: 6px; height: 100%; background: var(--cream); box-shadow: 0 0 0 1px rgba(18, 19, 22, 0.35); }
+  .knob { position: absolute; left: 498px; width: 84px; height: 84px; border-radius: 50%; background: var(--cream);
+          box-shadow: 0 0 0 5px rgba(18, 19, 22, 0.55), 0 10px 24px rgba(0, 0, 0, 0.45); display: flex; align-items: center; justify-content: center; }
+  .info { position: absolute; left: 90px; max-width: 760px; font: 500 26px/1.3 "Fira Mono", monospace; color: var(--cream);
+          background: rgba(18, 19, 22, 0.86); border-radius: 12px; padding: 9px 16px 9px 14px; display: flex; gap: 12px; align-items: flex-start; }
+  .info svg { flex: none; margin-top: 3px; }
+
+  #sheet { position: absolute; left: 0; width: 1080px; bottom: 0; background: var(--sheet); border-radius: 34px 34px 0 0; z-index: 2;
+           box-shadow: 0 -14px 30px rgba(0, 0, 0, 0.35); }
+  .grab { position: absolute; left: 500px; width: 80px; height: 7px; border-radius: 4px; background: #3A3D45; z-index: 3; }
+
+  #strip { position: absolute; left: 90px; z-index: 3; display: flex; gap: 14px; }
+  .th { position: relative; flex: none; width: 132px; height: 76px; border-radius: 10px; overflow: hidden; background: #2A2833; }
+  .th svg { display: block; width: 132px; height: 76px; }
+  .th.on { box-shadow: 0 0 0 4px var(--sheet), 0 0 0 8px var(--amber); }
+  .th.org::after { content: ""; position: absolute; inset: 0; border-radius: 10px; box-shadow: inset 0 0 0 2px #4A4E57; }
+
+  #rows { position: absolute; left: 0; top: 0; z-index: 3; }
+  .row { position: absolute; left: 68px; width: 846px; padding: 0 14px 0 22px; display: flex; align-items: center; gap: 26px; border-radius: 16px; }
+  .row.on { background: #25282E; }
+  .lb { flex: none; font: 500 36px/1.1 "Fira Sans Condensed", sans-serif; color: var(--cream); white-space: nowrap; }
+  .vl { flex: none; text-align: right; font: 500 34px/1.1 "Fira Mono", monospace; letter-spacing: -0.02em; color: var(--cream); white-space: nowrap; }
+  .row.on .vl { color: var(--amber); }
+  .trk { position: relative; flex: 1 1 auto; height: 40px; }
+  .trk .base { position: absolute; left: 0; right: 0; top: 18px; height: 4px; border-radius: 2px; background: #3A3E47; }
+  .trk .zero { position: absolute; left: calc(50% - 1.5px); top: 8px; width: 3px; height: 24px; border-radius: 2px; background: var(--grey); }
+  .trk .fill { position: absolute; top: 17px; height: 6px; border-radius: 3px; background: var(--amber); }
+  .trk .kn { position: absolute; top: 5px; width: 30px; height: 30px; margin-left: -15px; border-radius: 50%; background: var(--cream); box-shadow: 0 0 0 4px var(--sheet), 0 3px 8px rgba(0, 0, 0, 0.5); }
+  .row.on .trk .kn { background: var(--amber); }
+
+  .rule { position: absolute; left: 90px; width: 900px; height: 2px; background: #2C2F36; z-index: 3; }
+  .cap { position: absolute; left: 90px; width: 900px; z-index: 3; font: 500 44px/1.24 "Fira Sans Condensed", sans-serif; color: var(--cream); }
+  .cap .w { white-space: nowrap; }
+  .cap .on { color: var(--bg); background: var(--amber); border-radius: 8px; padding: 0 0.14em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+
+  #tools { position: absolute; left: 0; top: 1660px; width: 1080px; height: 260px; z-index: 3; }
+</style>
+</head>
+<body>
+<!-- app top bar (decoration, icons only) -->
+<svg id="chrome" viewBox="0 0 1080 300" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <g fill="none" stroke="#8A8F98" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M114 196 L94 220 L114 244" />
+    <path d="M404 210 a22 22 0 1 1 -4 26" /><path d="M392 196 L404 210 L388 220" />
+    <path d="M676 210 a22 22 0 1 0 4 26" /><path d="M688 196 L676 210 L692 220" />
+  </g>
+  <g>
+    <rect x="512" y="198" width="56" height="44" rx="8" fill="none" stroke="#8A8F98" stroke-width="5" />
+    <path d="M540 198 V242" stroke="#8A8F98" stroke-width="5" />
+    <rect x="540" y="200.5" width="25.5" height="39" fill="#8A8F98" opacity="0.5" />
+  </g>
+  <rect x="880" y="192" width="110" height="56" rx="28" fill="#F2A03D" />
+  <g fill="none" stroke="#121316" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M935 234 V206" /><path d="M923 217 L935 205 L947 217" />
+  </g>
+</svg>
+
+<div class="kick" id="kick"><span id="ser"></span><span id="date"></span></div>
+<div class="title" id="title"></div>
+
+<div id="photoBox" data-layout-allow-overlap>
+  <svg id="photo" data-layout-allow-overflow viewBox="0 0 1080 560" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs id="defs"></defs>
+    <use href="#scene" filter="url(#fx-flat)" clip-path="url(#cl-left)" />
+    <use href="#scene" clip-path="url(#cl-right)" />
+  </svg>
+  <div class="handle"></div>
+  <div class="knob" id="knob">
+    <svg width="46" height="28" viewBox="0 0 46 28" aria-hidden="true"><g fill="none" stroke="#121316" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4 L4 14 L14 24" /><path d="M32 4 L42 14 L32 24" /></g></svg>
+  </div>
+  <div class="pill l"><svg width="22" height="26" viewBox="0 0 22 26" aria-hidden="true"><rect x="1.5" y="11" width="19" height="13.5" rx="3" fill="#EDE8DF" /><path d="M5.5 11.5V8a5.5 5.5 0 0 1 11 0v3.5" fill="none" stroke="#EDE8DF" stroke-width="3" /></svg>Asli</div>
+  <div class="pill r"><i></i>Preset</div>
+  <div class="info" id="info"><svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="11.5" fill="none" stroke="#EDE8DF" stroke-width="2.6" /><rect x="12.6" y="12" width="2.8" height="9" rx="1.2" fill="#EDE8DF" /><circle cx="14" cy="8.2" r="1.8" fill="#EDE8DF" /></svg><span id="src"></span></div>
+</div>
+
+<div id="sheet"></div>
+<div class="grab" id="grab"></div>
+<div id="strip"></div>
+<div id="rows"></div>
+<div class="rule" id="rule"></div>
+<div class="cap" id="cap" data-slot="caption"></div>
+
+<!-- bottom tool bar (decoration, under the platform UI) -->
+<svg id="tools" viewBox="0 0 1080 260" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <g fill="none" stroke="#5E626B" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M128 52 V96 H172" /><path d="M110 70 H154 V114" />
+    <circle cx="336" cy="83" r="14" /><path d="M336 51 V59 M336 107 V115 M304 83 H312 M360 83 H368 M313 60 L319 66 M353 100 L359 106 M359 60 L353 66 M319 100 L313 106" />
+    <path d="M540 52 C540 52 518 78 518 92 a22 22 0 0 0 44 0 C562 78 540 52 540 52 Z" />
+    <path d="M922 60 H970 M922 83 H970 M922 106 H970" /><circle cx="936" cy="60" r="7" fill="#1B1D22" /><circle cx="958" cy="83" r="7" fill="#1B1D22" /><circle cx="942" cy="106" r="7" fill="#1B1D22" />
+  </g>
+  <g fill="none" stroke="#F2A03D" stroke-width="5" stroke-linejoin="round">
+    <rect x="716" y="62" width="44" height="44" rx="7" /><path d="M728 52 H770 V94" />
+  </g>
+  <circle cx="744" cy="134" r="5" fill="#F2A03D" />
+  <rect x="400" y="226" width="280" height="9" rx="4.5" fill="#3A3D45" />
+</svg>
+
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const FONTS = ['800 100px "Fira Sans Extra Condensed"', '500 36px "Fira Sans Condensed"', '600 30px "Fira Sans Condensed"', '500 34px "Fira Mono"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  // ---------- the photo: a warung at dusk, drawn once, reused everywhere ----------
+  // hand-painted sign lettering as paths (W A R U N G), 18 px wide letters
+  function letters(x0, T, B) {
+    const M = (B + T) / 2, L = [
+      x => `M${x} ${T}L${x + 4} ${B}L${x + 9} ${M}L${x + 14} ${B}L${x + 18} ${T}`,
+      x => `M${x} ${B}L${x + 9} ${T}L${x + 18} ${B}M${x + 4} ${M + 3}H${x + 14}`,
+      x => `M${x} ${B}V${T}H${x + 11}Q${x + 18} ${T} ${x + 18} ${T + 5}Q${x + 18} ${M} ${x + 11} ${M}H${x}M${x + 10} ${M}L${x + 18} ${B}`,
+      x => `M${x} ${T}V${B - 6}Q${x} ${B} ${x + 9} ${B}Q${x + 18} ${B} ${x + 18} ${B - 6}V${T}`,
+      x => `M${x} ${B}V${T}L${x + 18} ${B}V${T}`,
+      x => `M${x + 18} ${T + 4}Q${x + 16} ${T} ${x + 9} ${T}Q${x} ${T} ${x} ${M}Q${x} ${B} ${x + 9} ${B}Q${x + 18} ${B} ${x + 18} ${M + 2}H${x + 10}`];
+    return L.map((f, i) => f(x0 + i * 21)).join("");
+  }
+
+  function scene() {
+    const g = [];
+    // sky + sun
+    g.push('<rect width="1080" height="560" fill="url(#g-sky)"/>');
+    g.push('<circle cx="812" cy="404" r="230" fill="url(#g-sun)"/>');
+    g.push('<circle cx="812" cy="408" r="60" fill="#FCE0A2"/>');
+    // cloud streaks
+    g.push('<g fill="#6F6E98" opacity="0.55"><rect x="30" y="150" width="330" height="9" rx="4.5"/><rect x="190" y="170" width="250" height="7" rx="3.5"/><rect x="690" y="118" width="330" height="8" rx="4"/><rect x="760" y="138" width="200" height="6" rx="3"/></g>');
+    g.push('<g fill="#F6BE8A" opacity="0.6"><rect x="560" y="312" width="300" height="7" rx="3.5"/><rect x="660" y="330" width="380" height="6" rx="3"/><rect x="90" y="296" width="250" height="6" rx="3"/></g>');
+    // far skyline (ruko, water tank, antenna)
+    g.push('<path fill="#433C62" d="M0 452V318H58V296H124V318H176V276H238V300H300V262H372V452ZM700 452V300H760V396H812V386H868V404H930V362H986V338H1040V354H1080V452Z"/>');
+    g.push('<g fill="#433C62"><rect x="186" y="232" width="44" height="30" rx="6"/></g><g stroke="#433C62" stroke-width="5"><path d="M192 262L188 278M224 262L228 278M92 296V250M80 262H104"/></g>');
+    // window lights on the right block (warm) and left block (dim)
+    g.push('<g fill="#F7C873" opacity="0.85"><rect x="944" y="380" width="14" height="18"/><rect x="1004" y="372" width="14" height="18"/><rect x="1004" y="404" width="14" height="18"/><rect x="716" y="320" width="14" height="18"/></g>');
+    g.push('<g fill="#F7C873" opacity="0.7"><rect x="72" y="336" width="14" height="18"/><rect x="200" y="300" width="14" height="18"/><rect x="200" y="334" width="14" height="18"/><rect x="316" y="282" width="14" height="18"/></g>');
+    // tree
+    g.push('<path fill="#2B2842" d="M60 336C36 290 84 236 140 244C160 206 236 208 252 246C302 250 316 312 276 334C262 368 202 366 182 352C150 372 84 368 60 336Z"/>');
+    g.push('<path fill="#2B2842" d="M160 452C166 414 158 382 168 352L184 352C178 390 186 420 190 452Z"/>');
+    // power pole + sagging wires
+    g.push('<rect x="262" y="92" width="11" height="360" fill="#24223A"/><rect x="236" y="112" width="64" height="8" fill="#24223A"/>');
+    g.push('<g fill="none" stroke="#211F35" stroke-width="2.6"><path d="M0 150Q132 178 268 116"/><path d="M268 116Q664 222 1080 138"/><path d="M296 118Q690 250 1080 168"/><path d="M240 118Q520 196 700 198"/></g>');
+    // ground: kerb, road, light pool
+    g.push('<rect x="0" y="446" width="1080" height="20" fill="#594C57"/><rect x="0" y="464" width="1080" height="96" fill="#25262F"/>');
+    g.push('<g fill="#45475A">' + [40, 240, 440, 640, 840, 1040].map(x => `<rect x="${x}" y="522" width="120" height="7" rx="3"/>`).join("") + '</g>');
+    g.push('<ellipse cx="560" cy="476" rx="360" ry="54" fill="url(#g-pool)"/>');
+    // warung: interior + shelves of goods
+    g.push('<rect x="320" y="236" width="450" height="216" fill="#3A2828"/>');
+    const goods = ["#C8553D", "#E6B84F", "#5E7FB8", "#D9D3C7", "#9C4F7C", "#E07A3F", "#6FA0C8"];
+    const shelf = (y, h) => { let s = ""; for (let i = 0, x = 340; x < 750; i++) { const w = 18 + (i * 7) % 9, hh = h - (i * 5) % 8; s += `<rect x="${x}" y="${y - hh}" width="${w}" height="${hh}" fill="${goods[(i * 3) % goods.length]}"/>`; x += w + 6; } return s; };
+    g.push('<g opacity="0.9">' + shelf(276, 24) + shelf(318, 22) + '</g>');
+    g.push('<g fill="#6A4834"><rect x="330" y="276" width="430" height="6"/><rect x="330" y="318" width="430" height="6"/></g>');
+    // posts
+    g.push('<g fill="#6E4A32"><rect x="310" y="232" width="15" height="220"/><rect x="766" y="232" width="15" height="220"/></g>');
+    // tiled gable roof + painted sign
+    g.push('<polygon points="282,242 545,156 808,242" fill="#8F4433"/>');
+    g.push('<g stroke="#6B3127" stroke-width="3">' + [180, 202, 224].map(y => { const hw = (y - 156) / 86 * 263; return `<path d="M${(545 - hw).toFixed(1)} ${y}H${(545 + hw).toFixed(1)}"/>`; }).join("") + '</g>');
+    g.push('<rect x="300" y="240" width="490" height="10" fill="#5B2C25"/>');
+    g.push('<rect x="474" y="196" width="142" height="36" rx="3" fill="#E9DCBC"/><path fill="none" stroke="#B23A2E" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" d="' + letters(484, 204, 224) + '"/>');
+    // zinc awning with ribs
+    g.push('<polygon points="258,250 832,250 862,292 228,292" fill="#8E97A6"/>');
+    g.push('<g stroke="#6F7786" stroke-width="2">' + Array.from({ length: 44 }, (_, i) => { const x = 236 + i * 14.3; return `<path d="M${x.toFixed(1)} 253V290"/>`; }).join("") + '</g>');
+    g.push('<rect x="228" y="288" width="634" height="7" fill="#CDD2DA"/>');
+    // hanging sachet strips (renceng)
+    const strips = [[346, "#D9483B", "#F0C24B"], [372, "#3F6FD8", "#E8E2D2"], [398, "#F2A03D", "#7A3E2B"], [692, "#8E5BB5", "#F0C24B"], [718, "#E46A3A", "#E8E2D2"], [744, "#C23B5A", "#F0C24B"]];
+    g.push(strips.map(([x, a, b], k) => { let s = `<rect x="${x + 6}" y="295" width="8" height="6" fill="#2A2020"/>`; const len = 6 - (k % 2); for (let i = 0; i < len; i++) s += `<rect x="${x}" y="${301 + i * 17}" width="20" height="15" rx="2" fill="${i % 2 ? b : a}"/>`; return s; }).join(""));
+    // hanging bulbs + glow
+    g.push('<circle cx="472" cy="330" r="96" fill="url(#g-bulb)"/><circle cx="636" cy="330" r="110" fill="url(#g-bulb)"/>');
+    g.push('<g stroke="#2A2020" stroke-width="3"><path d="M472 295V321M636 295V321"/></g><circle cx="472" cy="330" r="10" fill="#FFE6A3"/><circle cx="636" cy="330" r="10" fill="#FFE6A3"/>');
+    // jars of crackers on the counter (red lids)
+    g.push([408, 456, 604, 652].map(x => `<rect x="${x}" y="358" width="40" height="40" rx="9" fill="#D7E4EC" opacity="0.6"/><rect x="${x + 4}" y="372" width="32" height="22" rx="6" fill="#E9B95A"/><rect x="${x - 2}" y="352" width="44" height="9" rx="3" fill="#C8402F"/>`).join(""));
+    // glass counter (etalase)
+    g.push('<rect x="368" y="398" width="356" height="8" fill="#A06C46"/><rect x="376" y="406" width="340" height="46" fill="#7A5136"/>');
+    g.push('<rect x="390" y="410" width="312" height="30" fill="#A9C9DA" opacity="0.55"/><path d="M390 410H702M546 410V440" stroke="#DCE7EE" stroke-width="2" fill="none"/>');
+    // bench (left) and crates of bottles (right)
+    g.push('<rect x="214" y="410" width="214" height="12" fill="#8A5A3A"/><g fill="#5E3C28"><rect x="226" y="422" width="9" height="30"/><rect x="408" y="422" width="9" height="30"/></g>');
+    g.push('<g><rect x="730" y="404" width="96" height="48" fill="#B13E2E"/><path d="M730 420H826M730 436H826" stroke="#8A2C22" stroke-width="3"/>' + [744, 762, 780, 798, 816].map(x => `<rect x="${x - 4}" y="388" width="8" height="18" rx="3" fill="#3C2A22"/>`).join("") + '</g>');
+    // scooter
+    g.push('<path fill="#4C6C9A" d="M880 432C882 404 902 392 930 392L985 392C992 372 1000 352 1012 346L1022 346L1018 372C1040 384 1050 408 1046 434L1028 434C1022 418 1008 412 990 414L940 426C930 412 912 410 900 420Z"/>');
+    g.push('<path fill="#1D1C27" d="M898 390C910 376 960 375 976 386L970 395L904 397Z"/><path d="M1012 348L996 332" stroke="#1D1C27" stroke-width="6" stroke-linecap="round"/>');
+    g.push('<g fill="#17171F"><circle cx="906" cy="436" r="24"/><circle cx="1022" cy="436" r="24"/></g><g fill="#6A6A7C"><circle cx="906" cy="436" r="8"/><circle cx="1022" cy="436" r="8"/></g><circle cx="1030" cy="358" r="6" fill="#FFE6A3"/>');
+    // warm rake light from the sun side + vignette + grain
+    g.push('<rect width="1080" height="560" fill="url(#g-rake)"/><rect width="1080" height="560" fill="url(#g-vig)"/>');
+    g.push('<rect width="1080" height="560" filter="url(#fx-grain)" opacity="0.10"/>');
+    return '<g id="scene">' + g.join("") + '</g>';
+  }
+
+  const DEFS = `
+    <linearGradient id="g-sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1D2850"/><stop offset="0.36" stop-color="#43507F"/><stop offset="0.6" stop-color="#B57876"/>
+      <stop offset="0.76" stop-color="#EE9E5C"/><stop offset="0.86" stop-color="#F6C47E"/></linearGradient>
+    <radialGradient id="g-sun"><stop offset="0" stop-color="#FFD991" stop-opacity="0.9"/><stop offset="1" stop-color="#F2A03D" stop-opacity="0"/></radialGradient>
+    <radialGradient id="g-bulb"><stop offset="0" stop-color="#FFD98A" stop-opacity="0.75"/><stop offset="1" stop-color="#F2A03D" stop-opacity="0"/></radialGradient>
+    <radialGradient id="g-pool"><stop offset="0" stop-color="#F2A03D" stop-opacity="0.45"/><stop offset="1" stop-color="#F2A03D" stop-opacity="0"/></radialGradient>
+    <linearGradient id="g-rake" x1="0" y1="0" x2="1" y2="0"><stop offset="0.45" stop-color="#F2A03D" stop-opacity="0"/><stop offset="1" stop-color="#F2A03D" stop-opacity="0.16"/></linearGradient>
+    <radialGradient id="g-vig" cx="0.5" cy="0.58" r="0.75"><stop offset="0.55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.42"/></radialGradient>
+    <filter id="fx-grain" x="0" y="0" width="1080" height="560" filterUnits="userSpaceOnUse">
+      <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" seed="11"/><feColorMatrix type="saturate" values="0"/></filter>
+    <!-- presets: the same base picture, only a tiny colour transform differs -->
+    <filter id="fx-flat" x="0" y="0" width="1080" height="560" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feColorMatrix type="saturate" values="0.06"/>
+      <feComponentTransfer><feFuncR type="linear" slope="0.5" intercept="0.27"/><feFuncG type="linear" slope="0.5" intercept="0.27"/><feFuncB type="linear" slope="0.5" intercept="0.29"/></feComponentTransfer></filter>
+    <filter id="fx-mono" x="0" y="0" width="1080" height="560" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncR type="linear" slope="1.2" intercept="-0.06"/><feFuncG type="linear" slope="1.2" intercept="-0.06"/><feFuncB type="linear" slope="1.2" intercept="-0.06"/></feComponentTransfer></filter>
+    <filter id="fx-cool" x="0" y="0" width="1080" height="560" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feColorMatrix type="matrix" values="0.72 0.1 0 0 0  0.05 0.85 0.1 0 0.02  0 0.15 1 0 0.08  0 0 0 1 0"/></filter>
+    <filter id="fx-fade" x="0" y="0" width="1080" height="560" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feColorMatrix type="matrix" values="0.6 0.3 0.1 0 0.12  0.3 0.55 0.1 0 0.1  0.2 0.25 0.4 0 0.08  0 0 0 1 0"/></filter>
+    <filter id="fx-punch" x="0" y="0" width="1080" height="560" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feColorMatrix type="saturate" values="1.5"/><feComponentTransfer><feFuncR type="linear" slope="1.25" intercept="-0.1"/><feFuncG type="linear" slope="1.25" intercept="-0.12"/><feFuncB type="linear" slope="1.25" intercept="-0.1"/></feComponentTransfer></filter>
+    <clipPath id="cl-left" clipPathUnits="userSpaceOnUse"><rect x="-200" y="-200" width="740" height="960"/></clipPath>
+    <clipPath id="cl-right" clipPathUnits="userSpaceOnUse"><rect x="540" y="-200" width="740" height="960"/></clipPath>`;
+
+  function render() {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+
+  // ---------- kicker + date ----------
+  const ser = D.series ? esc(D.series) + (D.ep ? " · <b>" + esc(D.ep) + "</b>" : "") : esc(D.kicker || "");
+  $("ser").innerHTML = '<span class="dot"></span>' + ser;
+  $("date").textContent = D.date || "";
+
+  // ---------- title, highlight = a tiny before/after split on the word ----------
+  const t = D.title || "", hl = D.hl || "";
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  for (let fs = 112; fs >= 70; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (titleEl.offsetHeight <= 224 && titleEl.scrollWidth <= 900) break; }
+  const TB = 350 + titleEl.offsetHeight;
+
+  // ---------- scene into the photo + filmstrip ----------
+  $("defs").innerHTML = DEFS + scene();
+
+  // ---------- vertical layout (bottom-anchored sheet, photo takes the rest) ----------
+  const R = n >= 5 ? 66 : n === 4 ? 76 : 86;          // slider row height
+  const CAP_TOP = 1506;
+  const rowsTop = CAP_TOP - 26 - n * R;
+  const FH = 76, stripTop = rowsTop - 24 - FH, grabTop = stripTop - 26, sheetTop = grabTop - 16;
+  const PT = TB + 30, PB = sheetTop + 30;              // sheet's rounded top overlaps the photo
+  const box = $("photoBox");
+  box.style.top = PT + "px"; box.style.height = (PB - PT) + "px";
+  $("knob").style.top = ((PB - 30 - PT) / 2 - 42) + "px";
+  $("sheet").style.top = sheetTop + "px";
+  $("grab").style.top = grabTop + "px";
+
+  // filmstrip: original, active preset, then other presets running off the edge
+  const fx = ["fx-flat", "", "fx-mono", "fx-cool", "fx-fade", "fx-punch", "fx-mono"];
+  const strip = $("strip");
+  strip.style.top = stripTop + "px";
+  strip.innerHTML = fx.map((f, i) => `<div class="th${i === 1 ? " on" : ""}${i === 0 ? " org" : ""}"><svg data-layout-allow-overflow viewBox="0 0 1080 560" preserveAspectRatio="xMidYMax slice" aria-hidden="true"><use href="#scene"${f ? ` filter="url(#${f})"` : ""}/></svg></div>`).join("");
+
+  // source line = the photo's info overlay
+  $("src").textContent = D.source || "";
+  const info = $("info");
+  info.style.display = D.source ? "flex" : "none";
+  info.style.top = (PB - PT - 30 - 22 - info.offsetHeight) + "px";
+
+  // ---------- items = centre-zero adjustment sliders ----------
+  const num = v => { const m = String(v).match(/[-+±]?\d+(?:[.,]\d+)?/); return m ? parseFloat(m[0].replace("±", "").replace(",", ".")) : NaN; };
+  const unit = v => String(v).replace(/[-+±]?\d+(?:[.,]\d+)?/, "").trim().toLowerCase();
+  const nums = items.map(it => num(it.value));
+  const sameUnit = nums.every(x => !isNaN(x) && x > 0) && new Set(items.map(it => unit(it.value))).size === 1;
+  const mx = Math.max(...nums.filter(x => !isNaN(x)), 1);
+  const PATTERN = [0.74, 0.4, 0.9, 0.56, 0.3];
+  const frac = items.map((it, i) => sameUnit ? 0.22 + 0.7 * (nums[i] / mx) : PATTERN[i % PATTERN.length]);
+
+  const rows = $("rows");
+  rows.innerHTML = items.map((it, i) => `<div class="row${i === 0 ? " on" : ""}" style="top:${rowsTop + i * R}px;height:${R}px">
+      <span class="lb">${esc(it.label)}</span>
+      <span class="trk"><span class="base"></span><span class="fill"></span><span class="zero"></span><span class="kn"></span></span>
+      <span class="vl">${esc(it.value)}</span></div>`).join("");
+  const lbs = [...rows.querySelectorAll(".lb")], vls = [...rows.querySelectorAll(".vl")];
+  // shrink labels/values together if the track would get too short
+  for (let s = 36; s >= 30; s -= 1) {
+    lbs.forEach(e => e.style.fontSize = s + "px"); vls.forEach(e => e.style.fontSize = (s - 2) + "px");
+    lbs.forEach(e => e.style.width = ""); vls.forEach(e => e.style.width = "");
+    const wl = Math.ceil(Math.max(...lbs.map(e => e.scrollWidth))), wv = Math.ceil(Math.max(...vls.map(e => e.scrollWidth)));
+    lbs.forEach(e => e.style.width = wl + "px"); vls.forEach(e => e.style.width = wv + "px");
+    if (810 - wl - wv - 52 >= 250) break;
+  }
+  [...rows.querySelectorAll(".trk")].forEach((tr, i) => {
+    const w = tr.offsetWidth, c = w / 2, x = c + frac[i] * (c - 18);
+    tr.querySelector(".kn").style.left = x + "px";
+    const f = tr.querySelector(".fill"); f.style.left = c + "px"; f.style.width = (x - c) + "px";
+  });
+  $("rule").style.top = (CAP_TOP - 14) + "px";
+
+  // ---------- karaoke caption (voice-over line) ----------
+  const cap = String(D.caption || D.sub || "").trim();
+  const words = cap.split(/\s+/).filter(Boolean);
+  const norm = w => w.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+  const hw = hl ? hl.split(/\s+/).map(norm).filter(Boolean) : [];
+  let a0 = -1, a1 = -1;
+  if (hw.length) {
+    for (let i = 0; i + hw.length <= words.length && a0 < 0; i++) if (hw.every((h2, k) => norm(words[i + k]) === h2)) { a0 = i; a1 = i + hw.length - 1; }
+    if (a0 < 0 && hw.length === 1) { const j = words.findIndex(w => norm(w).includes(hw[0])); if (j >= 0) a0 = a1 = j; }
+  }
+  if (a0 < 0) a0 = a1 = 0;
+  const parts = [];
+  for (let i = 0; i < words.length; i++) {
+    if (i === a0) { parts.push(`<span class="w on">${esc(words.slice(a0, a1 + 1).join(" "))}</span>`); i = a1; }
+    else parts.push(`<span class="w">${esc(words[i])}</span>`);
+  }
+  const capEl = $("cap");
+  capEl.style.top = CAP_TOP + "px";
+  capEl.innerHTML = parts.join(" ");
+  for (let fs = 46; fs >= 40; fs -= 2) { capEl.style.fontSize = fs + "px"; if (capEl.offsetHeight <= fs * 1.24 * 2 + 4) break; }
+  }
+</script>
+</body>
+</html>

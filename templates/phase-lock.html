@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700&family=Martian+Mono:wdth,wght@75..112.5,400..800&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Phase Lock: the whole frame is one analogue CRT oscilloscope in X-Y mode, standing on a bench.
+    The instrument owns the type: series/EP is its model plate, the date a calibration sticker, the
+    title is silkscreened on the front panel above the CRT, the caption runs on the readout strip.
+    The highlighted words carry two dashed amber measurement cursors that drop onto the graticule
+    (with a delta readout), so the title is literally measured on the trace.
+    Items = stored reference traces (R1..R5) listed in the CRT readout area, each with the neutral
+    figure it drew (ellipses at different tilts, by index: no fake ranking). The bright diagonal is
+    the locked signal: the item whose label/value uniquely contains hl, otherwise the title's hl.
+    Deterministic: analytic curves only, no randomness.
+  */
+  :root { --bg: #0B0D10; --panel: #1C2128; --ph: #CFE3FF; --blue: #7FA6D9; --amb: #E9A23B; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--bg); }
+  body { position: relative; color: var(--ph); font-family: "Martian Mono", monospace; font-stretch: 75%;
+    background: radial-gradient(90% 40% at 50% 8%, #151A21 0%, #0B0D10 70%) var(--bg); }
+
+  svg.layer { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  #back { z-index: 1; } #front { z-index: 3; }
+
+  /* model plate (series + EP) and calibration sticker (date) */
+  .plate { position: absolute; left: 90px; top: 302px; z-index: 4; font: 600 26px/1.2 "Martian Mono", monospace; font-stretch: 87.5%;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--blue); white-space: nowrap; }
+  .plate b { color: var(--ph); font-weight: 700; }
+  .cal { position: absolute; right: 90px; top: 292px; z-index: 4; display: flex; align-items: center; gap: 10px; padding: 8px 14px 8px 10px;
+    background: linear-gradient(180deg, #E8EEF6 0%, #CAD6E5 100%); color: #14181D; border-radius: 4px; transform: rotate(-2.2deg);
+    box-shadow: 0 6px 10px rgba(0,0,0,0.45); font: 700 26px/1.1 "Martian Mono", monospace; font-stretch: 75%; white-space: nowrap; }
+  .cal svg { width: 26px; height: 26px; flex: none; }
+
+  /* silkscreened title */
+  .title { position: absolute; left: 96px; top: 372px; z-index: 4; font-family: "Martian Mono", monospace; font-weight: 700; font-stretch: 75%;
+    letter-spacing: -0.02em; line-height: 1.06; color: var(--ph); }
+  .title .hl { color: var(--amb); white-space: nowrap; margin: 0 0.2em; }
+  .sub { position: absolute; left: 96px; z-index: 4; font: 500 40px/1.22 "Inter Tight", sans-serif; color: var(--blue); }
+
+  /* engraved panel legends */
+  .eng { position: absolute; z-index: 4; font: 600 30px/1 "Martian Mono", monospace; font-stretch: 87.5%; letter-spacing: 0.06em; color: var(--blue); white-space: nowrap; }
+  .eng.c2 { color: var(--amb); }
+
+  /* CRT readouts */
+  .ro { position: absolute; z-index: 5; font: 600 30px/1 "Martian Mono", monospace; font-stretch: 75%; letter-spacing: 0.04em; color: var(--blue);
+    white-space: nowrap; padding: 5px 8px; background: #0B0F14; border-radius: 4px; }
+  .ro.c2 { color: var(--amb); }
+  .delta { position: absolute; z-index: 5; display: flex; align-items: center; gap: 8px; font: 700 30px/1 "Martian Mono", monospace; font-stretch: 75%;
+    color: var(--amb); padding: 6px 12px 6px 9px; border: 2px solid var(--amb); border-radius: 4px; background: #0B0F14; white-space: nowrap; }
+  .delta svg { width: 22px; height: 22px; flex: none; }
+
+  /* stored reference traces = items */
+  #rows { position: absolute; z-index: 4; --rp: 4px; }
+  .row { display: flex; align-items: center; gap: 12px; padding: var(--rp) 12px; border-top: 1.5px solid rgba(127,166,217,0.24); }
+  .row .ri { flex: none; font: 600 30px/1.12 "Martian Mono", monospace; font-stretch: 75%; color: var(--blue); }
+  .row svg { flex: none; width: 52px; height: 36px; display: block; }
+  .row .rl { flex: 0 1 auto; min-width: 0; font: 500 30px/1.12 "Martian Mono", monospace; font-stretch: 75%; color: var(--ph); overflow-wrap: anywhere; }
+  .row .ld { flex: 1 1 18px; min-width: 18px; height: 4px; background: radial-gradient(circle, rgba(127,166,217,0.6) 1.3px, transparent 1.8px) 0 50% / 10px 4px repeat-x; }
+  .row .rv { flex: none; font: 700 32px/1.12 "Martian Mono", monospace; font-stretch: 75%; letter-spacing: -0.01em; color: var(--ph); white-space: nowrap; }
+  .row.hot { background: rgba(233,162,59,0.13); box-shadow: inset 5px 0 0 var(--amb); }
+  .row.hot .ri, .row.hot .rl, .row.hot .rv { color: var(--amb); }
+
+  .src { position: absolute; left: 90px; width: 810px; z-index: 4; font: 500 26px/1.3 "Martian Mono", monospace; font-stretch: 75%; color: var(--blue); }
+
+  /* caption = the scope's readout line; active word in inverse video */
+  .caption { position: absolute; left: 90px; width: 900px; z-index: 4; font: 500 44px/1.22 "Martian Mono", monospace; font-stretch: 75%;
+    letter-spacing: -0.01em; color: var(--blue); text-wrap: balance; }
+  .caption .w { white-space: nowrap; }
+  .caption .done { color: var(--ph); }
+  .caption .on { color: var(--bg); background: var(--ph); font-weight: 700; padding: 0 0.12em; margin: 0 -0.04em; }
+</style>
+</head>
+<body>
+<svg class="layer" id="back" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overflow></svg>
+<svg class="layer" id="front" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="plate" id="kick"></div>
+<div class="cal" id="cal"><svg viewBox="0 0 26 26"><circle cx="13" cy="13" r="11" fill="none" stroke="#14181D" stroke-width="2.4"/><path d="M7.5 13.4l3.6 3.6 7.4-8" fill="none" stroke="#14181D" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="date"></span></div>
+<div class="title" id="title"></div>
+<div class="sub" id="sub"></div>
+<div id="rows"></div>
+<div id="ro"></div>
+<div class="src" id="src"></div>
+<div class="caption" id="caption" data-slot="caption"></div>
+<script>
+  // Built-in sample so the file also opens standalone in a browser.
+  const D = window.D || { series_id: "how-ai-works", series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const norm = s => String(s || "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+  const f1 = v => v.toFixed(1);
+
+  // ---------- text first (so the fonts are requested), layout after fonts are in ----------
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+  const epNo = String(D.ep || "").replace(/^#/, "");
+  $("kick").innerHTML = D.series ? esc(D.series) + (epNo ? " · <b>EP " + esc(epNo) + "</b>" : "") : esc(D.kicker || "");
+  if (D.date) $("date").textContent = D.date; else $("cal").remove();
+  const t = String(D.title || ""), hl = String(D.hl || "").trim();
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const wrapWords = (s, cls) => s.split(/(\s+)/).map(p => (!p || /^\s+$/.test(p)) ? p : '<span class="' + cls + '">' + esc(p) + "</span>").join("");
+  $("title").innerHTML = at < 0 ? wrapWords(t, "tw") : wrapWords(t.slice(0, at), "tw") + '<span class="hl" id="hlw">' + esc(t.slice(at, at + hl.length)) + "</span>" + wrapWords(t.slice(at + hl.length), "tw");
+
+  Promise.all(['700 90px "Martian Mono"', '600 30px "Martian Mono"', '500 30px "Martian Mono"', '700 32px "Martian Mono"', '500 44px "Martian Mono"',
+               '700 44px "Martian Mono"', '600 26px "Martian Mono"', '500 40px "Inter Tight"'].map(f => document.fonts.load(f)))
+    .catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const BG = "#0B0D10", PANEL = "#1C2128", PH = "#CFE3FF", BLUE = "#7FA6D9", AMB = "#E9A23B";
+  const PX0 = 40, PX1 = 1040, PT = 250, PB = 1652, TT = 372;
+
+  // ---------- caption: the readout line, bottom-anchored (text top stays >= y 1500 when it runs to x 990) ----------
+  const cap = String(D.caption || D.sub || "").trim();
+  const words = cap.split(/\s+/).filter(Boolean);
+  const hw = hl.split(/\s+/).map(norm).filter(Boolean);
+  let a0 = -1, a1 = -1;
+  if (hw.length) for (let i = 0; i + hw.length <= words.length && a0 < 0; i++) {
+    let ok = true;
+    for (let j = 0; j < hw.length; j++) { const w = norm(words[i + j]); if (hw.length === 1 ? !w.includes(hw[0]) : w !== hw[j]) { ok = false; break; } }
+    if (ok) { a0 = i; a1 = i + hw.length - 1; }
+  }
+  if (a0 < 0) { a0 = 0; a1 = 0; }
+  const parts = [];
+  for (let i = 0; i < words.length; i++) {
+    if (i === a0) { parts.push('<span class="w on">' + esc(words.slice(a0, a1 + 1).join(" ")) + "</span>"); i = a1; continue; }
+    parts.push('<span class="w ' + (i < a0 ? "done" : "next") + '">' + esc(words[i]) + "</span>");
+  }
+  const capEl = $("caption");
+  capEl.innerHTML = parts.join(" ");
+  let capFs = 44;
+  for (const fs of [44, 42, 40]) { capFs = fs; capEl.style.fontSize = fs + "px"; if (capEl.offsetHeight <= fs * 1.22 * 2 + 4) break; }
+  if (capEl.offsetHeight > capFs * 1.22 * 2 + 4) capEl.style.width = "810px";   // beyond contract: 3 lines, kept left of x 900
+  const capH = capEl.offsetHeight, capTop = 1608 - capH;
+  capEl.style.top = capTop + "px";
+  const stripTop = capTop - 18;
+
+  // ---------- source: engraved on the panel just above the readout strip ----------
+  const srcEl = $("src");
+  srcEl.textContent = D.source ? "Sumber: " + D.source : "";
+  const srcH = D.source ? srcEl.offsetHeight : 0;
+  const srcTop = stripTop - 16 - srcH;
+  srcEl.style.top = srcTop + "px";
+  const RB = srcTop - (srcH ? 18 : 4);       // lowest allowed bottom of the CRT recess
+
+  // ---------- which signal is locked: an item whose label (else value) UNIQUELY contains hl; otherwise the title's hl ----------
+  const hlN = norm(hl);
+  let hot = -1;
+  if (hlN) {
+    const byLabel = items.map((it, i) => norm(it.label).includes(hlN) ? i : -1).filter(i => i >= 0);
+    const byValue = items.map((it, i) => norm(it.value).includes(hlN) ? i : -1).filter(i => i >= 0);
+    if (byLabel.length === 1) hot = byLabel[0]; else if (!byLabel.length && byValue.length === 1) hot = byValue[0];
+  }
+  // neutral figure per stored trace, fixed by index (no implied ranking): [x amp, x freq, y amp, y freq, phase deg]
+  const FIG = [[1, 1, 0.62, 1, 72], [0.92, 1, 0.84, 2, 20], [1, 1, 0.96, 1, 128], [0.8, 2, 0.9, 3, 30], [1, 1, 0.36, 1, 36]];
+  const ellipse = (k, cx, cy, A, N = 260) => {
+    const [ax, fx, ay, fy, ph] = FIG[k % 5], pts = [];
+    for (let i = 0; i <= N; i++) { const u = i / N * Math.PI * 2;
+      pts.push(f1(cx + A * ax * Math.sin(fx * u)) + "," + f1(cy - A * ay * Math.sin(fy * u + ph * Math.PI / 180))); }
+    return "M" + pts.join("L") + "Z";
+  };
+  const glyph = (i, col) => {
+    const box = '<rect x="1.5" y="1.5" width="49" height="33" rx="3" fill="none" stroke="' + col + '" stroke-opacity="0.45" stroke-width="2"/>' +
+      '<path d="M26 1.5V34.5M1.5 18H50.5" stroke="' + col + '" stroke-opacity="0.25" stroke-width="1.5"/>';
+    const fig = i === hot ? '<path d="M14 30L38 6" stroke="' + col + '" stroke-width="3.4" stroke-linecap="round"/>'
+      : '<path d="' + ellipse(i, 26, 18, 13, 120) + '" fill="none" stroke="' + col + '" stroke-width="2.2" stroke-linejoin="round"/>';
+    return '<svg viewBox="0 0 52 36">' + box + fig + "</svg>";
+  };
+  const rowsEl = $("rows");
+  rowsEl.innerHTML = items.map((it, i) => '<div class="row' + (i === hot ? " hot" : "") + '"><span class="ri">R' + (i + 1) + "</span>" + glyph(i, i === hot ? AMB : PH) +
+    '<span class="rl">' + esc(it.label) + '</span><span class="ld"></span><span class="rv">' + esc(it.value) + "</span></div>").join("");
+
+  // ---------- solve: title size vs screen size (div), both fitted into the panel above the source line ----------
+  const titleEl = $("title"), subEl = $("sub");
+  const hasSub = !!(D.caption && D.sub && String(D.sub).trim() !== cap);
+  if (hasSub) subEl.innerHTML = wrapWords(String(D.sub), "sw"); else subEl.remove();
+  const rowsH = {};
+  const rowsHeight = d => { if (rowsH[d] == null) { rowsEl.style.width = (10 * d) + "px"; rowsH[d] = rowsEl.offsetHeight; } return rowsH[d]; };
+  const layout = (fs, d) => {
+    const W = 10 * d + 6;
+    titleEl.style.width = W + "px"; titleEl.style.fontSize = fs + "px";
+    const th = titleEl.offsetHeight, lines = Math.round(th / (fs * 1.06)), over = titleEl.scrollWidth > W + 2;
+    let sh = 0; if (hasSub) { subEl.style.width = W + "px"; sh = subEl.offsetHeight; }
+    const rh = rowsHeight(d);
+    const recT = TT + th + (hasSub ? 14 + sh : 0) + 24;
+    const recB = recT + 26 + 8 * d + 6 + rh + 12 + 12;
+    return { fs, d, W, th, lines, over, sh, rh, recT, recB };
+  };
+  const maxLines = fs => fs >= 72 ? 2 : fs >= 56 ? 3 : 4;
+  let best = null;
+  search: for (const minD of [64, 56, 48]) {
+    for (let fs = 96; fs >= 50; fs -= 2) {
+      for (let d = 72; d >= minD; d -= 2) {
+        const m = layout(fs, d);
+        if (m.over || m.lines > maxLines(fs)) break;   // narrower only adds lines
+        if (m.recB <= RB) { best = m; break search; }
+      }
+    }
+  }
+  if (!best) best = layout(50, 48);
+  best = layout(best.fs, best.d);                     // re-apply the chosen sizes
+  // slack: let the readout rows breathe, then open the gap under the title
+  let slack = RB - best.recB;
+  if (slack > 0 && n) {
+    const rp = Math.min(6, Math.floor(slack / (2 * n)));
+    rowsEl.style.setProperty("--rp", (4 + rp) + "px");
+    const nh = rowsEl.offsetHeight; slack -= nh - best.rh; best.rh = nh;
+  }
+  const gapX = Math.max(0, Math.min(18, slack));
+  const d = best.d, gx0 = 86, gx1 = gx0 + 10 * d;
+  titleEl.style.top = TT + "px";
+  if (hasSub) subEl.style.top = (TT + best.th + 14) + "px";
+  const recT = best.recT + gapX;
+  const gy0 = recT + 26, gy1 = gy0 + 8 * d, gcx = (gx0 + gx1) / 2, gcy = (gy0 + gy1) / 2;
+  const bandT = gy1 + 6;
+  rowsEl.style.left = gx0 + "px"; rowsEl.style.top = bandT + "px";
+  const glass = { x0: gx0 - 14, y0: gy0 - 14, x1: gx1 + 14, y1: bandT + best.rh + 12 };
+  const rec = { x0: glass.x0 - 12, y0: glass.y0 - 12, x1: glass.x1 + 12, y1: glass.y1 + 12 };
+  const colX = Math.round(Math.max(880, Math.min(944, (rec.x1 + PX1) / 2)));
+  const A = d * 3;
+
+  // ---------- back layer ----------
+  let S = "";
+  S += '<defs>' +
+    '<linearGradient id="gPanel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#262C35"/><stop offset="0.45" stop-color="' + PANEL + '"/><stop offset="1" stop-color="#161A20"/></linearGradient>' +
+    '<linearGradient id="gBench" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1D2229"/><stop offset="0.25" stop-color="#14181D"/><stop offset="1" stop-color="#0B0D10"/></linearGradient>' +
+    '<radialGradient id="gGlass" cx="0.46" cy="0.4" r="0.8"><stop offset="0" stop-color="#141B25"/><stop offset="0.7" stop-color="#0C1016"/><stop offset="1" stop-color="#06080A"/></radialGradient>' +
+    '<linearGradient id="gSheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.09"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.02"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></linearGradient>' +
+    '<linearGradient id="gTube" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5A6573"/><stop offset="0.4" stop-color="#363E48"/><stop offset="1" stop-color="#15191E"/></linearGradient>' +
+    '<linearGradient id="gProbe" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#454E5A"/><stop offset="0.45" stop-color="#262C34"/><stop offset="1" stop-color="#101317"/></linearGradient>' +
+    '<radialGradient id="gKnob" cx="0.38" cy="0.32" r="0.8"><stop offset="0" stop-color="#3E4652"/><stop offset="1" stop-color="#121519"/></radialGradient>' +
+    '<radialGradient id="gCap" cx="0.4" cy="0.35" r="0.7"><stop offset="0" stop-color="#4A5360"/><stop offset="1" stop-color="#20252C"/></radialGradient>' +
+    '<filter id="fGlow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="6"/></filter>' +
+    '<filter id="fSoft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="16"/></filter>' +
+    '<filter id="fInner" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="9"/></filter>' +
+    '<clipPath id="cGlass"><rect x="' + glass.x0 + '" y="' + glass.y0 + '" width="' + (glass.x1 - glass.x0) + '" height="' + (glass.y1 - glass.y0) + '" rx="30"/></clipPath>' +
+    '</defs>';
+
+  // bench the scope stands on + a lead lying across it (decoration in the bottom band)
+  S += '<rect x="-20" y="1690" width="1120" height="250" fill="url(#gBench)"/>';
+  S += '<path d="M-20,1690.5H1100" stroke="#3A424D" stroke-opacity="0.7" stroke-width="2"/>';
+  S += '<path d="M1100,1716C930,1712 820,1744 640,1740S300,1724 -20,1742" stroke="#000" stroke-opacity="0.45" stroke-width="16" fill="none" filter="url(#fGlow)"/>' +
+       '<path d="M1100,1716C930,1712 820,1744 640,1740S300,1724 -20,1742" stroke="#4B5460" stroke-width="11" fill="none"/>' +
+       '<path d="M1100,1713C930,1709 820,1741 640,1737S300,1721 -20,1739" stroke="#8D98A6" stroke-opacity="0.35" stroke-width="2.5" fill="none"/>';
+  // CH2 probe: amber lead from the right edge, hook-tip probe with an amber marker band, ground lead + clip
+  {
+    let P = '<g transform="rotate(-5 520 1810)">';
+    P += '<path d="M1100,1770C1000,1772 930,1808 776,1810" stroke="#000" stroke-opacity="0.5" stroke-width="20" fill="none" filter="url(#fGlow)"/>';
+    P += '<path d="M1100,1770C1000,1772 930,1808 776,1810" stroke="' + AMB + '" stroke-width="13" fill="none"/>' +
+         '<path d="M1100,1767C1000,1769 930,1805 776,1807" stroke="#F6CF8A" stroke-opacity="0.6" stroke-width="2.5" fill="none"/>';
+    P += '<ellipse cx="560" cy="1842" rx="250" ry="14" fill="#000" opacity="0.55" filter="url(#fGlow)"/>';
+    P += '<path d="M716,1798L780,1803V1817L716,1822Z" fill="#20252C"/>';
+    P += '<rect x="440" y="1788" width="282" height="44" rx="20" fill="url(#gProbe)"/>';
+    P += '<rect x="650" y="1788" width="16" height="44" fill="' + AMB + '"/><rect x="650" y="1788" width="16" height="14" fill="#F6CF8A" opacity="0.35"/>';
+    let rg = ""; for (let x = 462; x <= 540; x += 13) rg += "M" + x + ",1792V1828";
+    P += '<path d="' + rg + '" stroke="#0B0D10" stroke-opacity="0.75" stroke-width="3"/>';
+    P += '<path d="M442,1794L380,1803V1817L442,1826Z" fill="#59636F"/><rect x="336" y="1806" width="46" height="8" rx="3" fill="#A7B1BE"/>';
+    P += '<path d="M338,1810C322,1810 314,1800 322,1792" stroke="#C3CCD8" stroke-width="3.4" fill="none" stroke-linecap="round"/>';
+    P += '<path d="M606,1830C580,1876 430,1884 300,1872" stroke="#2E353F" stroke-width="5" fill="none" stroke-linecap="round"/>';
+    P += '<path d="M302,1866L246,1858L236,1866L246,1876L302,1880Z" fill="#8D98A6"/><path d="M296,1866H256M296,1874H256" stroke="#4B5460" stroke-width="2"/>';
+    P += '</g>';
+    S += P;
+  }
+  // carry handle folded over the top (decoration in the top band)
+  const handle = "M68,320V214Q68,158 124,158H956Q1012,158 1012,214V320";
+  S += '<path d="' + handle + '" stroke="#000" stroke-opacity="0.55" stroke-width="34" fill="none" filter="url(#fGlow)" transform="translate(0,8)"/>';
+  S += '<path d="' + handle + '" stroke="#2B323B" stroke-width="28" fill="none"/>';
+  S += '<path d="M68,214Q68,158 124,158H956Q1012,158 1012,214" stroke="#5A6573" stroke-opacity="0.55" stroke-width="5" fill="none" transform="translate(0,-8)"/>';
+  S += '<rect x="360" y="141" width="360" height="34" rx="17" fill="#15191E"/>';
+  let rib = ""; for (let x = 378; x <= 702; x += 18) rib += "M" + x + ",146V170";
+  S += '<path d="' + rib + '" stroke="#2E353F" stroke-width="5" stroke-linecap="round"/>';
+
+  // panel: shadow, feet, body, bevel, corner screws
+  S += '<rect x="' + (PX0 + 10) + '" y="' + (PT + 40) + '" width="' + (PX1 - PX0 - 20) + '" height="' + (PB - PT) + '" rx="30" fill="#000" opacity="0.7" filter="url(#fSoft)"/>';
+  [[110, 196], [884, 970]].forEach(([a, b]) => { S += '<path d="M' + a + ',' + (PB - 10) + 'H' + b + 'L' + (b - 10) + ',1690H' + (a + 10) + 'Z" fill="#101317"/>'; });
+  S += '<rect x="' + PX0 + '" y="' + PT + '" width="' + (PX1 - PX0) + '" height="' + (PB - PT) + '" rx="30" fill="url(#gPanel)"/>';
+  S += '<rect x="' + (PX0 + 1) + '" y="' + (PT + 1) + '" width="' + (PX1 - PX0 - 2) + '" height="' + (PB - PT - 2) + '" rx="29" fill="none" stroke="' + PH + '" stroke-opacity="0.11" stroke-width="2"/>';
+  [[PX0 + 24, PT + 24], [PX1 - 24, PT + 24], [PX0 + 24, PB - 24], [PX1 - 24, PB - 24]].forEach(([x, y], k) => {
+    const a = [0.5, 1.9, 2.6, 1.1][k];
+    S += '<circle cx="' + x + '" cy="' + y + '" r="9" fill="#2B323B" stroke="#0B0D10" stroke-opacity="0.6" stroke-width="1.5"/>' +
+      '<path d="M' + f1(x - 6 * Math.cos(a)) + ',' + f1(y - 6 * Math.sin(a)) + 'L' + f1(x + 6 * Math.cos(a)) + ',' + f1(y + 6 * Math.sin(a)) + '" stroke="#0B0D10" stroke-width="2.4" stroke-linecap="round"/>';
+  });
+  // model plate recess behind the series line + the engraved division rule under it
+  const kw = $("kick").offsetWidth;
+  S += '<rect x="72" y="290" width="' + (kw + 36) + '' + '" height="48" rx="6" fill="#13171C" stroke="#0B0D10" stroke-opacity="0.8" stroke-width="1.5"/>';
+  S += '<rect x="72" y="291.5" width="' + (kw + 36) + '" height="48" rx="6" fill="none" stroke="#FFFFFF" stroke-opacity="0.05" stroke-width="1.5" transform="translate(0,1)"/>';
+  S += '<path d="M' + (PX0 + 26) + ',354H' + (PX1 - 26) + '" stroke="#0B0D10" stroke-opacity="0.8" stroke-width="2"/><path d="M' + (PX0 + 26) + ',356H' + (PX1 - 26) + '" stroke="#FFFFFF" stroke-opacity="0.05" stroke-width="1.5"/>';
+
+  // CRT recess + glass
+  S += '<rect x="' + rec.x0 + '" y="' + rec.y0 + '" width="' + (rec.x1 - rec.x0) + '" height="' + (rec.y1 - rec.y0) + '" rx="40" fill="#090B0E"/>';
+  S += '<rect x="' + rec.x0 + '" y="' + rec.y0 + '" width="' + (rec.x1 - rec.x0) + '" height="' + (rec.y1 - rec.y0) + '" rx="40" fill="none" stroke="#3A424D" stroke-width="2"/>';
+  S += '<rect x="' + glass.x0 + '" y="' + glass.y0 + '" width="' + (glass.x1 - glass.x0) + '" height="' + (glass.y1 - glass.y0) + '" rx="30" fill="url(#gGlass)"/>';
+  S += '<g clip-path="url(#cGlass)">';
+  let gr = "";
+  for (let i = 0; i <= 10; i++) gr += "M" + f1(gx0 + i * d) + "," + gy0 + "V" + gy1;
+  for (let j = 0; j <= 8; j++) gr += "M" + gx0 + "," + f1(gy0 + j * d) + "H" + gx1;
+  S += '<path d="' + gr + '" stroke="' + BLUE + '" stroke-opacity="0.2" stroke-width="1.4" fill="none"/>';
+  let tk = "";
+  for (let i = 0; i <= 50; i++) { const x = gx0 + i * d / 5; tk += "M" + f1(x) + "," + (gcy - 7) + "V" + (gcy + 7); }
+  for (let j = 0; j <= 40; j++) { const y = gy0 + j * d / 5; tk += "M" + (gcx - 7) + "," + f1(y) + "H" + (gcx + 7); }
+  S += '<path d="' + tk + '" stroke="' + BLUE + '" stroke-opacity="0.42" stroke-width="1.4" fill="none"/>';
+  S += '<path d="M' + gx0 + ',' + gcy + 'H' + gx1 + 'M' + gcx + ',' + gy0 + 'V' + gy1 + '" stroke="' + BLUE + '" stroke-opacity="0.36" stroke-width="1.6"/>';
+  // persistence of every stored trace (older = dimmer)
+  const OP = [0.24, 0.3, 0.36, 0.42, 0.48];
+  items.forEach((_, i) => { if (i === hot) return;
+    S += '<path d="' + ellipse(i, gcx, gcy, A) + '" fill="none" stroke="' + BLUE + '" stroke-opacity="' + OP[i] + '" stroke-width="2.4" stroke-linejoin="round"/>'; });
+  // the locked trace: one clean diagonal, brighter at the turning ends (the beam slows there)
+  const lx0 = gcx - A, ly0 = gcy + A, lx1 = gcx + A, ly1 = gcy - A;
+  const ln = "M" + f1(lx0) + "," + f1(ly0) + "L" + f1(lx1) + "," + f1(ly1);
+  S += '<path d="' + ln + '" stroke="' + PH + '" stroke-opacity="0.55" stroke-width="12" stroke-linecap="round" filter="url(#fGlow)"/>';
+  S += '<path d="' + ln + '" stroke="' + PH + '" stroke-width="3.6" stroke-linecap="round"/>';
+  [[lx0, ly0], [lx1, ly1]].forEach(([x, y]) => { S += '<circle cx="' + f1(x) + '" cy="' + f1(y) + '" r="13" fill="' + PH + '" opacity="0.5" filter="url(#fGlow)"/><circle cx="' + f1(x) + '" cy="' + f1(y) + '" r="5" fill="#F4F8FF"/>'; });
+  S += '<rect x="' + glass.x0 + '" y="' + glass.y0 + '" width="' + (glass.x1 - glass.x0) + '" height="' + (glass.y1 - glass.y0) + '" rx="30" fill="none" stroke="#000" stroke-opacity="0.75" stroke-width="22" filter="url(#fInner)"/>';
+  const gw = glass.x1 - glass.x0, gh = glass.y1 - glass.y0;
+  S += '<path d="M' + (glass.x0 + 30) + ',' + glass.y0 + 'H' + f1(glass.x0 + gw * 0.62) + 'C' + f1(glass.x0 + gw * 0.42) + ',' + (glass.y0 + 70) + ' ' + (glass.x0 + 90) + ',' + f1(glass.y0 + gh * 0.3) + ' ' + glass.x0 + ',' + f1(glass.y0 + gh * 0.44) + 'V' + (glass.y0 + 30) + 'Z" fill="url(#gSheen)"/>';
+  S += '</g>';
+
+  // ---------- control column: CH1 / CH2 inputs at the top (beside the title), FASE knob + X-Y key below, all above y 880 ----------
+  const knob = (cx, cy, r, ptrDeg, ptrCol, scale) => {
+    let k = '<ellipse cx="' + cx + '" cy="' + (cy + r * 0.32) + '" rx="' + r + '" ry="' + (r * 0.92) + '" fill="#000" opacity="0.55" filter="url(#fGlow)"/>';
+    if (scale) { let sc = ""; for (let s = -5; s <= 5; s++) { if (!s) continue; const a = (s * 27 - 90) * Math.PI / 180, r0 = r + 9, r1 = r + 17; sc += "M" + f1(cx + r0 * Math.cos(a)) + "," + f1(cy + r0 * Math.sin(a)) + "L" + f1(cx + r1 * Math.cos(a)) + "," + f1(cy + r1 * Math.sin(a)); }
+      k += '<path d="' + sc + '" stroke="' + BLUE + '" stroke-opacity="0.7" stroke-width="2.4" stroke-linecap="round"/>';
+      k += '<path d="M' + (cx - 8) + ',' + (cy - r - 22) + 'H' + (cx + 8) + 'L' + cx + ',' + (cy - r - 9) + 'Z" fill="' + AMB + '"/>'; }
+    k += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="url(#gKnob)"/>';
+    let kn = ""; for (let s = 0; s < 60; s++) { const a = s * 6 * Math.PI / 180; kn += "M" + f1(cx + (r - 7) * Math.cos(a)) + "," + f1(cy + (r - 7) * Math.sin(a)) + "L" + f1(cx + (r - 1) * Math.cos(a)) + "," + f1(cy + (r - 1) * Math.sin(a)); }
+    k += '<path d="' + kn + '" stroke="' + PH + '" stroke-opacity="0.16" stroke-width="1.6"/>';
+    k += '<circle cx="' + cx + '" cy="' + cy + '" r="' + f1(r * 0.64) + '" fill="url(#gCap)" stroke="#0B0D10" stroke-opacity="0.5" stroke-width="1.5"/>';
+    const pa = (ptrDeg - 90) * Math.PI / 180;
+    k += '<path d="M' + f1(cx + r * 0.16 * Math.cos(pa)) + ',' + f1(cy + r * 0.16 * Math.sin(pa)) + 'L' + f1(cx + (r - 9) * Math.cos(pa)) + ',' + f1(cy + (r - 9) * Math.sin(pa)) + '" stroke="' + ptrCol + '" stroke-width="5" stroke-linecap="round"/>';
+    return k;
+  };
+  const bnc = (cx, cy, ring) => {
+    let b = '<circle cx="' + cx + '" cy="' + cy + '" r="31" fill="#0E1115" stroke="' + ring + '" stroke-width="2.5"/>';
+    let hx = ""; for (let s = 0; s < 6; s++) { const a = (s * 60 + 30) * Math.PI / 180; hx += (s ? "L" : "M") + f1(cx + 26 * Math.cos(a)) + "," + f1(cy + 26 * Math.sin(a)); }
+    b += '<path d="' + hx + 'Z" fill="#59636F"/><circle cx="' + cx + '" cy="' + cy + '" r="17" fill="#8D98A6"/><circle cx="' + cx + '" cy="' + cy + '" r="12" fill="#2A3038"/>';
+    return b;
+  };
+  const plug = (cx, cy, col, end) => {   // BNC plug seated in the jack, boot + lead leaving to the right, off the frame
+    const lead = "M" + (cx + 52) + "," + cy + "C" + (cx + 110) + "," + cy + " " + (cx + 96) + "," + (end - 40) + " 1110," + end;
+    let p = '<path d="' + lead + '" stroke="#000" stroke-opacity="0.5" stroke-width="22" fill="none" filter="url(#fGlow)"/>';
+    p += '<path d="' + lead + '" stroke="' + col + '" stroke-width="14" fill="none"/><path d="' + lead + '" stroke="#FFFFFF" stroke-opacity="0.22" stroke-width="3" fill="none" transform="translate(0,-3)"/>';
+    p += '<path d="M' + (cx + 12) + ',' + (cy - 12) + 'L' + (cx + 56) + ',' + (cy - 9) + 'V' + (cy + 9) + 'L' + (cx + 12) + ',' + (cy + 12) + 'Z" fill="' + col + '"/>';
+    p += '<circle cx="' + cx + '" cy="' + cy + '" r="21" fill="#A7B1BE"/>';
+    let kn = ""; for (let s = 0; s < 28; s++) { const a = s * (360 / 28) * Math.PI / 180; kn += "M" + f1(cx + 15 * Math.cos(a)) + "," + f1(cy + 15 * Math.sin(a)) + "L" + f1(cx + 21 * Math.cos(a)) + "," + f1(cy + 21 * Math.sin(a)); }
+    p += '<path d="' + kn + '" stroke="#4B5460" stroke-width="1.6"/><circle cx="' + cx + '" cy="' + cy + '" r="12" fill="' + col + '"/>';
+    return p;
+  };
+  const J1 = 426, J2 = 552, FK = 712, FR = 42, XY = 808;
+  S += bnc(colX, J1, "#3A424D") + bnc(colX, J2, AMB);
+  S += plug(colX, J1, "#8D98A6", 520) + plug(colX, J2, AMB, 690);
+  S += knob(colX, FK, FR, 0, AMB, true);
+  S += '<rect x="' + (colX - 30) + '" y="' + XY + '" width="60" height="32" rx="5" fill="#2B323B" stroke="#0B0D10" stroke-opacity="0.7" stroke-width="1.5"/>' +
+       '<rect x="' + (colX - 20) + '" y="' + (XY + 6) + '" width="40" height="6" rx="3" fill="' + AMB + '"/><rect x="' + (colX - 20) + '" y="' + (XY + 6) + '" width="40" height="6" rx="3" fill="' + AMB + '" opacity="0.6" filter="url(#fGlow)"/>';
+  // lower column (action-button band): decoration only, no text
+  const lowEnd = stripTop - 26;
+  const sun = (cx, cy) => { let s = '<circle cx="' + cx + '" cy="' + cy + '" r="6" fill="none" stroke="' + BLUE + '" stroke-width="2.4"/>';
+    let r = ""; for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4; r += "M" + f1(cx + 10 * Math.cos(a)) + "," + f1(cy + 10 * Math.sin(a)) + "L" + f1(cx + 15 * Math.cos(a)) + "," + f1(cy + 15 * Math.sin(a)); }
+    return s + '<path d="' + r + '" stroke="' + BLUE + '" stroke-width="2.4" stroke-linecap="round"/>'; };
+  const foc = (cx, cy) => '<circle cx="' + cx + '" cy="' + cy + '" r="13" fill="none" stroke="' + BLUE + '" stroke-width="2.4"/><circle cx="' + cx + '" cy="' + cy + '" r="3.5" fill="' + BLUE + '"/>';
+  if (lowEnd > 1000) { S += knob(colX + 14, 962, 24, -40, "#B9C3CF", false) + sun(colX - 38, 962); }
+  if (lowEnd > 1100) { S += knob(colX + 14, 1056, 24, 30, "#B9C3CF", false) + foc(colX - 38, 1056); }
+  if (lowEnd > 1230) { let v = ""; for (let y = 1130; y <= Math.min(lowEnd - 90, 1290); y += 22) v += '<rect x="' + (colX - 46) + '" y="' + y + '" width="92" height="9" rx="4.5" fill="#0E1115" stroke="#FFFFFF" stroke-opacity="0.05"/>'; S += v; }
+  if (lowEnd > 1180) {
+    const py = lowEnd - 46;
+    S += '<rect x="' + (colX - 26) + '" y="' + py + '" width="52" height="40" rx="7" fill="#0E1115" stroke="#3A424D" stroke-width="2"/>' +
+         '<path d="M' + (colX - 18) + ',' + (py + 8) + 'H' + (colX + 18) + 'L' + (colX + 14) + ',' + (py + 32) + 'H' + (colX - 14) + 'Z" fill="#3A424D"/>' +
+         '<circle cx="' + (colX - 46) + '" cy="' + (py + 20) + '" r="6" fill="' + PH + '"/><circle cx="' + (colX - 46) + '" cy="' + (py + 20) + '" r="11" fill="' + PH + '" opacity="0.35" filter="url(#fGlow)"/>';
+  }
+  // readout strip recess (caption)
+  S += '<rect x="64" y="' + stripTop + '" width="952" height="' + (1630 - stripTop) + '" rx="14" fill="#0B0E12" stroke="#0B0D10" stroke-width="2"/>';
+  S += '<rect x="64" y="' + stripTop + '" width="952" height="' + (1630 - stripTop) + '" rx="14" fill="none" stroke="#3A424D" stroke-width="1.5" stroke-opacity="0.8"/>';
+  S += '<path d="M78,' + (stripTop + 2) + 'H1002" stroke="#000" stroke-opacity="0.6" stroke-width="4"/>';
+  $("back").innerHTML = S;
+
+  // ---------- engraved legends + CRT readouts (real text) ----------
+  const ro = [];
+  ro.push('<div class="eng" id="lbC1" style="top:' + (J1 - 15) + 'px">CH1</div>');
+  ro.push('<div class="eng c2" id="lbC2" style="top:' + (J2 - 15) + 'px">CH2</div>');
+  ro.push('<div class="eng" id="lbF" style="top:' + (FK - FR - 62) + 'px">FASE</div>');
+  ro.push('<div class="eng" id="lbXY" style="top:' + (XY + 1) + 'px">X-Y</div>');
+  const chName = (k, v) => "CH" + k + " · " + (v ? String(v).toUpperCase() : (k === 1 ? "X" : "Y"));
+  const roRow = d / 2 - 20;
+  ro.push('<div class="ro" id="roL" style="left:' + (gx0 + 10) + 'px;top:' + f1(gy1 - d + roRow) + 'px">' + esc(chName(1, D.ch1)) + "</div>");
+  ro.push('<div class="ro c2" id="roR" style="top:' + f1(gy1 - d + roRow) + 'px">' + esc(chName(2, D.ch2)) + "</div>");
+  $("ro").innerHTML = ro.join("");
+  ["lbC1", "lbC2", "lbXY"].forEach(id => { const el = $(id); el.style.left = (colX - 44 - el.offsetWidth) + "px"; });
+  { const el = $("lbF"); el.style.left = Math.round(colX - el.offsetWidth / 2) + "px"; }
+  { const el = $("roR"), l = $("roL"); el.style.left = (gx1 - 10 - el.offsetWidth) + "px";
+    if (l.offsetLeft + l.offsetWidth + 16 > el.offsetLeft) el.remove(); }
+
+  // ---------- measurement cursors from the hl words down onto the graticule ----------
+  let F = "";
+  const hlEl = $("hlw");
+  if (hlEl) {
+    const r = hlEl.getBoundingClientRect(), fs = best.fs;
+    const clamp = x => Math.max(gx0 + 8, Math.min(gx1 - 8, x));
+    const cl = clamp(r.left - 0.1 * fs), cr = clamp(r.right + 0.1 * fs);
+    const yTop = r.top + 0.16 * fs;
+    const blocks = [...document.querySelectorAll("#title .tw, #sub .sw")].map(e => e.getBoundingClientRect());
+    const drop = x => {
+      const cut = blocks.filter(b => b.bottom > yTop && b.left - 5 < x && b.right + 5 > x).map(b => [b.top - 4, b.bottom + 4]).sort((p, q) => p[0] - q[0]);
+      let y = yTop, dd = "";
+      cut.forEach(([c0, c1]) => { if (c0 > y + 8) dd += "M" + f1(x) + "," + f1(y) + "V" + f1(c0); y = Math.max(y, c1); });
+      if (gy1 > y + 8) dd += "M" + f1(x) + "," + f1(y) + "V" + gy1;
+      return dd;
+    };
+    const dd = drop(cl) + drop(cr);
+    F += '<path d="' + dd + '" stroke="#000" stroke-opacity="0.55" stroke-width="7" fill="none" stroke-dasharray="12 7"/>';
+    F += '<path d="' + dd + '" stroke="' + AMB + '" stroke-width="3" fill="none" stroke-dasharray="12 7"/>';
+    // cursor markers at the graticule top edge + where each cursor crosses the locked diagonal
+    [cl, cr].forEach(x => {
+      F += '<path d="M' + f1(x - 9) + ',' + gy0 + 'H' + f1(x + 9) + 'L' + f1(x) + ',' + (gy0 + 12) + 'Z" fill="' + AMB + '"/>';
+      if (Math.abs(x - gcx) <= A) F += '<circle cx="' + f1(x) + '" cy="' + f1(gcy - (x - gcx)) + '" r="10" fill="none" stroke="' + AMB + '" stroke-width="3"/>';
+    });
+    // delta readout in the top graticule row
+    const dv = ((cr - cl) / d).toFixed(1).replace(".", ",");
+    const dl = document.createElement("div");
+    dl.className = "delta";
+    dl.innerHTML = '<svg viewBox="0 0 22 22"><path d="M11 2.5L20.5 19.5H1.5Z" fill="none" stroke="' + AMB + '" stroke-width="2.6" stroke-linejoin="round"/></svg><span>X ' + dv + " div</span>";
+    $("ro").appendChild(dl);
+    const w = dl.offsetWidth, h = dl.offsetHeight;
+    let lx = (cl + cr) / 2 - w / 2;
+    if (w + 28 > cr - cl) lx = cr + 16 + w <= gx1 - 10 ? cr + 16 : cl - 16 - w;
+    lx = Math.max(gx0 + 10, Math.min(gx1 - 10 - w, lx));
+    dl.style.left = Math.round(lx) + "px"; dl.style.top = Math.round(gy0 + (d - h) / 2 + 4) + "px";
+  }
+  $("front").innerHTML = F;
+  }
+</script>
+</body>
+</html>

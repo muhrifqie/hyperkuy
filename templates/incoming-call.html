@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Incoming Call</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter+Tight:wght@500;600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Incoming Call (incoming-call): a call ringing at 02.14 that the phone is screening for you.
+    The title is the caller ID in a big display serif; source/date sit where the phone shows
+    the number. The caller is a paper-cut contact silhouette split down the middle: the left
+    half is warm cut paper, the right half the same silhouette rebuilt from identical blue
+    blocks (the cloned copy). Under it, the screened caller's live voice waveform, cut into
+    one segment per item (word-length widths, silence between them). Every segment is an
+    organic cream voice except the one whose label/value names D.hl: that one is snapped
+    into blue blocks. The live-transcript box is the caption slot.
+    Lower band (y 900-1500) lives in x 150-900 on the axis x = 525, clear of the action rail.
+    Deterministic: every shape and amplitude is hard-coded.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #0C0E14; }
+  body { position: relative; color: #F2EEE6; font-family: "Inter Tight", sans-serif; }
+
+  #stage { position: absolute; inset: 0; width: 1080px; height: 1920px; }
+
+  .scr { position: absolute; left: 90px; width: 900px; top: 192px; text-align: center; }
+  .scr .pill { display: inline-flex; align-items: center; gap: 18px; height: 64px; padding: 0 32px 0 26px; border-radius: 32px; background: #161A23; border: 2px solid #2A303C; font: 600 28px "Inter Tight", sans-serif; color: #C9C3B8; white-space: nowrap; }
+  .scr svg { display: block; }
+
+  .kick { position: absolute; left: 90px; width: 900px; top: 300px; text-align: center; font: 600 28px "Inter Tight", sans-serif; letter-spacing: 0.16em; text-transform: uppercase; color: #BDB7AC; white-space: nowrap; }
+  .kick .dot { display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: #E2483D; margin-right: 16px; vertical-align: 2px; }
+
+  .title { position: absolute; left: 90px; width: 900px; top: 346px; text-align: center; font-family: "DM Serif Display", serif; font-weight: 400; color: #F2EEE6; letter-spacing: -0.012em; text-wrap: balance; }
+  .title .hl { color: #6E9BF5; }
+
+  .src { position: absolute; left: 110px; width: 860px; text-align: center; font: 500 28px "Inter Tight", sans-serif; line-height: 1.3; color: #9F9A92; text-wrap: balance; }
+
+  .lbl { position: absolute; text-align: center; font: 600 30px "Inter Tight", sans-serif; line-height: 1.08; color: #C9C3B8; padding: 0 6px; hyphens: manual; }
+  .val { position: absolute; text-align: center; font-family: "DM Serif Display", serif; color: #F2EEE6; line-height: 1.02; }
+
+  .cap { position: absolute; left: 150px; width: 750px; text-align: center; padding: 16px 28px 22px; border-radius: 30px; background: #161A23; border: 2px solid #2A303C; font: 500 44px "Inter Tight", sans-serif; line-height: 1.34; color: #A9A49B; }
+  .cap .w { white-space: nowrap; }
+  .cap .on { color: #FFFFFF; font-weight: 700; padding-bottom: 7px; background-image: repeating-linear-gradient(90deg, #3C7CF0 0 8px, transparent 8px 13px); background-size: 100% 8px; background-repeat: no-repeat; background-position: 0 100%; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  .cap .done { color: #F2EEE6; }
+
+  .btn-l { position: absolute; width: 200px; top: 1586px; text-align: center; font: 500 30px "Inter Tight", sans-serif; line-height: 1.1; color: #C9C3B8; }
+</style>
+</head>
+<body>
+<svg id="stage" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="scr" id="scr"></div>
+<div class="kick" id="kick"></div>
+<div class="title" id="title"></div>
+<div class="src" id="src"></div>
+<div id="labels"></div>
+<div class="cap" id="cap" data-slot="caption"></div>
+<div class="btn-l" style="left:185px">Tolak</div>
+<div class="btn-l" style="left:665px">Jawab</div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series_id: "ai-news", series: "Berita AI", ep: "#07", kicker: "Berita AI · #07",
+    title: "Suara ibumu bisa ditiru dari 3 detik rekaman", hl: "3 detik",
+    sub: "Ditelepon minta transfer? Tutup, lalu telepon balik nomor yang kamu simpan.",
+    items: [{ label: "Rekaman cukup", value: "3 detik" }, { label: "Kemiripan", value: "85%" }, { label: "Langkah aman", value: "telepon balik" }],
+    source: "ilustrasi — angka beda tiap alat", date: "per 14 Okt 2026" };
+
+  const FONTS = ['400 100px "DM Serif Display"', '500 44px "Inter Tight"', '600 30px "Inter Tight"', '700 44px "Inter Tight"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const NIGHT = "#0C0E14", PAPER = "#EDE6DA", LIGHT = "#F2EEE6", CORAL = "#E2483D", BLUE = "#3C7CF0";
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+  const svg = $("stage"), NS = "http://www.w3.org/2000/svg";
+  const add = (tag, attrs, parent) => { const el = document.createElementNS(NS, tag); for (const k in attrs) el.setAttribute(k, attrs[k]); (parent || svg).appendChild(el); return el; };
+  const sum = a => a.reduce((s, x) => s + x, 0);
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(1, items.length);
+  const AX = 525;                       // axis of the lower band (x 150-900, clear of the action rail)
+
+  // ---- call-screening header (the phone answers for you and transcribes) ----
+  const glyph = [1, 2, 3, 2, 3, 1].map((h, c) => Array.from({ length: h }, (_, r) =>
+    `<rect x="${c * 9}" y="${(3 - h) * 4.5 + r * 9}" width="6.5" height="6.5" rx="1" fill="${BLUE}"/>`).join("")).join("");
+  $("scr").innerHTML = `<span class="pill"><svg width="52" height="27" viewBox="0 0 52 27">${glyph}</svg>02.14 · menyaring panggilan…</span>`;
+
+  // ---- kicker: "Panggilan suara · series ep" ----
+  const series = D.series || D.kicker || "";
+  $("kick").innerHTML = '<span class="dot"></span>Panggilan suara · ' + esc(series) + (D.series && D.ep ? " " + esc(D.ep) : "");
+
+  // ---- title = caller ID ----
+  const t = D.title || "", hl = String(D.hl || "");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  for (let fs = 112; fs >= 74; fs -= 2) {
+    titleEl.style.fontSize = fs + "px"; titleEl.style.lineHeight = "1.04";
+    const lines = Math.round(titleEl.offsetHeight / (fs * 1.04));
+    if (lines <= 3 && titleEl.offsetHeight <= 276 && titleEl.scrollWidth <= 900) break;
+  }
+  const titleBottom = 346 + titleEl.offsetHeight;
+
+  // synthetic-block underline under the highlighted words (the same identical square the clone is built from)
+  const hlEl = titleEl.querySelector(".hl");
+  let ulBottom = titleBottom;
+  if (hlEl) {
+    const fsT = parseFloat(titleEl.style.fontSize);
+    for (const r of hlEl.getClientRects()) {
+      const lastLine = r.bottom > titleBottom - fsT * 0.3;
+      const sq = Math.round(fsT * 0.085), gap = Math.round(sq * 0.55);
+      const y = lastLine ? r.bottom - fsT * 0.07 : r.bottom - fsT * 0.16;
+      const cnt = Math.max(2, Math.floor((r.width - 8 + gap) / (sq + gap)));
+      const x0 = r.left + (r.width - (cnt * sq + (cnt - 1) * gap)) / 2;
+      for (let i = 0; i < cnt; i++) add("rect", { x: (x0 + i * (sq + gap)).toFixed(1), y: y.toFixed(1), width: sq, height: sq, rx: 1.5, fill: BLUE });
+      ulBottom = Math.max(ulBottom, y + sq);
+    }
+  }
+
+  // ---- source + date (where the phone shows the number) ----
+  const srcEl = $("src");
+  srcEl.textContent = [D.source, D.date].filter(Boolean).join(" · ");
+  const srcTop = Math.max(titleBottom + 20, ulBottom + 16);
+  srcEl.style.top = srcTop + "px";
+  const srcBottom = srcTop + srcEl.offsetHeight;
+
+  // ---- caption (live transcript, karaoke): max 2 lines, one active word ----
+  const capEl = $("cap");
+  const capText = String(D.caption || D.sub || "");
+  let pos = 0;
+  const spans = capText.split(/\s+/).filter(Boolean).map(w => { const st = capText.indexOf(w, pos); pos = st + w.length; return { w, s: st, e: st + w.length }; });
+  let hs = -1, he = -1;
+  if (hl) { const i = capText.toLowerCase().indexOf(hl.toLowerCase()); if (i >= 0) { hs = i; he = i + hl.length; } }
+  spans.forEach((sp, k) => sp.on = hs >= 0 ? (sp.e > hs && sp.s < he) : k === 0);
+  const firstOn = Math.max(0, spans.findIndex(sp => sp.on));
+  let lastOn = firstOn; spans.forEach((sp, k) => { if (sp.on) lastOn = k; });
+  const build = (a, b, brk = -1) => {
+    let h = a > 0 ? '<span class="w done">…</span> ' : "", inOn = false;
+    for (let k = a; k < b; k++) {
+      const sp = spans[k];
+      if (k === brk) h += "<br>";
+      if (sp.on && !inOn) { h += '<span class="on">'; inOn = true; }
+      if (!sp.on && inOn) { h += "</span> "; inOn = false; }
+      h += '<span class="w' + (k < firstOn ? " done" : "") + '">' + esc(sp.w) + "</span>" + (k < b - 1 && !(sp.on && !spans[k + 1].on) ? " " : "");
+    }
+    if (inOn) h += "</span>";
+    return h + (b < spans.length ? ' <span class="w">…</span>' : "");
+  };
+  const fits = fs => capEl.offsetHeight <= 2 * fs * 1.34 + 44;
+  let a = 0, b = spans.length, fsC = 46;
+  capEl.innerHTML = build(a, b);
+  for (fsC = 46; fsC > 40; fsC -= 2) { capEl.style.fontSize = fsC + "px"; if (fits(fsC)) break; }
+  capEl.style.fontSize = fsC + "px";
+  while (!fits(fsC) && b - a > 1) { if (b - 1 > lastOn) b--; else a++; capEl.innerHTML = build(a, b); }
+  { // two lines of similar length (no one-word orphan)
+    const cm = document.createElement("canvas").getContext("2d");
+    const ww = (txt, bold) => { cm.font = `${bold ? 700 : 500} ${fsC}px "Inter Tight"`; return cm.measureText(txt).width; };
+    const toks = [], off = a > 0 ? 1 : 0, spW = ww(" "), inner = 750 - 56 - 4;
+    if (a > 0) toks.push(ww("…"));
+    for (let k = a; k < b; k++) toks.push(ww(spans[k].w, spans[k].on));
+    if (b < spans.length) toks.push(ww("…"));
+    const lineW = (i, j) => sum(toks.slice(i, j)) + spW * (j - i - 1);
+    if (lineW(0, toks.length) > inner) {
+      let best = -1, bw = Infinity;
+      for (let k = a + 1; k < b; k++) { const t = k - a + off, m = Math.max(lineW(0, t), lineW(t, toks.length)); if (m <= inner && m < bw) { bw = m; best = k; } }
+      if (best > 0) { capEl.innerHTML = build(a, b, best); if (!fits(fsC)) capEl.innerHTML = build(a, b); }
+    }
+  }
+  const CAP_BOTTOM = 1446;
+  const capTop = CAP_BOTTOM - capEl.offsetHeight;
+  capEl.style.top = capTop + "px";
+
+  // ---- voice waveform: one segment per item, widths follow the words (x 150-900) ----
+  const WX = 150, WW = 750, GAP = n >= 5 ? 8 : 18, usable = WW - GAP * (n - 1);
+  const cvm = document.createElement("canvas").getContext("2d");
+  const tw = (font, s) => { cvm.font = font; return cvm.measureText(s).width; };
+  const wordsOf = s => String(s == null ? "" : s).split(/\s+/).filter(Boolean);
+  const bestK = (font, s, k) => {        // narrowest box that holds s in at most k lines
+    const w = wordsOf(s); if (!w.length) return 0;
+    const lw = (i, j) => tw(font, w.slice(i, j).join(" "));
+    let best = lw(0, w.length);
+    for (let i = 1; i < w.length; i++) {
+      if (k >= 2) best = Math.min(best, Math.max(lw(0, i), lw(i, w.length)));
+      if (k >= 3) for (let j = i + 1; j < w.length; j++) best = Math.min(best, Math.max(lw(0, i), lw(i, j), lw(j, w.length)));
+    }
+    return best;
+  };
+  const LF = '600 30px "Inter Tight"', VF = fs => `400 ${fs}px "DM Serif Display"`;
+  const lab2 = items.map(it => bestK(LF, it.label, 2) + 14), lab3 = items.map(it => bestK(LF, it.label, 3) + 14);
+  const v1 = (fs, k) => tw(VF(fs), String(items[k].value || "")) + 18, v2 = (fs, k) => {
+    // a value may wrap once, but never strand a piece shorter than 3 characters ("3 / detik")
+    const w = wordsOf(items[k].value); let best = tw(VF(fs), w.join(" "));
+    for (let i = 1; i < w.length; i++) { const l1 = w.slice(0, i).join(" "), l2 = w.slice(i).join(" "); if (l1.length >= 3 && l2.length >= 3) best = Math.min(best, Math.max(tw(VF(fs), l1), tw(VF(fs), l2))); }
+    return best + 18;
+  };
+  // Indonesian syllable breaks, used (as soft hyphens) only when a word cannot fit its column whole
+  const cutsOf = word => {
+    const w = word.toLowerCase(), isV = c => "aiueo".includes(c), isL = c => /[a-z]/.test(c), u = [];
+    for (let i = 0; i < w.length;) { if (/^(ng|ny|kh|sy)$/.test(w.slice(i, i + 2))) { u.push({ s: i, v: false, l: true }); i += 2; } else { u.push({ s: i, v: isV(w[i]), l: isL(w[i]) }); i++; } }
+    const cuts = [];
+    for (let j = 1; j < u.length; j++) {
+      const p = u[j - 1], c = u[j], nx = u[j + 1];
+      if (!p.l || !c.l) continue;
+      if (c.v && p.v) { if (!/^(ai|au|oi|ei)$/.test(w[p.s] + w[c.s])) cuts.push(c.s); }
+      else if (!c.v && nx && nx.l && nx.v) cuts.push(c.s);
+    }
+    return cuts.filter(i => i >= 2 && word.length - i >= 3);
+  };
+  const hyMin = (font, word) => { let best = tw(font, word); for (const i of cutsOf(word)) best = Math.min(best, Math.max(tw(font, word.slice(0, i) + "-"), tw(font, word.slice(i)))); return best; };
+  const labHy = items.map(it => Math.max(0, ...wordsOf(it.label).map(wd => hyMin(LF, wd))) + 14);
+  const alloc = (mins, prefs) => {
+    const sMin = sum(mins); if (sMin > usable) return null;
+    const sPref = sum(prefs);
+    if (sPref >= usable) return mins.map((m, k) => m + (usable - sMin) * (sPref > sMin ? (prefs[k] - m) / (sPref - sMin) : 1 / n));
+    let lo = 0, hi = usable;                     // water-fill: as even as the words allow
+    for (let it = 0; it < 40; it++) { const L = (lo + hi) / 2; if (sum(prefs.map(p => Math.max(p, L))) > usable) hi = L; else lo = L; }
+    const w = prefs.map(p => Math.max(p, lo)); const rest = (usable - sum(w)) / n;
+    return w.map(x => x + rest);
+  };
+  // one value size for the whole row: the largest size every item can take
+  let fsV = 0, widths = null;
+  const passes = [
+    { from: 50, to: 40, val: v1, lab: lab2 },  // values on one line, labels <= 2 lines
+    { from: 50, to: 40, val: v1, lab: lab3 },  // values on one line, labels <= 3 lines
+    { from: 46, to: 36, val: v2, lab: lab3 },  // values may wrap once
+    { from: 50, to: 36, val: v1, lab: labHy }, // long label words split at a syllable, with a hyphen
+    { from: 46, to: 32, val: v2, lab: labHy }, // ... and values may wrap once
+  ];
+  for (const p of passes) {
+    for (let fs = p.from; fs >= p.to && !widths; fs -= 2) {
+      const mins = items.map((_, k) => Math.max(p.lab[k], p.val(fs, k), 92));
+      const prefs = items.map((_, k) => Math.max(mins[k], lab2[k], v1(fs, k)));
+      const w = alloc(mins, prefs); if (w) { widths = w; fsV = fs; }
+    }
+    if (widths) break;
+  }
+  if (!widths) { fsV = 32; widths = items.map(() => usable / n); }
+  const segX = []; { let x = WX; widths.forEach(w => { segX.push(x); x += w + GAP; }); }
+
+  const labelsEl = $("labels");
+  let labH = 0, valH = 0;
+  const labEls = items.map((it, k) => {
+    const el = document.createElement("div"); el.className = "lbl";
+    el.style.left = segX[k] + "px"; el.style.width = widths[k] + "px";
+    let ws = wordsOf(it.label).map(wd => tw(LF, wd) > widths[k] - 12 ? cutsOf(wd).reduceRight((acc, i) => acc.slice(0, i) + "­" + acc.slice(i), wd) : wd);
+    el.textContent = ws.join(" ");
+    labelsEl.appendChild(el);
+    while (el.offsetHeight > 3 * 30 * 1.08 + 2 && ws.length > 1) { ws = ws.slice(0, -1); el.textContent = ws.join(" ") + "…"; }   // 3 lines at most
+    labH = Math.max(labH, el.offsetHeight);
+    return el;
+  });
+  const valEls = items.map((it, k) => {
+    const el = document.createElement("div"); el.className = "val";
+    el.textContent = it.value || "";
+    el.style.fontSize = fsV + "px";
+    el.style.left = (segX[k] + 4) + "px"; el.style.width = (widths[k] - 8) + "px";
+    el.style.whiteSpace = v1(fsV, k) <= widths[k] ? "nowrap" : "normal";
+    labelsEl.appendChild(el);
+    valH = Math.max(valH, el.offsetHeight);
+    return el;
+  });
+  valH = Math.max(valH, fsV);
+
+  // vertical budget: portrait (PD) and bar height share what is left between source and transcript
+  const waveBottom = capTop - 30;
+  const fixedW = labH + 12 + 12 + valH;
+  const bandTop = srcBottom + 24;
+  const avail = waveBottom - fixedW - bandTop - 22;
+  let PD = Math.min(380, Math.max(220, avail - 128));
+  let barsH = Math.min(156, Math.max(96, avail - PD));
+  if (PD + barsH > avail) PD = Math.max(150, avail - barsH);
+  const waveTop = waveBottom - (labH + 12 + barsH + 12 + valH);
+  labEls.forEach(el => el.style.top = (waveTop + labH - el.offsetHeight) + "px");   // labels sit on the waveform
+  const barsTop = waveTop + labH + 12, mid = barsTop + barsH / 2;
+  valEls.forEach(el => el.style.top = (barsTop + barsH + 12) + "px");
+
+  // the segment(s) that name D.hl are the cloned part of the voice; everything else is a real voice
+  const hlk = hl.trim().toLowerCase();
+  const cloned = items.map(it => !!hlk && (String(it.label || "").toLowerCase().includes(hlk) || String(it.value || "").toLowerCase().includes(hlk)));
+
+  // amplitudes: a hand-set speech envelope (syllables with dips between words)
+  const AMP = [0.22,0.38,0.61,0.84,0.72,0.55,0.31,0.18,0.27,0.49,0.77,0.95,0.88,0.63,0.42,0.24,0.16,0.34,0.58,0.71,0.66,0.47,0.29,0.2,
+    0.36,0.62,0.9,1,0.82,0.57,0.35,0.21,0.3,0.52,0.69,0.6,0.41,0.26,0.19,0.33,0.55,0.8,0.92,0.74,0.5,0.32,0.22,0.4,0.66,0.86,0.7,0.45,0.28,0.18,0.3,0.5,0.73,0.64,0.43,0.25];
+  const wave = add("g", {});
+  add("line", { x1: WX, x2: WX + WW, y1: mid, y2: mid, stroke: LIGHT, "stroke-opacity": 0.12, "stroke-width": 2 }, wave);
+  if (n <= 4) for (let k = 1; k < n; k++) {
+    const x = segX[k] - GAP / 2;
+    add("line", { x1: x, x2: x, y1: waveTop + 4, y2: barsTop + barsH + 12 + valH - 4, stroke: LIGHT, "stroke-opacity": 0.14, "stroke-width": 2 }, wave);
+  }
+  const P = 15, BAR = 8, SQ = 10, VP = 13, half = barsH / 2 - 4, maxB = Math.floor((half - 2) / VP) + 1;
+  let ai = 0;
+  for (let k = 0; k < n; k++) {
+    const inner = widths[k] - 22, cols = Math.max(3, Math.floor((inner - BAR) / P) + 1);
+    const x0 = segX[k] + (widths[k] - ((cols - 1) * P + BAR)) / 2;
+    for (let c = 0; c < cols; c++, ai++) {
+      const amp = AMP[ai % AMP.length], x = x0 + c * P;
+      if (!cloned[k]) {
+        const h = Math.max(10, amp * half * 2);
+        add("rect", { x: x.toFixed(1), y: (mid - h / 2).toFixed(1), width: BAR, height: h.toFixed(1), rx: BAR / 2, fill: PAPER }, wave);
+      } else {
+        const cnt = Math.max(1, Math.round(amp * maxB));
+        for (let r = 0; r < cnt; r++) {
+          const dy = SQ / 2 + 1.5 + r * VP;
+          add("rect", { x: (x - 1).toFixed(1), y: (mid - dy - SQ / 2).toFixed(1), width: SQ, height: SQ, rx: 1.5, fill: BLUE }, wave);
+          add("rect", { x: (x - 1).toFixed(1), y: (mid + dy - SQ / 2).toFixed(1), width: SQ, height: SQ, rx: 1.5, fill: BLUE }, wave);
+        }
+      }
+    }
+  }
+
+  // ---- portrait: paper-cut contact silhouette, right half rebuilt from identical blocks ----
+  const bandBot = waveTop - 22;
+  const pcx = AX, pcy = (bandTop + bandBot) / 2, sc = PD / 300;
+  // soft night vignette behind the portrait (flat, no glow)
+  const defs = add("defs", {});
+  const rg = add("radialGradient", { id: "lamp", gradientUnits: "userSpaceOnUse", cx: pcx, cy: pcy, r: 760 }, defs);
+  add("stop", { offset: "0", "stop-color": "#1A2030" }, rg);
+  add("stop", { offset: "1", "stop-color": NIGHT }, rg);
+  svg.insertBefore(add("rect", { x: 0, y: 0, width: 1080, height: 1920, fill: "url(#lamp)" }), svg.firstChild);
+  // "ringing" sound arcs either side
+  const ring = add("g", { fill: "none", stroke: LIGHT, "stroke-linecap": "round" });
+  [0, 1, 2].forEach(i => {
+    const r = PD / 2 + 30 + i * 28, ang = 0.62 - i * 0.08, op = [0.55, 0.32, 0.16][i];
+    for (const side of [-1, 1]) {
+      const xa = pcx + side * r * Math.cos(ang), ya1 = pcy - r * Math.sin(ang), ya2 = pcy + r * Math.sin(ang);
+      add("path", { d: `M${xa.toFixed(1)},${ya1.toFixed(1)} A${r},${r} 0 0 ${side > 0 ? 1 : 0} ${xa.toFixed(1)},${ya2.toFixed(1)}`, "stroke-width": 4, "stroke-opacity": op }, ring);
+    }
+  });
+  const g = add("g", { transform: `translate(${pcx - PD / 2},${pcy - PD / 2}) scale(${sc})` });
+  const pd = add("defs", {}, g);
+  const cpL = add("clipPath", { id: "cpl" }, pd); add("rect", { x: 0, y: 0, width: 150, height: 300 }, cpL);
+  const cpC = add("clipPath", { id: "cpc" }, pd); add("circle", { cx: 150, cy: 150, r: 150 }, cpC);
+  const fl = add("filter", { id: "paper", x: "-20%", y: "-20%", width: "140%", height: "140%" }, pd);
+  add("feDropShadow", { dx: 0, dy: 4, stdDeviation: 2.4, "flood-color": "#000", "flood-opacity": 0.32 }, fl);
+  const BACK = "M0,236 C58,218 104,226 150,220 C203,213 249,226 300,211 L300,300 L0,300 Z";
+  const NECK = "M130,148 L170,148 L174,206 C160,214 140,214 126,206 Z";
+  const BODY = "M18,300 C24,246 66,212 120,203 C132,220 168,220 180,203 C234,212 276,246 282,300 Z";
+  const COLLAR = "M120,203 C132,220 168,220 180,203 C189,205 196,207 202,210 C186,240 114,240 98,210 C104,207 111,205 120,203 Z";
+  const HEAD = { cx: 150, cy: 110, rx: 50, ry: 56 };
+  // left half: cut paper (a neutral contact silhouette: no face, no identity)
+  const left = add("g", { "clip-path": "url(#cpl)" }, add("g", { "clip-path": "url(#cpc)" }, g));
+  add("circle", { cx: 150, cy: 150, r: 150, fill: PAPER }, left);
+  add("path", { d: BACK, fill: "#DCD2C2", filter: "url(#paper)" }, left);
+  add("path", { d: NECK, fill: "#BF3A30", filter: "url(#paper)" }, left);
+  add("path", { d: BODY, fill: CORAL, filter: "url(#paper)" }, left);
+  add("path", { d: COLLAR, fill: "#BF3A30", filter: "url(#paper)" }, left);
+  add("ellipse", { ...HEAD, fill: CORAL, filter: "url(#paper)" }, left);
+  // right half: the same silhouette sampled into identical blocks
+  const cv = document.createElement("canvas").getContext("2d");
+  const pN = new Path2D(NECK), pBo = new Path2D(BODY), pC = new Path2D(COLLAR), pB = new Path2D(BACK), pHd = new Path2D();
+  pHd.ellipse(HEAD.cx, HEAD.cy, HEAD.rx, HEAD.ry, 0, 0, Math.PI * 2);
+  const right = add("g", {}, g);
+  const cpR = add("clipPath", { id: "cpr" }, pd); add("rect", { x: 150, y: 0, width: 150, height: 300 }, cpR);
+  add("circle", { cx: 150, cy: 150, r: 150, fill: "#121827" }, add("g", { "clip-path": "url(#cpr)" }, right));
+  const CELL = 12.5, SQP = 10;
+  for (let y = 0; y < 300; y += CELL) for (let x = 150; x < 300; x += CELL) {
+    const cx = x + CELL / 2, cy = y + CELL / 2;
+    if (Math.hypot(cx - 150, cy - 150) > 146) continue;
+    let fill = "#D5E1F8";
+    if (cv.isPointInPath(pHd, cx, cy)) fill = BLUE;
+    else if (cv.isPointInPath(pC, cx, cy)) fill = "#2A5BC2";
+    else if (cv.isPointInPath(pBo, cx, cy)) fill = BLUE;
+    else if (cv.isPointInPath(pN, cx, cy)) fill = "#2A5BC2";
+    else if (cv.isPointInPath(pB, cx, cy)) fill = "#AFC6F2";
+    add("rect", { x: (x + (CELL - SQP) / 2).toFixed(2), y: (y + (CELL - SQP) / 2).toFixed(2), width: SQP, height: SQP, rx: 1.2, fill }, right);
+  }
+  add("line", { x1: 150, x2: 150, y1: 2, y2: 298, stroke: LIGHT, "stroke-width": 2.4 }, g);
+  add("circle", { cx: 150, cy: 150, r: 149, fill: "none", stroke: LIGHT, "stroke-opacity": 0.25, "stroke-width": 2 }, g);
+
+  // ---- decline / answer (centred on the lower-band axis) ----
+  const HANDSET = "M-30,6 C-24,-14 24,-14 30,6";
+  [[AX - 240, CORAL, 0], [AX + 240, BLUE, -38]].forEach(([x, col, rot]) => {
+    add("circle", { cx: x, cy: 1528, r: 54, fill: col });
+    const h = add("g", { transform: `translate(${x},1530) rotate(${rot})` });
+    add("path", { d: HANDSET, fill: "none", stroke: LIGHT, "stroke-width": 11, "stroke-linecap": "round" }, h);
+    add("rect", { x: -36, y: 0, width: 20, height: 14, rx: 5, fill: LIGHT }, h);
+    add("rect", { x: 16, y: 0, width: 20, height: 14, rx: 5, fill: LIGHT }, h);
+  });
+  document.body.dataset.ready = "1";
+  }
+</script>
+</body>
+</html>

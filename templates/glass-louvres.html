@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Glass Louvres</title>
+<link href="https://fonts.googleapis.com/css2?family=Anybody:wdth,wght@50..150,100..900&family=Geist+Mono:wght@500;600&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Glass Louvres (glass-louvres): a dim room seen from inside. A tall jalousie window ("kaca nako") of
+    frosted glass blades in an aluminium frame fills the left wall in perspective. Low sun comes through
+    and lays horizontal bands of light across the back wall. Everything on the wall is painted lettering
+    that sits in ONE blade's band: title lines at the top, one band per item, the source, and the caption
+    in the lowest band. The window sets the grid: one blade = one band = one line.
+    Metaphor: attention. Each item is a blade; how far it is tilted open is how much light (attention) its
+    word gets. Bar length and brightness follow the weight; the focus is the fully open blade: a full bar
+    of sun with the word in dark ink. The title's hl sits in its own fully open band; the rest stays in shade.
+    The window is real projected 3D (hand-rolled pinhole camera -> SVG polygons), so blade angles, frame
+    depth, beams and the landing bars share one geometry. Fully deterministic.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #23282B; }
+  body { position: relative; color: #CED7D7; font-family: "Anybody", sans-serif; }
+
+  #room { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* painted wall lettering: condensed grotesque */
+  .tl, .lb, #meas { font-family: "Anybody", sans-serif; font-weight: 720; font-stretch: 62%; line-height: 1.04; letter-spacing: 0.004em; white-space: nowrap; }
+  .tl { position: absolute; color: #B8BEBE; }
+  .tl.lit { color: #1D2124; }
+
+  .row { position: absolute; display: flex; white-space: nowrap; }
+  .row.in { flex-direction: row; align-items: baseline; gap: 22px; }
+  .row.st { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .row .lb { font-weight: 680; font-stretch: 68%; line-height: 1.0; }
+  .row .vl { font: 500 30px "Geist Mono", monospace; letter-spacing: 0.02em; line-height: 1.15; }
+  .row.lit .lb, .row.lit .vl { color: #1D2124; }
+  .row.dim .lb { color: #CED7D7; }
+  .row.dim .vl { color: #A9B0B0; }
+
+  .meta { position: absolute; font: 500 26px "Geist Mono", monospace; letter-spacing: 0.01em; line-height: 1.28; color: #9BA0A3; text-wrap: balance; }
+
+  .cap { position: absolute; font-family: "Anybody", sans-serif; font-weight: 540; font-stretch: 64%; line-height: 1.16; letter-spacing: 0.006em; color: #A7AEAE; }
+  .cap .w.done, .cap .w.on { color: #1D2124; }
+
+  /* maker's label stamped on the bottom rail of the aluminium frame */
+  .plate { position: absolute; font: 600 26px "Geist Mono", monospace; letter-spacing: 0.05em; line-height: 1.1; color: #1D2124; text-transform: uppercase; text-align: right; white-space: nowrap; transform-origin: 100% 50%; }
+  .plate b { font-weight: 600; letter-spacing: 0.04em; }
+
+  #meas { position: absolute; left: -9999px; top: 0; visibility: hidden; }
+</style>
+</head>
+<body>
+<svg id="room" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" data-layout-allow-overflow></svg>
+<div id="title"></div>
+<div id="rows"></div>
+<div class="meta" id="meta"></div>
+<div class="cap" data-slot="caption" id="cap"></div>
+<div class="plate" id="plate"></div>
+<span id="meas"></span>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  // Lay out only after the web fonts are in: every line is fitted by measuring real glyphs.
+  const FONTS = ['720 120px Anybody', '520 44px Anybody', '500 30px "Geist Mono"', '600 26px "Geist Mono"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const low = s => String(s == null ? "" : s).toLowerCase();
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+
+  // ---- room + window geometry (fixed; the window sets the grid) --------------------------------
+  const yB0 = 304, yB1 = 1522, span = yB1 - yB0;            // first blade band top .. last blade band bottom, on the back wall
+  const xC = 384, G = 26;                                   // room corner; strip of plain side wall between window and corner
+  const fb = 18, fbT = 18, fbB = 74, DEPTH = 74;             // stiles, head, bottom rail (carries the maker's label), reveal depth
+  const cam = { cx: 640, cy: 1290, D: 2000 };
+  const phi = 46 * Math.PI / 180, cu = Math.cos(phi), su = Math.sin(phi);
+  const projX = (W, u) => { const x = xC - (W + G - u) * cu, z = (W + G - u) * su; return cam.cx + (x - cam.cx) * cam.D / (cam.D - z); };
+  let lo = 200, hi = 900;                                   // window width so its near stile lands at the frame edge
+  for (let k = 0; k < 40; k++) { const m = (lo + hi) / 2; if (projX(m, 0) > 6) lo = m; else hi = m; }
+  const W = (lo + hi) / 2;
+  const yTop = yB0 - fbT, H = span + fbT + fbB;
+  const world = (u, v, w) => [xC - (W + G - u) * cu + w * su, yTop + v, (W + G - u) * su + w * cu];
+  const pt = (u, v, w) => { const [x, y, z] = world(u, v, w), k = cam.D / (cam.D - z); return [cam.cx + (x - cam.cx) * k, cam.cy + (y - cam.cy) * k]; };
+  const poly = a => a.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ");
+  const quad = (u1, v1, u2, v2, w) => [pt(u1, v1, w), pt(u2, v1, w), pt(u2, v2, w), pt(u1, v2, w)];
+  const seen = (nrm, p) => nrm[0] * (cam.cx - p[0]) + nrm[1] * (cam.cy - p[1]) + nrm[2] * (cam.D - p[2]) > 0;
+  const eu = [cu, 0, -su], en = [su, 0, cu];
+  // low sun: horizontal rays leave the opening toward the back wall; RUN = sideways run per unit of depth
+  const X0 = world(fb, 0, 0), RUN = (996 - X0[0]) / X0[2];
+  const landX = u => { const p = world(u, 0, 0); return p[0] + RUN * p[2]; };
+  const patchL = landX(W - fb), patchR = landX(fb), patchW = patchR - patchL;
+  const xText = Math.round(patchL + 16);
+  const wHi = 990 - xText, wLo = 890 - xText;                // text right edge: 990 above y 900, 890 beside the action buttons
+
+  // ---- attention: parse values, pick the focus, open each blade ------------------------------------
+  // "Rp 1.500.000", "Rp 500 jt", "US$ 2,5 M", "±1 dtk", "0,61", "2 juta token" -> number + unit
+  function parseVal(raw) {
+    let s = low(raw).replace(/\u00a0/g, " ").trim(), cur = "";
+    for (let k = 0; k < 4; k++) {
+      const m = s.match(/^(rp\.?|idr|us\$|usd|\$|€|eur|±|\+\/-|~|≈|<|>|≤|≥|kira-kira|sekitar|hampir)\s*/);
+      if (!m) break;
+      if (/^(rp|idr)/.test(m[1])) cur = "rp"; else if (/^(us\$|usd|\$)/.test(m[1])) cur = "usd"; else if (/^(€|eur)/.test(m[1])) cur = "eur";
+      s = s.slice(m[0].length);
+    }
+    const m = s.match(/^([^\d-]{0,4}?)(-?\d[\d.,]*\d|-?\d)\s*(.*)$/);
+    if (!m) return null;
+    if (m[1].trim()) cur = cur || m[1].trim();
+    const num = m[2]; let v;
+    if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(num)) v = +num.replace(/\./g, "").replace(",", ".");      // 1.500.000 / 1.500,5
+    else if (/^-?\d{1,3}(,\d{3}){2,}(\.\d+)?$/.test(num)) v = +num.replace(/,/g, "");                 // 1,500,000
+    else if (/^-?\d+,\d+$/.test(num)) v = +num.replace(",", ".");                                     // 0,34
+    else if (/^-?\d+(\.\d+)?$/.test(num)) v = +num;                                                   // 2 / 2.5
+    else return null;
+    let rest = m[3].trim();
+    const SC = [[/^(ribu|rb|k)(?![a-z])/, 1e3], [/^(juta|jt)(?![a-z])/, 1e6], [/^(miliar|milyar|bn|m|b)(?![a-z])/, 1e9], [/^(triliun|tn|t)(?![a-z])/, 1e12]];
+    for (const [re, f] of SC) { const q = rest.match(re); if (q) { v *= f; rest = rest.slice(q[0].length).trim(); break; } }
+    return isFinite(v) ? { v, u: cur + "|" + rest.replace(/\s+/g, " ") } : null;
+  }
+  const nums = items.map(it => parseVal(it.value));
+  const numeric = n >= 2 && nums.every(x => x && x.v >= 0 && x.u === nums[0].u) && Math.max(...nums.map(x => x.v)) > 0;
+  const vmax = numeric ? Math.max(...nums.map(x => x.v)) : 1;
+  const t = String(D.title || ""), hl = String(D.hl || "");
+  const hlLow = low(hl), WORD = /[^0-9a-z\u00c0-\u024f]+/, hlw = hlLow.split(WORD).filter(Boolean);
+  const byPhrase = items.map((it, i) => hl && (low(it.label).includes(hlLow) || low(it.value).includes(hlLow)) ? i : -1).filter(i => i >= 0);
+  let focus = -1, open;
+  if (numeric) {
+    // data decides: bar length = value / max; every item tied with the max is fully open
+    const isMax = nums.map(x => x.v >= vmax * (1 - 1e-9));
+    const cand = items.map((_, i) => i).filter(i => isMax[i]);
+    focus = cand.find(i => byPhrase.includes(i)); if (focus === undefined) focus = cand[0];
+    open = nums.map((x, i) => isMax[i] ? 1 : Math.max(0.03, x.v / vmax));
+  } else {
+    // nothing comparable: light only the item hl names; every other item is the same thin slit
+    if (byPhrase.length === 1) focus = byPhrase[0];
+    if (focus < 0) focus = items.findIndex(it => (low(it.label) + " " + low(it.value)).split(WORD).some(w => hlw.includes(w)));
+    if (focus < 0 && byPhrase.length) focus = byPhrase[0];
+    if (focus < 0) focus = 0;
+    open = items.map((_, i) => i === focus ? 1 : 0.1);
+  }
+
+  // ---- title: hl gets its own fully open band; the other lines stay in shade --------------------------
+  const meas = $("meas");
+  const tw = (s, fs) => { meas.style.fontSize = fs + "px"; meas.textContent = s; return meas.offsetWidth; };
+  let at = hl ? low(t).indexOf(hlLow) : -1, segs;
+  if (at >= 0) {
+    let s0 = at, e0 = at + hl.length;
+    while (s0 > 0 && !/\s/.test(t[s0 - 1])) s0--;            // whole words only
+    while (e0 < t.length && !/\s/.test(t[e0])) e0++;
+    segs = [{ s: t.slice(0, s0), lit: false }, { s: t.slice(s0, e0), lit: true }, { s: t.slice(e0), lit: false }];
+  } else segs = [{ s: t, lit: false }];
+  const greedy = (words, fs, width) => {
+    const out = []; let cur = "";
+    words.forEach(w => { const tryS = cur ? cur + " " + w : w; if (!cur || tw(tryS, fs) <= width) cur = tryS; else { out.push(cur); cur = w; } });
+    if (cur) out.push(cur);
+    return out;
+  };
+  // each segment (before hl / hl / after hl) is broken greedily, then balanced: the narrowest width that keeps
+  // the same line count, so no word is left alone on a line
+  const breakLines = (fs, width) => {
+    const out = [];
+    segs.forEach(sg => {
+      // a lone symbol ("=", "—", "→") rides with the word before it, so no line starts with it
+      const words = sg.s.split(/\s+/).filter(Boolean).reduce((a, w) => { if (a.length && !/[0-9a-zÀ-ɏ]/i.test(w)) a[a.length - 1] += " " + w; else a.push(w); return a; }, []);
+      if (!words.length) return;
+      let ls = greedy(words, fs, width);
+      if (ls.length > 1) {
+        let lo = width * 0.4, hi = width;
+        for (let k = 0; k < 14; k++) { const mid = (lo + hi) / 2; if (greedy(words, fs, mid).length <= ls.length) hi = mid; else lo = mid; }
+        ls = greedy(words, fs, hi);
+      }
+      ls.forEach(s => out.push({ s, lit: sg.lit }));
+    });
+    return out;
+  };
+
+  // source + date: small mono, in the shade band(s) just above the caption
+  const metaEl = $("meta");
+  metaEl.style.left = xText + "px";
+  // one line "source · date" when it fits; otherwise the source (numbers kept together) over the date
+  const glue = x => esc(x).replace(/ (?=[\d(])/g, "\u00a0");               // never strand a number ("Jun 2025")
+  metaEl.style.width = wLo + "px";
+  metaEl.innerHTML = '<span style="white-space:nowrap">' + glue(D.source || "") + (D.source && D.date ? " · " : "") + esc(D.date || "") + "</span>";
+  if (metaEl.scrollWidth > wLo + 1) metaEl.innerHTML = '<span style="display:block">' + glue(D.source || "") + '</span><span style="display:block;white-space:nowrap">' + esc(D.date || "") + "</span>";
+  const metaH = metaEl.offsetHeight;
+
+  // pick the blade count: as few (= big) blades as the copy allows
+  let N, p, fs, lines, m;
+  for (N = 9; N <= 14; N++) {
+    p = span / N;
+    fs = clamp(Math.round(p * 0.8), 72, 116);
+    lines = breakLines(fs, wHi);
+    while (fs > 72 && lines.some(l => tw(l.s, fs) > wHi)) { fs -= 2; lines = breakLines(fs, wHi); }
+    m = Math.max(1, Math.ceil((metaH + 30) / p));
+    if (lines.length + 1 + n + m + 1 <= N) break;
+  }
+  if (N > 14) N = 14;
+  const tl = lines.length;
+  const spare = Math.max(0, N - (tl + 1 + n + m + 1));
+  const gapA = 1 + Math.ceil(spare / 2), gapB = Math.floor(spare / 2);
+  // band map, top to bottom: title lines · shade gap · items · shade gap · source · caption (lowest band)
+  const bands = [];
+  lines.forEach(l => bands.push({ kind: "title", o: l.lit ? 1 : 0, line: l }));
+  for (let k = 0; k < gapA; k++) bands.push({ kind: "gap", o: 0 });
+  items.forEach((it, i) => bands.push({ kind: "item", o: open[i], i }));
+  for (let k = 0; k < gapB; k++) bands.push({ kind: "gap", o: 0 });
+  for (let k = 0; k < m; k++) bands.push({ kind: "meta", o: 0 });
+  bands.push({ kind: "cap", o: 0.5 });
+  N = bands.length; p = span / N;
+  bands.forEach((b, k) => { b.y0 = yB0 + k * p; b.yc = b.y0 + p / 2; });
+  const bars = [];      // light that lands on the wall: {y1, y2, x2 (far end), a (opacity), glow}
+
+  // ---- title lines ------------------------------------------------------------------------------------
+  const titleEl = $("title");
+  bands.filter(b => b.kind === "title").forEach(b => {
+    const el = document.createElement("div");
+    el.className = "tl" + (b.line.lit ? " lit" : "");
+    el.textContent = b.line.s; el.style.fontSize = fs + "px"; el.style.left = xText + "px";
+    titleEl.appendChild(el);
+    const h = el.offsetHeight; el.style.top = (b.yc - h / 2 + fs * 0.02).toFixed(1) + "px";
+    if (b.line.lit) { const th = Math.min(p - 6, h + 18); bars.push({ y1: b.yc - th / 2, y2: b.yc + th / 2, x2: patchR, a: 1, glow: true }); }
+  });
+
+  // ---- items: one blade each; bar length + brightness = weight ------------------------------------------
+  const rowsEl = $("rows");
+  rowsEl.innerHTML = items.map((it, i) => '<div class="row ' + (i === focus ? "lit" : "dim") + '" id="r' + i + '"><span class="lb">' + esc(it.label) + '</span><span class="vl">' + esc(it.value) + "</span></div>").join("");
+  const tbOf = o => Math.round(6 + 20 * o);
+  const roomFor = (i) => i === focus ? p - 6 - 24 : p - 16 - 8 - tbOf(open[i]);
+  const fitAt = (el, i, f, inlineOnly) => {            // try one line (label + value) first, then value under label
+    const lb = el.querySelector(".lb"); lb.style.fontSize = f + "px";
+    el.className = el.className.replace(/ (in|st)\b/g, "") + " in";
+    if (el.scrollWidth <= wLo && el.offsetHeight <= roomFor(i)) return "in";
+    if (inlineOnly) return null;
+    el.className = el.className.replace(/ in\b/, " st");
+    if (el.scrollWidth <= wLo && el.offsetHeight <= roomFor(i)) return "st";
+    return null;
+  };
+  const lMax = Math.min(fs - 10, Math.round(p * 0.56)), rowEls = items.map((_, i) => $("r" + i));
+  // one label size for every row: all rows on one line if that still allows >= 52 px, else value under label
+  let lfs = lMax;
+  for (; lfs >= 52; lfs -= 2) if (rowEls.every((el, i) => fitAt(el, i, lfs, true))) break;
+  if (lfs < 52) for (lfs = lMax; lfs > 34; lfs -= 2) if (rowEls.every((el, i) => fitAt(el, i, lfs))) break;   // 34 only in the tightest case
+  bands.filter(b => b.kind === "item").forEach(b => {
+    const i = b.i, el = rowEls[i], o = open[i];
+    if (!fitAt(el, i, lfs)) { el.className = el.className.replace(/ (in|st)\b/g, "") + " st"; }
+    el.style.left = xText + "px";
+    const h = el.offsetHeight;
+    if (i === focus) {
+      el.style.top = (b.yc - h / 2).toFixed(1) + "px";
+      const th = Math.min(p - 4, h + 24);
+      bars.push({ y1: b.yc - th / 2, y2: b.yc + th / 2, x2: patchL + o * patchW, a: 1, glow: true });
+    } else {
+      const tb = tbOf(o), blk = h + 8 + tb, top = b.yc - blk / 2;
+      el.style.top = top.toFixed(1) + "px";
+      bars.push({ y1: top + h + 8, y2: top + h + 8 + tb, x2: patchL + Math.max(0.05, o) * patchW, a: 0.34 + 0.66 * o, glow: false });
+    }
+  });
+
+  // ---- source + date ----------------------------------------------------------------------------------
+  const mb = bands.filter(b => b.kind === "meta");
+  metaEl.style.top = ((mb[0].y0 + mb[mb.length - 1].y0 + p) / 2 - metaH / 2).toFixed(1) + "px";
+
+  // ---- karaoke caption in the lowest band: the sun creeps along it word by word ---------------------------
+  const cb = bands[N - 1];
+  const capText = String(D.caption || D.sub || "");
+  const words = [...capText.matchAll(/\S+/g)].map(x => ({ w: x[0], s: x.index, e: x.index + x[0].length }));
+  const ci = hl ? low(capText).indexOf(hlLow) : -1;
+  let act = ci < 0 ? [] : words.map((w, i) => (w.s < ci + hl.length && w.e > ci) ? i : -1).filter(i => i >= 0);
+  if (!act.length && words.length) act = [0];
+  const a0 = act[0], a1 = act[act.length - 1];
+  let capHtml = "";
+  words.forEach((w, i) => {
+    if (i === a0) capHtml += '<span class="w on">' + words.slice(a0, a1 + 1).map(x => esc(x.w)).join(" ") + "</span> ";
+    else if (i > a0 && i <= a1) return;
+    else capHtml += '<span class="w' + (i < a0 ? " done" : "") + '">' + esc(w.w) + "</span> ";
+  });
+  const cap = $("cap"); cap.innerHTML = capHtml.trim();
+  cap.style.left = xText + "px"; cap.style.width = (wLo + 10) + "px";        // caption may run to x 900
+  const lh = f => f * 1.16, cMax = Math.min(46, Math.floor((p - 8) / 2.32));
+  let cfs = cMax, fitC = false;
+  for (const st of [64, 60, 56]) {                     // shrink to 40 px first, then narrow the letters a little
+    cap.style.fontStretch = st + "%";
+    for (cfs = cMax; cfs >= 40; cfs -= 1) { cap.style.fontSize = cfs + "px"; if (cap.offsetHeight <= lh(cfs) * 2 + 2) { fitC = true; break; } }
+    if (fitC) break;
+  }
+  cfs = Math.max(40, cfs); cap.style.fontSize = cfs + "px";
+  if (cap.offsetHeight > lh(cfs) * 2 + 2) {            // more than 2 lines even at 40 px: keep two lines, end with an ellipsis
+    const sp = [...cap.querySelectorAll(".w")];
+    while (sp.length > 1 && cap.offsetHeight > lh(cfs) * 2 + 2) {
+      const last = sp[sp.length - 1];
+      if (last.classList.contains("on")) break;
+      last.remove(); sp.pop();
+      const tail = sp[sp.length - 1]; if (!tail.classList.contains("on")) tail.textContent = tail.textContent.replace(/[.,;:!?…]*$/, "") + "…";
+    }
+  }
+  const capTop = cb.yc - cap.offsetHeight / 2; cap.style.top = capTop.toFixed(1) + "px";
+  // light per caption line: through the active word (full sun), spoken words on a slightly paler part of the bar
+  const onEl = cap.querySelector(".w.on");
+  const capBars = [];
+  if (onEl) {
+    const r0 = onEl.getClientRects(), onR = r0[r0.length - 1], onL = r0[0];
+    const lineH = lh(cfs);
+    const lineTops = [...new Set([...cap.querySelectorAll(".w")].map(s => Math.round(s.getBoundingClientRect().top)))].sort((a, b) => a - b);
+    lineTops.forEach(top => {
+      const yMid = top + (onR.height || lineH) / 2;
+      if (yMid > onR.bottom + 2) return;                                          // lines after the active word stay in shade
+      const onThis = Math.abs(top - Math.round(onR.top)) < 4;
+      const ws = [...cap.querySelectorAll(".w")].filter(s => Math.abs(Math.round(s.getBoundingClientRect().top) - top) < 4);
+      const end = onThis ? onR.right + cfs * 0.34 : Math.max(...ws.map(s => s.getBoundingClientRect().right)) + cfs * 0.34;
+      const split = onThis ? (Math.abs(Math.round(onL.top) - top) < 4 ? onL.left - cfs * 0.16 : patchL) : end;
+      capBars.push({ y1: top + lineH / 2 - lineH / 2 + 1, y2: top + lineH - 1, x2: end, split });
+    });
+  }
+
+  // ---- maker's label on the bottom rail --------------------------------------------------------------------
+  const plate = $("plate");
+  const ser = D.series || D.kicker || "", ep = D.series && D.ep ? String(D.ep).replace(/^#/, "") : "";
+  plate.innerHTML = esc(ser) + (ep ? "<br><b>No. " + esc(ep) + "</b>" : "");
+  const railV = H - fbB / 2;
+  const pR = pt(W - fb - 18, railV, 0), pL0 = pt(W - fb - 300, railV, 0);
+  const slope = (pR[1] - pL0[1]) / (pR[0] - pL0[0]);
+  const ph = plate.offsetHeight, pw = plate.offsetWidth;
+  plate.style.left = (pR[0] - pw).toFixed(1) + "px"; plate.style.top = (pR[1] - ph / 2 - 6).toFixed(1) + "px";   // a hair high: the skewed box stays above y 1620
+  plate.style.transform = "skewY(" + (Math.atan(slope) * 180 / Math.PI).toFixed(2) + "deg)";
+  const uAtX = x => { let a = 0, z = W; for (let k = 0; k < 30; k++) { const mid = (a + z) / 2; if (pt(mid, railV, 0)[0] < x) a = mid; else z = mid; } return (a + z) / 2; };
+  const plU1 = uAtX(pR[0] - pw - 16), plU2 = W - fb - 6;
+
+  // ---- draw the room -----------------------------------------------------------------------------------------
+  let s = '<defs>' +
+    '<linearGradient id="wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1D2124"/><stop offset=".5" stop-color="#262B2E"/><stop offset="1" stop-color="#1F2326"/></linearGradient>' +
+    '<linearGradient id="sideW" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#000" stop-opacity=".44"/><stop offset="1" stop-color="#000" stop-opacity=".22"/></linearGradient>' +
+    '<linearGradient id="corner" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9BA0A3" stop-opacity="0"/><stop offset=".2" stop-color="#9BA0A3" stop-opacity=".22"/><stop offset=".85" stop-color="#9BA0A3" stop-opacity=".22"/><stop offset="1" stop-color="#9BA0A3" stop-opacity="0"/></linearGradient>' +
+    '<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F8E9C4"/><stop offset=".5" stop-color="#F3D8A0"/><stop offset="1" stop-color="#E7BC86"/></linearGradient>' +
+    '<linearGradient id="frost" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#D3D4CA"/><stop offset=".55" stop-color="#B7BEBE"/><stop offset=".9" stop-color="#9AA2A4"/><stop offset="1" stop-color="#868E91"/></linearGradient>' +
+    '<linearGradient id="frostOut" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F1E5C6"/><stop offset="1" stop-color="#D9CDB2"/></linearGradient>' +
+    '<linearGradient id="floor" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2B2825"/><stop offset="1" stop-color="#1A1918"/></linearGradient>' +
+    '<linearGradient id="alu" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8E9396"/><stop offset=".55" stop-color="#A9AEB0"/><stop offset="1" stop-color="#B9BEC0"/></linearGradient>' +
+    '<linearGradient id="aluV" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C4C9CA"/><stop offset="1" stop-color="#8D9295"/></linearGradient>' +
+    '<linearGradient id="bar" gradientUnits="userSpaceOnUse" x1="' + patchL.toFixed(1) + '" y1="0" x2="' + patchR.toFixed(1) + '" y2="0"><stop offset="0" stop-color="#F7E4B6"/><stop offset=".6" stop-color="#F3D8A0"/><stop offset="1" stop-color="#EFCD92"/></linearGradient>' +
+    '<filter id="soft" x="-5%" y="-60%" width="110%" height="220%"><feGaussianBlur stdDeviation="2.4"/></filter>' +
+    '<filter id="glow" x="-10%" y="-80%" width="120%" height="260%"><feGaussianBlur stdDeviation="18"/></filter>' +
+    '<filter id="haze" x="-20%" y="-30%" width="140%" height="160%"><feGaussianBlur stdDeviation="7"/></filter>' +
+    '<filter id="blur12" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="12"/></filter>' +
+    '<filter id="grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="2" seed="7" result="n"/><feColorMatrix in="n" type="matrix" values="0 0 0 0 .86  0 0 0 0 .9  0 0 0 0 .9  0 0 0 .5 -.17"/></filter>' +
+    '<clipPath id="opening"><polygon points="' + poly(quad(fb, fbT, W - fb, H - fbB, 0)) + '"/></clipPath>' +
+    '<clipPath id="backwall"><rect x="' + xC + '" y="0" width="' + (1080 - xC) + '" height="1920"/></clipPath>' +
+    '</defs>';
+
+  // back wall (shade) + plaster grain
+  s += '<rect width="1080" height="1920" fill="url(#wall)"/>';
+  s += '<rect width="1080" height="1920" filter="url(#grain)" opacity=".32"/>';
+
+  // light that lands on the back wall. One parallelogram per lit band; far end slanted like the window's edge.
+  const SL = 0.5;
+  s += '<g clip-path="url(#backwall)">';
+  bars.forEach(b => {
+    const th = b.y2 - b.y1, x2 = Math.max(patchL + 30, b.x2);
+    const pts = [[patchL - 14, b.y1], [x2, b.y1], [x2 - SL * th, b.y2], [patchL - 14, b.y2]];
+    if (b.glow) s += '<polygon points="' + poly(pts) + '" fill="#F3D8A0" fill-opacity=".2" filter="url(#glow)"/>';
+    s += '<polygon points="' + poly(pts) + '" fill="url(#bar)" fill-opacity="' + b.a.toFixed(3) + '" filter="url(#soft)"/>';
+  });
+  capBars.forEach((b, k) => {
+    const th = b.y2 - b.y1, x2 = b.x2;
+    const pts = [[patchL - 14, b.y1], [x2, b.y1], [x2 - SL * th, b.y2], [patchL - 14, b.y2]];
+    const sp = clamp((b.split - (patchL - 14)) / (x2 - patchL + 14), 0, 1);
+    s += '<linearGradient id="cg' + k + '" gradientUnits="userSpaceOnUse" x1="' + (patchL - 14).toFixed(1) + '" y1="0" x2="' + x2.toFixed(1) + '" y2="0">' +
+         '<stop offset="0" stop-color="#F3D8A0" stop-opacity=".8"/><stop offset="' + sp.toFixed(3) + '" stop-color="#F3D8A0" stop-opacity=".8"/>' +
+         '<stop offset="' + Math.min(1, sp + 0.001).toFixed(3) + '" stop-color="#F6E1B0" stop-opacity="1"/><stop offset="1" stop-color="#F3D8A0" stop-opacity="1"/></linearGradient>';
+    s += '<polygon points="' + poly(pts) + '" fill="url(#cg' + k + ')" filter="url(#soft)"/>';
+  });
+  s += '</g>';
+
+  // side wall: the window wall gets no direct sun, so it is a shade darker; the room corner is a faint line
+  s += '<rect x="0" y="0" width="' + xC + '" height="1920" fill="url(#sideW)"/>';
+  // room depth: ceiling and floor meet both walls (back wall: level lines; window wall: lines into the room)
+  const yCeil = yTop - 64, yFloor = yTop + H + 112;
+  const sideLine = y => [pt(-600, y - yTop, 0), pt(W + G, y - yTop, 0)];
+  const [cN, cC] = sideLine(yCeil), [fN, fC] = sideLine(yFloor);
+  s += '<polygon points="' + poly([[-10, -10], [1090, -10], [1090, yCeil], cC, cN]) + '" fill="#121517" fill-opacity=".72"/>';
+  s += '<polygon points="' + poly([fN, fC, [1090, yFloor], [1090, 1930], [-10, 1930]]) + '" fill="url(#floor)"/>';
+  s += '<polygon points="' + poly([[xC, yFloor - 22], [1090, yFloor - 22], [1090, yFloor], fC, fN, pt(-600, yFloor - yTop - 22, 0)]) + '" fill="#15181A"/>';  // skirting
+  s += '<polyline points="' + poly([cN, cC, [1090, yCeil]]) + '" fill="none" stroke="#5E6366" stroke-opacity=".5" stroke-width="2"/>';
+  s += '<polyline points="' + poly([pt(-600, yFloor - yTop - 22, 0), [xC, yFloor - 22], [1090, yFloor - 22]]) + '" fill="none" stroke="#5E6366" stroke-opacity=".45" stroke-width="1.6"/>';
+  // sun bars bounce faintly off the floor below the wall
+  bars.filter(b => b.glow).forEach(b => {
+    s += '<polygon points="' + poly([[patchL, yFloor + 6], [Math.min(1080, b.x2), yFloor + 6], [Math.min(1080, b.x2) + 80, yFloor + 70], [patchL + 60, yFloor + 70]]) + '" fill="#F3D8A0" fill-opacity=".05" filter="url(#blur12)"/>';
+  });
+  s += '<rect x="' + (xC - 1) + '" y="' + yCeil.toFixed(1) + '" width="2" height="' + (yFloor - yCeil).toFixed(1) + '" fill="url(#corner)"/>';
+
+  // ---- the window -----------------------------------------------------------------------------------------
+  // soft contact shadow of the frame on the side wall, then the inner sill (concrete ledge) with its shadow
+  s += '<polygon points="' + poly([pt(-20, -20, 0), pt(W + 4, -20, 0), pt(W + 4, H + 70, 0), pt(-20, H + 70, 0)]) + '" fill="#000" fill-opacity=".34" filter="url(#blur12)"/>';
+  const LD = 52, LH = 26;                                                  // ledge depth into the room, ledge height
+  s += '<polygon points="' + poly([pt(-30, H + LH, 0), pt(W, H + LH, 0), pt(W, H + LH + 60, 0), pt(-30, H + LH + 60, 0)]) + '" fill="#000" fill-opacity=".32" filter="url(#haze)"/>';
+  s += '<polygon points="' + poly([pt(-30, H, 0), pt(W, H, 0), pt(W, H, LD), pt(-30, H, LD)]) + '" fill="#4A5053"/>';           // ledge top
+  s += '<polygon points="' + poly([pt(-30, H, LD), pt(W, H, LD), pt(W, H + LH, LD), pt(-30, H + LH, LD)]) + '" fill="#33383B"/>'; // ledge front
+  s += '<polyline points="' + poly([pt(-30, H, LD), pt(W, H, LD)]) + '" fill="none" stroke="#7C8184" stroke-opacity=".6" stroke-width="1.4"/>';
+
+  // outside (low sun) and the reveal are only seen through the opening
+  s += '<g clip-path="url(#opening)">';
+  s += '<polygon points="' + poly(quad(fb - 60, fbT - 60, W - fb + 60, H - fbB + 60, -DEPTH)) + '" fill="url(#sky)"/>';
+  const jambs = [
+    { n: [0, 1, 0], q: [[fb, fbT], [W - fb, fbT]], fill: "#5E6366" },                      // head, seen from below
+    { n: [0, -1, 0], q: [[fb, H - fbB], [W - fb, H - fbB]], fill: "#A9AEB0" },             // sill, seen from above
+    { n: eu, q: [[fb, fbT], [fb, H - fbB]], fill: "#7C8184" },                              // near jamb
+    { n: [-eu[0], 0, -eu[2]], q: [[W - fb, fbT], [W - fb, H - fbB]], fill: "#6E7376" }       // far jamb
+  ];
+  jambs.forEach(j => {
+    const [p1, p2] = j.q;
+    if (!seen(j.n, world((p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2, -DEPTH / 2))) return;
+    s += '<polygon points="' + poly([pt(p1[0], p1[1], 0), pt(p2[0], p2[1], 0), pt(p2[0], p2[1], -DEPTH), pt(p1[0], p1[1], -DEPTH)]) + '" fill="' + j.fill + '"/>';
+  });
+  s += '</g>';
+
+  // blades: one frosted glass blade per wall band, on a horizontal pivot; tilt = how open (attention).
+  // Drawn bottom-up so the room-side edge of an upper blade paints over the outer edge of the blade below.
+  const sh = p * 1.07, u1 = fb + 3, u2 = W - fb - 3;
+  const bladeAt = k => fbT + p * (k + 0.5);
+  for (let k = N - 1; k >= 0; k--) {
+    const b = bands[k], vc = bladeAt(k), th = (5 + 80 * b.o) * Math.PI / 180;
+    const c = (sh / 2) * Math.cos(th), d = (sh / 2) * Math.sin(th);
+    const A = [u1, vc - c, -d], Bq = [u2, vc - c, -d], Cq = [u2, vc + c, d], Dq = [u1, vc + c, d];
+    const nRoom = [Math.cos(th) * en[0], -Math.sin(th), Math.cos(th) * en[2]];
+    const room = seen(nRoom, world(W / 2, vc, 0));
+    s += '<polygon points="' + poly([pt(...A), pt(...Bq), pt(...Cq), pt(...Dq)]) + '" fill="url(#' + (room ? "frost" : "frostOut") + ')"/>';
+    [0.3, 0.68].forEach((f, q) => {                                     // frosted streaks (hard-coded)
+      const vv = vc - c + 2 * c * f, ww = -d + 2 * d * f;
+      s += '<polyline points="' + poly([pt(u1 + 40 + 22 * q, vv, ww), pt(u2 - 60 + 18 * q, vv, ww)]) + '" fill="none" stroke="#FFFFFF" stroke-opacity=".22" stroke-width="1.4"/>';
+    });
+    // room-side glass edge glows with transmitted light; brighter the more the blade is open
+    s += '<polyline points="' + poly([pt(...Dq), pt(...Cq)]) + '" fill="none" stroke="#F3D8A0" stroke-width="' + (2 + 3 * b.o).toFixed(1) + '" stroke-linecap="round"/>';
+    [[u1, u1 + 22], [u2 - 22, u2]].forEach(([a, z]) => {                // clips holding each end of the blade
+      s += '<polygon points="' + poly([pt(a, vc - c * 0.62, -d * 0.62), pt(z, vc - c * 0.62, -d * 0.62), pt(z, vc + c * 0.62, d * 0.62), pt(a, vc + c * 0.62, d * 0.62)]) + '" fill="#6E7376"/>';
+    });
+  }
+  // side channels with one pivot rivet per blade
+  [[fb, fb + 15], [W - fb - 15, W - fb]].forEach(([a, z]) => {
+    s += '<polygon points="' + poly(quad(a, fbT, z, H - fbB, 6)) + '" fill="url(#aluV)"/>';
+    for (let k = 0; k < N; k++) { const q = pt((a + z) / 2, bladeAt(k), 7); s += '<circle cx="' + q[0].toFixed(1) + '" cy="' + q[1].toFixed(1) + '" r="4.2" fill="#5E6366"/>'; }
+  });
+  // frame face (aluminium ring, deep bottom rail) with a lit top/near edge
+  s += '<path fill-rule="evenodd" fill="url(#alu)" d="M' + quad(0, 0, W, H, 0).map(q => q.join(",")).join("L") + 'Z M' + quad(fb, fbT, W - fb, H - fbB, 0).map(q => q.join(",")).join("L") + 'Z"/>';
+  s += '<polyline points="' + poly([pt(0, H, 0), pt(0, 0, 0), pt(W, 0, 0)]) + '" fill="none" stroke="#DADFE0" stroke-opacity=".7" stroke-width="1.6"/>';
+  s += '<polyline points="' + poly([pt(fb, H - fbB + 2, 0), pt(W - fb, H - fbB + 2, 0)]) + '" fill="none" stroke="#5E6366" stroke-opacity=".8" stroke-width="2"/>';
+  // the maker's plate: a lighter riveted strip under the stamped label
+  s += '<polygon points="' + poly(quad(plU1, H - fbB + 4, plU2, H - 14, 1)) + '" fill="#CDD1D2"/>';
+  [plU1 + 8, plU2 - 8].forEach(u => { const q = pt(u, railV - 5, 1.5); s += '<circle cx="' + q[0].toFixed(1) + '" cy="' + q[1].toFixed(1) + '" r="3.6" fill="#8D9295"/>'; });
+  // the crank lever on the near stile, low down; terracotta grip (the only accent)
+  const lv = H - fbB - 150, lp = pt(fb * 0.5, lv, 10), le = pt(fb * 0.5, lv + 46, 92);
+  s += '<line x1="' + lp[0].toFixed(1) + '" y1="' + lp[1].toFixed(1) + '" x2="' + le[0].toFixed(1) + '" y2="' + le[1].toFixed(1) + '" stroke="#C4C9CA" stroke-width="11" stroke-linecap="round"/>';
+  s += '<circle cx="' + lp[0].toFixed(1) + '" cy="' + lp[1].toFixed(1) + '" r="11" fill="#7C8184"/>';
+  s += '<circle cx="' + le[0].toFixed(1) + '" cy="' + le[1].toFixed(1) + '" r="15" fill="#C4552E"/>';
+
+  // dusty beams in the air: each open blade throws a sheet of sun that leaves the far half of the window and
+  // runs into its bar on the wall; brightest at the corner, gone before the lettering starts
+  bands.forEach((b, k) => {
+    if (b.o < 0.3) return;
+    const vc = bladeAt(k), yW = yTop + vc, half = p * 0.5 * (0.32 + 0.6 * b.o), uS = W * 0.34;
+    const pts = [pt(uS, vc - half, 0), pt(W - fb, vc - half, 0), [patchL + 8, yW - half], [patchL + 8, yW + half], pt(W - fb, vc + half, 0), pt(uS, vc + half, 0)];
+    const a = 0.5 * b.o, x0 = pt(uS, vc, 0)[0], f1 = clamp((xC - x0) / (xText - x0), 0.4, 0.95);
+    s += '<linearGradient id="sh' + k + '" gradientUnits="userSpaceOnUse" x1="' + x0.toFixed(1) + '" y1="0" x2="' + xText.toFixed(1) + '" y2="0">' +
+         '<stop offset="0" stop-color="#F3D8A0" stop-opacity="0"/><stop offset="' + f1.toFixed(3) + '" stop-color="#F6DFA8" stop-opacity="' + a.toFixed(3) + '"/>' +
+         '<stop offset="1" stop-color="#F3D8A0" stop-opacity="0"/></linearGradient>';
+    s += '<polygon points="' + poly(pts) + '" fill="url(#sh' + k + ')" filter="url(#haze)" style="mix-blend-mode:screen"/>';
+    // a few motes of dust caught in the sheet (hard-coded offsets)
+    [[0.62, -0.3, 1.8], [0.84, 0.22, 1.5], [0.93, -0.12, 2.1]].forEach(([f, dy, r], q) => {
+      if ((k + q) % 3 === 0) return;
+      const x = x0 + (patchL - x0) * f, y = pt(uS + (W - uS) * f, vc, 0)[1] * (1 - f) + yW * f + dy * half;
+      s += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + r + '" fill="#FFF4D8" fill-opacity="' + (0.25 + 0.35 * b.o).toFixed(2) + '"/>';
+    });
+  });
+
+  $("room").innerHTML = s;
+  meas.textContent = "";
+  }
+</script>
+</body>
+</html>

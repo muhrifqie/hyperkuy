@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Alegreya+SC:wght@700;800&family=Alegreya:ital,wght@0,500;0,800;1,500;1,700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Mouth Shapes: an animator's mouth chart (viseme chart) on peach animation paper.
+    Top band: the read dialogue track - a pencil waveform of one spoken word (the hl word),
+    cut into phonemes with red ticks, each phoneme lettered and drawn as its tiny mouth.
+    Below: the chart sheet, a double-rule frame whose top band is the lettered title block
+    (PROD / LEMBAR corner fields + the hook line), then nine inked mouths on a blue pencil grid.
+    Items take mouths in reading order (key 1..n left-to-right, top-to-bottom), each on a mouth
+    one of its own letters uses; those cells get the cream key-pose paint, a red ring and a red key number.
+    Metaphor: AI dubbing / talking avatars cut speech into sounds and map each sound to one of a few mouths.
+    Deterministic: every irregular line is a hard-coded path or a fixed sine wobble.
+  */
+  :root { --paper: #F6DCC8; --ink: #1C1C1C; --blue: #2C5DA8; --red: #C63F28; --cream: #FFF8EE; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--paper); }
+  body { position: relative; color: var(--ink); font-family: "Alegreya", serif; font-feature-settings: "lnum" 1; }
+
+  #sheet { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* dialogue track letters (phonemes of the spoken word) */
+  .ph { position: absolute; top: 192px; width: 120px; margin-left: -60px; text-align: center;
+    font: 800 38px "Alegreya SC", serif; line-height: 40px; color: var(--ink); letter-spacing: 0.02em; }
+
+  /* title block corner fields (form fields printed in the frame's top band) */
+  .fld { position: absolute; display: flex; align-items: baseline; gap: 12px; white-space: nowrap; }
+  .fld b { font: 700 26px "Alegreya SC", serif; letter-spacing: 0.08em; color: var(--ink); }
+  .fld i { font: italic 700 30px "Alegreya", serif; color: var(--ink); padding: 0 6px 2px; border-bottom: 2px solid var(--ink); }
+
+  .title { position: absolute; left: 90px; width: 810px; text-align: center; font-family: "Alegreya SC", serif; font-weight: 800;
+    line-height: 1.0; letter-spacing: 0.005em; color: var(--ink); text-wrap: balance; }
+  .title .hl { color: var(--red); }
+  .title .hl .c { position: relative; display: inline-block; border-bottom: 4px solid var(--red); padding-bottom: 2px; }
+  .title .hl .c.cut::after { content: ""; position: absolute; right: -2px; bottom: -12px; width: 3px; height: 16px; background: var(--red); }
+
+  .leg { position: absolute; height: 40px; padding: 0 14px; display: flex; align-items: center; gap: 12px; background: var(--paper);
+    font: 700 30px "Alegreya SC", serif; letter-spacing: 0.06em; color: var(--ink); white-space: nowrap; }
+  .leg .dot { width: 26px; height: 26px; border-radius: 50%; border: 4px solid var(--red); flex: none; }
+
+  .tag { position: absolute; font: italic 700 32px "Alegreya", serif; line-height: 1; color: var(--ink); white-space: nowrap; background: var(--paper); padding: 2px 6px 4px; }
+  .num { position: absolute; width: 50px; height: 50px; border-radius: 50%; background: var(--red); color: var(--cream);
+    font: 800 32px "Alegreya", serif; line-height: 48px; text-align: center; }
+  .itxt { position: absolute; text-align: center; }
+  .itxt .lb { font: italic 500 30px "Alegreya", serif; line-height: 1.1; color: var(--ink); }
+  .itxt .vl { font: 800 44px "Alegreya", serif; line-height: 1.05; color: var(--ink); white-space: nowrap; }
+
+  #caption { position: absolute; left: 90px; width: 810px; font: italic 500 46px "Alegreya", serif; line-height: 1.24; color: var(--ink); }
+  #caption .w { display: inline; }
+  #caption .on { position: relative; font-weight: 700; color: var(--ink); white-space: nowrap; margin: 0 16px 0 16px; }
+  #caption .on::after { content: ""; position: absolute; left: -15px; right: -13px; top: -0.02em; bottom: -0.06em;
+    border: 4px solid var(--red); border-top-width: 3px; border-bottom-width: 5px; border-radius: 50%; transform: rotate(-2.2deg); }
+
+  .foot { position: absolute; left: 90px; right: 90px; top: 1584px; display: flex; justify-content: space-between; gap: 32px;
+    font: 500 26px "Alegreya", serif; line-height: 1.2; color: var(--ink); }
+  .foot span:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg id="sheet" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+<div id="track"></div>
+<div class="fld" id="fldL"><b>Prod.</b><i id="ser"></i></div>
+<div class="fld" id="fldR"><b>Lembar</b><i id="ep"></i></div>
+<div class="title" id="title"></div>
+<div class="leg" id="legL"></div><div class="leg" id="legR"><i class="dot"></i><span id="legRt"></span></div>
+<div id="cells"></div>
+<div id="caption" data-slot="caption"></div>
+<div class="foot"><span id="src"></span><span id="date"></span></div>
+
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Tools AI", ep: "#03", kicker: "Tools AI · #03",
+    title: "AI dubbing cuma butuh 9 bentuk mulut", hl: "9 bentuk",
+    sub: "Suara dipotong jadi bunyi, tiap bunyi punya bentuk mulut sendiri.",
+    items: [{ label: "Makan", value: "M·B·P" }, { label: "Apa", value: "A" }, { label: "Oke", value: "O" }, { label: "Kenapa", value: "K·S·T" }],
+    source: "ilustrasi — jumlah bentuk beda tiap tool", date: "per 14 Okt 2026" };
+
+  const loads = ['800 90px "Alegreya SC"', '700 30px "Alegreya SC"', '500 30px "Alegreya"', '800 44px "Alegreya"', 'italic 500 46px "Alegreya"', 'italic 700 46px "Alegreya"'];
+  Promise.all(loads.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  // ---------- the nine mouths, drawn in a 240x150 box centred on (0,0) ----------
+  // layer kinds: lip (cream/paper fill + ink line), hole (ink), teeth / tongue (clipped to the hole), tooth (unclipped), ink (solid), thin / line (ink strokes)
+  const V = {
+    MBP: { tag: "M·B·P", layers: [
+      ["lip", "M-88,4 C-76,-20 -46,-31 -20,-27 C-10,-26 -4,-21 0,-20 C4,-21 10,-26 20,-27 C46,-31 76,-20 88,4 C78,25 46,37 0,37 C-46,37 -78,25 -88,4 Z"],
+      ["ink", "M-88,4 C-52,-3 -22,3 0,1 C22,3 52,-3 88,4 C52,5 22,10 0,9 C-22,10 -52,5 -88,4 Z"],
+      ["line", "M-92,-2 C-97,2 -97,8 -92,12"], ["line", "M92,-2 C97,2 97,8 92,12"] ] },
+    A: { tag: "A", layers: [
+      ["lip", "M-86,-6 C-76,-36 -46,-48 -20,-44 C-10,-42 -4,-36 0,-34 C4,-36 10,-42 20,-44 C46,-48 76,-36 86,-6 C82,32 48,64 0,64 C-48,64 -82,32 -86,-6 Z"],
+      ["hole", "M-70,-6 C-52,-23 -25,-27 0,-24 C25,-27 52,-23 70,-6 C62,24 35,46 0,46 C-35,46 -62,24 -70,-6 Z"],
+      ["teeth", "M-66,-34 L66,-34 L62,-6 C32,-11 -32,-11 -62,-6 Z"],
+      ["tongue", "M-50,52 C-38,24 -15,17 0,19 C15,17 38,24 50,52 Z"],
+      ["line", "M-90,-12 C-95,-5 -95,3 -90,9"], ["line", "M90,-12 C95,-5 95,3 90,9"] ] },
+    IE: { tag: "I·E", layers: [
+      ["lip", "M-100,0 C-86,-25 -48,-35 -20,-31 C-10,-30 -4,-25 0,-24 C4,-25 10,-30 20,-31 C48,-35 86,-25 100,0 C88,25 52,41 0,41 C-52,41 -88,25 -100,0 Z"],
+      ["hole", "M-86,0 C-62,-17 -25,-17 0,-15 C25,-17 62,-17 86,0 C62,19 25,25 0,25 C-25,25 -62,19 -86,0 Z"],
+      ["teeth", "M-80,-22 L80,-22 L80,-1 C40,-4 -40,-4 -80,-1 Z"],
+      ["teeth", "M-78,28 L78,28 L78,9 C40,12 -40,12 -78,9 Z"],
+      ["line", "M-104,-6 C-109,0 -109,6 -104,11"], ["line", "M104,-6 C109,0 109,6 104,11"] ] },
+    O: { tag: "O", layers: [
+      ["lip", "M-60,2 C-60,-31 -33,-49 -12,-47 C-6,-46 -2,-43 0,-42 C2,-43 6,-46 12,-47 C33,-49 60,-31 60,2 C60,37 33,57 0,57 C-33,57 -60,37 -60,2 Z"],
+      ["hole", "M-39,4 C-39,-18 -21,-29 0,-29 C21,-29 39,-18 39,4 C39,27 21,39 0,39 C-21,39 -39,27 -39,4 Z"],
+      ["teeth", "M-42,-32 L42,-32 L42,-17 C20,-20 -20,-20 -42,-17 Z"],
+      ["tongue", "M-32,42 C-25,25 -10,21 0,22 C10,21 25,25 32,42 Z"] ] },
+    // pursed lips pushed forward: deep cupid's bow, a small round opening, lips meeting at its sides, vertical lip creases
+    UW: { tag: "U·W", layers: [
+      ["lip", "M-48,4 C-50,-16 -36,-34 -15,-37 C-8,-38 -3,-31 0,-27 C3,-31 8,-38 15,-37 C36,-34 50,-16 48,4 C46,26 27,42 0,43 C-27,42 -46,26 -48,4 Z"],
+      ["hole", "M-17,4 C-17,-4 -9,-9 0,-9 C9,-9 17,-4 17,4 C17,11 9,15 0,15 C-9,15 -17,11 -17,4 Z"],
+      ["thin", "M-17,4 C-26,3 -35,5 -44,9"], ["thin", "M17,4 C26,3 35,5 44,9"],
+      ["thin", "M-14,-9 L-20,-25"], ["thin", "M-5,-12 L-6,-22"], ["thin", "M5,-12 L6,-22"], ["thin", "M14,-9 L20,-25"],
+      ["thin", "M-13,16 L-18,31"], ["thin", "M-4,19 L-5,34"], ["thin", "M4,19 L5,34"], ["thin", "M13,16 L18,31"] ] },
+    // upper teeth biting over the tucked lower lip (no dark gap under the teeth), dark corners either side
+    FV: { tag: "F·V", layers: [
+      ["lip", "M-76,-8 C-56,-14 -30,-15 0,-15 C30,-15 56,-14 76,-8 C70,18 40,31 0,31 C-40,31 -70,18 -76,-8 Z"],
+      ["thin", "M-34,14 C-16,17 16,17 34,14"],
+      ["ink", "M-84,-10 C-74,-19 -60,-24 -46,-25 L-46,-9 C-60,-10 -74,-9 -84,-10 Z"], ["ink", "M84,-10 C74,-19 60,-24 46,-25 L46,-9 C60,-10 74,-9 84,-10 Z"],
+      ["tooth", "M-46,-32 C-22,-34 22,-34 46,-32 L44,-3 C22,0 -22,0 -44,-3 Z"],
+      ["thin", "M0,-32 L0,-1"], ["thin", "M-23,-33 L-22.5,-2"], ["thin", "M23,-33 L22.5,-2"],
+      ["lip", "M-84,-10 C-74,-36 -46,-48 -20,-44 C-10,-43 -4,-38 0,-37 C4,-38 10,-43 20,-44 C46,-48 74,-36 84,-10 C62,-22 32,-27 0,-26 C-32,-27 -62,-22 -84,-10 Z"],
+      ["line", "M-88,-16 C-93,-9 -93,-2 -88,4"], ["line", "M88,-16 C93,-9 93,-2 88,4"] ] },
+    L: { tag: "L", layers: [
+      ["lip", "M-82,-4 C-72,-31 -43,-43 -20,-39 C-10,-38 -4,-33 0,-32 C4,-33 10,-38 20,-39 C43,-43 72,-31 82,-4 C76,29 43,53 0,53 C-43,53 -76,29 -82,-4 Z"],
+      ["hole", "M-66,-4 C-48,-21 -23,-23 0,-21 C23,-23 48,-21 66,-4 C58,19 31,37 0,37 C-31,37 -58,19 -66,-4 Z"],
+      ["teeth", "M-62,-28 L62,-28 L60,-11 C31,-14 -31,-14 -60,-11 Z"],
+      ["tongue", "M-36,46 C-32,14 -17,-8 0,-11 C17,-8 32,14 36,46 Z"],
+      ["line", "M-86,-10 C-91,-3 -91,4 -86,10"], ["line", "M86,-10 C91,-3 91,4 86,10"] ] },
+    KST: { tag: "K·S·T", layers: [
+      ["lip", "M-94,0 C-82,-23 -46,-33 -20,-29 C-10,-28 -4,-23 0,-22 C4,-23 10,-28 20,-29 C46,-33 82,-23 94,0 C82,23 47,37 0,37 C-47,37 -82,23 -94,0 Z"],
+      ["hole", "M-80,0 C-57,-15 -24,-15 0,-13 C24,-15 57,-15 80,0 C57,15 24,21 0,21 C-24,21 -57,15 -80,0 Z"],
+      ["teeth", "M-66,-22 L66,-22 L66,26 L-66,26 Z"],
+      ["thin", "M-64,4 C-30,6 30,6 64,4"],
+      ["line", "M-98,-6 C-103,0 -103,6 -98,11"], ["line", "M98,-6 C103,0 103,6 98,11"] ] },
+    REST: { tag: "diam", layers: [
+      ["lip", "M-72,5 C-62,-14 -37,-22 -16,-19 C-8,-18 -3,-15 0,-14 C3,-15 8,-18 16,-19 C37,-22 62,-14 72,5 C62,21 35,31 0,31 C-35,31 -62,21 -72,5 Z"],
+      ["ink", "M-72,5 C-42,1 -17,7 0,6 C17,7 42,1 72,5 C42,4 17,10 0,9 C-17,10 -42,4 -72,5 Z"] ] }
+  };
+  const ORDER = ["MBP", "A", "IE", "O", "UW", "FV", "L", "KST", "REST"];
+  const SOUND = { m: "MBP", b: "MBP", p: "MBP", a: "A", i: "IE", e: "IE", y: "IE", o: "O", u: "UW", w: "UW", f: "FV", v: "FV", l: "L",
+    k: "KST", s: "KST", t: "KST", c: "KST", d: "KST", g: "KST", n: "KST", r: "KST", j: "KST", z: "KST", x: "KST", q: "KST" };
+  const letters = s => String(s || "").toLowerCase().normalize("NFD").replace(/[^a-z]/g, "");
+
+  // Items take chart cells in reading order (strictly increasing ORDER index), so key numbers always read 1..n
+  // left-to-right, top-to-bottom. Among all monotonic placements, pick the most phonetic one (exact DP over <=5 x 9):
+  // a cell scores when one of the label's letters uses that mouth (more if it is the first sound), ties -> even spread.
+  function assign(items) {
+    const n = items.length, C = ORDER.length;
+    const score = (it, c) => {
+      const ls = letters(it.label); const pos = [...ls].findIndex(ch => SOUND[ch] === ORDER[c]);
+      return pos < 0 ? 0 : 10 + (pos === 0 ? 5 : 0) - Math.min(pos, 10) * 0.05;
+    };
+    const target = i => (n < 2 ? 0 : i * (C - 1) / (n - 1));
+    const best = Array.from({ length: n + 1 }, () => new Array(C + 1).fill(-Infinity)), from = Array.from({ length: n + 1 }, () => new Array(C + 1).fill(-1));
+    for (let c = 0; c <= C; c++) best[0][c] = 0;           // best[i][c]: items < i placed in cells < c
+    for (let i = 1; i <= n; i++) for (let c = 1; c <= C; c++) {
+      best[i][c] = best[i][c - 1]; from[i][c] = from[i][c - 1];
+      const v = best[i - 1][c - 1] + score(items[i - 1], c - 1) - 0.01 * Math.abs(c - 1 - target(i - 1));
+      if (v > best[i][c]) { best[i][c] = v; from[i][c] = c - 1; }
+    }
+    const out = new Array(n); let c = C;
+    for (let i = n; i >= 1; i--) { const cell = from[i][c]; out[i - 1] = ORDER[cell]; c = cell; }
+    return out;
+  }
+
+  // the spoken word on the dialogue track: the hl word (letters only), else the longest title word; cut into phonemes
+  function phonemes(word) {
+    const w = letters(word), out = [];
+    for (let i = 0; i < w.length && out.length < 8; i++) {
+      const ch = w[i], nx = w[i + 1];
+      if ((ch === "n" && (nx === "g" || nx === "y")) || ((ch === "k" || ch === "s" || ch === "c") && nx === "h")) { out.push({ t: ch + nx, v: "KST" }); i++; continue; }
+      if (ch === "h") continue;                     // breath, no mouth of its own
+      if (SOUND[ch]) out.push({ t: ch, v: SOUND[ch] });
+    }
+    return out;
+  }
+
+  function mouthSVG(key, id, fill) {
+    const L = V[key].layers, hole = (L.find(l => l[0] === "hole") || [])[1];
+    let s = hole ? `<clipPath id="${id}"><path d="${hole}"/></clipPath>` : "";
+    let clip = "";
+    for (const [k, d] of L) {
+      if (k === "lip") s += `<path d="${d}" fill="${fill}" stroke="#1C1C1C" stroke-width="5" stroke-linejoin="round"/>`;
+      else if (k === "hole") s += `<path d="${d}" fill="#1C1C1C"/>`;
+      else if (k === "teeth") clip += `<path d="${d}" fill="#FFF8EE" stroke="#1C1C1C" stroke-width="2.5"/>`;
+      else if (k === "tongue") clip += `<path d="${d}" fill="#C63F28" stroke="#1C1C1C" stroke-width="2.5"/>`;
+      else if (k === "tooth") s += `<path d="${d}" fill="#FFF8EE" stroke="#1C1C1C" stroke-width="3" stroke-linejoin="round"/>`;
+      else if (k === "ink") s += `<path d="${d}" fill="#1C1C1C"/>`;
+      else if (k === "thin") s += `<path d="${d}" fill="none" stroke="#1C1C1C" stroke-width="2.6" stroke-linecap="round"/>`;
+      else if (k === "line") s += `<path d="${d}" fill="none" stroke="#1C1C1C" stroke-width="4" stroke-linecap="round"/>`;
+    }
+    if (clip) { const holeTag = `<path d="${hole}" fill="#1C1C1C"/>`; s = s.replace(holeTag, holeTag + `<g clip-path="url(#${id})">${clip}</g>`); }
+    return s;
+  }
+
+  // blue pencil construction under a mouth (fixed per-cell wobble so no two look stamped)
+  function construction(i) {
+    const w = [6, -4, 9, -7, 3, -8, 5, -3, 7][i], h = [-3, 5, -6, 4, -2, 6, -5, 3, -4][i];
+    return `<g fill="none" stroke="#2C5DA8" stroke-width="2.2" stroke-linecap="round" opacity=".62">
+      <ellipse cx="${w * .3}" cy="${4 + h * .3}" rx="${108 + w}" ry="${66 + h}"/>
+      <path d="M${-128 + w},${2 + h * .2} L${126 - w},${2 - h * .2}"/>
+      <path d="M${h * .4},${-74 - w * .4} L${-h * .3},${78 + w * .3}"/>
+      <path d="M${-60 + w},-6 l0,16 M${60 - w},-6 l0,16" stroke-width="1.8"/></g>`;
+  }
+
+  // red pencil key-pose ring: two loose passes with an overshoot (outer extent ~ 118*1.035 x 74*1.035, centre y +4)
+  const RX = 118, RY = 74;
+  function ring(i) {
+    const ph = [0.4, 1.9, 3.1, 4.4, 5.6][i % 5];
+    const pass = (rx, ry, a0, a1, amp, off) => {
+      let d = "";
+      for (let k = 0; k <= 60; k++) {
+        const a = a0 + (a1 - a0) * k / 60, r = 1 + amp * Math.sin(3 * a + ph + off);
+        d += (k ? "L" : "M") + (Math.cos(a) * rx * r).toFixed(1) + "," + (Math.sin(a) * ry * r + 4).toFixed(1);
+      }
+      return d;
+    };
+    return `<g fill="none" stroke="#C63F28" stroke-linecap="round" stroke-linejoin="round">
+      <path d="${pass(RX, RY, -2.0, 4.75, .035, 0)}" stroke-width="5.5"/>
+      <path d="${pass(RX - 5, RY - 4, 2.2, 5.0, .03, 1.3)}" stroke-width="2.6" opacity=".75"/></g>`;
+  }
+
+  // fixed pseudo-noise for the pencil waveform
+  const nz = k => { const v = Math.sin(k * 12.9898 + 78.233) * 43758.5453; return v - Math.floor(v); };
+
+  function render() {
+    const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const $ = id => document.getElementById(id);
+    const items = (D.items || []).slice(0, 5);
+    const n = items.length;
+    const FX0 = 72, FX1 = 918, MID = (FX0 + FX1) / 2;   // chart frame, centred on the grid x 90..900
+    const GX = 90, CW = 270;
+
+    // ---- caption (karaoke line): measured first so the chart can take the rest
+    const t = D.title || "", hl = D.hl || "";
+    const cap = String(D.caption || D.sub || "");
+    const words = cap.split(/\s+/).filter(Boolean);
+    let pos = 0;
+    const ranges = words.map(w => { const i = cap.indexOf(w, pos); pos = i + w.length; return [i, pos]; });
+    const hi = hl ? cap.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    let act = hi < 0 ? [0] : ranges.map((r, i) => (r[0] < hi + hl.length && r[1] > hi ? i : -1)).filter(i => i >= 0);
+    if (!act.length) act = [0];
+    const capEl = $("caption");
+    const buildCap = list => {
+      let h = "", open = false;
+      list.forEach((w, i) => {
+        const on = act.includes(i);
+        if (on && !open) { h += (i ? " " : "") + '<span class="on">'; open = true; }
+        else if (!on && open) { h += "</span> "; open = false; }
+        else if (i) h += " ";
+        h += '<span class="w">' + esc(w) + "</span>";
+      });
+      if (open) h += "</span>";
+      capEl.innerHTML = h;
+    };
+    buildCap(words);
+    let capFs = 46;
+    for (; capFs >= 40; capFs -= 2) { capEl.style.fontSize = capFs + "px"; if (capEl.offsetHeight <= capFs * 1.24 * 2 + 4) break; }
+    if (capFs < 40) { capFs = 40; capEl.style.fontSize = "40px"; }
+    let cut = words.length;
+    while (capEl.offsetHeight > capFs * 1.24 * 2 + 4 && cut > Math.max(...act) + 1) { cut--; buildCap(words.slice(0, cut - 1).concat([words[cut - 1].replace(/[,.;:!?]+$/, "") + "…"])); }
+    const CAP_BOTTOM = 1556;
+    const capTop = CAP_BOTTOM - capEl.offsetHeight;
+    capEl.style.top = capTop + "px";
+
+    // ---- title block: corner fields + lettered title, centred in the frame's top band
+    const CT = 316;
+    $("ser").textContent = D.series || D.kicker || "";
+    $("ep").textContent = D.ep ? String(D.ep) : "";
+    Object.assign($("fldL").style, { left: (FX0 + 20) + "px", top: (CT + 18) + "px" });
+    Object.assign($("fldR").style, { right: (1080 - FX1 + 20) + "px", top: (CT + 18) + "px" });
+    if (!D.ep) $("fldR").style.display = "none";
+    const titleEl = $("title");
+    const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    let hlHTML = "";
+    if (at >= 0) {
+      const seg = t.slice(at, at + hl.length);
+      hlHTML = [...seg].map((ch, i) => (ch === " " ? " " : `<span class="c${i < seg.length - 1 && seg[i + 1] !== " " ? " cut" : ""}">${esc(ch)}</span>`)).join("");
+    }
+    titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + hlHTML + "</span>" + esc(t.slice(at + hl.length));
+    const TT = CT + 76;
+    titleEl.style.top = TT + "px";
+    for (let fs = 100; fs >= 68; fs -= 2) {
+      titleEl.style.fontSize = fs + "px";
+      const lines = Math.round(titleEl.offsetHeight / fs);
+      if (lines <= 2 || (lines === 3 && fs <= 84)) break;
+    }
+    const GT = TT + titleEl.offsetHeight + 26;                // heavy rule under the title block = grid top
+    const CB = Math.min(capTop - 44, 1436);                    // frame bottom (legends hang on it)
+    const GB = CB - 26;                                        // grid bottom
+    const RH = (GB - GT) / 3;
+
+    const keys = assign(items);
+    const keyOf = {}; keys.forEach((k, i) => { keyOf[k] = i; });
+
+    // legends on the frame's bottom rule
+    $("legL").textContent = "Bagan 9 bentuk mulut";
+    $("legRt").textContent = n + " pose kunci";
+    Object.assign($("legL").style, { left: (FX0 + 14) + "px", top: (CB - 20) + "px" });
+    Object.assign($("legR").style, { right: (1080 - FX1 + 14) + "px", top: (CB - 20) + "px" });
+
+    let svg = `<defs>
+      <filter id="grain" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="2" seed="7"/>
+        <feColorMatrix values="0 0 0 0 .45  0 0 0 0 .30  0 0 0 0 .22  0 0 0 .5 -.18"/></filter></defs>`;
+    svg += `<rect width="1080" height="1920" fill="#F6DCC8"/><rect width="1080" height="1920" filter="url(#grain)" opacity=".55"/>`;
+
+    // ---- dialogue track (top band, decoration): pencil waveform of the spoken word, red phoneme cuts, letters + tiny mouths
+    const words2 = s => String(s || "").split(/[^A-Za-zÀ-ÿ]+/).filter(w => letters(w).length >= 2);
+    const spoken = (at >= 0 ? words2(hl) : []).sort((a, b) => letters(b).length - letters(a).length)[0]
+      || words2(t).sort((a, b) => letters(b).length - letters(a).length)[0] || "makan";
+    let ph = phonemes(spoken);
+    if (ph.length < 2) ph = phonemes("makan");
+    const TX0 = FX0 + 18, TX1 = FX1 - 18, WY = 136, AMP = 44;
+    const wt = p => (["A", "O", "IE", "UW", "L"].includes(p.v) ? 1.3 : 0.85);
+    const tot = ph.reduce((s, p) => s + wt(p), 0);
+    let x = TX0, wave = "", ticks = `M${TX0},${WY - 52} V${WY + 54} `, trackHTML = "", minis = "";
+    ph.forEach((p, i) => {
+      const w = (TX1 - TX0) * wt(p) / tot, x0 = x, x1 = x + w;
+      const kind = p.v, vowel = ["A", "O", "IE", "UW", "L"].includes(kind);
+      const k = { A: 1, O: .9, IE: .74, UW: .62, L: .55, MBP: .1, KST: .34, FV: .26, REST: 0 }[kind];
+      let b = 0;
+      for (let bx = x0 + 5; bx <= x1 - 4; bx += 5, b++) {
+        const u = (bx - x0) / w;
+        let env = vowel ? Math.pow(Math.sin(Math.PI * u), 0.6) : kind === "MBP" ? (u > 0.72 ? 3.2 * (u - 0.72) / 0.28 : 0.35) : 0.55 + 0.45 * Math.sin(Math.PI * u);
+        const a = Math.max(1.6, AMP * k * env * (0.5 + 0.5 * nz(i * 97 + b)));
+        wave += `M${bx.toFixed(1)},${(WY - a).toFixed(1)} V${(WY + a).toFixed(1)} `;
+      }
+      ticks += `M${x1.toFixed(1)},${WY - 52} V${WY + 54} `;
+      const cx = (x0 + x1) / 2;
+      trackHTML += `<div class="ph" style="left:${cx.toFixed(1)}px">${esc(p.t.toUpperCase())}</div>`;
+      minis += `<g transform="translate(${cx.toFixed(1)},266) scale(.36)">${mouthSVG(kind, "tm" + i, "#FFF8EE")}</g>`;
+      x = x1;
+    });
+    svg += `<path d="M${TX0 - 10},${WY} H${TX1 + 10}" stroke="#2C5DA8" stroke-width="2" opacity=".6"/>`;
+    svg += `<path d="${wave}" stroke="#1C1C1C" stroke-width="2.6" stroke-linecap="round" opacity=".82"/>`;
+    svg += `<path d="${ticks}" stroke="#C63F28" stroke-width="3" stroke-linecap="round"/>`;
+    svg += minis;
+    $("track").innerHTML = trackHTML;
+
+    // ---- chart frame: ink double rule, heavy rule under the title block, blue pencil grid (lines overshoot like pencil)
+    svg += `<g fill="none" stroke="#1C1C1C"><rect x="${FX0}" y="${CT}" width="${FX1 - FX0}" height="${CB - CT}" stroke-width="3.5"/>
+      <rect x="${FX0 + 7}" y="${CT + 7}" width="${FX1 - FX0 - 14}" height="${CB - CT - 14}" stroke-width="1.5"/>
+      <path d="M${FX0 + 7},${GT} H${FX1 - 7}" stroke-width="4"/><path d="M${FX0 + 7},${GT - 8} H${FX1 - 7}" stroke-width="1.5"/>
+      <path d="M${FX0 + 7},${GB} H${FX1 - 7}" stroke-width="1.5"/></g>`;
+    let grid = "";
+    for (let c = 1; c <= 2; c++) grid += `M${GX + c * CW},${GT - 10} V${GB + 12} `;
+    for (let r = 1; r < 3; r++) grid += `M${FX0 - 12},${(GT + r * RH).toFixed(1)} H${FX1 + 12} `;
+    svg += `<path d="${grid}" stroke="#2C5DA8" stroke-width="2.2" opacity=".7" fill="none"/>`;
+
+    // ---- cells
+    let cellsHTML = "";
+    const cells = [];
+    ORDER.forEach((key, i) => {
+      const col = i % 3, row = Math.floor(i / 3);
+      const x = GX + col * CW, y = GT + row * RH;
+      const k = keyOf[key];
+      cellsHTML += `<div class="tag" id="tg${i}" style="left:${x + 8}px;top:${(y + 10).toFixed(1)}px">${esc(V[key].tag)}</div>`;
+      if (k !== undefined) {
+        const it = items[k];
+        cellsHTML += `<div class="num" style="left:${x + CW - 62}px;top:${(y + 10).toFixed(1)}px">${k + 1}</div>`;
+        cellsHTML += `<div class="itxt" id="it${k}" style="left:${x + 8}px;width:${CW - 16}px"><div class="lb">${esc(it.label)}</div><div class="vl">${esc(it.value)}</div></div>`;
+      }
+      cells.push({ key, i, x, y, k });
+    });
+    $("cells").innerHTML = cellsHTML;
+
+    // fit item text; then the largest mouth scale whose red ring clears the viseme tag and the item text in every key cell
+    cells.forEach(p => {
+      const tg = $("tg" + p.i);
+      p.tag = { x0: p.x + 8 - 4, x1: p.x + 8 + tg.offsetWidth + 4, y1: p.y + 10 + tg.offsetHeight + 4 };
+      if (p.k === undefined) return;
+      const el = $("it" + p.k), vl = el.querySelector(".vl");
+      for (let fs = 44; fs >= 34; fs -= 2) { vl.style.fontSize = fs + "px"; if (vl.scrollWidth <= CW - 16) break; }
+      if (vl.scrollWidth > CW - 16) vl.style.whiteSpace = "normal";
+      p.textTop = p.y + RH - 12 - el.offsetHeight;
+      el.style.top = p.textTop + "px";
+    });
+    const fits = (p, s, cx, cy) => {            // ring extent vs tag box / cell / text
+      const rx = RX * 1.035 * s + 3, ry = RY * 1.035 * s + 3, oy = cy + 4 * s;
+      if (oy - ry < p.y + 6 || oy + ry > p.textTop - 6 || cx - rx < p.x + 4 || cx + rx > p.x + CW - 4) return false;
+      for (let a = 0; a < 6.283; a += 0.05) {
+        const px = cx + Math.cos(a) * rx, py = oy + Math.sin(a) * ry;
+        if (px > p.tag.x0 && px < p.tag.x1 && py < p.tag.y1) return false;
+      }
+      return true;
+    };
+    const place = (p, s) => {
+      for (let cy = p.textTop - 8 - (RY * 1.035 * s + 3) - 4 * s; cy >= p.y + 8; cy -= 2)
+        for (let dx = 0; dx <= 26; dx += 2) if (fits(p, s, p.x + CW / 2 + dx, cy)) return [p.x + CW / 2 + dx, cy];
+      return null;
+    };
+    const keyCells = cells.filter(p => p.k !== undefined);
+    let scale = 0.92;
+    for (; scale > 0.5; scale -= 0.01) if (keyCells.every(p => place(p, scale))) break;
+    keyCells.forEach(p => { [p.cx, p.cy] = place(p, scale) || [p.x + CW / 2, p.y + RH / 2]; });
+
+    cells.forEach(p => {
+      const isKey = p.k !== undefined;
+      if (!isKey) { p.cx = p.x + CW / 2 + 8; p.cy = Math.max(p.y + RH / 2 + 12, p.tag.y1 + 62 * scale); }
+      svg += `<g transform="translate(${p.cx.toFixed(1)},${p.cy.toFixed(1)}) scale(${scale.toFixed(3)})">${construction(p.i)}${mouthSVG(p.key, "m" + p.i, isKey ? "#FFF8EE" : "#F6DCC8")}${isKey ? ring(p.k) : ""}</g>`;
+    });
+
+    // loose blue pencil registration crosses at the frame's bottom corners
+    svg += `<g stroke="#2C5DA8" stroke-width="2" opacity=".55" fill="none"><path d="M${FX0 - 30},${CB + 30} h40 M${FX0 - 10},${CB + 10} v40"/><path d="M${FX1 + 30},${CB + 30} h-40 M${FX1 + 10},${CB + 10} v40"/></g>`;
+    $("sheet").innerHTML = svg;
+
+    $("src").textContent = D.source || "";
+    $("date").textContent = D.date || "";
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Dazzle Plan</title>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Stencil+Display:wght@800;900&family=Big+Shoulders+Display:wght@800;900&family=Big+Shoulders+Text:wght@600;700;800&family=IBM+Plex+Mono:wght@500;600&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Dazzle Plan: the Admiralty dazzle section.
+    Top: the title is PAINTED as dazzle lettering across a full-bleed stripe band (stencil type,
+         every letter fragment flips paper-on-ink / ink-on-paper where a stripe crosses it).
+    Middle: a vertical paint key (numbered paint chips) beside the dazzle-painted model on its
+         brass degree turntable; each item is a numbered colour zone painted on the hull.
+    Bottom: the design sheet's ruled title block (remarks = caption, scheme / series / date cells,
+         source as small print) above the line-only side elevation.
+    Metaphor: adversarial examples -- stripes don't hide the ship, they fool the eye
+    (and the classifier) about what it is looking at.
+  */
+  :root {
+    --navy: #2F4B7C;
+    --paper: #E9E4D8;
+    --ink: #161616;
+    --brass: #C9A44C;
+    --slate: #8FA3B8;
+  }
+  html, body { margin: 0; padding: 0; width: 1080px; height: 1920px; overflow: hidden; background: var(--navy); }
+  body { position: relative; font-family: "Big Shoulders Text", sans-serif; color: var(--paper); }
+  .abs { position: absolute; }
+  svg.full { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* painted dazzle title: base layer (measured) + flipped layer clipped to the light wedges */
+  .ttl { position: absolute; left: 90px; top: 322px; width: 900px; margin: 0; font: 900 120px/0.9 "Big Shoulders Stencil Display", sans-serif;
+         text-transform: uppercase; letter-spacing: .012em; }
+  .ttl .hl { white-space: nowrap; padding: 0 .05em; }
+  #title { color: var(--ink); }
+  #flip { color: var(--paper); clip-path: url(#darkClip); }
+  #flip .hl { visibility: hidden; }
+
+  /* 3D scene */
+  #scene { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; pointer-events: none; transform-origin: 0 0; }
+  .stage { position: absolute; width: 0; height: 0; transform-style: preserve-3d; }
+  .stage > * { position: absolute; }
+  .disc { border-radius: 50%; }
+  .disc svg, .ship svg { display: block; width: 100%; height: 100%; }
+
+  /* paint key: one numbered paint chip per item */
+  #key { left: 90px; width: 304px; box-sizing: border-box; border: 4px solid var(--ink); background: var(--ink); }
+  #key .kh { display: flex; align-items: center; height: 46px; padding: 0; font: 600 28px/46px "IBM Plex Mono", monospace; color: var(--brass); letter-spacing: .06em; }
+  #key .row { display: flex; box-sizing: border-box; border-top: 4px solid var(--brass); }
+  #key .num { flex: none; width: 74px; display: flex; align-items: center; justify-content: center; font: 900 76px/1 "Big Shoulders Stencil Display", sans-serif; border-right: 4px solid var(--brass); }
+  #key .tx { flex: 1; min-width: 0; padding: 10px 14px 10px 16px; display: flex; flex-direction: column; justify-content: center; }
+  #key .lb { font: 700 32px/1.0 "Big Shoulders Text", sans-serif; text-transform: uppercase; letter-spacing: .02em; }
+  #key .vl { font: 900 58px/0.95 "Big Shoulders Display", sans-serif; white-space: nowrap; margin-top: 4px; }
+
+  /* design sheet title block */
+  #cap { left: 104px; width: 796px; font: 700 46px/1.18 "Big Shoulders Text", sans-serif; color: var(--ink); }
+  #cap .on { background: var(--brass); color: var(--ink); padding: 0 .14em; box-shadow: inset 0 -5px 0 var(--ink); }
+  #sub { left: 104px; width: 796px; font: 600 40px/1.15 "Big Shoulders Text", sans-serif; color: var(--ink); }
+  #cells { left: 90px; width: 900px; height: 46px; display: flex; box-sizing: border-box; border-top: 3px solid var(--ink); border-bottom: 3px solid var(--ink); }
+  #cells .c { flex: none; padding: 0 14px; font: 600 26px/40px "IBM Plex Mono", monospace; color: var(--ink); white-space: nowrap; border-left: 3px solid var(--ink); overflow: hidden; text-overflow: ellipsis; }
+  #cells .c:first-child { border-left: 0; padding-left: 14px; }
+  #cells .c.grow { flex: 1 1 auto; min-width: 0; }
+  #cells .c i { font-style: normal; font-weight: 500; }
+  #src { left: 104px; width: 880px; font: 500 26px/32px "IBM Plex Mono", monospace; color: var(--ink); }
+</style>
+</head>
+<body>
+<svg id="band" class="full" viewBox="0 0 1080 1920" aria-hidden="true" data-layout-allow-overlap></svg>
+<h1 id="title" class="ttl"></h1>
+<div id="flip" class="ttl" aria-hidden="true" data-layout-ignore></div>
+
+<div id="scene" data-layout-allow-overlap data-layout-allow-overflow aria-hidden="true"></div>
+<svg id="leaders" class="full" viewBox="0 0 1080 1920" aria-hidden="true" data-layout-allow-overlap></svg>
+<div id="key" class="abs"></div>
+
+<svg id="sheet" class="full" viewBox="0 0 1080 1920" aria-hidden="true" data-layout-allow-overlap data-layout-allow-overflow></svg>
+<div id="sub" class="abs"></div>
+<div id="cap" class="abs" data-slot="caption"></div>
+<div id="cells" class="abs"></div>
+<div id="src" class="abs"></div>
+
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const FONTS = ['900 120px "Big Shoulders Stencil Display"', '900 58px "Big Shoulders Display"', '700 32px "Big Shoulders Text"', '700 46px "Big Shoulders Text"',
+                 '600 40px "Big Shoulders Text"', '600 28px "IBM Plex Mono"', '500 26px "IBM Plex Mono"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).then(() => document.fonts.ready).catch(() => {}).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const INK = "#161616", PAPER = "#E9E4D8", BRASS = "#C9A44C", SLATE = "#8FA3B8", NAVY = "#2F4B7C";
+  const $ = id => document.getElementById(id);
+  const pts = a => a.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ");
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+
+  // =====================================================================================
+  // 1. TITLE, painted as dazzle lettering
+  // =====================================================================================
+  const t = D.title || "", hl = D.hl || "";
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const tHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  const titleEl = $("title"), flipEl = $("flip");
+  titleEl.innerHTML = tHTML; flipEl.innerHTML = tHTML;
+  const TITLE_MAX_H = 252;
+  let tfs = 132;
+  for (; tfs >= 78; tfs -= 2) {
+    titleEl.style.fontSize = tfs + "px";
+    if (titleEl.offsetHeight <= TITLE_MAX_H && titleEl.scrollWidth <= 900) break;
+  }
+  flipEl.style.fontSize = tfs + "px";
+  const TT = titleEl.offsetTop, TB = TT + titleEl.offsetHeight;
+
+  // band outline: top edge sits on the safe-zone line, bottom edge follows the title
+  const BAND_T = [[0, 290], [1080, 272]];
+  const BAND_B = [[1080, TB + 22], [0, TB + 50]];
+  const bandPoly = [BAND_T[0], BAND_T[1], BAND_B[0], BAND_B[1]];
+  // Wedge system (page coordinates), two opposing systems meeting at a seam -- the dazzle trick:
+  // left = broad 45deg stripes, right = rays converging on a false vanishing point off the frame.
+  // The band is paper; ink/navy wedges carry the paper (flipped) copy of the title, the paper and
+  // slate areas carry the ink copy -- every letter fragment stays high-contrast where a stripe cuts it.
+  const Y0 = -40, Y1 = 780, YM = 450;
+  const para = (xm, w) => [[xm - (Y1 - YM), Y1], [xm + w - (Y1 - YM), Y1], [xm + w + (YM - Y0), Y0], [xm + (YM - Y0), Y0]];
+  const LEFT = [[-34, 64, INK], [96, 30, SLATE], [214, 86, INK], [420, 44, NAVY]];         // [x at y=450, width, paint]
+  const SEAM = [[700, Y0], [500, Y1]];
+  const S = k => [SEAM[0][0] + (SEAM[1][0] - SEAM[0][0]) * k, SEAM[0][1] + (SEAM[1][1] - SEAM[0][1]) * k];
+  const VP = [1760, 500];
+  const RIGHT = [[0.26, 0.40, INK], [0.40, 0.47, SLATE], [0.58, 0.65, SLATE], [0.80, 0.92, INK]];   // seam fractions
+  // clip a polygon to one side of the seam (Sutherland-Hodgman, one edge)
+  const sideOf = p => (SEAM[1][0] - SEAM[0][0]) * (p[1] - SEAM[0][1]) - (SEAM[1][1] - SEAM[0][1]) * (p[0] - SEAM[0][0]);
+  const LEFT_SIGN = sideOf([0, 400]) >= 0 ? 1 : -1;
+  const half = (poly, sign) => {
+    const out = [];
+    for (let i = 0; i < poly.length; i++) {
+      const p = poly[i], q = poly[(i + 1) % poly.length], sp = sign * sideOf(p), sq = sign * sideOf(q);
+      if (sp >= 0) out.push(p);
+      if ((sp >= 0) !== (sq >= 0)) { const k = sp / (sp - sq); out.push([p[0] + (q[0] - p[0]) * k, p[1] + (q[1] - p[1]) * k]); }
+    }
+    return out;
+  };
+  const wedges = LEFT.map(s => ({ p: half(para(s[0], s[1]), LEFT_SIGN), c: s[2] }))
+    .concat(RIGHT.map(s => ({ p: half([VP, S(s[0]), S(s[1])], -LEFT_SIGN), c: s[2] })))
+    .filter(w => w.p.length >= 3);
+  const isDark = c => c === INK || c === NAVY;
+
+  // hl = one more painted wedge of the band, in brass: non-parallel sides (one leans with the 45deg
+  // system, one opens the other way) and it bleeds off the band edge when the
+  // hl sits on the first or last line -- a wedge of the scheme, not a highlight box.
+  let brass = null;
+  const hlBase = titleEl.querySelector(".hl");
+  if (hlBase) {
+    const r = hlBase.getBoundingClientRect();
+    const probe = document.createElement("i");
+    probe.style.cssText = "display:inline-block;width:0;height:0;vertical-align:baseline";
+    hlBase.insertBefore(probe, hlBase.firstChild);
+    const base = probe.getBoundingClientRect().top;
+    probe.remove();
+    const cv = document.createElement("canvas").getContext("2d");
+    cv.font = '900 ' + tfs + 'px "Big Shoulders Stencil Display"';
+    const cap = cv.measureText("H").actualBoundingBoxAscent || tfs * 0.72;
+    const lineH = tfs * 0.9, lines = Math.round(titleEl.offsetHeight / lineH), line = Math.floor((base - TT) / lineH);
+    const capTop = base - cap;
+    const bandY = (pa, pb, x) => pa[1] + (pb[1] - pa[1]) * (x - pa[0]) / (pb[0] - pa[0]);
+    const y0 = line === 0 ? Math.min(bandY(BAND_T[0], BAND_T[1], r.left), bandY(BAND_T[0], BAND_T[1], r.right)) - 14 : capTop - tfs * 0.1;
+    const y1 = line >= lines - 1 ? Math.max(bandY(BAND_B[1], BAND_B[0], r.left), bandY(BAND_B[1], BAND_B[0], r.right)) + 14 : base + tfs * 0.1;
+    const LL = 0.2, LR = 0.32;                     // left edge leans down-left, right edge opens down-right
+    const xl = y => r.left - tfs * 0.06 - (y - capTop) * LL, xr = y => r.right + tfs * 0.02 + (y - capTop) * LR;
+    brass = [[xl(y0), y0], [xr(y0), y0], [xr(y1), y1], [xl(y1), y1]];
+  }
+
+  // =====================================================================================
+  // 2. BAND + MASTHEAD SVG
+  // =====================================================================================
+  const off = p => [p[0] - 90, p[1] - TT];        // clipPath on an HTML box: user space = its border box
+  // the flipped (paper) copy shows only on dark wedges, minus the brass wedge (ink stays ink on brass)
+  const cut = (poly, a, b, sign) => {               // keep the side of line a->b where sign * cross >= 0
+    const cr = p => (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]), out = [];
+    for (let i = 0; i < poly.length; i++) {
+      const p = poly[i], q = poly[(i + 1) % poly.length], sp = sign * cr(p), sq = sign * cr(q);
+      if (sp >= 0) out.push(p);
+      if ((sp >= 0) !== (sq >= 0)) { const k = sp / (sp - sq); out.push([p[0] + (q[0] - p[0]) * k, p[1] + (q[1] - p[1]) * k]); }
+    }
+    return out;
+  };
+  const minusQuad = (poly, quad) => {               // convex poly minus convex quad (clockwise) = up to 4 convex pieces
+    const pieces = []; let rest = poly;
+    for (let i = 0; i < quad.length && rest.length >= 3; i++) {
+      const a = quad[i], b = quad[(i + 1) % quad.length];
+      const outside = cut(rest, a, b, -1); if (outside.length >= 3) pieces.push(outside);
+      rest = cut(rest, a, b, 1);
+    }
+    return pieces;
+  };
+  const darkPolys = wedges.filter(w => isDark(w.c)).reduce((acc, w) => acc.concat(brass ? minusQuad(w.p, brass) : [w.p]), []);
+  let band = '<defs>' +
+    '<clipPath id="bandClip"><polygon points="' + pts(bandPoly) + '"/></clipPath>' +
+    '<clipPath id="mastClip"><polygon points="0,0 1080,0 ' + pts([BAND_T[1], BAND_T[0]]) + '"/></clipPath>' +
+    '<clipPath id="darkClip" clipPathUnits="userSpaceOnUse">' + darkPolys.map(p => '<polygon points="' + pts(p.map(off)) + '"/>').join("") + '</clipPath>' +
+    '</defs>';
+  // masthead: the same wedge system, tonal only (it sits under the platform's top UI)
+  band += '<rect width="1080" height="1920" fill="' + NAVY + '"/>' +
+    '<g clip-path="url(#mastClip)">' +
+      wedges.map(w => '<polygon points="' + pts(w.p) + '" fill="' + (w.c === INK ? "#28406B" : w.c === NAVY ? "#2B4573" : "#36558A") + '"/>').join("") +
+    '</g>';
+  // the painted band
+  band += '<g clip-path="url(#bandClip)">' +
+      '<polygon points="' + pts(bandPoly) + '" fill="' + PAPER + '"/>' +
+      wedges.map(w => '<polygon points="' + pts(w.p) + '" fill="' + w.c + '"/>').join("") +
+      (brass ? '<polygon points="' + pts(brass) + '" fill="' + BRASS + '"/>' : "") +
+    '</g>' +
+    // brass rules on both band edges
+    '<polygon points="' + pts([[0, BAND_T[0][1] - 11], [1080, BAND_T[1][1] - 11], [1080, BAND_T[1][1] - 4], [0, BAND_T[0][1] - 4]]) + '" fill="' + BRASS + '"/>' +
+    '<polygon points="' + pts([[0, BAND_B[1][1] + 4], [1080, BAND_B[0][1] + 4], [1080, BAND_B[0][1] + 11], [0, BAND_B[1][1] + 11]]) + '" fill="' + BRASS + '"/>';
+  $("band").innerHTML = band;
+
+  // =====================================================================================
+  // 3. DESIGN SHEET (bottom-up): source, cells, caption, optional sub
+  // =====================================================================================
+  const SAFE_BOTTOM = 1612;
+  const srcEl = $("src");
+  srcEl.textContent = D.source ? "Sumber: " + D.source : "";
+  // long source: switch the small print to the condensed face before it takes a second line
+  if (srcEl.offsetHeight > 40) { srcEl.style.font = '600 28px/32px "Big Shoulders Text", sans-serif'; srcEl.style.letterSpacing = ".02em"; }
+  const srcH = D.source ? srcEl.offsetHeight : 0;
+  const srcTop = SAFE_BOTTOM - srcH;
+  srcEl.style.top = srcTop + "px";
+
+  const cellsEl = $("cells");
+  const epNo = String(D.ep || "").trim();
+  const seri = D.series || D.kicker || "";
+  cellsEl.innerHTML = '<div class="c"><i>SKEMA</i> ' + esc(epNo || "—") + '</div>' +
+                      '<div class="c grow"><i>SERI</i> ' + esc(seri) + '</div>' +
+                      (D.date ? '<div class="c"><i>TGL.</i> ' + esc(D.date) + '</div>' : "");
+  const cellsTop = srcTop - 10 - 46;
+  cellsEl.style.top = cellsTop + "px";
+  // squeeze the meta cells if they overflow (long series names): condensed face
+  const growCell = cellsEl.querySelector(".grow");
+  growCell.style.flex = "none";
+  const tooWide = cellsEl.scrollWidth > cellsEl.clientWidth + 1;
+  growCell.style.flex = "";
+  if (tooWide) Array.from(cellsEl.children).forEach(c => { c.style.font = '700 30px/40px "Big Shoulders Text", sans-serif'; c.style.letterSpacing = ".02em"; });
+
+  // caption = remarks line, karaoke: one active word (hl if it is in the caption, else the first word)
+  const capText = String(D.caption || D.sub || "").trim();
+  const capEl = $("cap");
+  const words = capText.split(/\s+/).filter(Boolean);
+  let onIdx = 0;
+  if (hl) {
+    const low = capText.toLowerCase(), hpos = low.indexOf(hl.toLowerCase());
+    if (hpos >= 0) {
+      let pos = 0;
+      for (let i = 0; i < words.length; i++) { const ws = capText.indexOf(words[i], pos), we = ws + words[i].length; pos = we; if (we > hpos) { onIdx = i; break; } }
+    }
+  }
+  const buildCap = keep => {
+    const on = onIdx < keep ? onIdx : 0, cut = keep < words.length;
+    capEl.innerHTML = words.slice(0, keep).map((w, i) => '<span class="w' + (i === on ? " on" : "") + '">' + esc(w) + (cut && i === keep - 1 ? "…" : "") + "</span>").join(" ");
+  };
+  let cfs = 48;
+  for (; cfs >= 42; cfs -= 2) { capEl.style.fontSize = cfs + "px"; buildCap(words.length); if (capEl.offsetHeight <= cfs * 1.18 * 2 + 4) break; }
+  if (cfs < 42) { cfs = 42; capEl.style.fontSize = "42px"; for (let keep = words.length - 1; keep >= 3; keep--) { buildCap(keep); if (capEl.offsetHeight <= 42 * 1.18 * 2 + 4) break; } }
+  const capTop = cellsTop - 12 - capEl.offsetHeight;
+  capEl.style.top = capTop + "px";
+  // sub stays visible when a separate voice-over caption is supplied
+  const subEl = $("sub");
+  let sheetTextTop = capTop;
+  if (D.caption && D.sub && String(D.caption).trim() !== String(D.sub).trim()) {
+    subEl.textContent = D.sub;
+    const st = capTop - 8 - subEl.offsetHeight;
+    subEl.style.top = st + "px";
+    sheetTextTop = st;
+  } else subEl.style.display = "none";
+  const SHEET_T = sheetTextTop - 26;
+
+  // sheet drawing: paper sheet, double frame, ruled remarks field, line-only side elevation below
+  const VW = 1000, VH = 330, WL = 312;
+  const HULL = "M70 312 C44 306 26 280 18 238 L14 196 L170 196 L172 212 L772 214 L774 190 L994 178 L956 312 Z";
+  const PARTS = [HULL,
+    "M250 214 V170 H380 V214 Z",                      // aft deckhouse
+    "M262 170 V161 Q292 152 322 161 V170 Z",          // lifeboat
+    "M334 170 V162 Q354 155 374 162 V170 Z",          // lifeboat
+    "M396 214 V176 H522 V214 Z",                      // boat-deck house
+    "M446 180 L502 180 L486 58 L428 58 Z",            // raked funnel
+    "M520 214 V150 H652 V214 Z",                      // bridge house
+    "M506 150 V140 H668 V150 Z",                      // bridge wings
+    "M548 140 V108 H632 V140 Z",                      // wheelhouse
+    "M542 108 V100 H640 V108 Z",                      // wheelhouse roof
+    "M800 190 V170 H846 V188 Z",                      // forecastle winch house
+    "M716 214 V34 H725 V214 Z", "M700 80 H741 V87 H700 Z",   // foremast + crosstree
+    "M226 196 V44 H235 V196 Z", "M210 88 H251 V95 H210 Z"];  // mainmast + crosstree
+  // Dazzle scheme: hard-coded interlocking wedges (no randomness). General wedges first...
+  const PAINT = [
+    ["M0 196 L60 120 L140 0 L200 0 L96 196 Z", SLATE],
+    ["M184 0 L262 0 L206 214 L150 214 Z", INK],
+    ["M140 330 L196 190 L226 190 L176 330 Z", SLATE],
+    ["M262 150 L326 150 L300 216 L246 216 Z", SLATE],
+    ["M332 120 L404 120 L380 216 L330 216 Z", INK],
+    ["M350 330 L398 190 L428 190 L384 330 Z", INK],
+    ["M418 40 L468 40 L436 214 L396 214 Z", INK],
+    ["M486 40 L530 40 L512 214 L472 214 Z", SLATE],
+    ["M520 214 L600 96 L652 96 L584 214 Z", INK],
+    ["M614 214 L668 136 L700 136 L652 214 Z", SLATE],
+    ["M700 0 L760 0 L742 214 L700 214 Z", INK],
+    ["M722 330 L770 190 L800 190 L756 330 Z", SLATE],
+    ["M790 196 L860 150 L860 196 Z", INK],
+    ["M884 330 L900 186 L1000 176 L1000 236 L934 330 Z", INK],
+    ["M934 330 L1000 236 L1000 330 Z", SLATE],
+    ["M0 300 L1000 296 L1000 330 L0 330 Z", INK]
+  ];
+  // ...then the numbered colour zones (hull side), one per item. [polygon, paint, centroid]
+  const ZONES = [
+    [[[22, 198], [150, 198], [186, 309], [66, 309]], INK],
+    [[[226, 217], [346, 217], [318, 309], [194, 309]], PAPER],
+    [[[420, 217], [540, 217], [566, 309], [444, 309]], SLATE],
+    [[[600, 217], [716, 217], [690, 309], [572, 309]], INK],
+    [[[786, 194], [884, 189], [872, 309], [760, 309]], PAPER]
+  ];
+  const ZSET = { 1: [2], 2: [0, 4], 3: [0, 2, 4], 4: [0, 1, 3, 4], 5: [0, 1, 2, 3, 4] }[Math.max(1, Math.min(5, n))] || [];
+  const zoneOf = i => ZSET[i];
+  const centroid = poly => { let x = 0, y = 0; poly.forEach(p => { x += p[0]; y += p[1]; }); return [x / poly.length, y / poly.length]; };
+  const onInk = c => c === INK || c === NAVY;
+
+  let sheet = '<polygon points="' + pts([[54, SHEET_T], [1026, SHEET_T], [1026, 1940], [54, 1940]]) + '" fill="' + PAPER + '"/>' +
+    '<rect x="66" y="' + (SHEET_T + 12) + '" width="948" height="' + (1940 - SHEET_T) + '" fill="none" stroke="' + INK + '" stroke-width="3"/>' +
+    '<rect x="76" y="' + (SHEET_T + 22) + '" width="928" height="' + (1940 - SHEET_T) + '" fill="none" stroke="' + INK + '" stroke-width="1.4"/>' +
+    '<polygon points="' + pts([[54, SHEET_T - 8], [1026, SHEET_T - 8], [1026, SHEET_T], [54, SHEET_T]]) + '" fill="' + BRASS + '"/>';
+  // remarks field ruling under each caption line
+  const capLines = Math.round(capEl.offsetHeight / (cfs * 1.18));
+  for (let l = 1; l <= capLines; l++) {
+    const y = capTop + l * cfs * 1.18 - 2;
+    sheet += '<line x1="104" x2="900" y1="' + y.toFixed(1) + '" y2="' + y.toFixed(1) + '" stroke="' + SLATE + '" stroke-width="2"/>';
+  }
+  // side elevation (line-only) with the zone outlines -- the plan the model was painted from
+  const PX = 150, PY = 1668, PS = 0.78;
+  const planShapes = PARTS.map(d => '<path d="' + d + '"/>').join("");
+  sheet += '<g transform="translate(' + PX + ' ' + PY + ') scale(' + PS + ')" fill="none" stroke-linejoin="round">' +
+      '<defs><clipPath id="plclip">' + planShapes + '</clipPath></defs>' +
+      '<g clip-path="url(#plclip)" stroke="' + SLATE + '" stroke-width="2.4">' + PAINT.map(p => '<path d="' + p[0] + '"/>').join("") + '</g>' +
+      '<g stroke="' + BRASS + '" stroke-width="5">' + ZSET.map(z => '<polygon points="' + pts(ZONES[z][0]) + '"/>').join("") + '</g>' +
+      '<g stroke="' + INK + '" stroke-width="3">' + planShapes + '</g>' +
+      '<path d="M-40 ' + WL + ' H1040" stroke="' + INK + '" stroke-width="2.4" stroke-dasharray="18 10"/>' +
+      '<path d="M14 -24 V-6 M994 -24 V-6 M14 -15 H994" stroke="' + INK + '" stroke-width="2.4"/>' +
+    '</g>';
+  $("sheet").innerHTML = sheet;
+
+  // =====================================================================================
+  // 4. MIDDLE: paint key (left) + model on the turntable (right)
+  // =====================================================================================
+  const MID_T = Math.max(BAND_B[1][1], BAND_B[0][1]) + 34, MID_B = SHEET_T - 26;
+
+  // paint key rows: one painted chip per item, same paint + number as its zone on the hull
+  const keyEl = $("key");
+  const KH = 50, keyAvail = MID_B - MID_T;
+  keyEl.innerHTML = '<div class="kh"><span style="width:78px;text-align:center">No.</span><span style="padding-left:16px">KUNCI CAT</span></div>' + items.map((it, i) => {
+    const c = ZONES[zoneOf(i)][1], fg = onInk(c) ? PAPER : INK;
+    return '<div class="row" style="background:' + c + ';color:' + fg + '">' +
+      '<div class="num">' + (i + 1) + '</div>' +
+      '<div class="tx"><div class="lb">' + esc(it.label) + '</div><div class="vl">' + esc(it.value) + '</div></div></div>';
+  }).join("");
+  // width: grow (304 -> 392) until labels sit on one line and values keep >= 48 px
+  const rowsEl = Array.from(keyEl.querySelectorAll(".row"));
+  let needTx = 0;
+  rowsEl.forEach(r => {
+    const lb = r.querySelector(".lb"), vl = r.querySelector(".vl");
+    const cl = document.createElement("canvas").getContext("2d");
+    cl.font = '700 32px "Big Shoulders Text"'; const lw = cl.measureText(lb.textContent.toUpperCase()).width * 1.04 + 2;
+    cl.font = '900 48px "Big Shoulders Display"'; const vw = cl.measureText(vl.textContent).width + 2;
+    needTx = Math.max(needTx, lw, vw);
+  });
+  const KEY_W = Math.max(304, Math.min(392, Math.ceil(needTx + 30 + 78 + 8)));
+  keyEl.style.width = KEY_W + "px";
+  // row height: share the free band, but never less than the content needs
+  const fitRows = (lbMax, vlMax) => {
+    let need = 0;
+    rowsEl.forEach(row => {
+      const l = row.querySelector(".lb"), v = row.querySelector(".vl"), inner = row.querySelector(".tx").clientWidth - 30;
+      row.style.height = "auto";
+      for (let fs = lbMax; fs >= 30; fs--) { l.style.fontSize = fs + "px"; if (l.offsetHeight <= fs * 1.05) break; }
+      for (let fs = vlMax; fs >= 40; fs -= 2) { v.style.fontSize = fs + "px"; if (v.scrollWidth <= inner) break; }
+      need = Math.max(need, row.querySelector(".tx").scrollHeight + 4);
+    });
+    return need;
+  };
+  let rowNeed = fitRows(32, 58);
+  if (KH + n * rowNeed + 8 > keyAvail) rowNeed = fitRows(30, 50);
+  const rowH = Math.max(rowNeed, Math.min(180, Math.floor((keyAvail - KH - 8) / Math.max(1, n))));
+  rowsEl.forEach(r => { r.style.height = rowH + "px"; });
+  const keyH = keyEl.offsetHeight;
+  const keyTop = Math.round(MID_T + Math.max(0, (MID_B - MID_T - keyH) / 2));
+  keyEl.style.top = keyTop + "px";
+
+  // ---------- ship model ----------
+  const rigging = '<g fill="none" stroke="' + SLATE + '" stroke-width="2.6" stroke-linecap="round">' +
+    '<path d="M230 46 L16 198"/><path d="M230 46 L720 36"/><path d="M720 36 L992 180"/>' +
+    '<path d="M720 200 L812 150"/><path d="M230 186 L150 150"/></g>';
+  const shipSVG = (painted, k) => {
+    const shapes = PARTS.map(d => '<path d="' + d + '"/>').join("");
+    if (!painted) return '<svg viewBox="0 0 ' + VW + ' ' + VH + '" preserveAspectRatio="none"><g fill="' + (k === 8 ? INK : "#3E4C61") + '">' + shapes + "</g></svg>";
+    let s = '<svg viewBox="0 0 ' + VW + ' ' + VH + '" preserveAspectRatio="none"><defs><clipPath id="dzclip">' + shapes + "</clipPath></defs>" +
+      rigging +
+      '<g clip-path="url(#dzclip)"><rect width="' + VW + '" height="' + VH + '" fill="' + PAPER + '"/>' +
+      PAINT.map(p => '<path d="' + p[0] + '" fill="' + p[1] + '"/>').join("") +
+      ZONES.map(z => '<polygon points="' + pts(z[0]) + '" fill="' + z[1] + '"/>').join("") +
+      '<g fill="none" stroke="' + BRASS + '" stroke-width="7" stroke-linejoin="round">' + ZSET.map(z => '<polygon points="' + pts(ZONES[z][0]) + '"/>').join("") + "</g>" +
+      "</g>" +
+      '<g fill="none" stroke="' + INK + '" stroke-width="3.2" stroke-linejoin="round">' + shapes + "</g>" +
+      '<g fill="' + INK + '">' + [560, 576, 592, 608, 624].map(x => '<rect x="' + x + '" y="116" width="10" height="12"/>').join("") + "</g>";
+    // stencilled zone numbers
+    s += ZSET.slice(0, n).map((z, i) => {
+      const c = centroid(ZONES[z][0]);
+      return '<text x="' + c[0].toFixed(1) + '" y="' + (c[1] + 30).toFixed(1) + '" text-anchor="middle" font-family="Big Shoulders Stencil Display" font-weight="900" font-size="88" fill="' + (onInk(ZONES[z][1]) ? PAPER : INK) + '">' + (i + 1) + "</text>";
+    }).join("");
+    return s + "</svg>";
+  };
+
+  // scene geometry (page px). The table turns the model bow-on to the eye: the painted side runs as a
+  // falling diagonal from the far stern (upper left, next to the key) to the near bow (lower right).
+  const CAM = { SW: 820, R: 330, ROT: -46, PERSP: 2000, EYE: 1100, THICK: 30 };
+  const ROT = CAM.ROT, PERSP = CAM.PERSP;
+  const th = ROT * Math.PI / 180, cs = Math.cos(th), sn = Math.sin(th);
+  const KEY_R = 90 + keyEl.offsetWidth;
+  // analytic projection, relative to the stage origin (CX, GROUND); the perspective origin moves with it.
+  // Extents of model + table at scale sc (the whole set-up shrinks if the key or a tall sheet leaves less room).
+  const extents = sc => {
+    const sw = CAM.SW * sc, sh = sw * VH / VW, sink = sh * (VH - WL) / VH, r = CAM.R * sc, eye = CAM.EYE * sc, tk = CAM.THICK * sc;
+    const proj = (x, y, z) => { const xr = x * cs + z * sn, zr = -x * sn + z * cs, k = PERSP / (PERSP - zr); return [xr * k, (y + eye) * k - eye]; };
+    const shipPt = (u, v, z) => proj(u / VW * sw - sw / 2, v / VH * sh - sh + sink, z);
+    const tab = [], shp = [];
+    for (let a = 0; a < 360; a += 6) { const c = Math.cos(a * Math.PI / 180) * r, s = Math.sin(a * Math.PI / 180) * r; tab.push(proj(c, 0, s), proj(c, 26 * sc, s)); }
+    [[14, 196], [994, 178], [956, 312], [70, 312], [230, 34], [720, 34], [428, 58], [486, 58]].forEach(p => shp.push(shipPt(p[0], p[1], tk / 2), shipPt(p[0], p[1], -tk / 2)));
+    const all = tab.concat(shp);
+    // the forward-most item zone carries a stencilled number: keep it left of the action-button column
+    // (number right edge <= x 890 means its centroid may sit at most 156 + 20 px left of the 1046 limit)
+    const zc = centroid(ZONES[ZSET[ZSET.length - 1]][0]), zx = shipPt(zc[0], zc[1], tk / 2)[0] + 20 * sc + 156;
+    return { shipX0: Math.min(...shp.map(p => p[0])), x1: Math.max(zx, ...all.map(p => p[0])), y0: Math.min(...all.map(p => p[1])), y1: Math.max(...all.map(p => p[1])) };
+  };
+  const BOX = { x0: KEY_R + 24, x1: 1046, y0: MID_T, y1: MID_B };
+  let sc = 1;
+  for (let it = 0; it < 4; it++) {
+    const e = extents(sc);
+    sc *= Math.min(1, (BOX.x1 - BOX.x0) / (e.x1 - e.shipX0), (BOX.y1 - BOX.y0) / (e.y1 - e.y0));
+  }
+  const EXT = extents(sc);
+  const SW = CAM.SW * sc, SH = SW * VH / VW, SINK = SH * (VH - WL) / VH;
+  const R = Math.round(CAM.R * sc), THICK = CAM.THICK * sc, EYE = CAM.EYE * sc;
+  // the model starts right of the key (the table may run behind it); nothing past x 1046
+  const CX = Math.round(Math.min(BOX.x0 - EXT.shipX0, BOX.x1 - EXT.x1));
+  const GROUND = Math.round((MID_T + MID_B) / 2 - (EXT.y0 + EXT.y1) / 2 + 6);
+  const scene = $("scene");
+  scene.style.perspective = PERSP + "px";
+  scene.style.perspectiveOrigin = CX + "px " + (GROUND - EYE) + "px";
+
+  const tick = [];
+  for (let a = 0; a < 360; a += 5) {
+    const r1 = a % 30 === 0 ? R - 78 : (a % 10 === 0 ? R - 60 : R - 50), rad = a * Math.PI / 180;
+    tick.push('<line x1="' + (R + Math.cos(rad) * r1).toFixed(1) + '" y1="' + (R + Math.sin(rad) * r1).toFixed(1) + '" x2="' + (R + Math.cos(rad) * (R - 34)).toFixed(1) + '" y2="' + (R + Math.sin(rad) * (R - 34)).toFixed(1) + '" stroke-width="' + (a % 30 === 0 ? 5 : 2.5) + '"/>');
+  }
+  // heading marks: true heading (bow, 0deg) solid ink; the heading an observer is fooled into
+  // reading (+52deg) as a dashed paper ghost, with the error arc between them
+  const GA = 52 * Math.PI / 180;
+  const ptr = (ang, r0, r1, w) => { const c = Math.cos(ang), s = Math.sin(ang), px = -s, py = c;
+    return [[R + c * r0, R + s * r0], [R + c * r1 + px * w, R + s * r1 + py * w], [R + c * r1 - px * w, R + s * r1 - py * w]]; };
+  const discTop = '<svg viewBox="0 0 ' + 2 * R + ' ' + 2 * R + '">' +
+    '<circle cx="' + R + '" cy="' + R + '" r="' + R + '" fill="' + BRASS + '"/>' +
+    '<circle cx="' + R + '" cy="' + R + '" r="' + (R - 24) + '" fill="' + SLATE + '"/>' +
+    '<circle cx="' + R + '" cy="' + R + '" r="' + (R - 24) + '" fill="none" stroke="' + INK + '" stroke-width="3"/>' +
+    '<g stroke="' + INK + '">' + tick.join("") + "</g>" +
+    '<circle cx="' + R + '" cy="' + R + '" r="' + (R - 86) + '" fill="none" stroke="' + INK + '" stroke-width="2"/>' +
+    '<path d="M' + (R - (R - 86)) + ' ' + R + ' H' + (R + (R - 86)) + ' M' + R + ' ' + (R - (R - 86)) + ' V' + (R + (R - 86)) + '" stroke="' + INK + '" stroke-width="1.6" stroke-dasharray="14 10" opacity=".55"/>' +
+    '<path d="M' + (R + Math.cos(0.08) * (R - 66)).toFixed(1) + ' ' + (R + Math.sin(0.08) * (R - 66)).toFixed(1) + ' A' + (R - 66) + ' ' + (R - 66) + ' 0 0 1 ' + (R + Math.cos(GA - 0.08) * (R - 66)).toFixed(1) + ' ' + (R + Math.sin(GA - 0.08) * (R - 66)).toFixed(1) + '" fill="none" stroke="' + PAPER + '" stroke-width="5" stroke-dasharray="12 9"/>' +
+    '<polygon points="' + pts(ptr(0, R - 100, R - 6, 26)) + '" fill="' + INK + '"/>' +
+    '<polygon points="' + pts(ptr(GA, R - 100, R - 6, 26)) + '" fill="none" stroke="' + PAPER + '" stroke-width="5" stroke-dasharray="11 7" stroke-linejoin="round"/>' +
+    "</svg>";
+
+  let html = '<div class="stage" style="left:' + CX + 'px;top:' + GROUND + 'px;transform:rotateY(' + ROT + 'deg)">';
+  for (let k = 6; k >= 1; k--) html += '<div class="disc" style="left:' + (-R) + 'px;top:' + (-R) + 'px;width:' + 2 * R + 'px;height:' + 2 * R + 'px;background:' + (k > 3 ? INK : "#5E4A1E") + ';transform:translateY(' + (k * 4) + 'px) rotateX(90deg)"></div>';
+  html += '<div class="disc" style="left:' + (-R) + 'px;top:' + (-R) + 'px;width:' + 2 * R + 'px;height:' + 2 * R + 'px;transform:rotateX(90deg)">' + discTop + "</div>";
+  html += '<div style="left:' + (-SW / 2 - 10) + 'px;top:-60px;width:' + (SW + 20) + 'px;height:120px;border-radius:50%;background:rgba(22,22,22,.42);filter:blur(10px);transform:translateY(-1px) rotateX(90deg) translateY(-22px)"></div>';
+  for (let k = 8; k >= 1; k--) html += '<div class="ship" style="left:' + (-SW / 2) + 'px;top:' + (-SH + SINK) + 'px;width:' + SW + 'px;height:' + SH + 'px;transform:translateZ(' + (THICK / 2 - k * THICK / 8) + 'px)">' + shipSVG(false, k) + "</div>";
+  html += '<div class="ship" id="face" style="left:' + (-SW / 2) + 'px;top:' + (-SH + SINK) + 'px;width:' + SW + 'px;height:' + SH + 'px;transform:translateZ(' + (THICK / 2) + 'px)">' + shipSVG(true, 0) + "</div>";
+  html += "</div>";
+  scene.innerHTML = html;
+
+  // sight lines: each key row reads out its zone -- straight from the chip's edge to the zone's
+  // aft edge (rows run top-down, zones stern-to-bow, so the lines never cross or touch the superstructure)
+  const projF = (x, y, z) => { const xr = x * cs + z * sn, zr = -x * sn + z * cs, k = PERSP / (PERSP - zr); return [CX + xr * k, GROUND + (y + EYE) * k - EYE]; };
+  const zonePt = (u, v) => projF(u / VW * SW - SW / 2, v / VH * SH - SH + SINK, THICK / 2);
+  let lead = "";
+  rowsEl.forEach((row, i) => {
+    const z = ZONES[zoneOf(i)][0];
+    const a = [(z[0][0] + z[3][0]) / 2 + 14, (z[0][1] + z[3][1]) / 2 + 8];   // aft edge, just inside the zone
+    const p = zonePt(a[0], a[1]);
+    const y = keyTop + row.offsetTop + row.offsetHeight / 2, x = KEY_R + 2;
+    const d = "M" + x + " " + y.toFixed(1) + " L" + p[0].toFixed(1) + " " + p[1].toFixed(1);
+    lead += '<path d="' + d + '" stroke="' + PAPER + '" stroke-width="8" fill="none" stroke-linecap="round" opacity=".9"/>' +
+            '<path d="' + d + '" stroke="' + INK + '" stroke-width="3" fill="none"/>' +
+            '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="7" fill="' + BRASS + '" stroke="' + INK + '" stroke-width="3"/>';
+  });
+  $("leaders").innerHTML = lead;
+  }
+</script>
+</body>
+</html>

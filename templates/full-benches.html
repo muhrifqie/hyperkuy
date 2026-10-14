@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Full Benches</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Plus+Jakarta+Sans:wght@600;700;800&family=JetBrains+Mono:wght@700;800&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Full Benches (full-benches): a flat side-elevation cutaway of an angkot
+    (Indonesian shared minibus) "ngetem" at a stop. The angkot carries the type:
+    the title is sign-written on the route board (papan trayek) bolted to the
+    roof, the kicker is the route line on the board's top rim, the seat counter
+    is the strip above the windscreen, and the caption is the enamel plate of
+    the halte at the kerb. Every item is a passenger on a bench (a request
+    chip); empty seats are dashed and stencilled KOSONG.
+    Metaphor: batching on AI servers. The server holds requests a moment so one
+    GPU trip carries many: full benches = cheaper per passenger, waiting = latency.
+    Deterministic: every shape is hard-coded; only text is measured.
+  */
+  :root { --paper: #F0E7D8; --sky: #8EB6D4; --red: #BE3B2A; --yellow: #FFD45C; --ink: #1D1F24;
+          --vinyl: #4B2E2A; --cream: #FBF7EF; --wall: #E4D6C1; --mute: #6E5F57; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--paper); }
+  body { position: relative; color: var(--ink); font-family: "Plus Jakarta Sans", sans-serif; }
+  #scene { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* ---- route board (papan trayek) on the roof: title is sign-written on it ---- */
+  .board { position: absolute; left: 70px; top: 300px; width: 940px; height: 340px; background: var(--ink);
+           border: 6px solid var(--ink); border-radius: 16px; overflow: hidden; }
+  .rim { position: absolute; left: 0; right: 0; top: 0; height: 44px; padding: 0 22px; display: flex; align-items: center;
+         justify-content: space-between; gap: 24px; color: var(--cream);
+         font: 700 28px/1 "Barlow Condensed", sans-serif; letter-spacing: 0.14em; text-transform: uppercase; }
+  .rim span { white-space: nowrap; line-height: 1.3; }
+  .rim span:first-child { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .panel { position: absolute; left: 0; right: 0; top: 44px; bottom: 0; background: var(--red);
+           box-shadow: inset 0 0 0 9px var(--red), inset 0 0 0 12px var(--cream); }
+  .code { position: absolute; left: 22px; top: 22px; bottom: 22px; width: 104px; display: flex; align-items: center; justify-content: center;
+          background: var(--cream); color: var(--ink); border: 4px solid var(--ink); border-radius: 10px;
+          font: 800 76px/1 "Barlow Condensed", sans-serif; letter-spacing: 0.01em; }
+  .tbox { position: absolute; left: 148px; right: 28px; top: 18px; bottom: 18px; display: flex; align-items: center; }
+  .title { width: 100%; font: 800 112px/0.94 "Barlow Condensed", sans-serif; letter-spacing: 0.012em; text-transform: uppercase;
+           color: var(--cream); -webkit-text-stroke: 3px var(--ink); paint-order: stroke fill;
+           text-shadow: 0.045em 0.045em 0 var(--ink); overflow-wrap: break-word; }
+  /* hl = the board's second route colour */
+  .title .hl { color: var(--yellow); }
+
+  /* ---- seat counter strip above the windscreen ---- */
+  .band { position: absolute; left: 96px; top: 674px; height: 44px; display: flex; align-items: center; gap: 20px; color: var(--cream); }
+  .band .word { font: 800 32px/1 "Barlow Condensed", sans-serif; letter-spacing: 0.14em; }
+  .band .dots { display: flex; gap: 9px; }
+  .band .dots i { display: block; width: 22px; height: 22px; border-radius: 50%; border: 3px solid var(--cream); }
+  .band .dots i.on { background: var(--yellow); border-color: var(--yellow); }
+  .band .count { font: 800 30px/1 "JetBrains Mono", monospace; letter-spacing: 0.02em; }
+
+  /* ---- passengers = request chips ---- */
+  .pax { position: absolute; width: 216px; display: flex; flex-direction: column; align-items: center; }
+  .pax .head { width: 44px; height: 44px; border-radius: 50%; background: var(--vinyl); margin-bottom: -10px; position: relative; z-index: 1; }
+  .pax .chip { width: 216px; border-radius: 30px 30px 10px 10px; padding: 16px 10px 10px; text-align: center;
+               border: 3px solid var(--ink); background: var(--cream); }
+  .pax .lb { font: 700 30px/1.06 "Plus Jakarta Sans", sans-serif; letter-spacing: -0.01em; color: var(--ink); overflow-wrap: break-word; }
+  .pax .vl { font: 800 34px/1.08 "JetBrains Mono", monospace; letter-spacing: -0.02em; color: var(--ink); margin-top: 4px; white-space: nowrap; }
+  .pax .vl.sans { font-family: "Plus Jakarta Sans", sans-serif; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .pax .vl.cond { font-family: "Barlow Condensed", sans-serif; font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
+  .pax.b .chip { background: var(--sky); }
+  .pax.hot .chip { background: var(--red); }
+  .pax.hot .lb, .pax.hot .vl { color: var(--cream); }
+  .pax.hot .head { background: var(--ink); }
+  .pax.empty .head { background: transparent; border: 3px dashed var(--vinyl); }
+  .pax.empty .chip { height: 106px; display: flex; align-items: center; justify-content: center; padding: 0;
+                     background: #F5EEE2; border: 3px dashed var(--vinyl); }
+  .pax.empty .ks { font: 800 30px/1 "Barlow Condensed", sans-serif; letter-spacing: 0.2em; margin-right: -0.2em; color: var(--vinyl); }
+
+  /* ---- halte plate at the kerb: karaoke voice-over line + source ---- */
+  .tab { position: absolute; left: 112px; top: 1350px; height: 42px; padding: 0 18px; display: flex; align-items: center;
+         background: var(--ink); color: var(--cream); border-radius: 9px 9px 0 0;
+         font: 800 28px/1 "Barlow Condensed", sans-serif; letter-spacing: 0.22em; }
+  .plate { position: absolute; left: 80px; width: 832px; top: 1388px; padding: 16px 25px 14px; background: var(--cream);
+           border: 5px solid var(--ink); border-radius: 18px;
+           box-shadow: inset 0 0 0 6px var(--cream), inset 0 0 0 8px var(--ink); }
+  .cap { font-weight: 700; line-height: 1.18; letter-spacing: -0.01em; color: var(--mute); }
+  .cap .w { white-space: nowrap; }
+  .cap .w.done { color: var(--ink); }
+  .cap .w.on { display: inline-block; color: var(--cream); background: var(--red); border: 3px solid var(--ink); border-radius: 8px;
+               padding: 0 0.14em; margin: 0 0.06em 0 0; line-height: 1.08; transform: rotate(-1.5deg); }
+  .src { margin-top: 6px; padding-top: 6px; border-top: 3px dashed #B9A894; font: 600 26px/1.3 "Plus Jakarta Sans", sans-serif; color: var(--vinyl); }
+</style>
+</head>
+<body>
+<svg id="scene" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <pattern id="hatch" width="11" height="11" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="11" height="11" fill="#8EB6D4" />
+      <line x1="0" y1="0" x2="0" y2="11" stroke="#1D1F24" stroke-width="3.2" />
+    </pattern>
+    <clipPath id="cabwin"><path d="M826,682 L924,682 L970,830 L826,830 Z" /></clipPath>
+  </defs>
+
+  <!-- pavement in front of the stop + halte posts -->
+  <rect x="0" y="1342" width="1080" height="358" fill="#E8DDCA" />
+  <g stroke="#D8C9B1" stroke-width="3">
+    <line x1="0" y1="1470" x2="1080" y2="1470" /><line x1="0" y1="1600" x2="1080" y2="1600" />
+    <line x1="66" y1="1342" x2="66" y2="1700" /><line x1="330" y1="1342" x2="330" y2="1700" />
+    <line x1="594" y1="1342" x2="594" y2="1700" /><line x1="858" y1="1342" x2="858" y2="1700" />
+  </g>
+  <line x1="0" y1="1700" x2="1080" y2="1700" stroke="#1D1F24" stroke-width="4" />
+  <g fill="#1D1F24">
+    <rect x="150" y="1480" width="20" height="220" rx="3" />
+    <rect x="822" y="1480" width="20" height="220" rx="3" />
+    <rect x="132" y="1690" width="56" height="10" rx="3" />
+    <rect x="804" y="1690" width="56" height="10" rx="3" />
+  </g>
+
+  <!-- shadow on the road -->
+  <ellipse cx="540" cy="1310" rx="480" ry="11" fill="#4B2E2A" opacity="0.22" />
+
+  <!-- roof rack + board brackets -->
+  <rect x="112" y="650" width="792" height="9" rx="4" fill="#1D1F24" />
+  <g fill="#1D1F24">
+    <rect x="196" y="632" width="24" height="34" rx="3" /><rect x="176" y="656" width="64" height="10" rx="3" />
+    <rect x="800" y="632" width="24" height="34" rx="3" /><rect x="780" y="656" width="64" height="10" rx="3" />
+  </g>
+
+  <!-- body: low cab-over angkot facing right, rounded rear, short slanted windscreen, two wheel arches -->
+  <path d="M70,692 Q70,664 98,664 L928,664 Q946,664 954,682 L1002,842 Q1010,864 1010,888 L1010,1212 Q1010,1228 994,1228 L926,1228 A70,70 0 0 0 786,1228 L318,1228 A70,70 0 0 0 178,1228 L86,1228 Q70,1228 70,1212 Z"
+        fill="#8EB6D4" stroke="#1D1F24" stroke-width="6" stroke-linejoin="round" />
+
+  <!-- seat counter strip -->
+  <rect x="78" y="674" width="734" height="44" rx="4" fill="#1D1F24" />
+  <line x1="78" y1="724" x2="812" y2="724" stroke="#FFD45C" stroke-width="4" />
+
+  <!-- cutaway: near wall removed, section edge hatched -->
+  <rect x="86" y="732" width="722" height="476" rx="12" fill="url(#hatch)" />
+  <rect x="98" y="744" width="698" height="452" rx="8" fill="#E4D6C1" />
+  <!-- far-side windows on the back wall -->
+  <g fill="#CBDDEA" stroke="#1D1F24" stroke-width="3">
+    <rect x="112" y="768" width="212" height="96" rx="6" />
+    <rect x="341" y="768" width="212" height="96" rx="6" />
+    <rect x="570" y="768" width="212" height="96" rx="6" />
+  </g>
+  <g stroke="#FBF7EF" stroke-width="6" stroke-linecap="round" opacity="0.9">
+    <line x1="290" y1="778" x2="256" y2="854" /><line x1="312" y1="778" x2="298" y2="810" />
+    <line x1="519" y1="778" x2="485" y2="854" /><line x1="541" y1="778" x2="527" y2="810" />
+    <line x1="748" y1="778" x2="714" y2="854" /><line x1="770" y1="778" x2="756" y2="810" />
+  </g>
+  <!-- grab rail -->
+  <line x1="108" y1="756" x2="786" y2="756" stroke="#1D1F24" stroke-width="5" stroke-linecap="round" />
+  <!-- far bench: back rest + cushion -->
+  <rect x="106" y="876" width="682" height="72" rx="8" fill="#6A4741" />
+  <rect x="104" y="940" width="686" height="26" rx="10" fill="#4B2E2A" />
+  <rect x="116" y="966" width="662" height="12" fill="#3A2320" />
+  <!-- aisle floor -->
+  <rect x="98" y="978" width="698" height="218" fill="#DCCCB3" />
+  <!-- near bench cushion (in the cut plane) -->
+  <rect x="104" y="1174" width="686" height="22" rx="9" fill="#4B2E2A" />
+
+  <!-- cab: driver window, driver, beckoning arm -->
+  <line x1="812" y1="666" x2="812" y2="1224" stroke="#1D1F24" stroke-width="4" />
+  <path d="M826,682 L924,682 L970,830 L826,830 Z" fill="#E4D6C1" stroke="#1D1F24" stroke-width="4" stroke-linejoin="round" />
+  <g clip-path="url(#cabwin)">
+    <rect x="828" y="754" width="22" height="90" rx="8" fill="#4B2E2A" />
+    <path d="M850,830 L850,804 Q850,776 880,776 L892,776 Q922,776 922,804 L922,830 Z" fill="#1D1F24" />
+    <circle cx="884" cy="740" r="25" fill="#4B2E2A" />
+  </g>
+  <path d="M908,814 Q950,836 966,796 L988,742" stroke="#1D1F24" stroke-width="19" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+  <circle cx="992" cy="726" r="15" fill="#4B2E2A" />
+  <g stroke="#BE3B2A" stroke-width="6" stroke-linecap="round">
+    <line x1="1018" y1="700" x2="1040" y2="682" />
+    <line x1="1024" y1="726" x2="1052" y2="726" />
+    <line x1="1018" y1="752" x2="1040" y2="770" />
+  </g>
+  <!-- cab door + handle, mirror, headlight, bumpers, tail light -->
+  <path d="M818,840 L974,840 Q1000,884 1000,914 L1000,1144 Q1000,1160 984,1160 L818,1160" fill="none" stroke="#1D1F24" stroke-width="4" stroke-linejoin="round" />
+  <rect x="834" y="868" width="44" height="12" rx="6" fill="#1D1F24" />
+  <path d="M1004,856 L1030,836" stroke="#1D1F24" stroke-width="6" stroke-linecap="round" />
+  <ellipse cx="1036" cy="822" rx="10" ry="19" fill="#1D1F24" />
+  <rect x="992" y="988" width="22" height="44" rx="6" fill="#FBF7EF" stroke="#1D1F24" stroke-width="4" />
+  <rect x="990" y="1168" width="36" height="52" rx="8" fill="#1D1F24" />
+  <rect x="54" y="1176" width="30" height="46" rx="8" fill="#1D1F24" />
+  <rect x="62" y="1054" width="16" height="62" rx="5" fill="#BE3B2A" stroke="#1D1F24" stroke-width="4" />
+  <!-- livery: two route-colour stripes on the sill -->
+  <path d="M74,1206 L180,1206 M316,1206 L788,1206 M924,1206 L1008,1206" stroke="#FFD45C" stroke-width="6" />
+  <path d="M74,1217 L179,1217 M317,1217 L787,1217 M925,1217 L1008,1217" stroke="#BE3B2A" stroke-width="6" />
+
+  <!-- wheels (tops sit just under the cabin floor) -->
+  <g>
+    <circle cx="248" cy="1254" r="56" fill="#1D1F24" />
+    <circle cx="248" cy="1254" r="31" fill="#F0E7D8" />
+    <circle cx="248" cy="1254" r="11" fill="#4B2E2A" />
+    <circle cx="856" cy="1254" r="56" fill="#1D1F24" />
+    <circle cx="856" cy="1254" r="31" fill="#F0E7D8" />
+    <circle cx="856" cy="1254" r="11" fill="#4B2E2A" />
+  </g>
+
+  <!-- road line + painted kerb -->
+  <line x1="0" y1="1311" x2="1080" y2="1311" stroke="#1D1F24" stroke-width="4" />
+  <g id="kerb" stroke="#1D1F24" stroke-width="3" data-layout-allow-overflow></g>
+</svg>
+
+<div class="board" id="board">
+  <div class="rim"><span id="route"></span><span id="date"></span></div>
+  <div class="panel">
+    <div class="code" id="code"></div>
+    <div class="tbox"><div class="title" id="title"></div></div>
+  </div>
+</div>
+
+<div class="band" id="band"><span class="word" id="state">NGETEM</span><span class="dots" id="dots"></span><span class="count" id="count"></span></div>
+<div id="pax"></div>
+
+<div class="tab">HALTE</div>
+<div class="plate" id="plate">
+  <div class="cap" id="cap" data-slot="caption"></div>
+  <div class="src" id="src"></div>
+</div>
+
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series_id: "how-ai-works", series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  Promise.all(['800 100px "Barlow Condensed"', '700 28px "Barlow Condensed"', '700 30px "Plus Jakarta Sans"', '600 26px "Plus Jakarta Sans"',
+    '800 34px "Plus Jakarta Sans"', '800 34px "JetBrains Mono"'].map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+    const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const $ = id => document.getElementById(id);
+    const norm = s => String(s == null ? "" : s).toLowerCase().replace(/·/g, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+    const items = (D.items || []).slice(0, 5);
+    const n = items.length, SEATS = 6;
+
+    // Route line on the board's top rim + route code box.
+    const epNo = String(D.ep || "01").replace(/^#/, "").trim() || "01";
+    $("route").textContent = "Trayek " + epNo + " · " + (D.series || D.kicker || "");
+    $("date").textContent = D.date || "";
+
+    // Title sign-written on the board; hl painted in the second route colour.
+    const t = D.title || "", hl = D.hl || "";
+    const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    const titleEl = $("title");
+    titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+    const box = titleEl.parentElement;
+    let fs = 112;
+    for (; fs >= 72; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (titleEl.offsetHeight <= box.clientHeight && titleEl.scrollWidth <= box.clientWidth) break; }
+    const code = $("code");
+    code.innerHTML = "<span>" + esc(epNo) + "</span>";
+    const codeTxt = code.firstChild;
+    for (let cs = Math.min(76, fs - 8); cs >= 36; cs -= 2) { code.style.fontSize = cs + "px"; if (codeTxt.offsetWidth <= code.clientWidth - 14) break; }
+
+    // Seat counter strip.
+    $("dots").innerHTML = Array.from({ length: SEATS }, (_, i) => '<i class="' + (i < n ? "on" : "") + '"></i>').join("");
+    $("count").textContent = n + "/" + SEATS;
+
+    // Painted kerb (route red / cream blocks).
+    let kerb = "";
+    for (let x = -20, k = 0; x < 1080; x += 64, k++) kerb += '<rect x="' + x + '" y="1316" width="64" height="26" fill="' + (k % 2 ? "#FBF7EF" : "#BE3B2A") + '" />';
+    $("kerb").innerHTML = kerb;
+
+    // Red passenger = the item D.hl names (label or value), else the latest to board.
+    let hot = n - 1;
+    const h = norm(hl);
+    if (h) { const k = items.findIndex(it => { const l = norm(it.label), v = norm(it.value); return l === h || v === h || (h.length >= 3 && l.includes(h)); }); if (k >= 0) hot = k; }
+
+    // Passengers: far bench seats 0-2, near bench seats 3-5; empty seats dashed + stencilled KOSONG.
+    const COLS = [112, 341, 570], FLOOR = [954, 1182], TOPMIN = [746, 960];
+    let html = "";
+    for (let s = 0; s < SEATS; s++) {
+      const it = items[s];
+      const cls = !it ? "empty" : (s === hot ? "hot" : (s % 2 ? "b" : ""));
+      html += '<div class="pax ' + cls + '" data-seat="' + s + '"><div class="head"></div><div class="chip">' +
+        (it ? '<div class="lb">' + esc(it.label) + '</div><div class="vl">' + esc(it.value) + "</div>" : '<span class="ks">KOSONG</span>') + "</div></div>";
+    }
+    $("pax").innerHTML = html;
+
+    // Values stay >= 30 px: wrap at a space before shrinking; if a word still overflows, switch to
+    // tabular sans, then to the board's condensed sign face (a 12-char unbroken number fits at 34 px).
+    function fitValue(vl) {
+      for (const face of ["", "sans", "cond"]) {
+        vl.classList.remove("sans", "cond"); if (face) vl.classList.add(face);
+        for (const size of [34, 32, 30]) for (const wrap of [false, true]) {
+          vl.style.fontSize = size + "px"; vl.style.whiteSpace = wrap ? "normal" : "nowrap";
+          const lines = Math.round(vl.offsetHeight / (size * 1.08));
+          if (vl.scrollWidth <= vl.clientWidth + 1 && lines <= 2) return;
+        }
+      }
+      vl.style.overflowWrap = "anywhere"; // last resort: an unbroken value wider than the seat breaks rather than spills
+    }
+    document.querySelectorAll(".pax").forEach(p => {
+      const s = +p.dataset.seat, row = s < 3 ? 0 : 1;
+      p.style.left = COLS[s % 3] + "px";
+      const vl = p.querySelector(".vl");
+      if (vl) fitValue(vl);
+      // a very tall chip drops its head rather than poke out of the cutaway / into the far bench row
+      if (FLOOR[row] - p.offsetHeight < TOPMIN[row]) p.querySelector(".head").style.display = "none";
+      p.style.top = (FLOOR[row] - p.offsetHeight) + "px";
+    });
+
+    // Karaoke caption on the halte plate: one active word (hl if it is in the caption, else the first word).
+    const cap = String(D.caption || D.sub || "").trim();
+    const words = cap.split(/\s+/).filter(Boolean);
+    let a0 = 0, a1 = 0;
+    if (hl) {
+      const low = words.map(w => w.toLowerCase().replace(/[^\p{L}\p{N}·]/gu, ""));
+      const hw = hl.toLowerCase().split(/\s+/).map(w => w.replace(/[^\p{L}\p{N}·]/gu, ""));
+      for (let i = 0; i + hw.length <= words.length; i++) if (hw.every((w, k) => low[i + k] === w)) { a0 = i; a1 = i + hw.length - 1; break; }
+    }
+    const capEl = $("cap");
+    let ch = "";
+    for (let i = 0; i < words.length; i++) {
+      if (i === a0) { ch += '<span class="w on">' + esc(words.slice(a0, a1 + 1).join(" ")) + "</span> "; i = a1; continue; }
+      ch += '<span class="w' + (i < a0 ? " done" : "") + '">' + esc(words[i]) + "</span> ";
+    }
+    capEl.innerHTML = ch.trim();
+    for (let cfs = 46; cfs >= 40; cfs -= 1) { capEl.style.fontSize = cfs + "px"; if (capEl.offsetHeight <= cfs * 1.18 * 2 + 8) break; }
+
+    const src = $("src");
+    if (D.source) src.textContent = "Sumber: " + D.source; else src.style.display = "none";
+  }
+</script>
+</body>
+</html>

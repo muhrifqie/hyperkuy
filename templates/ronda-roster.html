@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Ronda Roster</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Big+Shoulders+Stencil+Display:wght@700;800&family=Saira+Stencil+One&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Ronda Roster: the painted plywood night-watch roster board at a kampung
+    ronda post, filling the frame. The title is stencilled in ink on the board's
+    cream header (hl = a yellow JAGA plate nailed over the word), kicker and
+    date are small print on the top frame rail, a bamboo kentongan hangs
+    horizontally from two pegs under the header, rows = nights (items) with
+    8 residents' name tags each, and the caption is a CATATAN paper slip
+    tacked to the bottom frame. Lit JAGA tags = the count in the item's value
+    (1-8); without a count only tonight's row shows its 2 on-duty tags
+    (Mixture of Experts: top-2 of 8). Deterministic: irregular shapes are
+    hard-coded.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #6E2120; }
+  body { position: relative; font-family: "Archivo", sans-serif; color: #141414; }
+  .layer { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; pointer-events: none; }
+
+  /* small print painted on the top frame rail */
+  #rail { position: absolute; left: 96px; width: 858px; display: flex; justify-content: space-between; gap: 24px;
+          font: 700 27px/1 "Archivo", sans-serif; letter-spacing: .12em; text-transform: uppercase; color: #141414; white-space: nowrap; }
+
+  /* title stencilled on the cream header */
+  .title { position: absolute; left: 96px; width: 860px; font-family: "Big Shoulders Stencil Display", sans-serif; font-weight: 800;
+           line-height: .94; letter-spacing: .004em; color: #141414; text-wrap: balance; }
+  .title .hl { display: inline-block; position: relative; color: #141414; padding: .04em .25em 0; margin: 0 .02em; border-radius: .035em;
+               transform: rotate(-3deg); background-color: #E7B526;
+               background-image: repeating-linear-gradient(178deg, rgba(20,20,20,0) 0 .09em, rgba(20,20,20,.06) .09em .1em, rgba(20,20,20,0) .1em .17em);
+               box-shadow: .035em .055em 0 rgba(20,20,20,.32), inset 0 0 0 .018em rgba(20,20,20,.2); }
+  .title .hl::before, .title .hl::after { content: ""; position: absolute; top: 50%; width: .1em; height: .1em; margin-top: -.05em; border-radius: 50%;
+               background: #141414; box-shadow: inset .018em .018em 0 rgba(241,234,219,.5); }
+  .title .hl::before { left: .075em; } .title .hl::after { right: .075em; }
+  .title .hl.flat { display: inline; transform: none; padding: 0 .08em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  .title .hl.flat::before, .title .hl.flat::after { display: none; }
+
+  .sub { position: absolute; right: 130px; text-align: right; font: 400 30px/1.2 "Saira Stencil One", sans-serif; letter-spacing: .03em; color: #141414; white-space: nowrap; }
+
+  /* roster rows */
+  .t { position: absolute; white-space: nowrap; }
+  .num { font-family: "Big Shoulders Stencil Display", sans-serif; font-weight: 800; line-height: 1; color: #141414; text-align: center; width: 60px; }
+  .lab { font-weight: 700; font-stretch: 88%; color: #141414; line-height: 1.12; }
+  .val { font-family: "Big Shoulders Stencil Display", sans-serif; font-weight: 800; color: #6E2120; line-height: 1.05; text-align: right; letter-spacing: .01em; }
+  .num.on, .lab.on { color: #F1EADB; }
+  .val.on { color: #E7B526; }
+
+  .tagw { position: absolute; transform-origin: 50% 0; }
+  .tagw svg { position: absolute; left: 0; top: 0; overflow: visible; }
+  .tag { position: absolute; left: 0; border-radius: 7px; display: flex; align-items: center; justify-content: center;
+         font: 800 32px/1 "Big Shoulders Stencil Display", sans-serif; letter-spacing: .03em; color: #141414;
+         background-color: #C99B63; box-shadow: 3px 5px 0 rgba(20,20,20,.28), inset 0 0 0 2px rgba(20,20,20,.16);
+         background-image: repeating-linear-gradient(177deg, rgba(20,20,20,0) 0 6px, rgba(20,20,20,.09) 6px 7px, rgba(20,20,20,0) 7px 11px, rgba(241,234,219,.10) 11px 12px, rgba(20,20,20,0) 12px 17px); }
+  .tag.duty { background-color: #E7B526; letter-spacing: .05em;
+              background-image: repeating-linear-gradient(177deg, rgba(20,20,20,0) 0 9px, rgba(20,20,20,.05) 9px 10px, rgba(20,20,20,0) 10px 16px); }
+  .tag::before, .tag::after { content: ""; position: absolute; top: 6px; width: 7px; height: 7px; border-radius: 50%; background: rgba(20,20,20,.55); }
+  .tag::before { left: 9px; } .tag::after { right: 9px; }
+  .nail { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: #141414; box-shadow: 1px 2px 0 rgba(20,20,20,.3); }
+  .nail::after { content: ""; position: absolute; left: 3px; top: 2px; width: 4px; height: 4px; border-radius: 50%; background: rgba(241,234,219,.55); }
+
+  /* CATATAN slip tacked to the bottom frame */
+  #slipLab { position: absolute; left: 96px; font: 400 30px/1 "Saira Stencil One", sans-serif; letter-spacing: .05em; color: #6E2120; white-space: nowrap; }
+  #cap { position: absolute; left: 96px; width: 778px; font: 600 44px/1.18 "Archivo", sans-serif; color: #141414; text-wrap: balance; }
+  #cap .w.on { display: inline-block; position: relative; color: #141414; padding: 0 .16em 0 .46em; border-radius: 6px; line-height: 1.12;
+               transform: rotate(-2deg); background: #E7B526; box-shadow: 2px 3px 0 rgba(20,20,20,.28), inset 0 0 0 2px rgba(20,20,20,.14); }
+  #cap .w.on::before { content: ""; position: absolute; left: .14em; top: 50%; width: .2em; height: .2em; margin-top: -.1em; border-radius: 50%;
+                       background: #F1EADB; box-shadow: inset 0 0 0 3px rgba(20,20,20,.6); }
+  #cap .w.on.flat { display: inline; transform: none; padding: 0 .12em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  #cap .w.on.flat::before { display: none; }
+  .src { position: absolute; left: 90px; width: 812px; font: 500 26px/1.25 "Archivo", sans-serif; color: #EADFCB; white-space: normal; overflow-wrap: break-word; }
+  .src b { font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+</style>
+</head>
+<body>
+<svg id="scene" class="layer" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div id="rail"><span id="kick"></span><span id="date"></span></div>
+<div class="title" id="title"></div>
+<div class="sub" id="sub">JADWAL RONDA<br>POS RT 05</div>
+<div id="board"></div>
+<svg id="fore" class="layer" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div id="slipLab">CATATAN:</div>
+<div id="cap" data-slot="caption"></div>
+<div class="src" id="src"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  Promise.all(['800 110px "Big Shoulders Stencil Display"', '700 48px "Big Shoulders Stencil Display"', '400 30px "Saira Stencil One"',
+    '700 40px Archivo', '600 44px Archivo', '500 26px Archivo'].map(f => document.fonts.load(f)))
+    .catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const INK = "#141414", CREAM = "#F1EADB", WOOD = "#C99B63", YEL = "#E7B526", OX = "#6E2120";
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(1, items.length);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const isW = ch => !!ch && /[\p{L}\p{N}]/u.test(ch);
+  // position of q in text as a whole word/phrase (so "2" never matches inside "32"); -1 if absent
+  const wordAt = (text, q) => {
+    const t = String(text).toLowerCase(), h = String(q).toLowerCase();
+    if (!h) return -1;
+    for (let p = t.indexOf(h); p >= 0; p = t.indexOf(h, p + 1)) if (!isW(t[p - 1]) && !isW(t[p + h.length])) return p;
+    return -1;
+  };
+
+  // ---- board geometry (page px)
+  const BX0 = 56, BX1 = 984, BY0 = 290, RAIL = 52, FR = 18, BR = 34, TH = 12;
+  const FX0 = BX0 + FR, FX1 = BX1 - FR, FY0 = BY0 + RAIL;
+
+  // ---- rail print: kicker left, date right
+  const ep = D.ep ? String(D.ep) : "";
+  const kick = D.kicker || [D.series, ep].filter(Boolean).join(" · ");
+  document.getElementById("kick").textContent = kick;
+  document.getElementById("date").textContent = D.date || "";
+  const rail = document.getElementById("rail");
+  rail.style.top = (BY0 + 13) + "px";
+  if (rail.scrollWidth > rail.clientWidth) { rail.style.fontSize = "26px"; rail.style.letterSpacing = ".07em"; }
+
+  // ---- title on the header, hl = yellow JAGA plate nailed over the word
+  const t = D.title || "", hl = D.hl || "";
+  let at = wordAt(t, hl); if (at < 0 && hl) at = t.toLowerCase().indexOf(hl.toLowerCase());
+  const titleEl = document.getElementById("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  titleEl.style.top = (FY0 + 22) + "px";
+  const plate = titleEl.querySelector(".hl");
+  const lines = fs => Math.round(titleEl.offsetHeight / (fs * 0.94));
+  const setT = fs => { titleEl.style.fontSize = fs + "px"; if (plate) { plate.classList.remove("flat"); if (plate.offsetWidth > titleEl.clientWidth - 4) plate.classList.add("flat"); } };
+  let tfs = 0;
+  for (let fs = 132; fs >= 96; fs -= 2) { setT(fs); if (lines(fs) <= 2) { tfs = fs; break; } }
+  if (!tfs) { for (let fs = 116; fs >= 96; fs -= 2) { setT(fs); if (lines(fs) <= 3) { tfs = fs; break; } } }
+  if (!tfs) { tfs = 96; setT(96); }
+  let titleBottom, bandTop;
+  const fitTitle = () => { titleBottom = titleEl.offsetTop + titleEl.offsetHeight; bandTop = titleBottom + 16; };
+  fitTitle();
+
+  // ---- band under the title: kentongan (left) + stencil sub-header (right)
+  let BAND = 112;   // kentongan band; 98 when the rows need the room
+
+  // ---- CATATAN slip + source, measured first: they fix where the board ends
+  const cap = String(D.caption || D.sub || "");
+  const words = cap.split(/\s+/).filter(Boolean);
+  let a0 = 0, a1 = 0;
+  if (hl) {
+    const low = cap.toLowerCase(), hh = hl.toLowerCase();
+    let pos = wordAt(cap, hl); if (pos < 0) pos = low.indexOf(hh);
+    if (pos >= 0) {
+      let c = 0; const spans = words.map(w => { const st = low.indexOf(w.toLowerCase(), c); c = st + w.length; return [st, c]; });
+      const hit = spans.map((sp, i) => sp[1] > pos && sp[0] < pos + hh.length ? i : -1).filter(i => i >= 0);
+      if (hit.length) { a0 = hit[0]; a1 = hit[hit.length - 1]; }
+    }
+  }
+  const capEl = document.getElementById("cap");
+  const ws = words.map(w => '<span class="w">' + esc(w) + "</span>");
+  capEl.innerHTML = ws.slice(0, a0).concat(['<span class="w on">' + words.slice(a0, a1 + 1).map(esc).join(" ") + "</span>"], ws.slice(a1 + 1)).join(" ");
+  const onW = capEl.querySelector(".w.on");
+  if (onW && onW.offsetWidth > capEl.clientWidth * 0.6) onW.classList.add("flat");
+
+  const srcEl = document.getElementById("src");
+  srcEl.innerHTML = D.source ? "<b>Sumber</b> · " + esc(D.source) : "";
+  if (srcEl.offsetHeight > 26 * 1.25 * 2 + 4) srcEl.style.fontStretch = "88%";
+  const srcH = srcEl.offsetHeight;
+
+  const FITS = [[46, 100], [44, 100], [42, 100], [40, 100], [40, 94], [40, 88]];
+  let fi = 0;
+  const setCap = k => { capEl.style.fontSize = FITS[k][0] + "px"; capEl.style.fontStretch = FITS[k][1] + "%"; };
+  for (; fi < FITS.length - 1; fi++) { setCap(fi); if (capEl.offsetHeight <= FITS[fi][0] * 1.18 * 2 + 8) break; }
+  setCap(fi);
+  const SLIP_PAD = 16, LAB_H = 30, LAB_GAP = 10, SLIP_BOT = 22;
+  let slipTop, rowH;
+  const fitRows = () => {
+    const slipH = SLIP_PAD + LAB_H + LAB_GAP + capEl.offsetHeight + SLIP_BOT;
+    slipTop = Math.min(1452, 1614 - srcH - 12 - slipH);
+    rowH = (slipTop + 24 - BR - 8 - (bandTop + BAND + 18)) / n;
+  };
+  for (;;) {
+    fitRows();
+    if (rowH >= 116 || fi >= FITS.length - 1 || FITS[fi][0] <= 40) break;
+    fi++; setCap(fi);   // too little room for the rows: shrink the caption first
+  }
+  if (rowH < 116) { BAND = 98; fitRows(); }
+  // rescue for titles past the contract (4+ lines at 96 px): give the rows their room back
+  while (rowH < 108 && tfs > 84) { tfs -= 2; setT(tfs); fitTitle(); fitRows(); }
+  const GY0 = bandTop + BAND, rowsY0 = GY0 + 18;
+  document.getElementById("sub").style.top = (bandTop + (BAND > 100 ? 28 : 18)) + "px";
+  const slipH = SLIP_PAD + LAB_H + LAB_GAP + capEl.offsetHeight + SLIP_BOT;
+  const SX0 = 66, SX1 = 898;
+  document.getElementById("slipLab").style.top = (slipTop + SLIP_PAD) + "px";
+  capEl.style.top = (slipTop + SLIP_PAD + LAB_H + LAB_GAP) + "px";
+  srcEl.style.top = (slipTop + slipH + 12) + "px";
+
+  const BY1 = slipTop + 24, FY1 = BY1 - BR, rowsY1 = FY1 - 8;
+
+  // ---- which night is "tonight": the item naming hl (whole word), else the first
+  let act = 0;
+  if (hl) { const k = items.findIndex(it => wordAt(String(it.label) + " " + String(it.value), hl) >= 0); if (k >= 0) act = k; }
+  // lit JAGA tags = the leading count 1-8 in the value ("2 token", "2/8", "8"); no count -> only tonight shows its top-2
+  const MAG = /^(ribu|rb|juta|jt|miliar|milyar|triliun|k|m|b|t)\b|^[%×x]/i;
+  const countOf = v => {
+    const m = String(v == null ? "" : v).match(/^\s*(\d+)(?!\d|[.,]\d)\s*(.*)$/);
+    if (!m || MAG.test(m[2])) return 0;
+    const c = parseInt(m[1], 10); return c >= 1 && c <= 8 ? c : 0;
+  };
+  const lit = items.map((it, i) => countOf(it.value) || (i === act ? 2 : 0));
+  const ORD = [[1, 5, 3, 6, 0, 7, 2, 4], [3, 6, 0, 4, 7, 1, 5, 2], [0, 4, 6, 2, 5, 1, 7, 3], [2, 7, 4, 0, 6, 3, 1, 5], [5, 1, 6, 3, 0, 4, 2, 7]];
+  const RES = ["UJ", "DD", "SL", "BD", "AR", "KS", "WR", "YT"];   // the 8 residents (initials painted on the name side)
+
+  // ---- background scene SVG (wall, bulb, board)
+  const J = [0, 1.1, -0.7, 0.9, -1.3, 0.5, 1.4, -0.9, 0.3, -1.1, 0.8, -0.4, 1.2, -1.0, 0.6, -0.2, 1.0];
+  const painted = (x0, x1, y, w, k) => { let d = "M" + x0 + " " + (y + J[k % J.length]).toFixed(1); const st = 16; for (let i = 1; i <= st; i++) { const x = x0 + (x1 - x0) * i / st; d += " L" + x.toFixed(1) + " " + (y + J[(i + k) % J.length] * 1.2).toFixed(1); } return '<path d="' + d + '" stroke="' + INK + '" stroke-width="' + w + '" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'; };
+  const paintedV = (x, y0, y1, w, k) => { let d = "M" + (x + J[k % J.length]).toFixed(1) + " " + y0; const st = 12; for (let i = 1; i <= st; i++) { const y = y0 + (y1 - y0) * i / st; d += " L" + (x + J[(i + k) % J.length] * 1.1).toFixed(1) + " " + y.toFixed(1); } return '<path d="' + d + '" stroke="' + INK + '" stroke-width="' + w + '" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'; };
+  let g = '<defs><filter id="blur" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="16"/></filter>' +
+    '<radialGradient id="glow" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="' + YEL + '" stop-opacity=".34"/><stop offset=".45" stop-color="' + YEL + '" stop-opacity=".10"/><stop offset="1" stop-color="' + YEL + '" stop-opacity="0"/></radialGradient>' +
+    '<linearGradient id="eave" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + INK + '" stop-opacity=".6"/><stop offset="1" stop-color="' + INK + '" stop-opacity="0"/></linearGradient>' +
+    '</defs>';
+  for (let x = 72; x < 1080; x += 136) g += '<rect x="' + x + '" y="0" width="4" height="1920" fill="' + INK + '" opacity=".26"/><rect x="' + (x + 4) + '" y="0" width="2" height="1920" fill="' + CREAM + '" opacity=".06"/>';
+  [[960, 1180, 90, 200], [1000, 520, 70, 160], [140, 1650, 160, 50]].forEach(p => { g += '<ellipse cx="' + p[0] + '" cy="' + p[1] + '" rx="' + p[2] + '" ry="' + p[3] + '" fill="' + INK + '" opacity=".10" filter="url(#blur)"/>'; });
+  g += '<rect x="0" y="0" width="1080" height="270" fill="url(#eave)"/>';
+  // roof beam + the post's bare bulb
+  g += '<rect x="0" y="0" width="1080" height="46" fill="' + INK + '" opacity=".55"/><rect x="0" y="46" width="1080" height="5" fill="' + INK + '" opacity=".3"/>';
+  const LBX = 744;
+  g += '<circle cx="' + LBX + '" cy="236" r="200" fill="url(#glow)"/>';
+  g += '<rect x="' + (LBX - 1.5) + '" y="46" width="3" height="124" fill="' + INK + '"/>';
+  g += '<rect x="' + (LBX - 13) + '" y="166" width="26" height="30" rx="4" fill="' + INK + '"/><rect x="' + (LBX - 13) + '" y="174" width="26" height="3" fill="' + CREAM + '" opacity=".25"/><rect x="' + (LBX - 13) + '" y="183" width="26" height="3" fill="' + CREAM + '" opacity=".25"/>';
+  g += '<path d="M' + (LBX - 11) + ' 196 C' + (LBX - 12) + ' 210 ' + (LBX - 28) + ' 218 ' + (LBX - 28) + ' 238 C' + (LBX - 28) + ' 256 ' + (LBX - 15) + ' 266 ' + LBX + ' 266 C' + (LBX + 15) + ' 266 ' + (LBX + 28) + ' 256 ' + (LBX + 28) + ' 238 C' + (LBX + 28) + ' 218 ' + (LBX + 12) + ' 210 ' + (LBX + 11) + ' 196 Z" fill="' + CREAM + '"/>';
+  g += '<path d="M' + (LBX - 7) + ' 200 L' + (LBX - 7) + ' 232 M' + (LBX + 7) + ' 200 L' + (LBX + 7) + ' 232 M' + (LBX - 7) + ' 232 Q' + (LBX - 3.5) + ' 224 ' + LBX + ' 232 Q' + (LBX + 3.5) + ' 240 ' + (LBX + 7) + ' 232" stroke="' + YEL + '" stroke-width="2.4" fill="none"/>';
+  g += '<path d="M' + (LBX + 14) + ' 220 C' + (LBX + 20) + ' 228 ' + (LBX + 21) + ' 240 ' + (LBX + 17) + ' 250" stroke="' + INK + '" stroke-opacity=".18" stroke-width="4" fill="none" stroke-linecap="round"/>';
+  // board drop shadow + plywood thickness
+  g += '<rect x="' + (BX0 + 22) + '" y="' + (BY0 + 30) + '" width="' + (BX1 - BX0) + '" height="' + (BY1 - BY0) + '" fill="' + INK + '" opacity=".5" filter="url(#blur)"/>';
+  g += '<polygon points="' + BX1 + ',' + BY0 + ' ' + (BX1 + TH) + ',' + (BY0 + TH) + ' ' + (BX1 + TH) + ',' + (BY1 + TH) + ' ' + BX1 + ',' + BY1 + '" fill="' + WOOD + '"/>';
+  g += '<polygon points="' + BX0 + ',' + BY1 + ' ' + BX1 + ',' + BY1 + ' ' + (BX1 + TH) + ',' + (BY1 + TH) + ' ' + (BX0 + TH) + ',' + (BY1 + TH) + '" fill="' + WOOD + '"/>';
+  for (let k = 1; k < 4; k++) {
+    const o = TH * k / 4;
+    g += '<line x1="' + (BX1 + o) + '" y1="' + (BY0 + o) + '" x2="' + (BX1 + o) + '" y2="' + (BY1 + o) + '" stroke="' + INK + '" stroke-opacity=".28" stroke-width="1.5"/>';
+    g += '<line x1="' + (BX0 + o) + '" y1="' + (BY1 + o) + '" x2="' + (BX1 + o) + '" y2="' + (BY1 + o) + '" stroke="' + INK + '" stroke-opacity=".28" stroke-width="1.5"/>';
+  }
+  g += '<rect x="' + BX1 + '" y="' + BY0 + '" width="' + TH + '" height="' + (BY1 - BY0 + TH) + '" fill="' + INK + '" opacity=".22"/>';
+  // frame (rails) + cream painted face
+  g += '<rect x="' + BX0 + '" y="' + BY0 + '" width="' + (BX1 - BX0) + '" height="' + (BY1 - BY0) + '" fill="' + WOOD + '"/>';
+  g += '<rect x="' + BX0 + '" y="' + (BY0 + 3) + '" width="' + (BX1 - BX0) + '" height="2" fill="' + CREAM + '" opacity=".22"/>';
+  g += '<rect x="' + FX0 + '" y="' + FY0 + '" width="' + (FX1 - FX0) + '" height="' + (FY1 - FY0) + '" fill="' + CREAM + '"/>';
+  g += '<rect x="' + FX0 + '" y="' + FY0 + '" width="' + (FX1 - FX0) + '" height="5" fill="' + INK + '" opacity=".14"/>';
+  // screws
+  [[BX0 + 14, BY0 + 26], [BX1 - 14, BY0 + 26], [BX0 + 9, BY1 - 17], [BX1 - 9, BY1 - 17]].forEach(p => {
+    g += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="5" fill="' + INK + '" opacity=".7"/><line x1="' + (p[0] - 3) + '" y1="' + (p[1] - 3) + '" x2="' + (p[0] + 3) + '" y2="' + (p[1] + 3) + '" stroke="' + CREAM + '" stroke-opacity=".5" stroke-width="1.4"/>';
+  });
+  // tonight's row band
+  const rTop = i => rowsY0 + rowH * i;
+  g += '<rect x="' + FX0 + '" y="' + (rTop(act) + 3).toFixed(1) + '" width="' + (FX1 - FX0) + '" height="' + (rowH - 6).toFixed(1) + '" fill="' + OX + '"/>';
+  // hand-painted grid: header double rule, row rules, night-number column rule
+  const CELL = 168;
+  g += painted(FX0 + 10, FX1 - 10, GY0, 6, 2) + painted(FX0 + 10, FX1 - 10, GY0 + 10, 2.5, 5);
+  for (let i = 1; i < n; i++) g += painted(FX0 + 10, FX1 - 10, rTop(i), 4, i * 3);
+  g += paintedV(CELL, GY0 + 16, rowsY1, 3.5, 4);
+  document.getElementById("scene").innerHTML = g;
+
+  // ---- board rows (HTML): night number | label + value, then 8 nail-hung tags
+  const CX0 = 184, CX1 = 884, pitch = (CX1 - CX0) / 8, tagW = Math.round(pitch - 9);
+  const cx = j => CX0 + pitch * (j + 0.5);
+  const s = clamp((rowH - 118) / 80, 0, 1);
+  const labFs = Math.round(40 + 6 * s), valFs = Math.round(46 + 10 * s), numFs = Math.round(46 + 12 * s);
+  const lineH = Math.round(Math.max(labFs * 1.12, valFs * 1.05)), GAP = rowH < 118 ? 6 : 8;
+  const free = rowH - 10 - lineH - GAP;
+  const tagH = Math.round(clamp(free - 14, 46, 80)), strLen = Math.round(clamp(free - tagH - 2, 6, 32)), tagFs = tagH < 54 ? 30 : 32;
+  const contentH = lineH + GAP + strLen + tagH;
+  const swing = [[-1.2, 0.8, -0.5, 1.4, -0.9, 0.4, 1.1, -0.6], [0.6, -1.3, 0.9, -0.4, 1.2, -0.8, 0.3, -1.0], [-0.7, 0.5, -1.1, 0.9, -0.3, 1.3, -0.8, 0.6], [1.0, -0.6, 0.4, -1.2, 0.7, -0.3, 0.9, -1.1], [-0.4, 1.1, -0.9, 0.6, -1.3, 0.8, -0.2, 0.5]];
+  let h = "";
+  items.forEach((it, i) => {
+    const on = i === act;
+    const top = rTop(i) + Math.max(5, (rowH - contentH) / 2);
+    h += '<div class="t num' + (on ? " on" : "") + '" style="left:91px;top:' + (rTop(i) + rowH / 2 - numFs * 0.5).toFixed(1) + 'px;font-size:' + numFs + 'px">' + String(i + 1).padStart(2, "0") + "</div>";
+    h += '<div class="t val' + (on ? " on" : "") + '" data-i="' + i + '" style="right:' + (1080 - CX1) + 'px;top:' + (top + (lineH - valFs * 1.05) / 2).toFixed(1) + 'px;font-size:' + valFs + 'px">' + esc(it.value) + "</div>";
+    h += '<div class="t lab' + (on ? " on" : "") + '" data-i="' + i + '" style="left:' + CX0 + 'px;top:' + (top + (lineH - labFs * 1.12) / 2).toFixed(1) + 'px;font-size:' + labFs + 'px">' + esc(it.label) + "</div>";
+    const nailY = top + lineH + GAP;
+    const duty = ORD[i % ORD.length].slice(0, lit[i]);
+    for (let j = 0; j < 8; j++) {
+      const isDuty = duty.includes(j);
+      let rot = swing[i % swing.length][j];
+      if (on && isDuty) rot = (duty.indexOf(j) % 2 ? 4 : -5);
+      const x = cx(j) - tagW / 2;
+      const strings = '<svg width="' + tagW + '" height="' + (strLen + 12) + '"><path d="M' + (tagW / 2) + " 0 L12.5 " + (strLen + 9.5) + " M" + (tagW / 2) + " 0 L" + (tagW - 12.5) + " " + (strLen + 9.5) + '" stroke="' + INK + '" stroke-opacity=".75" stroke-width="2" fill="none"/></svg>';
+      h += '<div class="tagw" data-layout-allow-overlap style="left:' + x.toFixed(1) + "px;top:" + nailY.toFixed(1) + "px;width:" + tagW + "px;height:" + (strLen + tagH) + "px;transform:rotate(" + rot + 'deg)">' + strings +
+        '<div class="tag' + (isDuty ? " duty" : "") + '" style="top:' + strLen + "px;width:" + tagW + "px;height:" + tagH + "px;font-size:" + tagFs + "px;padding-top:" + Math.round(clamp(tagH * 0.1, 4, 8)) + 'px">' + (isDuty ? "JAGA" : RES[j]) + "</div></div>";
+      h += '<div class="nail" style="left:' + (cx(j) - 6).toFixed(1) + "px;top:" + (nailY - 6).toFixed(1) + 'px"></div>';
+    }
+  });
+  const board = document.getElementById("board");
+  board.innerHTML = h;
+  board.querySelectorAll(".lab").forEach(el => {
+    const v = board.querySelector('.val[data-i="' + el.dataset.i + '"]');
+    const maxW = v.offsetLeft - 22 - el.offsetLeft;
+    let fs = labFs;
+    while (el.offsetWidth > maxW && fs > 32) { fs -= 1; el.style.fontSize = fs + "px"; }
+  });
+
+  // ---- foreground: kentongan on two pegs (mid-swing), CATATAN slip, bale-bale
+  let k = '<defs><filter id="ksh" x="-20%" y="-60%" width="140%" height="220%"><feGaussianBlur stdDeviation="7"/></filter>' +
+    '<filter id="ssh" x="-10%" y="-30%" width="120%" height="160%"><feGaussianBlur stdDeviation="8"/></filter>' +
+    '<linearGradient id="kh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + CREAM + '" stop-opacity=".42"/><stop offset=".32" stop-color="' + CREAM + '" stop-opacity=".06"/><stop offset=".7" stop-color="' + INK + '" stop-opacity=".08"/><stop offset="1" stop-color="' + INK + '" stop-opacity=".5"/></linearGradient>' +
+    '<linearGradient id="kv" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="' + CREAM + '" stop-opacity=".38"/><stop offset=".3" stop-color="' + CREAM + '" stop-opacity=".06"/><stop offset=".65" stop-color="' + INK + '" stop-opacity=".08"/><stop offset="1" stop-color="' + INK + '" stop-opacity=".5"/></linearGradient></defs>';
+  // kentongan: horizontal bamboo slit drum hung by two ijuk cords; DX = sideways swing (cords slant)
+  const KX0 = 108, KL = 440, KD = BAND > 100 ? 64 : 56, DX = 18;
+  const pegY = bandTop + 10, KY = bandTop + (BAND > 100 ? 40 : 34);
+  const P = [KX0 + 86, KX0 + KL - 86];
+  const x0 = KX0 + DX, x1 = x0 + KL, y0 = KY, ym = KY + KD / 2;
+  k += '<rect x="' + (x0 + 8) + '" y="' + (y0 + 16) + '" width="' + KL + '" height="' + KD + '" rx="22" fill="' + INK + '" opacity=".34" filter="url(#ksh)"/>';
+  P.forEach(px => {
+    k += '<path d="M' + px + " " + pegY + " L" + (px + DX - 8) + " " + (y0 + 3) + " M" + px + " " + pegY + " L" + (px + DX + 8) + " " + (y0 + 3) + '" stroke="' + INK + '" stroke-width="3.5" stroke-linecap="round" fill="none"/>';
+    k += '<circle cx="' + px + '" cy="' + pegY + '" r="11" fill="' + WOOD + '" stroke="' + INK + '" stroke-opacity=".6" stroke-width="2.5"/><circle cx="' + (px - 3) + '" cy="' + (pegY - 3) + '" r="3.2" fill="' + CREAM + '" opacity=".65"/>';
+  });
+  k += '<rect x="' + x0 + '" y="' + y0 + '" width="' + KL + '" height="' + KD + '" rx="16" fill="' + WOOD + '"/>';
+  // painted bands near both ends
+  k += '<rect x="' + (x0 + 34) + '" y="' + y0 + '" width="22" height="' + KD + '" fill="' + OX + '"/><rect x="' + (x0 + 56) + '" y="' + y0 + '" width="8" height="' + KD + '" fill="' + CREAM + '" opacity=".9"/>';
+  k += '<rect x="' + (x1 - 64) + '" y="' + y0 + '" width="8" height="' + KD + '" fill="' + CREAM + '" opacity=".9"/><rect x="' + (x1 - 56) + '" y="' + y0 + '" width="22" height="' + KD + '" fill="' + OX + '"/>';
+  // bamboo nodes
+  [0.31, 0.75].forEach(f => { const x = x0 + KL * f; k += '<rect x="' + (x - 3.5) + '" y="' + (y0 - 1) + '" width="7" height="' + (KD + 2) + '" rx="3" fill="' + INK + '" opacity=".28"/><rect x="' + (x - 7) + '" y="' + y0 + '" width="2.5" height="' + KD + '" fill="' + CREAM + '" opacity=".35"/>'; });
+  // the slit, facing out
+  k += '<rect x="' + (x0 + KL * 0.37) + '" y="' + (ym - 8) + '" width="' + (KL * 0.31) + '" height="16" rx="8" fill="' + INK + '"/><rect x="' + (x0 + KL * 0.37 + 6) + '" y="' + (ym + 9) + '" width="' + (KL * 0.31 - 12) + '" height="3" rx="1.5" fill="' + CREAM + '" opacity=".45"/>';
+  // cord wraps around the tube
+  P.forEach(px => { const x = px + DX; k += '<rect x="' + (x - 4.5) + '" y="' + (y0 - 1) + '" width="9" height="' + (KD + 2) + '" rx="3" fill="' + INK + '" opacity=".8"/><line x1="' + (x - 6) + '" y1="' + (y0 + 20) + '" x2="' + (x + 6) + '" y2="' + (y0 + 26) + '" stroke="' + CREAM + '" stroke-opacity=".3" stroke-width="1.5"/><line x1="' + (x - 6) + '" y1="' + (y0 + 38) + '" x2="' + (x + 6) + '" y2="' + (y0 + 44) + '" stroke="' + CREAM + '" stroke-opacity=".3" stroke-width="1.5"/>'; });
+  // shading + open cut end on the left
+  k += '<rect x="' + x0 + '" y="' + y0 + '" width="' + KL + '" height="' + KD + '" rx="16" fill="url(#kh)"/>';
+  k += '<ellipse cx="' + (x0 + 10) + '" cy="' + ym + '" rx="10" ry="' + (KD / 2 - 1) + '" fill="' + WOOD + '" stroke="' + INK + '" stroke-opacity=".35" stroke-width="2"/><ellipse cx="' + (x0 + 11) + '" cy="' + ym + '" rx="5.5" ry="' + (KD / 2 - 8) + '" fill="' + INK + '" opacity=".85"/>';
+  // knock marks touching the lip where the striker just hit (right end of the slit)
+  const hx = x0 + KL * 0.66;
+  [[-4, -1, -17, -24], [3, -1, 3, -28], [10, -1, 23, -24]].forEach(m => {
+    k += '<line x1="' + (hx + m[0]) + '" y1="' + (y0 + m[1]) + '" x2="' + (hx + m[2]) + '" y2="' + (y0 + m[3]) + '" stroke="' + OX + '" stroke-width="5" stroke-linecap="round"/>';
+  });
+  // CATATAN slip: cream note, ragged bottom edge, two tacks into the bottom rail
+  const sy1 = slipTop + slipH;
+  const RAG = [0, 3, -2, 4, -1, 2, -3, 3, 0, -2, 4, -1, 2, -3, 1, 3, -2, 0];
+  let sp = "M" + SX0 + " " + slipTop + " L" + SX1 + " " + slipTop + " L" + SX1 + " " + sy1;
+  for (let i = RAG.length - 1; i >= 0; i--) sp += " L" + (SX0 + (SX1 - SX0) * i / (RAG.length - 1)).toFixed(1) + " " + (sy1 + RAG[i]);
+  sp += " Z";
+  k += '<path d="' + sp + '" transform="translate(7 12)" fill="' + INK + '" opacity=".45" filter="url(#ssh)"/>';
+  k += '<path d="' + sp + '" fill="' + CREAM + '"/>';
+  k += '<line x1="' + (SX0 + 18) + '" y1="' + (slipTop + SLIP_PAD + LAB_H + 4) + '" x2="' + (SX1 - 18) + '" y2="' + (slipTop + SLIP_PAD + LAB_H + 4) + '" stroke="' + OX + '" stroke-opacity=".35" stroke-width="2"/>';
+  [[SX0 + 15, slipTop + 13], [SX1 - 15, slipTop + 13]].forEach(p => {
+    k += '<circle cx="' + (p[0] + 1.5) + '" cy="' + (p[1] + 2.5) + '" r="8" fill="' + INK + '" opacity=".3"/><circle cx="' + p[0] + '" cy="' + p[1] + '" r="8" fill="' + INK + '"/><circle cx="' + (p[0] - 2.5) + '" cy="' + (p[1] - 2.5) + '" r="2.6" fill="' + CREAM + '" opacity=".55"/>';
+  });
+  // bale-bale: bamboo bench of the post (decoration below the safe zone)
+  const SY = 1688;
+  k += '<rect x="0" y="' + (SY + 30) + '" width="1080" height="80" fill="' + INK + '" opacity=".38" filter="url(#ssh)"/>';
+  [140, 884].forEach(lx => { k += '<rect x="' + lx + '" y="' + (SY + 80) + '" width="46" height="' + (1920 - SY - 80) + '" fill="' + WOOD + '"/><rect x="' + lx + '" y="' + (SY + 80) + '" width="46" height="' + (1920 - SY - 80) + '" fill="url(#kv)"/><rect x="' + (lx - 1) + '" y="1842" width="48" height="7" rx="3" fill="' + INK + '" opacity=".3"/>'; });
+  k += '<rect x="0" y="1868" width="1080" height="30" fill="' + WOOD + '"/><rect x="0" y="1868" width="1080" height="30" fill="url(#kh)"/>';
+  for (let r = 0; r < 3; r++) k += '<rect x="0" y="' + (SY + r * 14) + '" width="1080" height="15" fill="' + WOOD + '"/><rect x="0" y="' + (SY + r * 14) + '" width="1080" height="15" fill="' + INK + '" opacity="' + (0.04 + r * 0.05).toFixed(2) + '"/><rect x="0" y="' + (SY + r * 14) + '" width="1080" height="2" fill="' + CREAM + '" opacity=".28"/>';
+  k += '<rect x="0" y="' + (SY + 42) + '" width="1080" height="42" fill="' + WOOD + '"/><rect x="0" y="' + (SY + 42) + '" width="1080" height="42" fill="url(#kh)"/>';
+  [330, 640, 1010].forEach(x => { k += '<rect x="' + (x - 3) + '" y="' + (SY + 41) + '" width="7" height="44" rx="3" fill="' + INK + '" opacity=".3"/>'; });
+  [163, 907].forEach(lx => { for (let q = 0; q < 4; q++) k += '<line x1="' + (lx - 28) + '" y1="' + (SY + 46 + q * 10) + '" x2="' + (lx + 28) + '" y2="' + (SY + 56 + q * 10) + '" stroke="' + INK + '" stroke-opacity=".7" stroke-width="3.5" stroke-linecap="round"/>'; });
+  document.getElementById("fore").innerHTML = k;
+  }
+</script>
+</body>
+</html>

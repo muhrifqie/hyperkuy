@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@500;600;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Storage Full: a phone held almost full-bleed (tilt -1.2 deg) on a berry field
+    that only shows as a thin frame. The screen is the OS storage-settings page:
+    the date sits in the status bar, a stalled download line runs under it, the
+    kicker is the back link. A bottom sheet (the storage alert) carries the title
+    as its headline, then the storage bar: every item is a segment, the hero item
+    runs through the BATAS wall into a hatched "beyond capacity" lane that runs
+    down the right side of the sheet. Legend rows list the items; the voice-over
+    is a system toast with a progress ring.
+    Data honesty: same-unit values -> proportional widths; mixed units -> equal
+    widths + "lebar bar ilustrasi" on the source line; alternatives (16/8/4-bit,
+    or D.mode = "alternatives") -> successive fills of ONE bar, never summed.
+    Deterministic: no randomness, no time.
+  */
+  :root {
+    --field: #B82E68; --shade: #7E1F48; --page: #F1EBE1; --sheet: #FFFDF9; --ink: #1C1B1A;
+    --blue: #2B5BD7; --blush: #F4BBD0; --mute: #5E5A55; --dim: #A9A39B; --line: #E8E1D7;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--field); }
+  body { position: relative; color: var(--ink); font-family: "Bricolage Grotesque", sans-serif; }
+
+  /* the phone: near full-bleed, bezel cropped by the left, right and bottom frame edges */
+  .phone { position: absolute; left: 18px; top: 148px; width: 1044px; height: 1800px; border-radius: 134px; background: var(--ink);
+    transform-origin: 522px 812px; transform: rotate(-1.2deg); backface-visibility: hidden;
+    box-shadow: 16px 14px 0 var(--shade), inset 0 0 0 3px #3A3734; }
+  .key { position: absolute; width: 10px; border-radius: 5px; background: #2E2B29; }
+  .screen { position: absolute; left: 22px; top: 22px; width: 1000px; height: 1756px; border-radius: 112px; background: var(--page); overflow: hidden; }
+
+  /* status bar: date in the clock slot, island, icons */
+  .island { position: absolute; left: 425px; top: 22px; width: 150px; height: 44px; border-radius: 22px; background: var(--ink); }
+  .date { position: absolute; left: 64px; top: 26px; font: 700 28px "Geist Mono", monospace; letter-spacing: -0.02em; white-space: nowrap; }
+  .sicons { position: absolute; right: 64px; top: 28px; width: 196px; height: 34px; }
+  .dl { position: absolute; left: 64px; top: 90px; width: 872px; height: 14px; }
+
+  /* nav row: the kicker is the back link, the page name sits right */
+  .nav { position: absolute; left: 64px; right: 64px; top: 120px; height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+  .back { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--blue); font: 600 34px "Bricolage Grotesque", sans-serif; white-space: nowrap; }
+  .back span { overflow: hidden; text-overflow: ellipsis; }
+  .page { flex: none; font: 800 34px "Bricolage Grotesque", sans-serif; letter-spacing: -0.01em; }
+
+  /* the alert bottom sheet + the "beyond capacity" lane right of the BATAS wall */
+  .sheet { position: absolute; left: 0; right: 0; top: 206px; bottom: 0; background: var(--sheet); border-radius: 56px 56px 0 0;
+    box-shadow: 0 -10px 36px rgba(28, 27, 26, 0.10); }
+  .grab { position: absolute; left: 440px; top: 16px; width: 120px; height: 10px; border-radius: 5px; background: #DDD5C9; }
+  .lane { position: absolute; left: 0; top: 0; width: 1000px; height: 1550px; }
+  .wallab { position: absolute; left: 848px; top: 44px; width: 112px; height: 50px; display: flex; align-items: center; justify-content: center;
+    background: var(--sheet); border: 3px solid var(--ink); border-radius: 14px; font: 700 28px "Geist Mono", monospace; letter-spacing: 0.04em; }
+
+  .alert { position: absolute; left: 64px; width: 748px; top: 44px; height: 50px; display: flex; align-items: center; gap: 16px; }
+  .alert .tx { flex: 1; min-width: 0; font: 700 34px "Bricolage Grotesque", sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .alert .pc { flex: none; font: 800 34px "Geist Mono", monospace; color: var(--field); letter-spacing: -0.03em; }
+
+  .title { position: absolute; left: 64px; width: 748px; top: 124px; font-weight: 800; font-variation-settings: "opsz" 96;
+    letter-spacing: -0.022em; line-height: 1.0; text-wrap: balance; }
+  .title .hl { color: var(--hc, var(--blue)); padding-bottom: 0.05em;
+    background: repeating-linear-gradient(-45deg, var(--hc, var(--blue)) 0 5px, transparent 5px 12px) 0 100% / 100% 0.12em no-repeat;
+    -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+
+  .bar { position: absolute; left: 64px; width: 892px; }
+  .track { position: absolute; left: 0; top: 0; border: 5px solid var(--ink); background: var(--sheet); }
+  .seg { position: absolute; border-radius: 12px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .seg .ix { font: 700 30px "Geist Mono", monospace; letter-spacing: -0.02em; }
+  .seg.hero { justify-content: flex-start; padding-left: 22px; border-radius: 12px 0 0 12px; background: var(--blue); }
+  .in { display: flex; flex-direction: column; line-height: 1.04; color: var(--sheet); white-space: nowrap; }
+  .in .lb { font: 600 30px "Bricolage Grotesque", sans-serif; }
+  .in .vl { font: 700 48px "Geist Mono", monospace; letter-spacing: -0.04em; }
+  .over { position: absolute; border-radius: 0 18px 18px 0;
+    background: repeating-linear-gradient(-45deg, var(--blue) 0 9px, var(--sheet) 9px 16px); box-shadow: inset 0 0 0 4px var(--blue); }
+  .wall { position: absolute; width: 10px; background: var(--ink); border-radius: 5px; }
+  .ghost { position: absolute; background: rgba(255, 253, 249, 0.24); border-radius: 12px 0 0 12px; }
+  .notch { position: absolute; width: 6px; background: var(--sheet); border-radius: 3px; }
+  .gchip { position: absolute; height: 40px; padding: 0 8px; border-radius: 8px; background: var(--sheet); color: var(--blue);
+    display: flex; align-items: center; font: 700 28px "Geist Mono", monospace; letter-spacing: -0.02em; }
+
+  .rows { position: absolute; left: 64px; width: 748px; }
+  .row { position: absolute; left: 0; right: 0; display: flex; align-items: center; gap: 22px; border-bottom: 2px solid var(--line); }
+  .row:last-child { border-bottom: 0; }
+  .sw { flex: none; width: 70px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+    font: 700 30px "Geist Mono", monospace; letter-spacing: -0.02em; }
+  .row .lb { flex: 1; min-width: 0; font: 600 40px "Bricolage Grotesque", sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .vl { flex: none; font: 600 40px "Geist Mono", monospace; letter-spacing: -0.03em; white-space: nowrap; }
+  .row.hero .lb { font-weight: 800; }
+  .row.hero .vl { color: var(--blue); font-weight: 800; }
+
+  .src { position: absolute; left: 64px; width: 748px; font: 500 26px "Geist Mono", monospace; line-height: 1.3; color: var(--mute); letter-spacing: -0.01em; }
+
+  /* sheet actions + home indicator */
+  .acts { position: absolute; left: 64px; width: 748px; top: 1284px; height: 96px; display: flex; gap: 20px; }
+  .acts div { display: flex; align-items: center; justify-content: center; border-radius: 999px; font: 700 38px "Bricolage Grotesque", sans-serif; white-space: nowrap; }
+  .acts .no { flex: none; width: 250px; border: 3px solid var(--ink); }
+  .acts .go { flex: 1; min-width: 0; background: var(--ink); color: var(--sheet); }
+  .home { position: absolute; left: 350px; top: 1506px; width: 300px; height: 10px; border-radius: 5px; background: var(--ink); }
+
+  /* caption: the voice-over as a system toast with a progress ring */
+  .toast { position: absolute; left: 60px; width: 776px; border-radius: 32px; background: var(--ink); padding: 22px 30px 24px 24px;
+    display: flex; gap: 20px; align-items: flex-start; box-shadow: 0 18px 40px rgba(28, 27, 26, 0.30); }
+  .ring { flex: none; width: 60px; height: 60px; }
+  .cap { flex: 1; min-width: 0; font: 600 44px "Bricolage Grotesque", sans-serif; line-height: 1.28; color: var(--dim); letter-spacing: -0.01em; }
+  .cap .w { display: inline; }
+  .cap .on { color: var(--blush); font-weight: 800; text-decoration: underline; text-decoration-thickness: 5px; text-underline-offset: 8px; }
+  .cap .done { color: var(--sheet); }
+</style>
+</head>
+<body>
+<div class="phone" id="phone" data-layout-allow-overflow>
+  <div class="key" style="left:-4px;top:330px;height:96px"></div>
+  <div class="key" style="left:-4px;top:450px;height:96px"></div>
+  <div class="key" style="right:-4px;top:400px;height:150px"></div>
+  <div class="screen" id="screen">
+    <div class="island"></div>
+    <div class="date" id="date"></div>
+    <svg class="sicons" viewBox="0 0 196 34" aria-hidden="true">
+      <g fill="none" stroke="#1C1B1A" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3 V19 M3 12 L10 19 L17 12 M2 28 H18"/></g>
+      <rect x="44" y="22" width="7" height="10" rx="2" fill="#1C1B1A"/><rect x="55" y="16" width="7" height="16" rx="2" fill="#1C1B1A"/>
+      <rect x="66" y="10" width="7" height="22" rx="2" fill="#1C1B1A"/><rect x="77" y="4" width="7" height="28" rx="2" fill="#1C1B1A"/>
+      <path d="M102 14 a20 20 0 0 1 28 0 M107 20 a12 12 0 0 1 18 0" fill="none" stroke="#1C1B1A" stroke-width="4" stroke-linecap="round"/>
+      <circle cx="116" cy="27" r="3.6" fill="#1C1B1A"/>
+      <rect x="144" y="6" width="44" height="24" rx="7" fill="none" stroke="#1C1B1A" stroke-width="3"/>
+      <rect x="148" y="10" width="30" height="16" rx="4" fill="#1C1B1A"/><rect x="190" y="13" width="4" height="10" rx="2" fill="#1C1B1A"/>
+    </svg>
+    <svg class="dl" id="dl" viewBox="0 0 872 14" aria-hidden="true"></svg>
+    <div class="nav">
+      <div class="back"><svg width="22" height="36" viewBox="0 0 22 36" aria-hidden="true"><path d="M17 4 L5 18 L17 32" fill="none" stroke="#2B5BD7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg><span id="kick"></span></div>
+      <div class="page">Penyimpanan</div>
+    </div>
+    <div class="sheet" id="sheet">
+    <svg class="lane" id="lane" viewBox="0 0 1000 1550" aria-hidden="true" data-layout-allow-overlap></svg>
+    <div class="grab"></div>
+    <div class="wallab">BATAS</div>
+    <div class="alert">
+      <svg width="44" height="40" viewBox="0 0 44 40" aria-hidden="true"><path d="M22 3 L41 36 H3 Z" fill="#B82E68" stroke="#B82E68" stroke-width="4" stroke-linejoin="round"/>
+        <path d="M22 14 V25" stroke="#FFFDF9" stroke-width="5" stroke-linecap="round"/><circle cx="22" cy="31" r="3" fill="#FFFDF9"/></svg>
+      <span class="tx" id="alertx"></span><span class="pc" id="level"></span>
+    </div>
+    <div class="title" id="title"></div>
+    <div class="bar" id="bar" data-layout-allow-overflow></div>
+    <div class="rows" id="rows"></div>
+    <div class="src" id="src"></div>
+    <div class="acts"><div class="no">Nanti</div><div class="go" id="act"></div></div>
+    <div class="home"></div>
+    </div>
+    <div class="toast" id="toast" data-layout-allow-overlap>
+      <svg class="ring" viewBox="0 0 60 60" aria-hidden="true">
+        <circle cx="30" cy="30" r="23" fill="none" stroke="#3A3734" stroke-width="7"/>
+        <circle cx="30" cy="30" r="23" fill="none" stroke="#F4BBD0" stroke-width="7" stroke-linecap="round" stroke-dasharray="108 145" transform="rotate(-90 30 30)"/>
+        <path d="M30 20 V38 M23 31 L30 38 L37 31" fill="none" stroke="#FFFDF9" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="cap" id="cap" data-slot="caption"></div>
+    </div>
+  </div>
+</div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series_id: "how-ai-works", series: "Cara kerja AI", ep: "#12", kicker: "Cara kerja AI · #12",
+    title: "Chat makin panjang, memori GPU makin penuh", hl: "memori",
+    sub: "Tiap token yang diingat AI makan ruang di GPU, sampai nggak muat.",
+    items: [{ label: "Bobot model 8B", value: "16 GB" }, { label: "Lain-lain", value: "2 GB" }, { label: "Memori chat", value: "16 GB" }],
+    source: "ilustrasi — model 8B 16-bit, chat 128 rb token ≈ 16 GB", date: "per 14 Okt 2026" };
+
+  const fontsIn = Promise.all(['800 100px "Bricolage Grotesque"', '700 40px "Geist Mono"', '600 40px "Geist Mono"', '800 40px "Geist Mono"', '500 26px "Geist Mono"',
+    '600 40px "Bricolage Grotesque"', '700 40px "Bricolage Grotesque"'].map(f => document.fonts.load(f)))
+    .then(() => document.fonts.ready).catch(() => {});
+  fontsIn.then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(items.length, 1);
+  const SHEET = 206, COL = 64, WALL = 836, CW = WALL - 24 - COL, TT = 330;   // screen coordinates
+
+  // ---- status bar, nav, alert chrome (chrome copy can come from data)
+  $("date").textContent = D.date || "";
+  const series = D.series || (D.kicker ? String(D.kicker).split("·")[0].trim() : "");
+  $("kick").textContent = series + (D.ep ? " · " + D.ep : "");
+  $("alertx").textContent = D.alert || "Ruang tidak cukup";
+  $("level").textContent = D.level || "100%";
+  $("act").textContent = D.action || "Kelola";
+  // stalled download under the status bar (the loop's "download" cue)
+  $("dl").innerHTML = '<rect x="0" y="4" width="872" height="6" rx="3" fill="#DDD5C9"/><rect x="0" y="4" width="712" height="6" rx="3" fill="#2B5BD7"/>' +
+    '<circle cx="718" cy="7" r="7" fill="#B82E68"/>';
+
+  // ---- items: parse values, choose the hero (the item that does not fit)
+  const parse = v => {
+    const m = String(v == null ? "" : v).trim().match(/^[±~≈<>]?\s*(\d[\d.,]*)\s*(.*)$/);
+    if (!m) return null;
+    let s = m[1];
+    if (/,/.test(s)) s = s.replace(/\./g, "").replace(",", ".");          // 1.234,5 -> 1234.5
+    else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, "");      // 1.760 -> 1760
+    const x = parseFloat(s);
+    return isFinite(x) && x > 0 ? { x, u: m[2].trim().toLowerCase() } : null;
+  };
+  const P = items.map(it => parse(it.value));
+  const comparable = items.length > 1 && P.every(p => p) && P.every(p => p.u === P[0].u);
+  const BITS = /\b\d+\s*-?\s*bit\b|\b(fp|bf|int)\s*\d+\b|\bq\d\b/i;
+  const alternatives = comparable && (D.mode === "alternatives" || items.filter(it => BITS.test(String(it.label))).length >= 2);
+
+  // fuzzy hl -> item match: exact word, prefix (>= 3 letters) or same consonant skeleton ("detik" ~ "dtk")
+  const normW = w => w.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+  const cons = w => w.replace(/[aiueo]/g, "");
+  const wm = (h, w) => h === w || (h.length >= 3 && w.length >= 3 && (w.startsWith(h) || h.startsWith(w))) || (/\p{L}/u.test(h) && cons(h).length >= 2 && cons(h) === cons(w));
+  const hl = D.hl || "";
+  const hlW = hl.split(/\s+/).map(normW).filter(Boolean);
+  const matches = it => {
+    if (!hlW.length) return false;
+    const ws = (String(it.label) + " " + String(it.value)).split(/[\s·\-\/]+/).map(normW).filter(Boolean);
+    return hlW.every(h => ws.some(w => wm(h, w)));
+  };
+  const M = items.map(matches);
+  let hero = items.length - 1;
+  if (comparable) {                       // the biggest value; ties go to the hl item, then the later one
+    let best = -1;
+    P.forEach((p, i) => { if (p.x > best || (p.x === best && (M[i] || !M[hero]))) { best = p.x; hero = i; } });
+  } else {
+    const k = M.lastIndexOf(true); if (k >= 0) hero = k;
+  }
+  const hlIsHero = !!M[hero];
+
+  // ---- title (largest text): hl in the hero's blue when it names the hero, else in the warning berry
+  const t = D.title || "";
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  titleEl.style.setProperty("--hc", hlIsHero ? "#2B5BD7" : "#B82E68");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+
+  // ---- caption (karaoke). Active word = hl if it is in the caption, else the first word.
+  const capText = String(D.caption || D.sub || "");
+  const words = capText.split(/\s+/).filter(Boolean);
+  let a0 = 0, a1 = 0;
+  if (hlW.length) {
+    for (let i = 0; i + hlW.length <= words.length; i++) {
+      const ok = hlW.every((h, k) => { const w = normW(words[i + k]); return w === h || (k === hlW.length - 1 && w.startsWith(h) && h.length >= 3); });
+      if (ok) { a0 = i; a1 = i + hlW.length - 1; break; }
+    }
+  }
+  // the toast shows a window of the voice-over; it always contains the active word
+  const capHTML = (s, e) => {
+    let h = s > 0 ? '<span class="w">…</span> ' : "";
+    for (let i = s; i <= e; i++) {
+      if (i === a0) { h += '<span class="w on">' + esc(words.slice(a0, a1 + 1).join(" ")) + "</span>" + (a1 >= e && e < words.length - 1 ? "…" : "") + " "; i = a1; continue; }
+      h += '<span class="w' + (i < a0 ? " done" : "") + '">' + esc(words[i]) + (i === e && e < words.length - 1 ? "…" : "") + "</span> ";
+    }
+    return h.trim();
+  };
+  const capEl = $("cap"), toast = $("toast");
+  const twoLines = fs => capEl.offsetHeight <= fs * 1.28 * 2 + 4;
+  capEl.innerHTML = capHTML(0, words.length - 1);
+  let capFs = 46;
+  for (; capFs >= 40; capFs -= 2) { capEl.style.fontSize = capFs + "px"; if (twoLines(capFs)) break; }
+  if (capFs < 40) {
+    capFs = 42; capEl.style.fontSize = capFs + "px";
+    let s = 0, e = words.length - 1;
+    while (e > a1 && (capEl.innerHTML = capHTML(s, e), !twoLines(capFs))) e--;
+    while (s < a0 && (capEl.innerHTML = capHTML(s, e), !twoLines(capFs))) s++;
+    capEl.innerHTML = capHTML(s, e);
+  }
+  const toastTop = 1438 - toast.offsetHeight;          // toast bottom = frame y 1608
+  toast.style.top = toastTop + "px";
+
+  // ---- widths
+  // stack: parts of one whole (same unit -> proportional; mixed units -> equal, labelled illustrative)
+  // alternatives: one bar filled to each option's size, hero = the full fill
+  let share;
+  if (alternatives) share = null;
+  else if (comparable) { const sum = P.reduce((a, p) => a + p.x, 0); share = P.map(p => p.x / sum); }
+  else share = items.map(() => 1 / n);
+  const FILLS = [
+    { bg: "#1C1B1A", fg: "#FFFDF9" },
+    { bg: "#B82E68", fg: "#FFFDF9" },
+    { bg: "#F4BBD0", fg: "#1C1B1A" },
+    { bg: "#D6CCBE", fg: "#1C1B1A" },
+  ];
+  let fk = 0;
+  const fill = items.map((_, i) => i === hero ? { bg: "#2B5BD7", fg: "#FFFDF9" }
+    : alternatives ? { bg: "#FFFDF9", fg: "#2B5BD7", ring: true } : FILLS[fk++ % FILLS.length]);
+  const ix = i => String(i + 1).padStart(2, "0");
+
+  // ---- legend rows (data order)
+  const rowsEl = $("rows");
+  rowsEl.innerHTML = items.map((it, i) =>
+    '<div class="row' + (i === hero ? " hero" : "") + '"><span class="sw" style="background:' + fill[i].bg + ";color:" + fill[i].fg +
+    (fill[i].ring ? ";box-shadow:inset 0 0 0 4px #2B5BD7" : "") + '">' +
+    (fill[i].chip ? '<span style="background:#FFFDF9;border-radius:6px;padding:0 4px">' + ix(i) + "</span>" : ix(i)) +
+    '</span><span class="lb">' + esc(it.label) + '</span><span class="vl">' + esc(it.value) + "</span></div>").join("");
+  rowsEl.querySelectorAll(".row").forEach(r => {          // long labels: shrink before ellipsis
+    const lb = r.querySelector(".lb"), vl = r.querySelector(".vl");
+    for (let fs = 40; fs >= 32 && vl.offsetWidth > r.clientWidth * 0.5; fs -= 2) vl.style.fontSize = fs + "px";
+    for (let fs = 40; fs >= 32 && lb.scrollWidth > lb.clientWidth + 1; fs -= 2) lb.style.fontSize = fs + "px";
+  });
+
+  // ---- source (may wrap); bar widths that are not data are labelled
+  const srcEl = $("src");
+  const srcTxt = (D.source ? "Sumber: " + D.source : "") + (!comparable && items.length > 1 ? (D.source ? " · " : "") + "lebar bar ilustrasi" : "");
+  srcEl.textContent = srcTxt;
+  const srcH = srcTxt ? srcEl.offsetHeight : 0;
+
+  // ---- vertical budget (screen coordinates): title + bar + rows + source end above the toast
+  const G = {
+    g1: k => lerp(30, 46, k), bar: k => Math.max(116, lerp(124, 184, k)), g2: k => Math.max(18, lerp(22, 40, k)),
+    row: k => Math.max(54, lerp(58, 84, k)), g3: k => Math.max(12, lerp(16, 28, k)),
+  };
+  const need = k => G.g1(k) + G.bar(k) + G.g2(k) + n * G.row(k) + G.g3(k) + srcH + 44;
+  const fitTitle = fs => { titleEl.style.fontSize = fs + "px"; return titleEl.offsetHeight; };
+  const fitsW = () => titleEl.scrollWidth <= CW + 2;
+  let chosen = null;
+  for (const want of [0.5, 0]) {
+    for (let fs = 110; fs >= 84; fs -= 2) {
+      const th = fitTitle(fs);
+      if (!fitsW() || th > fs * 4.05 || TT + th > 724) continue;      // <= 4 lines, ends above frame y ~895
+      const k = Math.min(1, (toastTop - TT - th - need(0)) / Math.max(1, need(1) - need(0)));
+      if (k >= want) { chosen = { fs, th, k }; break; }
+    }
+    if (chosen) break;
+  }
+  if (!chosen) {   // last resort: smaller title, squeeze the gaps below their comfortable minimum
+    let fs = 82; while (fs > 66 && (!(fitTitle(fs), fitsW()) || TT + titleEl.offsetHeight > 724)) fs -= 2;
+    const th = fitTitle(fs); let k = 0; while (k > -1 && need(k) > toastTop - TT - th) k -= 0.05;
+    chosen = { fs, th, k };
+  }
+  fitTitle(chosen.fs);
+  const k = chosen.k;
+  let y = TT + chosen.th + Math.round(G.g1(k));
+
+  // ---- the storage bar: track = capacity, the wall = BATAS, the hero overruns it into the lane
+  const BH = Math.round(G.bar(k)), INS = 10, GAP = 6, TW = WALL - COL, OV = 100, inH = BH - 2 * INS;
+  const bar = $("bar");
+  bar.style.top = (y - SHEET) + "px"; bar.style.height = BH + "px";
+  let html = '<div class="track" style="width:' + TW + "px;height:" + BH + "px;border-radius:" + Math.round(BH * 0.22) + 'px"></div>';
+  const heroIn = (x0) => '<div class="seg hero" style="left:' + x0 + "px;top:" + INS + "px;width:" + (TW - INS - x0) + "px;height:" + inH + 'px">' +
+    '<div class="in"><span class="lb">' + esc(items[hero].label) + '</span><span class="vl">' + esc(items[hero].value) + "</span></div></div>";
+  const nub = '<div class="over" style="left:' + (TW - INS) + "px;top:" + INS + "px;width:" + (OV + INS) + "px;height:" + inH + 'px"></div>';
+  let heroX = INS;
+  if (alternatives) {
+    // one fill per option, all from the same left edge; the biggest is the full (overflowing) one
+    const full = TW + OV - INS;
+    html += '<div class="seg" style="left:' + INS + "px;top:" + INS + "px;width:" + (TW - 2 * INS) + "px;height:" + inH + 'px;background:#2B5BD7;border-radius:12px 0 0 12px"></div>' + nub;
+    const others = items.map((_, i) => i).filter(i => i !== hero).sort((a, b) => P[b].x - P[a].x);
+    let lastEnd = INS;
+    others.forEach(i => {
+      const end = Math.round(INS + full * P[i].x / P[hero].x);
+      html += '<div class="ghost" style="left:' + INS + "px;top:" + INS + "px;width:" + Math.max(0, Math.min(end, TW - INS) - INS) + "px;height:" + inH + 'px"></div>';
+      html += '<div class="notch" style="left:' + (end - 3) + "px;top:" + INS + "px;height:" + inH + 'px"></div>';
+      html += '<div class="gchip" data-end="' + end + '" style="top:' + (INS + 12) + 'px">' + ix(i) + "</div>";
+      lastEnd = Math.max(lastEnd, Math.min(end, TW - INS));
+    });
+    heroX = lastEnd;    // the hero's label sits in the part only the full fill covers
+    html += heroIn(heroX);
+  } else {
+    const order = items.map((_, i) => i).filter(i => i !== hero).concat(items.length ? [hero] : []);
+    const usable = (TW + OV - INS) - GAP * (order.length - 1);
+    let w = order.map(i => share[i] * usable);
+    const MINW = 64, MINH = OV + 170;                                   // keep small segments readable, keep a visible hero
+    for (let pass = 0; pass < 3; pass++) {
+      const def = w.reduce((a, v, j) => a + (j < w.length - 1 ? Math.max(0, MINW - v) : Math.max(0, MINH - v)), 0);
+      if (def < 0.5) break;
+      const big = w.reduce((a, v, j) => v > w[a] ? j : a, 0);
+      w = w.map((v, j) => j === w.length - 1 ? Math.max(v, MINH) : (v < MINW ? MINW : (j === big ? v - def : v)));
+    }
+    let x = INS;
+    order.forEach((i, j) => {
+      if (j === order.length - 1) { heroX = x; html += heroIn(x) + nub; return; }
+      const wi = Math.round(w[j]), f = fill[i];
+      html += '<div class="seg" style="left:' + x + "px;top:" + INS + "px;width:" + wi + "px;height:" + inH + "px;background:" + f.bg + ";color:" + f.fg + '">' +
+        (wi >= 60 ? '<span class="ix"' + (f.chip ? ' style="background:#FFFDF9;border-radius:6px;padding:0 4px"' : "") + ">" + ix(i) + "</span>" : "") + "</div>";
+      x += wi + GAP;
+    });
+  }
+  html += '<div class="wall" style="left:' + (TW - 5) + "px;top:-24px;height:" + (BH + 48) + 'px"></div>';
+  bar.innerHTML = html;
+  // ghost chips sit just left of their notch
+  bar.querySelectorAll(".gchip").forEach(c => { c.style.left = Math.max(INS + 6, +c.dataset.end - 10 - c.offsetWidth) + "px"; });
+  // hero label/value inside the blue: shrink, else value only, else the index
+  {
+    const seg = bar.querySelector(".seg.hero"), inEl = seg.querySelector(".in"), vl = seg.querySelector(".vl"), lb = seg.querySelector(".lb");
+    if (alternatives) { seg.style.left = heroX + "px"; seg.style.width = (TW - INS - heroX) + "px"; seg.style.background = "transparent"; seg.style.paddingLeft = "18px"; }
+    const room = seg.clientWidth - 34;
+    vl.style.fontSize = Math.round(Math.max(40, lerp(40, 52, k))) + "px";
+    for (let fs = parseInt(vl.style.fontSize); fs >= 34 && vl.offsetWidth > room; fs -= 2) vl.style.fontSize = fs + "px";
+    if (lb.offsetWidth > room) lb.remove();
+    if (vl.offsetWidth > room) inEl.innerHTML = '<span class="vl" style="font-size:30px">' + ix(hero) + "</span>";
+  }
+  y += BH + Math.round(G.g2(k));
+
+  // ---- legend rows
+  const RH = Math.round(G.row(k));
+  rowsEl.style.top = (y - SHEET) + "px"; rowsEl.style.height = n * RH + "px";
+  rowsEl.querySelectorAll(".row").forEach((r, i) => { r.style.top = i * RH + "px"; r.style.height = RH + "px"; });
+  y += n * RH + Math.round(G.g3(k));
+  srcEl.style.top = (y - SHEET) + "px";
+
+  // ---- the lane right of the wall: pale hatch = beyond capacity; dashed wall line down the sheet
+  const L0 = 40;      // sheet coordinates
+  $("lane").innerHTML = '<defs><pattern id="lh" width="18" height="18" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">' +
+    '<rect width="4" height="18" fill="#F5D9E3"/></pattern></defs>' +
+    '<rect x="' + (WALL + 5) + '" y="' + L0 + '" width="' + (1000 - WALL - 5) + '" height="' + (1550 - L0) + '" fill="url(#lh)"/>' +
+    '<path d="M' + WALL + " " + (L0 + 2) + " V1550" + '" stroke="#1C1B1A" stroke-width="5" stroke-dasharray="16 12" stroke-linecap="round"/>';
+  }
+</script>
+</body>
+</html>

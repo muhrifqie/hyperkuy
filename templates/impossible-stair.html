@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500..800&family=Fragment+Mono&family=Saira+Stencil+One&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Impossible Stair (impossible-stair): a Penrose staircase model painted like
+    Bofill's La Muralla Roja (flat stucco planes: pink treads, red walls, an
+    indigo courtyard well, no outlines), standing on a tall slate museum
+    pedestal against a pale sky. Four flights climb and close into a square:
+    every step is a real, locally correct step, yet the loop cannot exist
+    (hallucination: each sentence plausible, the whole impossible).
+
+    Geometry is honest: a REAL open spiral of columns whose end sits exactly
+    (d, d, d) from its start. In isometric projection that offset vanishes, so
+    the loop closes on screen. Faces are painter-sorted.
+
+    The type is part of the stair: the title lines are indented one tread each
+    and hang off a red riser+tread stroke; the stroke drops past the first tag
+    and runs on as a stringer into the summit landing, where the climber
+    planted his red "AI" pennant. He has walked the whole ring (red dashed
+    trail) and is one riser below his own flag again. Items = museum tags,
+    numbered 01.. in climbing order, each pointing at a stencilled numeral
+    painted on its tread. Caption + source = the plinth label card.
+    Fully deterministic (no randomness, no time).
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root { --sky: #D5E0E8; --ink: #2C2A33; --red: #C2412D; --plaster: #FAF7F2; --indigo: #2E3560; --slate-ink: #3F4F78; --muted: #645C62; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--sky); }
+  body { position: relative; color: var(--ink); font-family: "Bricolage Grotesque", sans-serif; }
+  #back, #stage, #ink { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  #ink { pointer-events: none; }
+
+  .tl, #meas { position: absolute; white-space: nowrap; font-weight: 800; font-variation-settings: "opsz" 96; letter-spacing: -0.025em; line-height: 1; color: var(--ink); }
+  #meas { visibility: hidden; left: 0; top: 0; }
+
+  .tag { position: absolute; display: flex; align-items: flex-start; gap: 12px; background: var(--plaster); border: 2px solid var(--ink); padding: 9px 16px 11px 12px; box-shadow: 5px 5px 0 rgba(30, 36, 70, 0.22); }
+  .tag .no { flex: none; font: 400 40px/1 "Saira Stencil One", sans-serif; color: var(--indigo); margin-top: 3px; letter-spacing: 0.02em; }
+  .tag .tx { display: flex; flex-direction: column; min-width: 0; }
+  .tag .lb { font-weight: 700; font-size: 34px; line-height: 1.06; letter-spacing: -0.01em; color: var(--ink); white-space: nowrap; }
+  .tag .vl { font: 400 30px/1.22 "Fragment Mono", monospace; color: var(--slate-ink); white-space: nowrap; margin-top: 3px; }
+  .tag.stack { flex-direction: column; gap: 0; }
+  .tag.stack .no { margin: 0 0 4px; }
+  .tag.wrap .lb, .tag.wrap .vl { white-space: normal; overflow-wrap: break-word; }
+
+  .card { position: absolute; left: 90px; width: 810px; background: var(--plaster); border: 2px solid var(--ink); padding: 20px 24px 20px; box-shadow: 8px 8px 0 rgba(22, 28, 60, 0.38); }
+  .cap { font-weight: 600; font-size: 46px; line-height: 1.24; letter-spacing: -0.01em; color: var(--muted); }
+  .cap .w.said, .cap .w.on { color: var(--ink); }
+  .cat { margin-top: 16px; padding-top: 12px; border-top: 2px solid var(--ink); font: 400 26px/1.32 "Fragment Mono", monospace; color: #4A4148; }
+  .cat div + div { margin-top: 2px; }
+  .cat .nw { white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg id="back" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div id="title"></div>
+<div id="meas"></div>
+<svg id="stage" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div id="tags"></div>
+<div class="card" id="card">
+  <div class="cap" id="caption" data-slot="caption"></div>
+  <div class="cat" id="cat"></div>
+</div>
+<svg id="ink" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  // Lay out only after the web fonts are in: every fit below measures real glyphs.
+  const FONTS = ['800 100px "Bricolage Grotesque"', '700 34px "Bricolage Grotesque"', '600 46px "Bricolage Grotesque"', '400 26px "Fragment Mono"', '400 40px "Saira Stencil One"'];
+  Promise.all(FONTS.map((f) => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+    const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const C = { INK: "#2C2A33", RED: "#C2412D", PLASTER: "#FAF7F2", TOP: "#E9B7A8", JOINT: "#CB8B7B", WALL_L: "#C65A44", WALL_R: "#A8392A",
+      WELL: "#2E3560", BAND_L: "#4A548A", BAND_R: "#3C4577", PED_TOP: "#95A4C6", PED_L: "#6B7FA8", PED_R: "#53658D" };
+    const items = (D.items || []).slice(0, 5);
+    const n = items.length;
+    const $ = (id) => document.getElementById(id);
+    const f1 = (v) => v.toFixed(1);
+
+    // =====================================================================
+    // 1. Title = a flight of steps: each line one tread (56 px) further right
+    // =====================================================================
+    const t = String(D.title || ""), hl = String(D.hl || "");
+    const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    const hlA = at, hlB = at < 0 ? -1 : at + hl.length;
+    const words = [];
+    t.replace(/\S+/g, (w, i) => { words.push({ w, i }); return w; });
+    const lineHtml = (ws) => {
+      const s = ws[0].i, e = ws[ws.length - 1].i + ws[ws.length - 1].w.length, seg = t.slice(s, e);
+      const a = Math.max(0, Math.min(seg.length, hlA - s)), b = Math.max(0, Math.min(seg.length, hlB - s));
+      if (hlA < 0 || a >= b) return esc(seg);
+      return esc(seg.slice(0, a)) + '<span class="hl">' + esc(seg.slice(a, b)) + "</span>" + esc(seg.slice(b));
+    };
+    const X0 = 90, TREAD = 56, Y0 = 290;
+    const lineX = (j) => X0 + TREAD * j;
+    const meas = $("meas");
+    const widthOf = (ws, fs) => { meas.style.fontSize = fs + "px"; meas.innerHTML = lineHtml(ws); return meas.getBoundingClientRect().width; };
+    const breakLines = (fs, maxLines) => {
+      const out = []; let cur = [];
+      for (const w of words) {
+        const test = cur.concat(w);
+        if (!cur.length || widthOf(test, fs) <= 990 - lineX(out.length)) cur = test; else { out.push(cur); cur = [w]; }
+      }
+      if (cur.length) out.push(cur);
+      return out.length <= maxLines && out.every((l, j) => widthOf(l, fs) <= 990 - lineX(j)) ? out : null;
+    };
+    let fs = 0, lines = null;
+    for (let f = 112; f >= 80 && !lines; f -= 2) { lines = breakLines(f, 2); fs = f; }          // two treads, as big as possible
+    if (!lines) for (let f = 92; f >= 64 && !lines; f -= 2) { lines = breakLines(f, 3); fs = f; } // three treads, capped at 92 px
+    if (!lines) { fs = 64; lines = breakLines(64, 9) || [words]; }
+    meas.innerHTML = "";
+    const L = lines.length, pitch = fs + 14;
+    const titleEl = $("title");
+    titleEl.innerHTML = lines.map((l, j) => `<div class="tl" style="left:${lineX(j)}px;top:${Y0 + pitch * j}px;font-size:${fs}px">${lineHtml(l)}</div>`).join("");
+    const lineRight = [...titleEl.children].map((el) => el.getBoundingClientRect().right);
+    const treadY = (j) => Y0 + pitch * j + fs * 1.06;   // tread under line j
+    const riserX = (j) => lineX(j) - 20;                // riser beside line j
+    const capTop0 = Y0 + fs * 0.16;
+
+    // the highlighted words stand on a painted stucco step (pink tread face, red riser band)
+    let back = "";
+    titleEl.querySelectorAll(".hl").forEach((sp) => {
+      for (const rc of sp.getClientRects()) {
+        const x0 = rc.left - 8, x1 = rc.right + 8, y0 = rc.top + fs * 0.17, y1 = rc.top + fs * 0.93;
+        back += `<rect x="${f1(x0)}" y="${f1(y0)}" width="${f1(x1 - x0)}" height="${f1(y1 - y0)}" fill="${C.TOP}"/>`;
+        back += `<rect x="${f1(x0)}" y="${f1(y1 - 9)}" width="${f1(x1 - x0)}" height="9" fill="${C.WALL_R}"/>`;
+      }
+    });
+    $("back").innerHTML = back;
+
+    // =====================================================================
+    // 2. Plinth label card: karaoke caption + catalogue line (bottom-anchored)
+    // =====================================================================
+    const capEl = $("caption");
+    const cap = String(D.caption || D.sub || "").trim();
+    const cw = cap.split(/\s+/).filter(Boolean);
+    const norm = (s) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+    let a0 = 0, a1 = 0; // active word range: D.hl if it is in the caption, else the first word
+    if (hl) {
+      const hw = hl.split(/\s+/).map(norm).filter(Boolean);
+      for (let i = 0; hw.length && i + hw.length <= cw.length; i++) {
+        if (hw.every((w, j) => norm(cw[i + j]) === w)) { a0 = i; a1 = i + hw.length - 1; break; }
+      }
+    }
+    capEl.innerHTML = cw.map((w, i) => {
+      if (i === a0) return `<span class="w on" id="on">${esc(cw.slice(a0, a1 + 1).join(" "))}</span>`;
+      if (i > a0 && i <= a1) return "";
+      return `<span class="w${i < a0 ? " said" : ""}">${esc(w)}</span>`;
+    }).filter(Boolean).join(" ");
+    for (let f = 48; f >= 40; f -= 2) { capEl.style.fontSize = f + "px"; if (capEl.offsetHeight <= f * 1.24 * 2 + 6) break; }
+    const ser = [D.series, D.ep].filter(Boolean).map(String).join(" ") || String(D.kicker || "");
+    // museum catalogue line: exhibit, then source + date (wraps only between its parts)
+    const part = (x) => `<span class="nw">${esc(x)}</span>`;
+    const exhibit = [ser, "Tangga Penrose, model 1:50"].filter(Boolean).map(part).join(" · ");
+    const srcLine = [D.source ? esc("Sumber: " + D.source) : "", D.date ? part(D.date) : ""].filter(Boolean).join(" · ");
+    $("cat").innerHTML = `<div>${exhibit}</div>` + (srcLine ? `<div>${srcLine}</div>` : "");
+    const card = $("card");
+    const cardTop = 1620 - card.offsetHeight;
+    card.style.top = cardTop + "px";
+
+    // =====================================================================
+    // 3. The stair: a REAL open spiral that closes in isometric
+    // =====================================================================
+    const NA = 5, NB = 3, TB = 2, W = 3.4, H = 1;           // long / short flight steps, short tread, flight width, riser
+    const NTOT = 2 * NA + 2 * NB;                              // risers in one loop (landings are flat)
+    const TA = (NTOT * H + NB * TB) / NA;                      // long tread: the loop drifts exactly (d, d, d)
+    const ZB = -3.2;                                           // plinth top = column bottoms
+    const DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+    const COUNTS = [NA, NA, NB, NB], TREADS = [TA, TA, TB, TB];
+    const boxes = [];
+    let cur = { x0: 0, x1: W, y0: 0, y1: W, z: 0, corner: true, fl: -1, i: 0, seam: true };
+    boxes.push(cur);
+    let zz = 0;
+    for (let f = 0; f < 4; f++) {
+      const [dx, dy] = DIRS[f];
+      for (let i = 0; i <= COUNTS[f]; i++) {
+        const corner = i === COUNTS[f];
+        const len = corner ? W : TREADS[f];
+        if (!corner) zz += H;
+        let b;
+        if (dx === 1) b = { x0: cur.x1, x1: cur.x1 + len, y0: cur.y0, y1: cur.y1 };
+        if (dx === -1) b = { x0: cur.x0 - len, x1: cur.x0, y0: cur.y0, y1: cur.y1 };
+        if (dy === 1) b = { x0: cur.x0, x1: cur.x1, y0: cur.y1, y1: cur.y1 + len };
+        if (dy === -1) b = { x0: cur.x0, x1: cur.x1, y0: cur.y0 - len, y1: cur.y0 };
+        Object.assign(b, { z: zz, corner, fl: f, i });
+        if (f === 3 && corner) b.ghost = true;                 // = the start landing, one whole loop higher
+        boxes.push(b); cur = b;
+      }
+    }
+    const real = boxes.filter((b) => !b.ghost);
+    // mirrored isometric: the climb runs counter-clockwise on screen, so it leaves the summit toward the top-left
+    const AX = Math.cos(Math.PI / 6), AY = 0.5;
+    const iso = (x, y, z) => [(y - x) * AX, (x + y) * AY - z];
+    const d = NTOT * H;
+    const M = 0.7, PT = 1.6;
+    const PL = { x0: d - M, x1: 2 * W + NA * TA + M, y0: -M, y1: 2 * W + NA * TA + M };
+    const pts = [];
+    real.forEach((b) => [[b.x0, b.y0], [b.x1, b.y0], [b.x0, b.y1], [b.x1, b.y1]].forEach(([x, y]) => pts.push(iso(x, y, b.z))));
+    [[PL.x0, PL.y0], [PL.x1, PL.y0], [PL.x0, PL.y1], [PL.x1, PL.y1]].forEach(([x, y]) => { pts.push(iso(x, y, ZB)); pts.push(iso(x, y, ZB - PT)); });
+    const ext = pts.reduce((e, [u, v]) => ({ x0: Math.min(e.x0, u), x1: Math.max(e.x1, u), y0: Math.min(e.y0, v), y1: Math.max(e.y1, v) }), { x0: 1e9, x1: -1e9, y0: 1e9, y1: -1e9 });
+    const extW = ext.x1 - ext.x0;
+    const stairBot = Math.max(...real.map((b) => (b.x1 + b.y1) * AY - ZB));    // lowest stair point (front column foot)
+    const S0 = 900 / extW;                                     // plinth stays inside x 90-990
+
+    // =====================================================================
+    // 4. Item tags, numbered 01.. in climbing order from the flag
+    // =====================================================================
+    // [flight, step] in climbing order: flight 0 leaves the summit to the top-left, 1 = lower left, 2 = lower right.
+    // Flight 3 (upper right) is the climber's own last flight: it stays clear around him and his flag.
+    const PLAN = { 1: [[0, 1]], 2: [[0, 1], [1, 2]], 3: [[0, 1], [1, 2], [2, 1]], 4: [[0, 1], [1, 1], [1, 3], [2, 1]], 5: [[0, 1], [1, 0], [1, 2], [1, 4], [2, 1]] }[n] || [];
+    const tagsEl = $("tags");
+    const tags = PLAN.map(([fl, si], idx) => {
+      const el = document.createElement("div");
+      el.className = "tag";
+      const it = items[idx] || {};
+      const no = String(idx + 1).padStart(2, "0");
+      el.innerHTML = `<div class="no">${no}</div><div class="tx"><div class="lb">${esc(it.label)}</div><div class="vl">${esc(it.value)}</div></div>`;
+      tagsEl.appendChild(el);
+      return { el, fl, si, no };
+    });
+    const sizeTag = (g, maxW, narrow) => { // natural width; else (narrow tags) numeral on top; else wrap the text to maxW
+      g.el.classList.remove("wrap", "stack"); g.el.style.width = "";
+      if (narrow && g.el.offsetWidth > maxW) g.el.classList.add("stack");
+      if (g.el.offsetWidth > maxW) { g.el.classList.add("wrap"); g.el.style.width = maxW + "px"; }
+      g.w = g.el.offsetWidth; g.h = g.el.offsetHeight;
+    };
+    const tl = tags.find((g) => g.fl === 0);
+    const lower = tags.filter((g) => g !== tl);
+    const lowW = lower.length >= 3 ? Math.floor((810 - 14 * (lower.length - 1)) / lower.length) : 360;
+    lower.forEach((g) => sizeTag(g, lowW, true));
+
+    // =====================================================================
+    // 5. Fit: summit landing sits at the foot of the title stair's last riser
+    // =====================================================================
+    const lastTread = treadY(L - 1);
+    const pocketX = lineX(L);                                  // the first tag is the stair's next step, one tread in
+    let S = S0, OX = 0, OY = 0, yF = 0;
+    const P2 = (x, y, z) => { const [u, v] = iso(x, y, z); return [OX + u * S, OY + v * S]; };
+    const topFaces = () => real.map((b) => [P2(b.x0, b.y0, b.z), P2(b.x1, b.y0, b.z), P2(b.x1, b.y1, b.z), P2(b.x0, b.y1, b.z)]);
+    const scan = (faces, xa, xb, pick, init) => { // extreme tread-edge y over [xa, xb]
+      let best = init;
+      for (let X = xa; X <= xb; X += 4) faces.forEach((f) => f.forEach((a, i) => { const b = f[(i + 1) % f.length];
+        if ((a[0] - X) * (b[0] - X) <= 0 && a[0] !== b[0]) best = pick(best, a[1] + (b[1] - a[1]) * (X - a[0]) / (b[0] - a[0])); }));
+      return best;
+    };
+    const topAt = (faces, xa, xb) => scan(faces, xa, xb, Math.min, 1e9);
+    const botAt = (faces, xa, xb) => scan(faces, xa, xb, Math.max, -1e9);
+    const figK = () => Math.max(0.86, 5.2 * S / 100);          // climber scale: ~90 px tall
+    const poleH = () => Math.max(104, 68 + 99.5 * figK() - 2.2 * S); // pennant clears his head by ~12 px
+    for (let iter = 0; iter < 12; iter++) {
+      OX = 540 - ((ext.x0 + ext.x1) / 2) * S;
+      if (tl) sizeTag(tl, Math.max(220, OX - 18 - pocketX), false);
+      yF = Math.max(lastTread + 20 + (tl ? tl.h : 0) + 20, lastTread + 16 + poleH() - 0.14 * S);
+      // the summit landing's left corner (x=W, y=0, z=0) sits on the stringer at yF; the stair's foot meets the card top
+      const Snew = Math.min(S0, (cardTop + 30 - yF) / (stairBot - W * AY));
+      const moved = Math.abs(Snew - S) > 0.01;
+      S = Snew;
+      OX = 540 - ((ext.x0 + ext.x1) / 2) * S;
+      OY = yF - W * AY * S;
+      if (!moved) break;
+    }
+    const apex = P2(0, 0, 0);
+    const Pt = P2;
+    const ps = (arr) => arr.map((p) => f1(p[0]) + "," + f1(p[1])).join(" ");
+    const faceP = (arr, fill) => `<polygon points="${ps(arr)}" fill="${fill}" stroke="${fill}" stroke-width="1.2" stroke-linejoin="round"/>`;
+
+    let svg = "";
+    // ---------- the slate pedestal, running off the bottom of the frame ----------
+    const down = (p) => [p[0], 1920];                           // vertical edges, cut at the frame's bottom edge
+    const pL = Pt(PL.x1, PL.y0, ZB), pF = Pt(PL.x1, PL.y1, ZB), pR = Pt(PL.x0, PL.y1, ZB);
+    svg += faceP([pL, pF, down(pF), down(pL)], C.PED_L);
+    svg += faceP([pR, pF, down(pF), down(pR)], C.PED_R);
+    svg += faceP([Pt(PL.x0, PL.y0, ZB), Pt(PL.x1, PL.y0, ZB), Pt(PL.x1, PL.y1, ZB), Pt(PL.x0, PL.y1, ZB)], C.PED_TOP);
+
+    // ---------- the stair: flat stucco planes, painter-sorted ----------
+    const before = (p, q) => p.x1 <= q.x0 + 1e-9 || p.y1 <= q.y0 + 1e-9;
+    const pool = real.slice(), order = [];
+    while (pool.length) { let k = pool.findIndex((p) => !pool.some((q) => q !== p && before(q, p))); if (k < 0) k = 0; order.push(pool.splice(k, 1)[0]); }
+    const eq = (a, b) => Math.abs(a - b) < 1e-6;
+    const coverX = (b) => real.find((o) => eq(o.x0, b.x1) && o.y0 <= b.y0 + 1e-6 && o.y1 >= b.y1 - 1e-6);
+    const coverY = (b) => real.find((o) => eq(o.y0, b.y1) && o.x0 <= b.x0 + 1e-6 && o.x1 >= b.x1 - 1e-6);
+    const centreOf = (b) => [(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2];
+
+    // the climber's trail: one walk from the flag, round the ring, to the step he stands on
+    const figBox = real.find((b) => b.fl === 3 && !b.corner && b.i === NB - 1);
+    const tagged = new Set(tags.map((g) => real.find((b) => !b.corner && b.fl === g.fl && b.i === g.si)));
+    const trail = new Map();
+    {
+      const DASH = 0.72, PER = 1.3;
+      let s = 0;
+      for (const b of real) {
+        const [cx, cy] = centreOf(b);
+        let path;
+        if (b.seam) path = [[cx, cy], [b.x1, cy]];
+        else if (b.corner) { const di = DIRS[b.fl], dn = DIRS[b.fl + 1]; path = [[cx - di[0] * W / 2, cy - di[1] * W / 2], [cx, cy], [cx + dn[0] * W / 2, cy + dn[1] * W / 2]]; }
+        else { const dv = DIRS[b.fl], len = dv[0] ? b.x1 - b.x0 : b.y1 - b.y0; path = [[cx - dv[0] * len / 2, cy - dv[1] * len / 2], [cx + dv[0] * len / 2, cy + dv[1] * len / 2]]; if (b === figBox) path[1] = [cx, cy]; }
+        let out = "";
+        for (let k = 0; k + 1 < path.length; k++) {
+          const [ax, ay] = path[k], [bx, by] = path[k + 1], l = Math.hypot(bx - ax, by - ay);
+          for (let m = Math.floor(s / PER); m * PER < s + l; m++) {
+            const d0 = Math.max(m * PER, s) - s, d1 = Math.min(m * PER + DASH, s + l) - s;
+            if (d1 - d0 < 0.12 || m * PER < 0.8) continue;       // leave the flag's foot clear
+            if (tagged.has(b)) continue;                          // the painted numeral takes this tread
+            const p0 = Pt(ax + (bx - ax) * d0 / l, ay + (by - ay) * d0 / l, b.z), p1 = Pt(ax + (bx - ax) * d1 / l, ay + (by - ay) * d1 / l, b.z);
+            out += `<line x1="${f1(p0[0])}" y1="${f1(p0[1])}" x2="${f1(p1[0])}" y2="${f1(p1[1])}" stroke="${C.RED}" stroke-width="5" stroke-linecap="round"/>`;
+          }
+          s += l;
+        }
+        trail.set(b, out);
+        if (b === figBox) break;
+      }
+    }
+    // stencilled numerals painted on the tagged treads (lying flat, in the iso ground plane)
+    const numeralAt = new Map();
+    tags.forEach((g) => {
+      const b = real.find((o) => !o.corner && o.fl === g.fl && o.i === g.si);
+      // long flights hide the front of each tread under the next (higher) step: paint a little toward the back
+      const [cx, cy] = centreOf(b), sh = g.fl <= 1 ? 0.55 : 0, p = Pt(cx - DIRS[g.fl][0] * sh, cy - DIRS[g.fl][1] * sh, b.z);
+      const m = g.fl === 0 || g.fl === 3 ? [AX, -AY, AX, AY] : [AX, AY, -AX, AY];
+      g.p = p; g.box = b;
+      // numeral + a small red tick: this step, on its own, checks out
+      numeralAt.set(b, `<g transform="matrix(${m.map((v) => v.toFixed(4)).join(" ")} ${f1(p[0])} ${f1(p[1])})">
+        <text x="-10" text-anchor="middle" dominant-baseline="central" font-family="Saira Stencil One" font-size="34" fill="${C.WELL}">${g.no}</text>
+        <path d="M 16 0 L 22 7 L 34 -9" fill="none" stroke="${C.RED}" stroke-width="4.5" stroke-linecap="square"/></g>`);
+    });
+
+    order.forEach((b) => {
+      const top = [Pt(b.x0, b.y0, b.z), Pt(b.x1, b.y0, b.z), Pt(b.x1, b.y1, b.z), Pt(b.x0, b.y1, b.z)];
+      const cx = coverX(b), cy = coverY(b);
+      const bx = cx ? Math.max(ZB, cx.z) : ZB, by = cy ? Math.max(ZB, cy.z) : ZB;
+      if (bx < b.z) svg += faceP([Pt(b.x1, b.y0, b.z), Pt(b.x1, b.y1, b.z), Pt(b.x1, b.y1, bx), Pt(b.x1, b.y0, bx)], C.WALL_L);
+      if (by < b.z) svg += faceP([Pt(b.x0, b.y1, b.z), Pt(b.x1, b.y1, b.z), Pt(b.x1, b.y1, by), Pt(b.x0, b.y1, by)], C.WALL_R);
+      svg += faceP(top, C.TOP);
+      // long flights hide their risers: a shadow joint marks where each tread meets the one below
+      if (!b.corner && (b.fl === 0 || b.fl === 1)) {
+        const j = b.fl === 0 ? [Pt(b.x0, b.y0, b.z), Pt(b.x0, b.y1, b.z)] : [Pt(b.x0, b.y0, b.z), Pt(b.x1, b.y0, b.z)];
+        svg += `<line x1="${f1(j[0][0])}" y1="${f1(j[0][1])}" x2="${f1(j[1][0])}" y2="${f1(j[1][1])}" stroke="${C.JOINT}" stroke-width="3.5" stroke-linecap="butt"/>`;
+      }
+      svg += trail.get(b) || "";
+      svg += numeralAt.get(b) || "";
+    });
+
+    // ---------- the courtyard well: flat indigo, the far walls lit by one hard band ----------
+    const well = [];
+    real.forEach((b) => {
+      if (b.corner) {
+        const ic = b.seam ? [b.x1, b.y1] : ({ 0: [b.x0, b.y1], 1: [b.x0, b.y0], 2: [b.x1, b.y0] }[b.fl]);
+        well.push(Pt(ic[0], ic[1], b.z));
+        return;
+      }
+      if (b.fl === 0) well.push(Pt(b.x0, b.y1, b.z), Pt(b.x1, b.y1, b.z));
+      if (b.fl === 1) well.push(Pt(b.x0, b.y0, b.z), Pt(b.x0, b.y1, b.z));
+      if (b.fl === 2) well.push(Pt(b.x1, b.y0, b.z), Pt(b.x0, b.y0, b.z));
+      if (b.fl === 3) well.push(Pt(b.x1, b.y1, b.z), Pt(b.x1, b.y0, b.z));
+    });
+    const BAND = 2.3;
+    svg += `<defs><clipPath id="wellClip"><polygon points="${ps(well)}"/></clipPath></defs><g clip-path="url(#wellClip)">`;
+    svg += `<polygon points="${ps(well)}" fill="${C.WELL}" stroke="${C.WELL}" stroke-width="2"/>`;
+    order.forEach((b) => {
+      svg += faceP([Pt(b.x1, b.y0, b.z), Pt(b.x1, b.y1, b.z), Pt(b.x1, b.y1, b.z - BAND), Pt(b.x1, b.y0, b.z - BAND)], C.BAND_L);
+      svg += faceP([Pt(b.x0, b.y1, b.z), Pt(b.x1, b.y1, b.z), Pt(b.x1, b.y1, b.z - BAND), Pt(b.x0, b.y1, b.z - BAND)], C.BAND_R);
+    });
+    svg += `</g>`;
+
+    // ---------- the red pennant the climber planted on the summit landing ----------
+    const base = Pt(W * 0.5, W * 0.42, 0);
+    const pH = poleH(), pTop = base[1] - pH;
+    svg += `<ellipse cx="${f1(base[0] + 6)}" cy="${f1(base[1] + 2)}" rx="${f1(0.75 * S)}" ry="${f1(0.36 * S)}" fill="rgba(120,40,30,0.28)"/>`;
+    svg += `<line x1="${f1(base[0])}" y1="${f1(base[1])}" x2="${f1(base[0])}" y2="${f1(pTop)}" stroke="${C.INK}" stroke-width="5" stroke-linecap="round"/>`;
+    svg += `<path d="M ${f1(base[0] + 2)} ${f1(pTop + 2)} L ${f1(base[0] + 100)} ${f1(pTop + 29)} L ${f1(base[0] + 2)} ${f1(pTop + 56)} Z" fill="${C.RED}"/>`;
+    svg += `<path d="M ${f1(base[0] + 2)} ${f1(pTop + 50)} L ${f1(base[0] + 22)} ${f1(pTop + 50.5)} L ${f1(base[0] + 2)} ${f1(pTop + 56)} Z" fill="#8E2A1C"/>`;
+    svg += `<text x="${f1(base[0] + 13)}" y="${f1(pTop + 29)}" dominant-baseline="central" font-family="Bricolage Grotesque" font-weight="800" font-size="30" letter-spacing="-0.5" fill="${C.PLASTER}">AI</text>`;
+    svg += `<circle cx="${f1(base[0])}" cy="${f1(pTop - 2)}" r="5.5" fill="${C.INK}"/>`;
+
+    // ---------- the climber (the AI: red sash, same red as his flag), one riser below the flag ----------
+    const [fx, fy] = centreOf(figBox);
+    const fc = Pt(fx, fy, figBox.z);
+    const k = figK();
+    svg += `<ellipse cx="${f1(fc[0])}" cy="${f1(fc[1] + 1)}" rx="${f1(17 * k)}" ry="${f1(6 * k)}" fill="rgba(80,24,18,0.3)"/>`;
+    svg += `<g transform="translate(${f1(fc[0])} ${f1(fc[1])}) scale(${(-k).toFixed(3)} ${k.toFixed(3)})">
+      <g fill="${C.INK}"><circle cx="5" cy="-90" r="9.5"/>
+      <path d="M -5 -79 C 3 -82 13 -79 15 -71 L 21 -48 L 30 -39 L 25 -34 L 14 -43 L 11 -53 L 10 -37 L 21 -15 L 25 0 L 15 0 L 12 -12 L 2 -28 L -6 -12 L -15 0 L -25 0 L -14 -18 L -6 -37 L -8 -57 L -13 -45 L -17 -33 L -24 -35 L -19 -51 L -11 -70 Z"/></g>
+      <path d="M 6 -80.5 L 14.5 -74 L -3 -38.5 L -9.5 -44 Z" fill="${C.RED}"/>
+    </g>`;
+
+    // ---------- the title stair stroke, run on as a stringer into the summit landing ----------
+    const corner = Pt(W, 0, 0);
+    let dz = `M ${f1(riserX(0) - 36)} ${f1(capTop0)} H ${f1(riserX(0))}`;
+    for (let j = 0; j < L; j++) dz += ` V ${f1(treadY(j))} H ${f1(riserX(j + 1))}`;
+    dz += ` V ${f1(yF)} H ${f1(corner[0] + 2)}`;
+    svg += `<path d="${dz}" fill="none" stroke="${C.RED}" stroke-width="6" stroke-linejoin="miter" stroke-linecap="butt"/>`;
+    svg += `<g id="pins"></g>`;
+    $("stage").innerHTML = svg;
+
+    // =====================================================================
+    // 6. Place the tags; leaders run to the painted numerals
+    // =====================================================================
+    const faces = topFaces();
+    const placed = [];
+    const overlap = (a, b, m = 12) => a.x < b.x + b.w + m && b.x < a.x + a.w + m && a.y < b.y + b.h + m && b.y < a.y + a.h + m;
+    if (tl) { tl.r = { x: pocketX, y: yF - 20 - tl.h, w: tl.w, h: tl.h }; placed.push(tl.r); }
+    const numBoxes = tags.map((g) => ({ x: g.p[0] - 34, y: g.p[1] - 26, w: 68, h: 52 }));
+    // the lower tags run left to right along the near walls, each under its numeral, never overlapping
+    const xs = [];
+    let pr = 76;
+    lower.forEach((g) => { const x = Math.max(90, pr + 14, g.p[0] - g.w * 0.5); xs.push(x); pr = x + g.w; });
+    let nx = 914;
+    for (let i = lower.length - 1; i >= 0; i--) { xs[i] = Math.max(90, Math.min(xs[i], nx - 14 - lower[i].w)); nx = xs[i]; }
+    lower.forEach((g, i) => {
+      const r = { x: xs[i], y: g.p[1] + 1.2 * S + 26, w: g.w, h: g.h };
+      r.y = Math.max(r.y, botAt(faces, r.x, r.x + r.w) + 22);  // hang on the wall, below the treads
+      for (let guard = 0; guard < 40 && (placed.some((q) => overlap(r, q)) || numBoxes.some((q) => overlap(r, q, 4))); guard++) r.y += 12;
+      r.y = Math.min(r.y, cardTop - 22 - r.h);
+      g.r = r; placed.push(r);
+    });
+    const pins = [];
+    tags.forEach((g) => {
+      const r = g.r, p = g.p;
+      g.el.style.left = r.x + "px"; g.el.style.top = r.y + "px";
+      // leave from the tag edge facing the numeral, stop at the numeral's rim
+      const ex = Math.max(r.x + 24, Math.min(r.x + r.w - 24, p[0]));
+      const ey = p[1] < r.y ? r.y : r.y + r.h;
+      const len = Math.hypot(p[0] - ex, p[1] - ey), stop = 26;
+      const qx = p[0] - (p[0] - ex) * stop / len, qy = p[1] - (p[1] - ey) * stop / len;
+      pins.push(`<line x1="${f1(ex)}" y1="${f1(ey)}" x2="${f1(qx)}" y2="${f1(qy)}" stroke="${C.INK}" stroke-width="2.5"/>`);
+      pins.push(`<circle cx="${f1(qx)}" cy="${f1(qy)}" r="4.5" fill="${C.INK}"/>`);
+    });
+    $("pins").innerHTML = pins.join("");
+
+    // =====================================================================
+    // 7. Karaoke: the active word stands on a red riser+tread stroke
+    // =====================================================================
+    let ink = "";
+    const on = $("on");
+    if (on) for (const rc of on.getClientRects()) {
+      const yb = rc.bottom + 3, x0 = rc.left - 4, x1 = rc.right + 4;
+      ink += `<path d="M ${f1(x0)} ${f1(yb - 20)} V ${f1(yb)} H ${f1(x1)}" fill="none" stroke="${C.RED}" stroke-width="6" stroke-linejoin="miter"/>`;
+    }
+    $("ink").innerHTML = ink;
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Anatomy Flaps</title>
+<link href="https://fonts.googleapis.com/css2?family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&family=Courier+Prime:wght@700&family=EB+Garamond:ital,wght@0,500;1,500&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Anatomy Flaps: a 16th-century anatomical fugitive sheet. A hand-coloured
+    woodcut torso (neck cut like a classical fragment, sloping shoulders, arms
+    hanging, cut at the wrists) is printed on cool rag paper under a typeset
+    heading. Its front is a stack of hinged paper flaps sewn under a banderole
+    at the collar line: A (skin, rose wash) on top, each deeper flap a little
+    longer and wider, washed in deepening grey-ultramarine, with rib hatching
+    on its stepped flanks. Each item = one flap, keyed Vesalius-style by a small
+    black italic letter with a fine leader line to its label.
+    Lift-the-flap is literal: the value of item i is printed on the layer
+    underneath, exactly where flap i covers it, so the closed sheet shows only
+    letters + labels and lifting a flap reveals its value. This still is frame 0:
+    every flap down, A sprung 17 deg on its hinge with a curled corner.
+    Deterministic: every irregular edge is a hard-coded offset table.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --paper: #F1EDE2; --ink: #1F1D1B; --rose: #C98A72; --ultra: #6A7C98; --ochre: #C4A06A; --ink2: #47423C; --vink: #2E3F63;
+  }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--paper); }
+  body { position: relative; color: var(--ink); font-family: "IM Fell English", Georgia, serif; }
+
+  #sheet { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  .title { position: absolute; left: 90px; width: 900px; top: 300px; text-align: center; text-wrap: balance; font-family: "IM Fell English", Georgia, serif; font-weight: 400; line-height: 1.04; letter-spacing: -0.005em; color: var(--ink); }
+  /* hl: italic, with a hand-applied rose wash laid behind its lower half (behind the descenders, never across them) */
+  .title .hl { font-style: italic; padding: 0 0.07em; background-image: var(--wash-t); background-repeat: no-repeat; background-position: 0 100%; background-size: 100% 60%; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+
+  #stack { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; perspective: 2000px; }
+  #stack > svg { position: absolute; left: 0; top: 0; }
+  .layer { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  .layer > svg { position: absolute; left: 0; top: 0; }
+
+  /* plate key: small black italic letter, label; the fine leader line from label to tissue is drawn in the flap's SVG */
+  .row { position: absolute; display: flex; align-items: baseline; white-space: nowrap; }
+  .row .key { display: inline-block; width: 60px; font-family: "IM Fell English", Georgia, serif; font-style: italic; color: var(--ink); line-height: 1.1; }
+  .row .lab { font-family: "IM Fell English", Georgia, serif; color: var(--ink); line-height: 1.1; }
+  /* value printed on the layer beneath: covered by the flap above in this frame, revealed when that flap lifts */
+  .val { position: absolute; font-family: "Courier Prime", monospace; font-weight: 700; color: var(--vink); white-space: nowrap; line-height: 1.1; visibility: hidden; }
+
+  .num { font-family: "EB Garamond", Georgia, serif; font-weight: 500; font-variant-numeric: lining-nums; font-feature-settings: "lnum" 1; }
+  .kick { position: absolute; text-align: center; font-family: "IM Fell English SC", Georgia, serif; color: var(--ink); letter-spacing: 0.07em; white-space: nowrap; line-height: 1; }
+
+  .cap { position: absolute; left: 92px; width: 806px; text-align: center; text-wrap: balance; font-family: "IM Fell English", Georgia, serif; font-size: 44px; line-height: 1.32; color: var(--ink); }
+  .cap .w.on { padding: 0 12px; margin: 0 -4px; background-image: var(--wash-c); background-repeat: no-repeat; background-size: 100% 100%; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+
+  .foot { position: absolute; left: 90px; width: 900px; top: 1572px; display: flex; justify-content: space-between; align-items: baseline; gap: 36px; line-height: 1.25; color: var(--ink2); font-family: "EB Garamond", Georgia, serif; font-weight: 500; }
+  .foot .src { font-style: italic; font-size: 30px; white-space: nowrap; }
+  .foot .dt { font-size: 28px; white-space: nowrap; letter-spacing: 0.06em; font-variant-caps: all-small-caps; }
+</style>
+</head>
+<body>
+<svg id="sheet" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+<div class="title" id="title"></div>
+<div id="stack">
+  <svg id="body" width="1080" height="1920" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+  <div class="layer" id="base"></div>
+  <svg id="band" width="1080" height="1920" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+  <div class="kick" id="kick"></div>
+</div>
+<div class="cap" id="cap" data-slot="caption"></div>
+<div class="foot"><span class="src" id="src"></span><span class="dt" id="date"></span></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series_id: "how-ai-works", series: "Cara kerja AI", ep: "#12", kicker: "Cara kerja AI · #12",
+    title: "Yang sebenarnya dibaca AI dari kalimatmu", hl: "dibaca AI",
+    sub: "Buka lapis demi lapis: kalimatmu jadi token, token jadi angka.",
+    items: [{ label: "Kalimat", value: "halo apa kabar" }, { label: "Token", value: "halo·apa·kabar" }, { label: "ID token", value: "[15496, 2471]" }, { label: "Vektor", value: "[0.12, -0.8]" }],
+    source: "ilustrasi — angka beda tiap model", date: "per 14 Okt 2026" };
+
+  const FONTS = ['400 100px "IM Fell English"', 'italic 400 100px "IM Fell English"', '400 40px "IM Fell English SC"', '700 40px "Courier Prime"', '500 40px "EB Garamond"', 'italic 500 40px "EB Garamond"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  // curly quotes across the whole string (a quoted phrase may span several words)
+  const smart = s => String(s == null ? "" : s).replace(/(^|[\s(\[{—–])"/g, "$1“").replace(/"/g, "”");
+  // IM Fell only has old-style figures (its 1 reads as a small-cap I) and a heavy "=": set them in lining EB Garamond.
+  const fig = v => esc(smart(v)).replace(/[0-9]+(?:[.,][0-9]+)*|[=±×]/g, m => '<span class="num">' + m + "</span>");
+  const PAPER = "#F1EDE2", FLAP = "#F6F3EB", INK = "#1F1D1B", ROSE = "#C98A72", ULTRA = "#6A7C98", OCHRE = "#C4A06A";
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(1, items.length);
+  const item = i => items[i] || { label: "", value: "" };
+  const f1 = v => (+v).toFixed(1);
+
+  // hand-applied watercolour wash (ragged ends, pooled edge), used behind the hl and the active caption word
+  const wash = (op) => {
+    const a = "M5,17 C34,9 76,15 114,10 C150,6 178,11 196,18 C199,28 197,38 194,45 C172,52 136,47 98,51 C62,55 26,50 3,46 C1,36 2,26 5,17 Z";
+    const b = "M12,13 C48,8 94,13 138,9 C164,7 186,10 191,15 L189,40 C160,46 118,43 84,47 C52,49 24,46 9,42 Z";
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" preserveAspectRatio="none">' +
+      '<path d="' + a + '" fill="' + ROSE + '" fill-opacity="' + op + '"/>' +
+      '<path d="' + b + '" fill="' + ROSE + '" fill-opacity="' + (op * 0.45).toFixed(2) + '"/>' +
+      '<path d="' + a + '" fill="none" stroke="#A9644D" stroke-opacity="0.55" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>';
+    return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '")';
+  };
+  document.documentElement.style.setProperty("--wash-t", wash(0.62));
+  document.documentElement.style.setProperty("--wash-c", wash(0.78));
+
+  // ---------- sheet: cool rag paper, laid + chain lines, light foxing, typeset heading rules ----------
+  let s = '<defs>' +
+    '<radialGradient id="vig" cx="50%" cy="46%" r="78%"><stop offset="0.6" stop-color="#8C8572" stop-opacity="0"/><stop offset="1" stop-color="#8C8572" stop-opacity="0.32"/></radialGradient>' +
+    '<radialGradient id="fox"><stop offset="0" stop-color="#A88A5C" stop-opacity="0.16"/><stop offset="1" stop-color="#A88A5C" stop-opacity="0"/></radialGradient>' +
+    '</defs>';
+  s += '<rect width="1080" height="1920" fill="' + PAPER + '"/>';
+  let laid = "";
+  for (let y = 4; y < 1920; y += 7) laid += "M0," + y + "H1080";
+  s += '<path d="' + laid + '" stroke="#B5AE9B" stroke-width="1" opacity="0.12"/>';
+  let chain = "";
+  for (let x = 66; x < 1080; x += 132) chain += "M" + x + ",0V1920";
+  s += '<path d="' + chain + '" stroke="#B5AE9B" stroke-width="2" opacity="0.14"/>';
+  [[150, 220, 50], [960, 330, 40], [70, 1620, 60], [1010, 1700, 66], [612, 1790, 40], [300, 1740, 34], [1000, 120, 30]].forEach(f => {
+    s += '<circle cx="' + f[0] + '" cy="' + f[1] + '" r="' + f[2] + '" fill="url(#fox)"/>';
+  });
+  s += '<rect width="1080" height="1920" fill="url(#vig)"/>';
+  // the broadside's heading rule (thick over thin) and the imprint rule under the footer (thin over thick)
+  s += '<path d="M90,256H990" stroke="' + INK + '" stroke-width="5"/><path d="M90,267H990" stroke="' + INK + '" stroke-width="1.6"/>';
+  s += '<path d="M90,1648H990" stroke="' + INK + '" stroke-width="1.6"/><path d="M90,1659H990" stroke="' + INK + '" stroke-width="5"/>';
+  document.getElementById("sheet").innerHTML = s;
+
+  // ---------- title (the sheet's printed heading) ----------
+  const t = smart(String(D.title || "")).replace(/ = /g, " = "), hl = smart(D.hl || "");   // "=" stays at the end of the line it closes
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = document.getElementById("title");
+  titleEl.innerHTML = at < 0 ? fig(t) : fig(t.slice(0, at)) + '<span class="hl">' + fig(t.slice(at, at + hl.length)) + "</span>" + fig(t.slice(at + hl.length));
+  for (let fs = 150; fs >= 72; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (titleEl.offsetHeight <= 290 && titleEl.scrollWidth <= 900) break; }
+  const titleBottom = 300 + titleEl.offsetHeight;
+
+  // ---------- caption (karaoke voice-over line): measured first, the figure ends above it ----------
+  const cap = document.getElementById("cap");
+  const words = smart(String(D.caption || D.sub || "")).split(/\s+/).filter(Boolean);
+  const norm = w => w.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+  const hw = String(hl).split(/\s+/).map(norm).filter(Boolean);
+  let on0 = 0, on1 = 0;                                  // active run = hl when spoken, else the first word
+  if (hw.length) {
+    for (let i = 0; i + hw.length <= words.length; i++) {
+      if (hw.every((h, k) => norm(words[i + k]) === h)) { on0 = i; on1 = i + hw.length - 1; break; }
+    }
+  }
+  const wsp = w => '<span class="w">' + fig(w) + "</span>";
+  cap.innerHTML = words.slice(0, on0).map(wsp).join(" ") + (on0 ? " " : "") +
+    '<span class="w on">' + fig(words.slice(on0, on1 + 1).join(" ")) + "</span>" +
+    (on1 + 1 < words.length ? " " + words.slice(on1 + 1).map(wsp).join(" ") : "");
+  for (let fs = 46; fs >= 40; fs -= 2) { cap.style.fontSize = fs + "px"; if (cap.offsetHeight <= Math.round(fs * 1.32 * 2) + 4) break; }
+  const capTop = 1556 - cap.offsetHeight;
+  cap.style.top = capTop + "px";
+
+  // ---------- collar band size: fits the kicker, stays narrow so the shoulders slope away from it ----------
+  const kick = document.getElementById("kick");
+  const epNo = String(D.ep || "").replace(/^#/, "");
+  kick.innerHTML = fig(D.kicker || ((D.series || "") + (epNo ? " · No. " + epNo : "")));
+  let kf = 34; kick.style.fontSize = kf + "px";
+  while (kick.offsetWidth / 2 + 58 > 292 && kf > 28) { kf -= 2; kick.style.fontSize = kf + "px"; }
+  const bhw = Math.round(Math.min(292, Math.max(228, kick.offsetWidth / 2 + 58)));
+  const BX0 = 540 - bhw, BX1 = 540 + bhw, SX = BX0 + 26;   // band ends; flaps' shoulder cut starts under the band
+
+  // ---------- figure geometry ----------
+  const H0 = Math.max(612, Math.round(titleBottom + 58));   // collar band top
+  const BH = 72, HT = H0 + 36, SAG = 8;                        // band height, hinge (flaps sewn under the band), band sag
+  const bandBot = x => H0 + BH + SAG * Math.max(0, 1 - Math.pow((x - 540) / bhw, 2));
+  const YB = capTop - 70;                                      // waist: bottom of the deepest flap
+  const ySh = HT + 118;                                        // where the shoulder cut turns into the flank
+  const WY = YB - 34, EL = Math.round(H0 + (WY - H0) * 0.5);   // wrist cut, elbow
+  // torso flank: the ribcage holds its width, then draws in to the waist
+  const TL = y => { const q = Math.min(1, Math.max(0, (y - ySh) / (YB - ySh))); return 202 + 48 * Math.pow(q, 1.6); };
+  const STEP = n >= 5 ? 12 : n === 4 ? 15 : 19;                // each deeper flap is this much wider per side
+  const ins = i => 4 + STEP * (n - 1 - i);
+  const FL = (i, y) => TL(y) + ins(i), FR = (i, y) => 1080 - FL(i, y);
+  const stepH = (YB - bandBot(540)) / n;
+  const yb = i => bandBot(540) + (i + 1) * stepH;
+  // lower cut of each flap: pectoral double curve, costal arch, softer cuts; the deepest is the belly's curve
+  const PROF = [u => -11 * Math.cos(4 * Math.PI * u), u => 7 - 14 * Math.sin(Math.PI * u), u => 10 * Math.sin(Math.PI * u) - 5, u => 4 - 8 * Math.sin(Math.PI * u), u => 8 * Math.sin(Math.PI * u) - 4];
+  const prof = (i, u) => (i > 0 && i === n - 1) ? 12 * Math.sin(Math.PI * u) - 4 : PROF[i % 5](u);
+  const WOB = [
+    [0, 2, -1, 1, 3, 0, -2, 1, 2, -1, 0, 1, 0],
+    [1, -1, 2, 0, -2, 1, 3, 0, -1, 2, 0, -1, 1],
+    [0, 1, 3, 1, -1, -2, 0, 2, 1, -1, 1, 2, 0],
+    [-1, 0, 2, -1, 1, 3, 1, -1, 0, 2, -1, 0, 1],
+    [0, -2, 0, 2, 1, -1, 2, 3, 0, -1, 1, 0, -1]];
+  const SLANT = [-3, 3, -2, 4, -2];
+  const EP = [];
+  for (let i = 0; i < n; i++) {
+    const y = yb(i), xl = FL(i, y), xr = FR(i, y), p = [];
+    for (let k = 0; k <= 12; k++) { const u = k / 12; p.push([xl + (xr - xl) * u, y + prof(i, u) + SLANT[i % 5] * (u - 0.5) + WOB[i % 5][k]]); }
+    EP.push(p);
+  }
+  const edgeY = (i, x) => {
+    const p = EP[i];
+    if (x <= p[0][0]) return p[0][1];
+    for (let k = 0; k < 12; k++) if (x <= p[k + 1][0]) return p[k][1] + (p[k + 1][1] - p[k][1]) * (x - p[k][0]) / (p[k + 1][0] - p[k][0]);
+    return p[12][1];
+  };
+  const stripTop = (i, x) => i === 0 ? bandBot(x) : edgeY(i - 1, x);
+  // left shoulder cut of flap i, from under the band out to its flank (cubic Bezier control points)
+  const shoulder = i => { const X = FL(i, ySh); return [[SX, HT - 6], [SX - 84, HT - 6], [X + 4, ySh - 72], [X, ySh]]; };
+  const bez = (c, t) => { const u = 1 - t; return [0, 1].map(k => u * u * u * c[0][k] + 3 * u * u * t * c[1][k] + 3 * u * t * t * c[2][k] + t * t * t * c[3][k]); };
+  const P = q => f1(q[0]) + "," + f1(q[1]);
+  const M = q => [1080 - q[0], q[1]];
+  const flapPath = (i, bottom) => {
+    const p = EP[i], c = shoulder(i);
+    let d = "M" + P(c[0]) + "L" + P(M(c[0])) + "C" + P(M(c[1])) + " " + P(M(c[2])) + " " + P(M(c[3]));
+    for (let k = 1; k < 8; k++) { const y = ySh + (p[12][1] - ySh) * k / 8; d += "L" + f1(FR(i, y)) + "," + f1(y); }
+    d += bottom || p.slice().reverse().map(q => "L" + P(q)).join("");
+    for (let k = 7; k >= 1; k--) { const y = ySh + (p[0][1] - ySh) * k / 8; d += "L" + f1(FL(i, y)) + "," + f1(y); }
+    return d + "L" + P(c[3]) + "C" + P(c[2]) + " " + P(c[1]) + " " + P(c[0]) + "Z";
+  };
+
+  // ---------- layers: deepest first in the DOM, A last (on top), all under the band ----------
+  const stack = document.getElementById("stack"), bandSvg = document.getElementById("band"), base = document.getElementById("base");
+  stack.style.perspectiveOrigin = "540px " + HT + "px";               // eye level with the hinge: a lifted flap stays a thin sliver on the band
+  const ROT = [0, 0.3, -0.25, 0.35, -0.2];                     // hand-pasted, never quite square (deg)
+  const layers = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const L = document.createElement("div");
+    L.className = "layer"; L.dataset.flap = String.fromCharCode(65 + i);
+    L.style.transformOrigin = "540px " + HT + "px";
+    L.style.transform = i === 0 ? "rotateX(17deg)" : "rotate(" + ROT[i] + "deg)";
+    stack.insertBefore(L, bandSvg);
+    layers[i] = L;
+  }
+
+  // ---------- flap A: cut corner + curl ----------
+  const eA = EP[0], C0 = eA[12], cw = 100, ch = 84;
+  const P1 = [FR(0, C0[1] - ch), C0[1] - ch], P2 = [C0[0] - cw, edgeY(0, C0[0] - cw)];
+  // ---------- plate key on each strip + the value printed underneath ----------
+  const LBL = n >= 5 ? 46 : n === 4 ? 52 : 58, VAL = n >= 5 ? 40 : n === 4 ? 44 : 48;
+  const KX = 288, LX = KX + 60, XR = 790;
+  const clear = []; for (let i = 0; i <= n; i++) clear.push([]);     // text clearings per layer (index n = base)
+  const leader = [];
+  for (let i = 0; i < n; i++) {
+    const r = document.createElement("div");
+    r.className = "row";
+    r.style.left = KX + "px"; r.style.fontSize = LBL + "px";
+    r.innerHTML = '<span class="key">' + String.fromCharCode(65 + i) + '</span><span class="lab">' + fig(item(i).label) + "</span>";
+    layers[i].appendChild(r);
+    const lab = r.querySelector(".lab");
+    let fs = LBL;
+    while (KX + r.offsetWidth > XR && fs > 40) { fs -= 2; lab.style.fontSize = fs + "px"; }
+    const rr = KX + r.offsetWidth;
+    const xs = [KX, (KX + rr) / 2, rr];
+    const top = Math.max(...xs.map(x => stripTop(i, x))), bot = Math.min(...xs.map(x => edgeY(i, x)));
+    const cy = (top + bot) / 2;
+    r.style.top = Math.round(cy - r.offsetHeight / 2 + 3) + "px";
+    clear[i].push([KX - 14, cy - r.offsetHeight / 2 - 6, rr - KX + 28, r.offsetHeight + 12]);
+    // fine leader line from the label out to the tissue it names, ending in a point on the flap
+    const yl = r.offsetTop + r.offsetHeight * 0.6, x0 = rr + 16;
+    const xt = Math.min(FR(i, yl) - 74, Math.max(rr + 120, 650), i === 0 ? P2[0] - 30 : 1080);
+    leader[i] = xt - x0 >= 40 ? [x0, yl, xt] : null;
+    // value of item i: printed on the next layer down, under the strip of flap i
+    const v = document.createElement("div");
+    v.className = "val"; v.dataset.item = String.fromCharCode(65 + i);   // shown when this flap lifts
+    v.textContent = smart(item(i).value);
+    (i + 1 < n ? layers[i + 1] : base).appendChild(v);
+    let vf = VAL; v.style.fontSize = vf + "px"; v.style.left = LX + "px";
+    while (v.offsetWidth > XR - LX && vf > 34) { vf -= 2; v.style.fontSize = vf + "px"; }
+    v.style.top = Math.round(cy - v.offsetHeight / 2) + "px";
+    clear[i + 1].push([LX - 20, cy - v.offsetHeight / 2 - 10, v.offsetWidth + 40, v.offsetHeight + 20]);
+  }
+
+  // ---------- woodcut tissue per layer (fades out around the text) ----------
+  const st = (w, op) => ' fill="none" stroke="' + INK + '" stroke-width="' + w + '" stroke-opacity="' + op + '" stroke-linecap="round" stroke-linejoin="round"';
+  const mir = d => '<g transform="matrix(-1,0,0,1,1080,0)">' + d + "</g>";
+  const both = (d, w, op) => '<path d="' + d + '"' + st(w, op) + "/>" + mir('<path d="' + d + '"' + st(w, op) + "/>");
+  const tissue = i => {
+    const top = HT, bot = yb(i) + 24;
+    let g = "";
+    if (i === 0) {                                   // skin: form hatching on the flanks, pectoral contours, midline
+      let h = "";
+      for (let y = ySh - 40; y < bot; y += 9) { const len = 24 + 10 * Math.sin(y / 23); h += "M" + f1(FL(0, y) + 5) + "," + y + "l" + f1(len) + "," + f1(len * 0.2); }
+      g += both(h, 1.7, 0.72);
+      const y1 = yb(0) - 8, y0 = Math.max(bandBot(400) + 10, y1 - 96);
+      let pc = "";
+      for (let k = 0; k < 2; k++) {
+        const d = k * 8;
+        pc += "M530," + f1(y0 + 4 + d) + "C526," + f1(y1 - d) + " 440," + f1(y1 + 4 - d) + " 370," + f1(y1 - 14 - d) + "C320," + f1(y1 - 26 - d) + " 288," + f1(y0 + 34) + " " + f1(FL(0, y0) + 18 + d) + "," + f1(y0 + 10);
+      }
+      g += both(pc, 1.9, 0.75);
+      g += '<path d="M540,' + f1(y0 + 4) + "V" + f1(y1 - 10) + '"' + st(1.6, 0.6) + ' stroke-dasharray="2 9"/>';
+    } else if (i === 1) {                            // muscle: rectus columns with tendinous bands, oblique fibres
+      let c = "M462," + top + "V" + bot + "M534," + top + "V" + bot + "M546," + top + "V" + bot + "M618," + top + "V" + bot;
+      for (let y = top + 40; y < bot; y += 58) c += "M462," + y + "Q498," + (y + 7) + " 534," + y + "M546," + y + "Q582," + (y + 7) + " 618," + y;
+      g += '<path d="' + c + '"' + st(2.2, 0.78) + "/>";
+      let fb = "";
+      for (let x = 472; x < 530; x += 10) fb += "M" + x + "," + top + "V" + bot + "M" + (x + 84) + "," + top + "V" + bot;
+      g += '<path d="' + fb + '"' + st(1.1, 0.4) + "/>";
+      let ob = "";
+      for (let y = top - 90; y < bot; y += 11) ob += "M" + f1(FL(1, y) - 4) + "," + y + "L452," + (y + 66);
+      g += both(ob, 1.4, 0.58);
+    } else if (i === 2) {                            // ribs: sternum and ribs sweeping down to the flanks
+      g += '<path d="M526,' + top + "V" + bot + "M554," + top + "V" + bot + '"' + st(2.2, 0.8) + "/>";
+      let rb = "", rl = "";
+      for (let y = top + 10; y < bot + 10; y += 34) {
+        const xe = FL(2, y + 64) - 4;
+        rb += "M524," + y + "C470," + (y - 10) + " 360," + (y + 4) + " " + f1(xe) + "," + (y + 66);
+        rl += "M524," + (y + 11) + "C470," + (y + 1) + " 360," + (y + 15) + " " + f1(xe) + "," + (y + 77);
+      }
+      g += both(rb, 8, 0.42) + both(rl, 1.4, 0.75);
+    } else if (i === 3) {                            // gut: one coiled tube winding back and forth
+      let d = "", dir = 1;
+      for (let y = top + 22; y < bot + 20; y += 40, dir = -dir) {
+        const xa = FL(3, y) + STEP + 36, xz = FR(3, y) - STEP - 36, xs = dir > 0 ? xa : xz, xe = dir > 0 ? xz : xa;
+        d += (d ? "A20,20 0 0 " + (dir > 0 ? 0 : 1) + " " : "M") + f1(xs) + "," + y;
+        for (let k = 1; k <= 10; k++) { const x = xs + (xe - xs) * k / 10; d += "L" + f1(x) + "," + f1(y + 5 * Math.sin(k * 1.9 + y / 31)); }
+      }
+      g += '<path d="' + d + '"' + st(22, 0.62) + '/><path d="' + d + '" fill="none" stroke="#C2C9D4" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>' +
+        '<path d="' + d + '"' + st(1.2, 0.45) + ' stroke-dasharray="3 7"/>';
+    } else {                                         // vessels: trunk with branches
+      g += '<path d="M540,' + top + "V" + bot + '"' + st(4, 0.6) + "/>";
+      let br = "";
+      for (let y = top + 26; y < bot; y += 52) br += "M540," + y + "Q450," + (y + 4) + " 380," + (y + 24) + "T" + f1(FL(4, y) + 10) + "," + (y + 50) + "M440," + (y + 8) + "l-26,-22M360," + (y + 30) + "l-14,24";
+      g += both(br, 2, 0.62);
+    }
+    // rib hatching on the stepped edges (flanks and shoulder cut) that show beside the flap above
+    if (i >= 1) {
+      let m = "";
+      for (let y = ySh; y < yb(i) + 16; y += 10) m += "M" + f1(FL(i, y) + 1.5) + "," + y + "l" + (STEP + 5) + ",5";
+      const c = shoulder(i);
+      for (let t = 0.3; t < 1; t += 0.06) {
+        const a = bez(c, t), b2 = bez(c, t + 0.01);
+        let nx = -(b2[1] - a[1]), ny = b2[0] - a[0];
+        if (ny < 0) { nx = -nx; ny = -ny; }
+        const l = Math.hypot(nx, ny);
+        m += "M" + P(a) + "l" + f1(nx / l * (STEP + 5) + 2) + "," + f1(ny / l * (STEP + 5) + 3);
+      }
+      g += both(m, 1.7, 0.85);
+    }
+    return g;
+  };
+
+  // A's right flank stops at P1, folds to P2, then the cut edge continues left
+  const pathA = (() => {
+    const c = shoulder(0);
+    let d = "M" + P(c[0]) + "L" + P(M(c[0])) + "C" + P(M(c[1])) + " " + P(M(c[2])) + " " + P(M(c[3]));
+    for (let k = 1; k <= 8; k++) { const y = ySh + (P1[1] - ySh) * k / 8; d += "L" + f1(FR(0, y)) + "," + f1(y); }
+    d += "L" + P(P2);
+    for (let k = 11; k >= 0; k--) if (eA[k][0] < P2[0] - 1) d += "L" + P(eA[k]);
+    for (let k = 7; k >= 1; k--) { const y = ySh + (eA[0][1] - ySh) * k / 8; d += "L" + f1(FL(0, y)) + "," + f1(y); }
+    return d + "L" + P(c[3]) + "C" + P(c[2]) + " " + P(c[1]) + " " + P(c[0]) + "Z";
+  })();
+  const fx = P2[0] - P1[0], fy = P2[1] - P1[1], tp = ((C0[0] - P1[0]) * fx + (C0[1] - P1[1]) * fy) / (fx * fx + fy * fy);
+  const foot = [P1[0] + fx * tp, P1[1] + fy * tp], Cr = [2 * foot[0] - C0[0], 2 * foot[1] - C0[1]];
+  const mid = [(P1[0] + P2[0]) / 2, (P1[1] + P2[1]) / 2];
+  const bulge = [mid[0] + (Cr[0] - mid[0]) * 0.55 + 8, mid[1] + (Cr[1] - mid[1]) * 0.55 + 6];
+  const curlD = "M" + P(P1) + "Q" + P(bulge) + " " + P(Cr) + "L" + P(P2) + "Z";
+
+  const OFF = [[7, -5], [-6, 5], [6, 4], [-5, -4], [5, 5]];   // the colourist's brush, slightly off-register
+  for (let i = 0; i < n; i++) {
+    const d = i === 0 ? pathA : flapPath(i);
+    const col = i === 0 ? ROSE : ULTRA;
+    const op = i === 0 ? 0.42 : (0.2 + 0.34 * (i - 1) / Math.max(1, n - 2));
+    let g = '<svg width="1080" height="1920" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>' +
+      '<clipPath id="fc' + i + '"><path d="' + d + '"/></clipPath>' +
+      '<filter id="mb' + i + '" filterUnits="userSpaceOnUse" x="0" y="0" width="1080" height="1920"><feGaussianBlur stdDeviation="3.5"/></filter>' +
+      '<mask id="fm' + i + '" maskUnits="userSpaceOnUse" x="0" y="0" width="1080" height="1920"><rect width="1080" height="1920" fill="#fff"/><g filter="url(#mb' + i + ')">' +
+      clear[i].map(c => '<rect x="' + f1(c[0]) + '" y="' + f1(c[1]) + '" width="' + f1(c[2]) + '" height="' + f1(c[3]) + '" rx="10" fill="#000"/>').join("") + "</g></mask>" +
+      '<filter id="fb' + i + '" x="-10%" y="-10%" width="120%" height="140%"><feGaussianBlur stdDeviation="' + (i === 1 ? 9 : 4) + '"/></filter>' +
+      '<linearGradient id="curl" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#DCD5C5"/><stop offset="0.55" stop-color="#FAF8F2"/><stop offset="1" stop-color="#E2DBCB"/></linearGradient>' +
+      '<filter id="cs" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="5"/></filter></defs>';
+    g += '<path d="' + d + '" fill="' + FLAP + '"/>';
+    g += '<g clip-path="url(#fc' + i + ')">';
+    g += '<path d="' + d + '" transform="translate(' + OFF[i] + ')" fill="' + col + '" fill-opacity="' + op.toFixed(2) + '" stroke="' + col + '" stroke-opacity="' + (op * 0.9).toFixed(2) + '" stroke-width="6" style="mix-blend-mode:multiply"/>';
+    g += '<g mask="url(#fm' + i + ')">' + tissue(i) + "</g>";
+    // the flap above casts its shadow here (A is sprung up, so its shadow is long and soft)
+    if (i === 1) g += '<path d="' + pathA + '" transform="translate(8,20)" fill="' + INK + '" opacity="0.34" filter="url(#fb1)"/>';
+    else if (i >= 2) g += '<path d="' + flapPath(i - 1) + '" transform="translate(4,7) rotate(' + (ROT[i - 1] - ROT[i]) + ' 540 ' + HT + ')" fill="' + INK + '" opacity="0.26" filter="url(#fb' + i + ')"/>';
+    g += "</g>";
+    g += '<path d="' + d + '" fill="none" stroke="' + INK + '" stroke-width="2.6" stroke-linejoin="round"/>';
+    if (leader[i]) {
+      const L = leader[i];
+      g += '<path d="M' + f1(L[0]) + "," + f1(L[1]) + "L" + f1(L[2]) + "," + f1(L[1] + 4) + '"' + st(1.8, 1) + '/><circle cx="' + f1(L[2]) + '" cy="' + f1(L[1] + 4) + '" r="5" fill="' + INK + '"/>';
+    }
+    if (i === 0) {
+      g += '<path d="' + curlD + '" transform="translate(-6,10)" fill="' + INK + '" opacity="0.32" filter="url(#cs)"/>';
+      g += '<path d="' + curlD + '" fill="url(#curl)" stroke="' + INK + '" stroke-width="2.4" stroke-linejoin="round"/>';
+    }
+    g += "</svg>";
+    layers[i].insertAdjacentHTML("afterbegin", g);
+  }
+
+  // ---------- the printed body behind the flaps: torso cut at the hips, arms cut at the wrists, neck stump, spine ----------
+  const armD = "M262," + (H0 + 40) +
+    "C176," + (H0 + 42) + " 82," + (H0 + 78) + " 62," + (H0 + 172) +
+    "C52," + (H0 + 250) + " 50," + (EL - 140) + " 60," + EL +
+    "C64," + (EL + 80) + " 80," + (WY - 150) + " 92," + WY +
+    "L172," + WY +
+    "C176," + (WY - 150) + " 180," + (EL + 80) + " 184," + EL +
+    "C190," + (EL - 120) + " 196," + (H0 + 310) + " 200," + (H0 + 214) +
+    "L250," + (H0 + 120) + "Z";
+  const armEdge = "M262," + (H0 + 40) + "C176," + (H0 + 42) + " 82," + (H0 + 78) + " 62," + (H0 + 172) + "C52," + (H0 + 250) + " 50," + (EL - 140) + " 60," + EL +
+    "C64," + (EL + 80) + " 80," + (WY - 150) + " 92," + WY + "M172," + WY + "C176," + (WY - 150) + " 180," + (EL + 80) + " 184," + EL +
+    "C190," + (EL - 120) + " 196," + (H0 + 310) + " 200," + (H0 + 214);
+  const HY = YB + 6, xw = TL(HY);
+  let tor = "M466," + (H0 + 6) + "C400," + (H0 + 10) + " 330," + (H0 + 20) + " 280," + (H0 + 32) + "C240," + (H0 + 42) + " 206," + (ySh - 60) + " 202," + ySh;
+  for (let k = 1; k <= 12; k++) { const y = ySh + (HY - ySh) * k / 12; tor += "L" + f1(TL(y)) + "," + f1(y); }
+  tor += "A" + f1(540 - xw) + ",24 0 0 0 " + f1(1080 - xw) + "," + HY;
+  for (let k = 11; k >= 0; k--) { const y = ySh + (HY - ySh) * k / 12; tor += "L" + f1(1080 - TL(y)) + "," + f1(y); }
+  tor += "C874," + (ySh - 60) + " 840," + (H0 + 42) + " 800," + (H0 + 32) + "C750," + (H0 + 20) + " 680," + (H0 + 10) + " 614," + (H0 + 6) + "Z";
+  const NY = H0 - 14;
+  let b = '<defs>' +
+    '<pattern id="hatch" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(-38)"><path d="M0,0V9" stroke="' + INK + '" stroke-width="2"/></pattern>' +
+    '<pattern id="xhatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><path d="M0,0V7M0,0H7" stroke="' + INK + '" stroke-width="1.4"/></pattern>' +
+    '<clipPath id="armclip"><path d="' + armD + '"/></clipPath>' +
+    '<clipPath id="wcut"><ellipse cx="132" cy="' + WY + '" rx="40" ry="10"/></clipPath>' +
+    '<clipPath id="hcut"><ellipse cx="540" cy="' + HY + '" rx="' + f1(540 - xw) + '" ry="24"/></clipPath>' +
+    '<clipPath id="ncut"><ellipse cx="540" cy="' + NY + '" rx="72" ry="12"/></clipPath>' +
+    '</defs>';
+  // hatched woodcut cast shadow, light from the upper left
+  b += '<g transform="translate(15,13)" opacity="0.45"><path d="' + tor + '" fill="url(#hatch)"/><path d="' + armD + '" fill="url(#hatch)"/>' + mir('<path d="' + armD + '" fill="url(#hatch)"/>') + "</g>";
+  // torso (the back wall the flaps are pasted onto), its spine and the hip cut
+  b += '<path d="' + tor + '" fill="' + FLAP + '"/>';
+  b += '<path d="' + tor + '" transform="translate(-7,5)" fill="' + ROSE + '" fill-opacity="0.3" style="mix-blend-mode:multiply"/>';
+  let sp = "";
+  for (let y = HT + 14; y < YB - 30; y += 32) sp += '<rect x="514" y="' + y + '" width="52" height="24" rx="7"/>';
+  b += '<mask id="bm" maskUnits="userSpaceOnUse" x="0" y="0" width="1080" height="1920"><rect width="1080" height="1920" fill="#fff"/>' +
+    clear[n].map(c => '<rect x="' + f1(c[0]) + '" y="' + f1(c[1]) + '" width="' + f1(c[2]) + '" height="' + f1(c[3]) + '" rx="10" fill="#000"/>').join("") + "</mask>";
+  b += '<g fill="#E6D7B9" stroke="' + INK + '" stroke-width="2" mask="url(#bm)">' + sp + "</g>";   // the last value is printed on the back wall
+  b += '<ellipse cx="540" cy="' + HY + '" rx="' + f1(540 - xw) + '" ry="24" fill="#E6D7B9"/><rect x="200" y="' + (HY - 26) + '" width="680" height="52" fill="url(#xhatch)" clip-path="url(#hcut)" opacity="0.5"/>';
+  b += '<ellipse cx="540" cy="' + HY + '" rx="' + f1(540 - xw) + '" ry="24" fill="none" stroke="' + INK + '" stroke-width="2.6"/>';
+  b += '<path d="' + tor + '" fill="none" stroke="' + INK + '" stroke-width="3.4" stroke-linejoin="round"/>';
+  // arms: rose wash off-register, engraved form hatching, deltoid and elbow lines, cut at the wrist
+  let arm = '<path d="' + armD + '" fill="' + FLAP + '"/>';
+  arm += '<path d="' + armD + '" transform="translate(6,-5)" fill="' + ROSE + '" fill-opacity="0.34" style="mix-blend-mode:multiply"/>';
+  let ah = "", ai = "";
+  for (let y = H0 + 90; y < WY - 4; y += 8) ah += "M36," + y + "q30,3 62," + 10;
+  for (let y = H0 + 240; y < WY - 4; y += 10) ai += "M156," + y + "l46," + 7;
+  arm += '<g clip-path="url(#armclip)"><path d="' + ah + '"' + st(1.7, 0.8) + '/><path d="' + ai + '"' + st(1.3, 0.5) + "/>" +
+    '<path d="M74,' + (H0 + 176) + "q40,42 112,40M96," + (EL + 4) + "q30,14 70,6M120," + (H0 + 250) + "q-8,120 0," + (EL - H0 - 290) + '"' + st(2, 0.78) + "/></g>";
+  arm += '<path d="' + armEdge + '"' + st(3.4, 1) + "/>";
+  arm += '<ellipse cx="132" cy="' + WY + '" rx="40" ry="10" fill="#E6D7B9" stroke="' + INK + '" stroke-width="2.4"/>' +
+    '<rect x="90" y="' + (WY - 12) + '" width="84" height="24" fill="url(#xhatch)" clip-path="url(#wcut)" opacity="0.6"/>';
+  b += arm + mir(arm);
+  // neck stump, its cut face cross-hatched
+  const neck = "M462," + (H0 + 12) + "L468," + NY + "L612," + NY + "L618," + (H0 + 12) + "Z";
+  b += '<path d="' + neck + '" fill="' + FLAP + '"/><path d="' + neck + '" transform="translate(-4,3)" fill="' + ROSE + '" fill-opacity="0.3" style="mix-blend-mode:multiply"/>';
+  b += '<path d="M462,' + (H0 + 12) + "L468," + NY + "M612," + NY + "L618," + (H0 + 12) + '"' + st(3, 1) + "/>";
+  b += '<ellipse cx="540" cy="' + NY + '" rx="72" ry="12" fill="#E6D7B9" stroke="' + INK + '" stroke-width="2.6"/>';
+  b += '<rect x="466" y="' + (NY - 12) + '" width="148" height="24" fill="url(#xhatch)" clip-path="url(#ncut)" opacity="0.55"/>';
+  document.getElementById("body").innerHTML = b;
+
+  // ---------- collar band (the hinge), rolled ends resting where the shoulders begin ----------
+  let r = '<defs><pattern id="hatch2" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(40)"><path d="M0,0V7" stroke="' + INK + '" stroke-width="2"/></pattern></defs>';
+  const bandD = "M" + BX0 + "," + H0 + "Q540," + (H0 + 2 * SAG) + " " + BX1 + "," + H0 + "L" + BX1 + "," + (H0 + BH) + "Q540," + (H0 + BH + 2 * SAG) + " " + BX0 + "," + (H0 + BH) + "Z";
+  r += '<path d="' + bandD + '" fill="#F8F6F0" stroke="' + INK + '" stroke-width="2.8" stroke-linejoin="round"/>';
+  r += '<path d="' + bandD + '" transform="translate(5,-3)" fill="' + OCHRE + '" fill-opacity="0.26" style="mix-blend-mode:multiply"/>';
+  r += '<path d="M' + (BX0 + 14) + "," + (H0 + 9) + "Q540," + (H0 + 9 + 2 * SAG) + " " + (BX1 - 14) + "," + (H0 + 9) + "M" + (BX0 + 14) + "," + (H0 + BH - 9) + "Q540," + (H0 + BH - 9 + 2 * SAG) + " " + (BX1 - 14) + "," + (H0 + BH - 9) + '" fill="none" stroke="' + INK + '" stroke-width="1.3"/>';
+  const roll = x => {
+    const cy = H0 + BH / 2;
+    return '<ellipse cx="' + x + '" cy="' + cy + '" rx="18" ry="' + (BH / 2 + 8) + '" fill="#F8F6F0" stroke="' + INK + '" stroke-width="2.8"/>' +
+      '<clipPath id="rc' + x + '"><ellipse cx="' + x + '" cy="' + cy + '" rx="18" ry="' + (BH / 2 + 8) + '"/></clipPath>' +
+      '<rect x="' + (x < 540 ? x - 20 : x + 4) + '" y="' + (cy - BH / 2 - 10) + '" width="16" height="' + (BH + 20) + '" fill="url(#hatch2)" clip-path="url(#rc' + x + ')" opacity="0.75"/>' +
+      '<path d="M' + x + "," + (cy - 16) + "c" + (x < 540 ? "-9,2 -9,14 0,16 c9,2 9,-12 0,-10" : "9,2 9,14 0,16 c-9,2 -9,-12 0,-10") + '" fill="none" stroke="' + INK + '" stroke-width="1.8"/>';
+  };
+  r += roll(BX0) + roll(BX1);
+  // stitches where the flaps are sewn under the band
+  let stt = "";
+  for (let x = BX0 + 44; x < BX1 - 36; x += 52) { const y = bandBot(x) - 6; stt += "M" + x + "," + f1(y) + "l10,10M" + (x + 10) + "," + f1(y) + "l-10,10"; }
+  r += '<path d="' + stt + '" stroke="' + INK + '" stroke-width="2.4" stroke-linecap="round"/>';
+  bandSvg.innerHTML = r;
+  kick.style.left = (BX0 + 30) + "px"; kick.style.width = (BX1 - BX0 - 60) + "px";
+  kick.style.top = Math.round(H0 + BH / 2 + SAG - 4 - kick.offsetHeight / 2) + "px";
+
+  // ---------- imprint: source + date ----------
+  const src = document.getElementById("src");
+  src.innerHTML = D.source ? "Sumber: " + fig(D.source) : "";
+  document.getElementById("date").innerHTML = fig(D.date || "");
+  let sf = 30;
+  while (src.parentNode.scrollWidth > 900 && sf > 26) { sf -= 1; src.style.fontSize = sf + "px"; }
+  }
+</script>
+</body>
+</html>

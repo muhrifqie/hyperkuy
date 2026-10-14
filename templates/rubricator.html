@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=EB+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=JetBrains+Mono:wght@600&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Rubricator: the recto (fol. 1r) of an open codex, seen from above. The gutter
+    with its sewing thread runs down the left edge, the leaf bleeds off the top and
+    the right, and the desk shows only below the tail of the book.
+    The text block is one continuous wall of faded textura with no paragraph
+    breaks; a rubricator has gone over it in red: a gilded opening pilcrow, red
+    pilcrows dropped mid-line where each new part starts, a red closing rule, and
+    red chapter numbers in the margin (cap. i, ii, ...; "explicit" at the end).
+    That red layer = the hidden structure marks a model reads (special tokens).
+    Margin notes become mono token names (<bos>, <|user|>, <eos>...) ONLY when the
+    data supplies them (item.tag, D.tags[i], D.tags[n] / D.tag_end for the end).
+    The wall script is drawn as SVG strokes (textura minims), never as text.
+    Fully deterministic: no randomness; irregular shapes are fixed numbers.
+
+    Signature move (video): frame 0 = the gilded opening mark over an unbroken,
+    illegible wall; the quill nib enters from the right margin and ticks down the
+    page, each red pilcrow lands and its line resolves into readable text.
+  */
+  :root { --vellum: #EDE3CF; --ink: #2A2420; --red: #B3261E; --desk: #1B1A22; --gold: #C9A45C; --ink2: #554A40; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--desk); }
+  body { position: relative; color: var(--ink); font-family: "EB Garamond", Georgia, serif; font-variant-numeric: lining-nums; font-feature-settings: "lnum" 1; }
+  #art { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  .run { position: absolute; left: 120px; right: 120px; top: 290px; display: flex; justify-content: space-between; align-items: baseline;
+         font: 500 28px "EB Garamond", serif; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink); line-height: 40px; }
+  .run .fol { font-style: italic; text-transform: none; letter-spacing: 0.02em; font-size: 30px; color: var(--ink2); }
+
+  #title { position: absolute; left: 120px; width: 840px; top: 346px; font-family: "Cormorant Garamond", serif; font-weight: 700;
+           line-height: 0.98; letter-spacing: -0.006em; color: var(--ink); text-wrap: balance; }
+  #title .hl { color: var(--red); }
+  #sub { position: absolute; left: 120px; width: 760px; font: italic 500 40px "EB Garamond", serif; line-height: 50px; color: var(--ink2); text-wrap: balance; display: none; }
+
+  .item { position: absolute; white-space: nowrap; height: 64px; line-height: 64px; font-size: 50px; color: var(--ink); }
+  .item .lb { font-weight: 500; }
+  .item .dash { font-weight: 500; padding: 0 0.22em; color: var(--ink2); }
+  .item .vl { font-weight: 600; font-style: italic; }
+  .note { position: absolute; white-space: nowrap; height: 44px; line-height: 44px; text-align: right; color: var(--red); }
+  .note.cap { font: 600 34px "EB Garamond", serif; font-variant-caps: all-small-caps; letter-spacing: 0.05em; }
+  .note.tok { font: 600 30px "JetBrains Mono", monospace; letter-spacing: -0.02em; }
+  .bl { display: inline-block; width: 0; height: 0; vertical-align: baseline; }
+
+  #caption { position: absolute; left: 120px; width: 780px; top: 1436px; font: italic 500 44px "EB Garamond", serif; line-height: 58px; color: var(--ink); text-wrap: balance; }
+  #caption .w { white-space: nowrap; }
+  #caption .on { color: var(--vellum); background: var(--red); font-weight: 600; font-style: normal; padding: 0 0.16em; border-radius: 2px;
+                 box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+
+  .meta { position: absolute; left: 120px; width: 760px; top: 1580px; display: flex; justify-content: space-between; gap: 32px;
+          font: italic 500 27px "EB Garamond", serif; line-height: 36px; color: var(--ink2); }
+  .meta span:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg id="art" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" data-layout-allow-overlap></svg>
+<div class="run"><span id="kick"></span><span class="fol" id="fol"></span></div>
+<div id="title"></div>
+<div id="sub"></div>
+<div id="items"></div>
+<div id="caption" data-slot="caption"></div>
+<div class="meta"><span id="src"></span><span id="date"></span></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const FONTS = ['700 100px "Cormorant Garamond"', '500 50px "EB Garamond"', '600 50px "EB Garamond"', 'italic 600 50px "EB Garamond"',
+                 'italic 500 44px "EB Garamond"', '600 30px "JetBrains Mono"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).then(() => document.fonts.ready).catch(() => {}).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const INK = "#2A2420", RED = "#B3261E", GOLD = "#C9A45C", VEL = "#EDE3CF", DESK = "#1B1A22";
+  const items = (Array.isArray(D.items) ? D.items : []).slice(0, 5).map(it => ({ label: String((it && it.label) || ""), value: String((it && it.value) || ""), tag: it && it.tag }));
+  const n = items.length;
+  const $ = id => document.getElementById(id);
+  const f1 = v => Math.round(v * 10) / 10;
+  const W = el => el.getBoundingClientRect().width;
+  const itemsEl = $("items");
+
+  // ---- running head: series left, folio (episode) right
+  $("kick").textContent = (D.series || D.kicker || "") + (D.series && D.ep ? " · " + D.ep : "");
+  const epNo = parseInt(String(D.ep || "1").replace(/\D/g, ""), 10) || 1;
+  $("fol").textContent = "fol. " + epNo + "r";
+
+  // ---- title: the incipit; the highlighted part is a rubric (written in red, same hand, upright)
+  const t = String(D.title || ""), hl = String(D.hl || "");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  for (let fs = 122; fs >= 74; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (titleEl.offsetHeight <= 286) break; }
+  let contentBottom = 346 + titleEl.offsetHeight;
+
+  // ---- caption text = caption || sub; when both exist, sub is shown as a gloss under the title
+  const capText = String(D.caption || D.sub || "").trim();
+  const subExtra = D.caption && D.sub && String(D.sub).trim() !== String(D.caption).trim() ? String(D.sub).trim() : "";
+  if (subExtra) {
+    const subEl = $("sub");
+    subEl.style.display = "block"; subEl.style.top = (contentBottom + 18) + "px";
+    const sw = subExtra.split(/\s+/);
+    subEl.textContent = subExtra;
+    let k = sw.length; while (k > 1 && subEl.offsetHeight > 104) { k--; subEl.textContent = sw.slice(0, k).join(" ") + "…"; }
+    contentBottom += 18 + subEl.offsetHeight;
+  }
+
+  // ---- margin notes: rubricated chapter numbers by default; mono token names only when the data gives them
+  const ROMAN = ["i", "ii", "iii", "iv", "v"];
+  const tagOf = i => String(items[i].tag || (Array.isArray(D.tags) && D.tags[i]) || "");
+  const endTag = String((Array.isArray(D.tags) && D.tags[n]) || D.tag_end || "");
+  const notes = items.map((_, i) => tagOf(i) ? { t: tagOf(i), tok: true } : { t: "cap. " + ROMAN[i], tok: false });
+  notes.push(endTag ? { t: endTag, tok: true } : { t: "explicit", tok: false });
+  const NOTE_L = 92;
+  notes.forEach(nt => {
+    const el = document.createElement("div");
+    el.className = "note " + (nt.tok ? "tok" : "cap");
+    el.innerHTML = esc(nt.t) + '<i class="bl"></i>';
+    el.style.left = "0px"; el.style.top = "-200px";
+    itemsEl.appendChild(el); nt.el = el;
+    if (nt.tok && W(el) > 196) el.style.letterSpacing = "-0.07em";
+    nt.w = W(el);
+  });
+  const maxNote = Math.max(...notes.map(nt => nt.w));
+  const X0 = Math.round(Math.min(320, Math.max(234, NOTE_L + maxNote + 20)));
+  notes.forEach(nt => { // last guard: a note never runs left of the safe zone
+    let fs = nt.tok ? 30 : 34;
+    while (nt.w > X0 - 20 - NOTE_L && fs > 30) { fs -= 1; nt.el.style.fontSize = fs + "px"; nt.w = W(nt.el); }
+  });
+
+  // ---- text block geometry (ruled lines)
+  const PITCH = n <= 3 ? 72 : 64, k = PITCH / 64, X1 = 880;
+  const lastBase = 1376;                                     // closing line baseline
+  let firstBase = Math.max(contentBottom + 118, 694);
+  const L = Math.floor((lastBase - firstBase) / PITCH) + 1;
+  firstBase = lastBase - (L - 1) * PITCH;                    // snap the grid to the closing line
+  const base = q => firstBase + q * PITCH;
+
+  // ---- item fitting: one uniform size; long items get the scribe's turn-up (value carried to the next ruled line)
+  const INIT_W = 100, INIT_GAP = 20;
+  const pilW = fs => Math.round(41 * fs / 50), PIL_GAP = 14;
+  const markW = (i, fs) => i === 0 ? INIT_W + INIT_GAP : pilW(fs) + PIL_GAP;
+  const meas = document.createElement("div");
+  meas.className = "item"; meas.style.visibility = "hidden"; meas.style.left = "0px"; meas.style.top = "-300px";
+  itemsEl.appendChild(meas);
+  const dims = (lb, vl, fs) => {
+    meas.style.fontSize = fs + "px";
+    meas.innerHTML = '<span class="lb">' + esc(lb) + '</span><span class="dash">–</span><span class="vl">' + esc(vl) + "</span>";
+    const [a, b, c] = meas.children;
+    return { lb: W(a), dash: W(b), vl: W(c), full: W(a) + W(b) + W(c) };
+  };
+  const PUNC = 18;                                            // ink punctus after a value
+  const fitsOne = (i, fs) => dims(items[i].label, items[i].value, fs).full + PUNC <= X1 - X0 - markW(i, fs);
+  const FSMAX = n <= 3 ? 56 : 50;
+  let FS = 0, turn = items.map(() => false);
+  for (let fs = FSMAX; fs >= 40 && !FS; fs -= 2) if (items.every((_, i) => fitsOne(i, fs))) FS = fs;
+  if (!FS) {
+    for (let fs = Math.min(48, FSMAX); fs >= 40; fs -= 2) {
+      const tu = items.map((_, i) => !fitsOne(i, fs));
+      if (n + tu.filter(Boolean).length + 2 <= L || fs === 40) { FS = fs; turn = tu; break; }
+    }
+    // not enough ruled lines for every turn-up: the last ones fall back to an ellipsized one-liner
+    for (let i = n - 1; i >= 0 && n + turn.filter(Boolean).length + 1 > L; i--) if (turn[i]) turn[i] = false;
+  }
+  // fit a label into a width by ellipsizing (last resort)
+  const clipLabel = (lb, vl, fs, room, withValue) => {
+    let s = lb;
+    const width = x => withValue ? dims(x, vl, fs).full : dims(x, vl, fs).lb + dims(x, vl, fs).dash;
+    if (width(s) <= room) return s;
+    const ch = [...lb];
+    for (let e = ch.length - 1; e >= 1; e--) { s = ch.slice(0, e).join("").replace(/[\s·,–-]+$/, "") + "…"; if (width(s) <= room) return s; }
+    return s;
+  };
+
+  // line plan: item lines (+ turn-up lines) + body (wall) lines + one closing line
+  const nTurn = turn.filter(Boolean).length;
+  const bodyTotal = Math.max(0, L - n - nTurn - 1);
+  const body = items.map((_, i) => Math.floor(bodyTotal / Math.max(1, n)) + (i < bodyTotal % Math.max(1, n) ? 1 : 0));
+  const plan = []; // {kind:'item', i} | {kind:'turn', i} | {kind:'wall'} | {kind:'close'}
+  items.forEach((_, i) => { plan.push({ kind: "item", i }); if (turn[i]) plan.push({ kind: "turn", i }); for (let b = 0; b < body[i]; b++) plan.push({ kind: "wall" }); });
+  plan.push({ kind: "close" });
+
+  // ---- deterministic textura "wall" (SVG strokes, never text)
+  const SRC = ("in principio erat uerbum et uerbum erat apud deum hoc erat in principio apud deum omnia per ipsum facta sunt et sine ipso factum est nihil "
+    + "quod factum est in ipso uita erat et uita erat lux hominum et lux in tenebris lucet et tenebrae eam non conprehenderunt fuit homo missus a deo "
+    + "cui nomen erat iohannes hic uenit in testimonium ut testimonium perhiberet de lumine").split(" ");
+  // glyph = [stems, joins between stems, extras]; stems: x minim, A ascender, T t-stem, D descender
+  const GL = { a: ["xx", ["tb"]], b: ["Ax", ["tb"]], c: ["x", [], ["flag"]], d: ["xA", ["tb"]], e: ["x", [], ["flag", "eye"]], f: ["A", [], ["flag", "cross"]],
+    g: ["xD", ["tb"]], h: ["Ax", ["t"]], i: ["x", [], ["dot"]], j: ["D", [], ["dot"]], k: ["Ax", ["t"]], l: ["A", []], m: ["xxx", ["t", "t"]], n: ["xx", ["t"]],
+    o: ["xx", ["tb"]], p: ["Dx", ["tb"]], q: ["xD", ["tb"]], r: ["x", [], ["flag"]], s: ["A", [], ["flag"]], t: ["T", [], ["cross"]], u: ["xx", ["b"]],
+    v: ["xx", ["b"]], w: ["xxx", ["b", "b"]], x: ["xx", ["x"]], y: ["xD", ["b"]], z: ["x", [], ["flag"]] };
+  const SP = 9.8 * k, LG = 7.4 * k, WG = 24 * k, STEM = 5 * k;
+  const glyph = ch => GL[ch] || GL.x;
+  const letW = (ch, lgx) => { const g = glyph(ch); return (g[0].length - 1) * SP + STEM + ((g[2] || []).includes("flag") ? 4 * k : 0) + LG + (lgx || 0); };
+  const wordW = (w, lgx) => { let c = 0; for (const ch of w) c += letW(ch, lgx); return c - LG - (lgx || 0); };
+  let wi = 0; const stems = [], joins = [], hairs = [], dia = [];
+  function drawWord(w, x, b, lgx, wordNo) {
+    let cx = x;
+    const XH = b - 19 * k;
+    for (const ch of w) {
+      const g = glyph(ch), st = g[0], jn = g[1] || [], ex = g[2] || [];
+      for (let q = 0; q < st.length; q++) {
+        const sx = cx + q * SP + STEM / 2, kind = st[q];
+        const top = kind === "A" ? b - 32 * k : kind === "T" ? b - 26 * k : XH;
+        const bot = kind === "D" ? b + 11 * k : b;
+        stems.push("M" + f1(sx) + " " + f1(top + 2.4 * k) + "V" + f1(bot - 2 * k));
+        // broad-nib head (diamond, up-left) and foot (diamond, down-right)
+        const hs = (kind === "A" ? 3.6 : 3) * k;
+        dia.push("M" + f1(sx - hs) + " " + f1(top + 2.4 * k) + "l" + f1(hs) + " " + f1(-hs) + " " + f1(hs) + " " + f1(hs) + " " + f1(-hs) + " " + f1(hs) + "z");
+        if (kind !== "D") dia.push("M" + f1(sx - 2.4 * k) + " " + f1(bot - 2.2 * k) + "l" + f1(2.9 * k) + " " + f1(-2.9 * k) + " " + f1(2.9 * k) + " " + f1(2.9 * k) + " " + f1(-2.9 * k) + " " + f1(2.9 * k) + "z");
+        else hairs.push("M" + f1(sx) + " " + f1(bot - 1.5 * k) + "l" + f1(-5 * k) + " " + f1(2 * k));
+        if (q < st.length - 1) {
+          const j = jn[q] || "";
+          if (j.includes("t")) joins.push("M" + f1(sx + 1.4 * k) + " " + f1(XH + 0.4 * k) + "L" + f1(sx + SP - 1.6 * k) + " " + f1(XH + 4.4 * k));
+          if (j.includes("b")) joins.push("M" + f1(sx + 1.4 * k) + " " + f1(b - 4.4 * k) + "L" + f1(sx + SP - 1.6 * k) + " " + f1(b - 0.4 * k));
+          if (j === "x") hairs.push("M" + f1(sx) + " " + f1(XH) + "L" + f1(sx + SP) + " " + f1(b));
+        }
+      }
+      const sx0 = cx + STEM / 2;
+      if (ex.includes("flag")) { const fy = st[0] === "A" ? b - 32 * k : XH; joins.push("M" + f1(sx0 + 1.2 * k) + " " + f1(fy + 0.6 * k) + "L" + f1(sx0 + 7.4 * k) + " " + f1(fy + 3.2 * k)); }
+      if (ex.includes("eye")) hairs.push("M" + f1(sx0 + 1.6 * k) + " " + f1(b - 10 * k) + "L" + f1(sx0 + 6.6 * k) + " " + f1(XH + 3.6 * k));
+      if (ex.includes("cross")) hairs.push("M" + f1(sx0 - 5 * k) + " " + f1(XH + 0.6 * k) + "H" + f1(sx0 + 6 * k));
+      if (ex.includes("dot")) hairs.push("M" + f1(sx0 - 1.8 * k) + " " + f1(b - 28 * k) + "L" + f1(sx0 + 2.2 * k) + " " + f1(b - 25 * k));
+      cx += letW(ch, lgx);
+    }
+    // scribal abbreviation stroke over some words (fixed rhythm, not random)
+    const ww = wordW(w, lgx);
+    if (w.length >= 3 && wordNo % 5 === 2) hairs.push("M" + f1(x + 2 * k) + " " + f1(b - 27 * k) + "q" + f1(ww / 4) + " " + f1(-4 * k) + " " + f1(ww / 2) + " 0t" + f1(ww / 2 - 4 * k) + " 0");
+  }
+  function wall(xa, xb, b) {
+    const span = xb - xa; if (span < 34 * k) return;
+    const ws = []; let used = 0, guard = 0;
+    while (guard++ < 60) {
+      const w = SRC[wi % SRC.length], gap = ws.length ? WG : 0, ww = wordW(w);
+      if (used + gap + ww <= span) { ws.push({ w, no: wi }); used += gap + ww; wi++; continue; }
+      break;
+    }
+    // close the line with the best-fitting word head (a scribe's abbreviation), then justify
+    const room = span - used - (ws.length ? WG : 0);
+    let best = "";
+    if (room >= 14 * k) for (const w of SRC) for (let e = w.length; e >= 2; e--) { const c = w.slice(0, e), cw = wordW(c); if (cw <= room && cw > wordW(best)) best = c; }
+    if (best) { ws.push({ w: best, no: wi }); used += (ws.length > 1 ? WG : 0) + wordW(best); }
+    if (!ws.length) return;
+    let left = span - used, lgx = 0;
+    const letters = ws.reduce((c, o) => c + o.w.length, 0) - ws.length;
+    if (ws.length < 3 && letters > 0) { lgx = Math.min(2.5 * k, left / letters); left -= lgx * letters; }
+    const extra = ws.length > 1 ? left / (ws.length - 1) : 0;
+    let x = xa;
+    ws.forEach((o, q) => {
+      drawWord(o.w, x, b, lgx, o.no);
+      const ww = wordW(o.w, lgx), g = WG + extra;
+      if (q < ws.length - 1 && o.no % 9 === 4 && g > 18 * k) dia.push("M" + f1(x + ww + g / 2 - 3 * k) + " " + f1(b - 8 * k) + "l" + f1(3 * k) + " " + f1(-3.4 * k) + " " + f1(3 * k) + " " + f1(3.4 * k) + " " + f1(-3 * k) + " " + f1(3.4 * k) + "z");
+      x += ww + g;
+    });
+  }
+
+  // red pilcrow: local box ~41 x 56 (cap top -44, foot +12), baseline at y=0
+  const PIL = "M21 -44 L21 -11 C8 -11 0 -18 0 -28 C0 -38 8 -44 21 -44 Z M19.5 -44 L25.5 -44 L25 12 L20.5 12 Z M30.5 -44 L36.5 -44 L35.5 12 L31 12 Z M19.5 -44 L40 -44 L40.6 -40 L19.5 -40.2 Z";
+  const pil = (x, b, s) => '<path d="' + PIL + '" transform="translate(' + f1(x) + " " + f1(b) + ") scale(" + f1(s * 100) / 100 + ') skewX(-5)" fill="' + RED + '"/>';
+  const punctus = (x, b, s) => '<path d="M' + f1(x) + " " + f1(b - 9 * s) + "l" + f1(4 * s) + " " + f1(-4.6 * s) + " " + f1(4 * s) + " " + f1(4.6 * s) + " " + f1(-4 * s) + " " + f1(4.6 * s) + 'z" fill="' + INK + '"/>';
+
+  // ---- place items, marks and notes on the ruled lines
+  const OFFS = [0, 168, 74, 236, 120];
+  const marks = [], inks = [];
+  let closeBase = lastBase, indent = 0, gilt = null;
+  const putLine = (el, b) => { el.style.top = (b - el.querySelector(".bl").offsetTop) + "px"; };
+  const noteAt = (nt, b) => { nt.el.style.left = (X0 - 20 - nt.w) + "px"; putLine(nt.el, b); };
+  plan.forEach((p, q) => {
+    const b = base(q), x0 = X0 + indent;
+    indent = 0;
+    if (p.kind === "wall") { wall(x0, X1, b); return; }
+    if (p.kind === "close") {
+      closeBase = b;
+      const xs = X0 + 268;
+      wall(x0, xs - 26, b);
+      noteAt(notes[n], b);
+      // closing rule: punctus triad + double red rule; the quill nib rests at its end
+      marks.push('<path d="M' + xs + " " + (b - 16) + "l6-7 6 7-6 7z M" + (xs + 16) + " " + (b - 26) + "l5-6 5 6-5 6z M" + (xs + 16) + " " + (b - 6) + 'l5-6 5 6-5 6z" fill="' + RED + '"/>');
+      marks.push('<path d="M' + (xs + 36) + " " + (b - 19) + "H" + (X1 - 16) + '" stroke="' + RED + '" stroke-width="4.2"/>');
+      marks.push('<path d="M' + (xs + 36) + " " + (b - 9) + "H" + (X1 - 40) + '" stroke="' + RED + '" stroke-width="1.8"/>');
+      return;
+    }
+    const i = p.i, it = items[i], first = i === 0;
+    if (p.kind === "turn") {
+      // the scribe's turn-up: the value finishes on the next ruled line, flush right, opened by a red bracket
+      const div = document.createElement("div");
+      div.className = "item"; div.style.fontSize = FS + "px";
+      let vfs = FS; div.innerHTML = '<span class="vl">' + esc(it.value) + '</span><i class="bl"></i>';
+      itemsEl.appendChild(div);
+      while (W(div) > X1 - x0 - 30 && vfs > 40) { vfs -= 2; div.style.fontSize = vfs + "px"; }
+      const vw = W(div), vx = X1 - vw;
+      div.style.left = vx + "px"; putLine(div, b);
+      const bx = vx - 16, s = vfs / 50;
+      marks.push('<path d="M' + f1(bx + 9 * s) + " " + f1(b - 38 * s) + "H" + f1(bx) + "V" + f1(b + 8 * s) + "H" + f1(bx + 9 * s) + '" fill="none" stroke="' + RED + '" stroke-width="3.4" stroke-linejoin="miter"/>');
+      if (bx - 40 - x0 >= 44) wall(x0, bx - 40, b);
+      return;
+    }
+    const div = document.createElement("div");
+    div.className = "item";
+    let fsI = FS, lb = it.label;
+    const html = (lab) => turn[i] ? '<span class="lb">' + esc(lab) + '</span><span class="dash">–</span><i class="bl"></i>'
+                                  : '<span class="lb">' + esc(lab) + '</span><span class="dash">–</span><span class="vl">' + esc(it.value) + '</span><i class="bl"></i>';
+    div.innerHTML = html(lb); div.style.fontSize = fsI + "px";
+    itemsEl.appendChild(div);
+    // guard: this line may be narrower than planned (e.g. it sits beside the two-line initial)
+    const room = () => X1 - x0 - markW(i, fsI) - (turn[i] ? 0 : PUNC);
+    while (W(div) > room() && fsI > 40) { fsI -= 2; div.style.fontSize = fsI + "px"; }
+    if (W(div) > room()) { lb = clipLabel(it.label, it.value, fsI, room(), !turn[i]); div.innerHTML = html(lb); }
+    const w = W(div), mw = first ? INIT_W : pilW(fsI), gapM = first ? INIT_GAP : PIL_GAP;
+    let off = first || turn[i] ? 0 : OFFS[i % OFFS.length];
+    off = Math.max(0, Math.min(off, X1 - x0 - (mw + gapM + w + PUNC) - 60));
+    if (off < 64) off = 0;                                   // too short for a wall run: start the line with the mark
+    const mx = x0 + (off ? off + 4 : 0);                     // mark position
+    if (off) wall(x0, x0 + off - 18, b);
+    const tx = mx + mw + gapM;
+    div.style.left = tx + "px"; putLine(div, b);
+    if (!turn[i]) {
+      inks.push(punctus(tx + w + 10, b, fsI / 50));
+      const after = tx + w + 44;
+      if (X1 - after >= 44) wall(after, X1, b);
+    }
+    noteAt(notes[i], b);
+    if (first) { gilt = { mx, b }; indent = INIT_W + 18; }
+    else marks.push(pil(mx, b, fsI / 50));
+  });
+  if (gilt) {
+    // the opening mark: a two-line gilded ground, a large red pilcrow and one red penwork scroll
+    const { mx, b } = gilt, gy = b - 58, gh = PITCH + 74;
+    marks.push('<rect x="' + mx + '" y="' + gy + '" width="' + INIT_W + '" height="' + gh + '" fill="' + GOLD + '"/>');
+    marks.push('<rect x="' + (mx + 6) + '" y="' + (gy + 6) + '" width="' + (INIT_W - 12) + '" height="' + (gh - 12) + '" fill="none" stroke="' + RED + '" stroke-width="1.6"/>');
+    marks.push(pil(mx + 16, b + 42 + (PITCH - 64) / 2, 2.05 * (gh / 138)));
+    // penwork: one continuous red scroll rising from the ground and coiling into the head of the margin
+    const cx = mx - 8, cy = gy - 37, R0 = 22, th0 = Math.PI / 2, turns = 2.4 * Math.PI;
+    let pw = "M" + (mx + 16) + " " + gy + "C" + (mx + 14) + " " + (gy - 10) + " " + (mx + 8) + " " + (gy - 16) + " " + cx + " " + (cy + R0);
+    for (let a = 0.12; a <= turns + 1e-6; a += 0.12) { const r = R0 * (1 - 0.66 * a / turns); pw += "L" + f1(cx + r * Math.cos(th0 + a)) + " " + f1(cy + r * Math.sin(th0 + a)); }
+    marks.push('<path d="' + pw + '" fill="none" stroke="' + RED + '" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>');
+  }
+
+  // ---- caption: karaoke gloss under the closing rule (one active word)
+  const words = capText.split(/\s+/).filter(Boolean);
+  let on = -1;
+  if (hl) {
+    const pos = capText.toLowerCase().indexOf(hl.toLowerCase());
+    if (pos >= 0) { let c = 0; const re = /\S+/g; let m; while ((m = re.exec(capText))) { if (m.index < pos + hl.length && m.index + m[0].length > pos) { on = c; break; } c++; } }
+  }
+  if (on < 0 && words.length) on = 0;
+  const capEl = $("caption");
+  const paint = ws => { capEl.innerHTML = ws.map((w, i) => '<span class="w' + (i === on ? " on" : "") + '">' + esc(w) + "</span>").join(" "); };
+  paint(words);
+  const capTop = closeBase + 46, capBot = 1570, capMax = Math.min(122, capBot - capTop);
+  for (let fs = 44; fs >= 40 && capEl.offsetHeight > capMax; fs -= 2) { capEl.style.fontSize = fs + "px"; capEl.style.lineHeight = Math.round(fs * 1.3) + "px"; }
+  if (capEl.offsetHeight > capMax) { let c = words.length; while (c > 1 && capEl.offsetHeight > capMax) { c--; paint(words.slice(0, c).concat("…")); } }
+  capEl.style.top = Math.round(capTop + (capBot - capTop - capEl.offsetHeight) / 2) + "px";
+
+  $("src").textContent = D.source || "";
+  $("date").textContent = D.date || "";
+
+  // ---- SVG: desk, book tail, recto leaf with gutter + sewing, ruling, wall script, red layer, quill
+  const TAIL = 1668;
+  const s = [];
+  s.push('<defs>'
+    + '<radialGradient id="vel" cx="62%" cy="38%" r="78%"><stop offset="0" stop-color="#F3EBDA"/><stop offset=".64" stop-color="' + VEL + '"/><stop offset="1" stop-color="#DED0B3"/></radialGradient>'
+    + '<linearGradient id="gut" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stop-color="#2A2420" stop-opacity=".72"/><stop offset=".2" stop-color="#2A2420" stop-opacity=".36"/>'
+    + '<stop offset=".5" stop-color="#2A2420" stop-opacity=".1"/><stop offset="1" stop-color="#2A2420" stop-opacity="0"/></linearGradient>'
+    + '<linearGradient id="deskg" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity=".55"/><stop offset=".35" stop-color="#000" stop-opacity="0"/></linearGradient>'
+    + '<filter id="blur6"><feGaussianBlur stdDeviation="6"/></filter>'
+    + '</defs>');
+  s.push('<rect width="1080" height="1920" fill="' + DESK + '"/>');
+  // book under the leaf: the board (leather, gold fillet) and the stacked leaf edges of the text block
+  s.push('<path d="M0 ' + (TAIL + 30) + ' C300 ' + (TAIL + 26) + ' 700 ' + (TAIL + 22) + ' 1080 ' + (TAIL + 18) + ' V' + (TAIL + 62) + ' C700 ' + (TAIL + 66) + ' 300 ' + (TAIL + 70) + ' 0 ' + (TAIL + 76) + ' Z" fill="#2E2421"/>');
+  s.push('<path d="M0 ' + (TAIL + 62) + ' C300 ' + (TAIL + 57) + ' 700 ' + (TAIL + 53) + ' 1080 ' + (TAIL + 49) + '" fill="none" stroke="' + GOLD + '" stroke-opacity=".75" stroke-width="2"/>');
+  s.push('<path d="M0 ' + (TAIL + 68) + ' C300 ' + (TAIL + 63) + ' 700 ' + (TAIL + 59) + ' 1080 ' + (TAIL + 55) + '" fill="none" stroke="' + GOLD + '" stroke-opacity=".4" stroke-width="1"/>');
+  s.push('<rect y="' + (TAIL + 70) + '" width="1080" height="80" fill="url(#deskg)"/>');
+  const edgeCols = ["#B9AA8A", "#CDBF9F", "#C3B392", "#D6C9AB"];
+  for (let e = 4; e >= 1; e--) {
+    const d = e * 6;
+    s.push('<path d="M0 ' + (TAIL + 20 + d * 0.3) + ' C60 ' + (TAIL + 2 + d) + ' 120 ' + (TAIL - 2 + d) + ' 300 ' + (TAIL - 4 + d) + ' L1080 ' + (TAIL - 8 + d) + ' V' + (TAIL - 30) + ' H0 Z" fill="' + edgeCols[e - 1] + '"/>');
+    s.push('<path d="M0 ' + (TAIL + 20 + d * 0.3) + ' C60 ' + (TAIL + 2 + d) + ' 120 ' + (TAIL - 2 + d) + ' 300 ' + (TAIL - 4 + d) + ' L1080 ' + (TAIL - 8 + d) + '" fill="none" stroke="' + INK + '" stroke-opacity=".28" stroke-width="1"/>');
+  }
+  // the recto leaf itself: bleeds off top and right, dips into the gutter at the tail
+  const LEAF = "M-10 -10 H1090 V" + (TAIL - 8) + " L300 " + (TAIL - 4) + " C120 " + (TAIL - 2) + " 60 " + TAIL + " 0 " + (TAIL + 16) + " L-10 " + (TAIL + 16) + " Z";
+  s.push('<path data-layout-allow-overflow d="' + LEAF + '" fill="url(#vel)"/>');
+  s.push('<path d="M1080 ' + (TAIL - 8) + " L300 " + (TAIL - 4) + " C120 " + (TAIL - 2) + " 60 " + TAIL + " 0 " + (TAIL + 16) + '" fill="none" stroke="' + INK + '" stroke-opacity=".35" stroke-width="1.4"/>');
+  // follicle speckle of the hair side (fixed pseudo-hash, deterministic)
+  let sp = ""; for (let i = 0; i < 170; i++) { const hx = (Math.sin(i * 12.9898) * 43758.5453) % 1, hy = (Math.sin(i * 78.233) * 12543.123) % 1;
+    const x = 70 + Math.abs(hx) * 1000, y = 20 + Math.abs(hy) * (TAIL - 60); sp += '<circle cx="' + f1(x) + '" cy="' + f1(y) + '" r="' + (1 + (i % 3) * 0.5) + '"/>'; }
+  s.push('<g fill="' + INK + '" opacity=".1">' + sp + '</g>');
+  // ruling: drypoint lines on every baseline, bounding lines running off the head, prickings in the outer margin
+  let rl = "";
+  for (let q = 0; q < L; q++) { const b = base(q); rl += "M" + (X0 - 12) + " " + b + "H" + (X1 + 12) + " "; }
+  rl += "M70 " + base(0) + "H1080 M70 " + base(L - 1) + "H1080 ";
+  const rTop = base(0) - 96;
+  rl += "M" + (X0 - 12) + " 0V250 M" + (X1 + 12) + " 0V250 M" + (X0 - 12) + " " + rTop + "V" + (TAIL - 6) + " M" + (X1 + 12) + " " + rTop + "V" + (TAIL - 8);
+  s.push('<path d="' + rl + '" stroke="' + INK + '" stroke-opacity=".16" stroke-width="1.2" fill="none"/>');
+  let pr = ""; for (let q = 0; q < L; q++) { const b = base(q); pr += "M1004 " + (b - 3) + "l3 6 "; }
+  pr += "M" + (X0 - 15) + " 62l3 6 M" + (X1 + 9) + " 62l3 6";
+  s.push('<path d="' + pr + '" stroke="' + INK + '" stroke-opacity=".45" stroke-width="2.2" fill="none"/>');
+  // gutter: the recto curves down into the binding; the verso rises on the far side of the fold
+  s.push('<rect data-layout-allow-overflow x="0" y="-10" width="150" height="' + (TAIL + 26) + '" fill="url(#gut)"/>');
+  s.push('<path data-layout-allow-overflow d="M-10 -10 H10 V' + (TAIL + 18) + ' H-10 Z" fill="#9C8D70"/><path data-layout-allow-overflow d="M-10 -10 H4 V' + (TAIL + 18) + ' H-10 Z" fill="#B7A786"/>');
+  s.push('<path data-layout-allow-overflow d="M10 -10 V' + (TAIL + 18) + '" stroke="#120F14" stroke-opacity=".7" stroke-width="4"/>');
+  // sewing: thread running along the fold between the stations, the supports crossing it as raised bands
+  const ST = [52, 372, 712, 1052, 1392, TAIL - 40];
+  let th = "", holes = "", bands = "";
+  for (let q = 0; q < ST.length - 1; q++) th += "M17 " + (ST[q] + 6) + "C19 " + (ST[q] + 80) + " 15 " + (ST[q + 1] - 80) + " 17 " + (ST[q + 1] - 6) + " ";
+  ST.forEach((y, q) => { holes += '<ellipse cx="17" cy="' + y + '" rx="3.4" ry="4.4"/>';
+    // at each support the thread wraps across the fold: two short crossing strands
+    if (q > 0 && q < ST.length - 1) bands += "M9 " + (y - 12) + "L27 " + (y + 4) + " M9 " + (y + 12) + "L27 " + (y - 4) + " "; });
+  s.push('<path d="' + th + '" fill="none" stroke="#120F14" stroke-opacity=".7" stroke-width="6"/>');
+  s.push('<path d="' + th + '" fill="none" stroke="#E4D6B6" stroke-width="3"/>');
+  s.push('<g fill="#120F14">' + holes + '</g>');
+  s.push('<path d="' + bands + '" fill="none" stroke="#120F14" stroke-opacity=".7" stroke-width="5.4" stroke-linecap="round"/>');
+  s.push('<path d="' + bands + '" fill="none" stroke="#E4D6B6" stroke-width="2.6" stroke-linecap="round"/>');
+  // silk register: laid down the gutter from the head of the spine, out over the tail onto the desk
+  const RG = "M44 -10 C50 300 40 700 50 1000 C58 1300 46 1500 54 " + (TAIL + 8) + " L58 " + (TAIL + 150) + " L71 " + (TAIL + 128) + " L84 " + (TAIL + 152) + " L80 " + (TAIL + 6) + " C72 1500 84 1300 76 1000 C66 700 76 300 70 -10 Z";
+  s.push('<path data-layout-allow-overflow d="' + RG + '" fill="#000" opacity=".3" transform="translate(5 3)" filter="url(#blur6)"/>');
+  s.push('<path data-layout-allow-overflow d="' + RG + '" fill="#B8924E"/>');
+  s.push('<path data-layout-allow-overflow d="M57 -10 C63 300 53 700 63 1000 C71 1300 59 1500 67 ' + (TAIL + 8) + '" fill="none" stroke="' + GOLD + '" stroke-width="5" stroke-opacity=".9"/>');
+  // wall script
+  s.push('<g fill="' + INK + '" stroke="' + INK + '" opacity=".52" stroke-linecap="butt">'
+    + '<path d="' + stems.join("") + '" fill="none" stroke-width="' + f1(STEM) + '"/>'
+    + '<path d="' + joins.join("") + '" fill="none" stroke-width="' + f1(2.4 * k) + '"/>'
+    + '<path d="' + hairs.join("") + '" fill="none" stroke-width="' + f1(1.3 * k) + '"/>'
+    + '<path d="' + dia.join("") + '" stroke="none"/></g>');
+  // ink punctus after each item, then the rubricator's red layer
+  s.push(inks.join(""));
+  s.push(marks.join(""));
+  // minium pot on the desk below the book (bottom-right, cropped by the frame)
+  s.push('<g transform="translate(880 1858)">'
+       + '<ellipse cx="10" cy="20" rx="104" ry="40" fill="#000" opacity=".45" filter="url(#blur6)"/>'
+       + '<path d="M-92 0 V60 H92 V0 Z" fill="#2A2420"/>'
+       + '<ellipse rx="92" ry="40" fill="#3A322C" stroke="' + GOLD + '" stroke-opacity=".85" stroke-width="5"/>'
+       + '<ellipse cy="3" rx="62" ry="25" fill="#120F14"/><ellipse cy="5" rx="55" ry="20" fill="' + RED + '"/>'
+       + '<ellipse cx="-20" cy="-1" rx="15" ry="4" fill="' + VEL + '" opacity=".3"/></g>');
+  // the quill: only the nib and a short stretch of shaft enter from the right margin, nib at the end of the closing rule
+  let barbs = ""; for (let i = 0; i < 14; i++) { const x = 104 + i * 16; barbs += "M" + x + " -3 l" + (20 - (i % 3) * 3) + " " + f1(-Math.min(40, (x - 90) * 0.28) + (i % 4)) + " "; }
+  let barbs2 = ""; for (let i = 0; i < 12; i++) { const x = 130 + i * 16; barbs2 += "M" + x + " 3 l18 " + f1(Math.min(18, (x - 120) * 0.13)) + " "; }
+  s.push('<g data-layout-allow-overflow transform="translate(' + (X1 - 14) + " " + (closeBase - 19) + ') rotate(9)">'
+    + '<path d="M40 8 C120 22 220 30 330 30 L330 -20 C220 -40 120 -26 40 -4 Z" fill="#000" opacity=".28" transform="translate(10 14)" filter="url(#blur6)"/>'
+    + '<path d="M96 -4 C150 -22 230 -38 330 -42 L330 -2 Z" fill="' + GOLD + '"/>'
+    + '<path d="M118 4 C190 16 260 22 330 22 L330 2 Z" fill="#A9864A"/>'
+    + '<path d="' + barbs + barbs2 + '" stroke="' + INK + '" stroke-opacity=".32" stroke-width="1.3" fill="none"/>'
+    + '<path d="M0 0 L22 -4.2 L52 -6 L330 -3.4 L330 3.4 L52 6 L22 4.2 Z" fill="#E9DEC4" stroke="' + INK + '" stroke-opacity=".6" stroke-width="1.6"/>'
+    + '<path d="M3 0 L20 0" stroke="' + INK + '" stroke-width="1.4"/><path d="M0 0 L10 -2.2 L10 2.2 Z" fill="' + RED + '"/>'
+    + '</g>');
+  $("art").innerHTML = s.join("");
+  }
+</script>
+</body>
+</html>

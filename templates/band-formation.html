@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Band Formation</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@500;700;800&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Band Formation (band-formation): a printed marching-band drill chart.
+    The page is laid out like the chart itself: a ruled drill-sheet title block
+    (PERTUNJUKAN = the title, then SET / HITUNGAN / HAL. cells), the field with
+    blue-grey yard lines, hash ticks, a 4-step grid and the ticked front sideline,
+    a performer's ring-bound dot-book card lying on the lower-left of the chart,
+    and the drill writer's note line ("CATATAN SET n:") as the caption.
+    Every performer is a dot. Grey rings = where each dot stood at SET 1 (random
+    scatter). At the set drawn here (always the last set, n/n) the dots read as a
+    picture: a cat's head. The head outline was already standing at the previous
+    set; only the eyes and nose still had to march in: their short blue strokes are
+    that last move, the way a drill sheet draws a move.
+    Metaphor: diffusion image generation. SET 1 = pure noise; each set is one
+    denoising step that moves every dot a little closer to the image.
+    One performer is tracked in vermilion with numbered set stops 1..n (stop n =
+    the left ear tip). The dot book lists the sets = the items (label, value).
+    Deterministic: target shape hard-coded; scatter from a fixed sine hash.
+  */
+  :root { --paper: #F8F7F3; --card: #FFFEFA; --ink: #141414; --grid: #B9C0C9; --verm: #E4572E; --blue: #2F5BD3; --mute: rgba(20,20,20,.72); }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--paper); }
+  body { position: relative; color: var(--ink); font-family: "Archivo", sans-serif; }
+
+  #field { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* ---- drill-sheet title block ---- */
+  .tb { position: absolute; left: 90px; top: 300px; width: 900px; border: 3px solid var(--ink); background: var(--paper); }
+  .tb .show { padding: 12px 24px 16px; }
+  .tb .lab { display: flex; justify-content: space-between; gap: 24px; font: 700 26px "JetBrains Mono", monospace; letter-spacing: 0.06em;
+             text-transform: uppercase; line-height: 1.15; color: var(--mute); }
+  .tb .lab b { color: var(--ink); font-weight: 800; white-space: nowrap; }
+  .title { margin-top: 12px; font-weight: 820; font-stretch: 84%; letter-spacing: -0.012em; line-height: 1.02; color: var(--ink); }
+  .title .hl { color: var(--verm); }
+  /* hl = a company front: a rank of performer dots lines up under the word, ending in the tracked performer's ring */
+  .title .hl.rk { display: inline-block; position: relative; padding-bottom: 24px; }
+  .title .hl svg { position: absolute; left: 0; overflow: visible; }
+  .tb .strip { display: flex; border-top: 1.5px solid var(--ink); }
+  .tb .c { flex: 1 1 0; display: flex; align-items: baseline; gap: 14px; padding: 10px 20px 11px; border-left: 1.5px solid var(--ink); }
+  .tb .c:first-child { border-left: 0; }
+  .tb .c .k { font: 700 26px "JetBrains Mono", monospace; letter-spacing: 0.06em; color: var(--mute); }
+  .tb .c b { font: 800 34px "JetBrains Mono", monospace; letter-spacing: -0.02em; color: var(--ink); white-space: nowrap; }
+
+  /* ---- numbered set stops of the tracked performer ---- */
+  .mk { position: absolute; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%; background: var(--paper); border: 4px solid var(--verm);
+        display: flex; align-items: center; justify-content: center; font: 800 30px "JetBrains Mono", monospace; color: var(--ink); line-height: 1; }
+  .mk.on { background: var(--verm); border-color: var(--ink); }
+
+  /* ---- the performer's dot-book card (ring-bound index card lying on the chart) ---- */
+  .card { position: absolute; left: 96px; width: 620px; background: var(--card); border: 2px solid var(--ink); padding: 0 20px 6px 66px;
+          box-shadow: 0 16px 30px rgba(20,20,20,.16), 0 3px 0 rgba(20,20,20,.10); transform: rotate(2deg); }
+  .card .bind { position: absolute; left: 0; top: 0; overflow: visible; }
+  .card .ch { display: flex; align-items: center; height: 46px; border-bottom: 3px solid var(--verm); }
+  .card .k { font: 700 26px "JetBrains Mono", monospace; letter-spacing: 0.04em; color: var(--mute); }
+  .card .c1 { flex: none; width: 62px; position: relative; }
+  .card .c2 { flex: none; width: 82px; }
+  .card .ct { flex: 1 1 auto; text-align: right; font: 800 26px "JetBrains Mono", monospace; letter-spacing: 0.06em; color: var(--ink); white-space: nowrap; }
+  .card .ct i { display: inline-block; width: 18px; height: 18px; border-radius: 50%; background: var(--verm); margin-left: 10px; vertical-align: -1px; }
+  .card .cr { display: flex; align-items: center; border-bottom: 1.5px solid var(--grid); }
+  .card .cr:last-child { border-bottom: 0; }
+  .card .cr .c1 { font: 800 30px "JetBrains Mono", monospace; color: var(--ink); }
+  .card .cr .c1 svg { position: absolute; overflow: visible; }
+  .card .cr .c2 { font: 700 30px "JetBrains Mono", monospace; color: var(--mute); }
+  .card .lb { flex: 1 1 auto; min-width: 0; font-weight: 600; font-stretch: 92%; font-size: 32px; line-height: 1.05; color: var(--ink); white-space: nowrap; }
+  .card .vl { flex: none; margin-left: 14px; font: 700 30px "JetBrains Mono", monospace; letter-spacing: -0.03em; color: var(--ink); white-space: nowrap; text-align: right; }
+  .card .vl.hit { box-shadow: inset 0 -6px 0 var(--verm); }
+
+  /* ---- drill writer's note line = karaoke caption ---- */
+  .note { position: absolute; left: 90px; width: 810px; }
+  .note .nl { font: 800 28px "JetBrains Mono", monospace; letter-spacing: 0.05em; color: var(--ink); line-height: 1.2; }
+  .note #rules { position: absolute; left: 0; top: 0; overflow: visible; }
+  .cap { position: relative; margin-top: 4px; font-weight: 600; font-stretch: 94%; font-size: 44px; line-height: 1.3; color: var(--ink); }
+  .cap .w { color: var(--mute); }
+  .cap .w.done { color: var(--ink); }
+  .cap .w.on { color: var(--ink); padding: 0 0.2em; }
+  .cap svg { position: absolute; overflow: visible; pointer-events: none; }
+
+  .foot { position: absolute; left: 90px; width: 900px; display: flex; justify-content: space-between; align-items: flex-end; gap: 36px;
+          font: 500 26px "Archivo", sans-serif; font-stretch: 92%; line-height: 1.2; color: var(--mute); }
+  .foot #date { flex: none; font: 700 26px "JetBrains Mono", monospace; color: var(--ink); }
+</style>
+</head>
+<body>
+<svg id="holes" width="1080" height="300" viewBox="0 0 1080 300" xmlns="http://www.w3.org/2000/svg" style="position:absolute;left:0;top:0" aria-hidden="true">
+  <!-- top-bound flip-folder sheet: three punched holes with paper reinforcement rings -->
+  <g fill="none" stroke="#C9C5BB" stroke-width="3"><circle cx="270" cy="150" r="31"/><circle cx="540" cy="150" r="31"/><circle cx="810" cy="150" r="31"/></g>
+  <g fill="#D9D6CD" stroke="#A9A598" stroke-width="2.5"><circle cx="270" cy="150" r="19"/><circle cx="540" cy="150" r="19"/><circle cx="810" cy="150" r="19"/></g>
+</svg>
+<svg id="field" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap aria-hidden="true"></svg>
+<div id="marks"></div>
+<div class="card" id="card" data-layout-allow-overlap></div>
+<div class="tb" id="tb">
+  <div class="show">
+    <div class="lab"><span>Pertunjukan</span><b id="series"></b></div>
+    <div class="title" id="title"></div>
+  </div>
+  <div class="strip">
+    <div class="c"><span class="k">SET</span><b id="setno"></b></div>
+    <div class="c"><span class="k">HITUNGAN</span><b id="cnt"></b></div>
+    <div class="c"><span class="k">HAL.</span><b id="hal"></b></div>
+  </div>
+</div>
+<div class="note" id="note"><svg id="rules" width="810" height="10" aria-hidden="true"></svg><div class="nl" id="nl"></div><div class="cap" id="cap" data-slot="caption"></div></div>
+<div class="foot" id="foot"><span id="src"></span><span id="date"></span></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  // Lay out only after the web fonts are in: the fitting below measures real glyph widths.
+  Promise.all(['820 100px Archivo', '600 32px Archivo', '600 44px Archivo', '500 26px Archivo', '800 30px "JetBrains Mono"', '700 26px "JetBrains Mono"'].map(f => document.fonts.load(f)))
+    .catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  // A drill writer's pen circle: one open, slightly overshooting loop in a unit box (hard-coded, no RNG).
+  const PEN = "M0.60,0.03 C0.90,0.02 1.03,0.30 0.99,0.56 C0.95,0.86 0.62,1.01 0.37,0.97 C0.10,0.94 -0.03,0.70 0.01,0.44 C0.05,0.16 0.30,-0.01 0.57,0.02 C0.72,0.04 0.82,0.09 0.88,0.17";
+  const penRing = (x, y, w, h, sw) => `<svg data-layout-allow-overlap aria-hidden="true" width="${w}" height="${h}" viewBox="0 0 1 1" preserveAspectRatio="none" style="left:${x}px;top:${y}px">` +
+    `<path d="${PEN}" fill="none" stroke="#E4572E" stroke-width="${sw}" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>`;
+
+  function render() {
+    const $ = id => document.getElementById(id);
+    const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const INK = "#141414", GRID = "#B9C0C9", VERM = "#E4572E", BLUE = "#2F5BD3";
+    const items = (D.items || []).slice(0, 5);
+    const n = Math.max(items.length, 1);
+    const hl = String(D.hl || "").trim();
+    const act = n - 1;   // the field always draws the last set, so the sheet, the stops and the card all say SET n/n
+
+    // ---------- title block ----------
+    $("series").textContent = D.series || D.kicker || "";
+    $("setno").textContent = (act + 1) + "/" + n;
+    $("cnt").textContent = "16";
+    $("hal").textContent = D.ep || String(n).padStart(2, "0");
+    const t = String(D.title || "");
+    const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    const titleEl = $("title");
+    const setTitle = rank => {
+      titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + `<span class="hl${rank ? " rk" : ""}">` + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+    };
+    let rank = at >= 0;
+    setTitle(rank);
+    for (let fs = 112; fs >= 72; fs -= 2) {
+      titleEl.style.fontSize = fs + "px";
+      const span = titleEl.querySelector(".hl");
+      if (rank && span && span.offsetWidth > 852) { rank = false; setTitle(false); }   // hl too long for one line: colour only
+      const lines = Math.round((titleEl.offsetHeight - (rank ? 24 : 0)) / (fs * 1.02));
+      if (titleEl.offsetHeight <= 250 + (rank ? 24 : 0) && lines <= 3) break;
+    }
+    if (rank) {   // performer dots (r 11, ~32 px apart) under the hl word, last one = vermilion tracked-performer ring
+      const span = titleEl.querySelector(".hl"), w = span.offsetWidth, ch = span.offsetHeight - 24;
+      const m = Math.max(2, Math.round((w - 31) / 32) + 1), y = 13;
+      let s = "";
+      for (let i = 0; i < m; i++) {
+        const x = 11 + (w - 31) * i / (m - 1);
+        s += `<circle cx="${x.toFixed(1)}" cy="${y}" r="11" fill="${INK}"/>`;
+        if (i === m - 1) s += `<circle cx="${x.toFixed(1)}" cy="${y}" r="20" fill="none" stroke="${VERM}" stroke-width="5"/>`;
+      }
+      span.insertAdjacentHTML("beforeend", `<svg data-layout-allow-overlap aria-hidden="true" width="${w}" height="26" style="top:${ch - 4}px">${s}</svg>`);
+    }
+    const tbBottom = 300 + $("tb").offsetHeight;
+
+    // ---------- bottom stack, measured upward from the safe-zone floor (y 1618) ----------
+    const foot = $("foot");
+    $("src").textContent = D.source ? "Sumber: " + D.source : "";
+    $("date").textContent = D.date || "";
+    const footTop = 1618 - foot.offsetHeight;
+    foot.style.top = footTop + "px";
+
+    // drill writer's note line: "CATATAN SET n:" + karaoke words, active word circled in vermilion pen
+    $("nl").textContent = "CATATAN SET " + (act + 1) + ":";
+    const cap = String(D.caption || D.sub || "").trim();
+    const words = cap.split(/\s+/).filter(Boolean);
+    let a0 = 0, a1 = 0;
+    if (hl) {
+      const clean = w => w.toLowerCase().replace(/[^\p{L}\p{N}·]/gu, "");
+      const low = words.map(clean), hw = hl.split(/\s+/).map(clean);
+      for (let i = 0; i + hw.length <= words.length; i++) if (hw.every((w, k) => low[i + k] === w)) { a0 = i; a1 = i + hw.length - 1; break; }
+    }
+    let chtml = "";
+    for (let i = 0; i < words.length; i++) {
+      if (i === a0) { chtml += '<span class="w on">' + esc(words.slice(a0, a1 + 1).join(" ")) + "</span> "; i = a1; continue; }
+      chtml += '<span class="w' + (i < a0 ? " done" : "") + '">' + esc(words[i]) + "</span> ";
+    }
+    const capEl = $("cap");
+    capEl.innerHTML = chtml.trim();
+    let capFs = 46;
+    for (; capFs >= 40; capFs -= 1) { capEl.style.fontSize = capFs + "px"; if (capEl.offsetHeight <= capFs * 1.3 * 2 + 4) break; }
+    capFs = Math.max(capFs, 40);
+    for (let st = 92; st >= 80 && capEl.offsetHeight > capFs * 1.3 * 2 + 4; st -= 2) capEl.style.fontStretch = st + "%";
+    const on = capEl.querySelector(".w.on");
+    if (on) {
+      const rects = Array.from(on.getClientRects()), cr = capEl.getBoundingClientRect();
+      rects.forEach(r => capEl.insertAdjacentHTML("beforeend", penRing(r.left - cr.left - 4, r.top - cr.top - 2, r.width + 8, r.height + 4, 4.5)));
+    }
+    const note = $("note");
+    const noteTop = footTop - 22 - note.offsetHeight;
+    note.style.top = noteTop + "px";
+    {   // ruled note lines under the label and under each caption line
+      const lh = parseFloat(capEl.style.fontSize) * 1.3, nlH = $("nl").offsetHeight, lines = Math.max(1, Math.round(capEl.offsetHeight / lh));
+      let r = `<line x1="0" y1="${nlH + 1}" x2="810" y2="${nlH + 1}" stroke="${INK}" stroke-width="1.5"/>`;
+      for (let i = 1; i <= lines; i++) { const y = (nlH + 4 + i * lh - 2).toFixed(1); r += `<line x1="0" y1="${y}" x2="810" y2="${y}" stroke="${GRID}" stroke-width="2"/>`; }
+      const rs = $("rules"); rs.setAttribute("height", note.offsetHeight + 4); rs.innerHTML = r;
+    }
+
+    // ---------- dot-book card ----------
+    const rowH = n >= 5 ? 45 : 50;
+    const card = $("card");
+    const cnt = k => k === 0 ? "0" : "16";
+    card.innerHTML =
+      `<svg class="bind" width="66" height="66" aria-hidden="true"><circle cx="34" cy="32" r="9" fill="#E6E3DA" stroke="#8E97A3" stroke-width="2"/>` +
+      `<ellipse cx="14" cy="12" rx="35" ry="9" transform="rotate(44 14 12)" fill="none" stroke="#5A5F66" stroke-width="6"/>` +
+      `<ellipse cx="14" cy="12" rx="35" ry="9" transform="rotate(44 14 12)" fill="none" stroke="#C9CDD3" stroke-width="1.5"/></svg>` +
+      `<div class="ch"><span class="k c1">SET</span><span class="k c2">HIT.</span><span class="ct">BUKU TITIK<i></i></span></div>` +
+      items.map((it, k) => {
+        const hit = hl && String(it.label).toLowerCase().includes(hl.toLowerCase());
+        return `<div class="cr" style="height:${rowH}px"><span class="c1">${k + 1}</span><span class="c2">${cnt(k)}</span>` +
+               `<span class="lb">${esc(it.label)}</span><span class="vl${hit ? " hit" : ""}">${esc(it.value)}</span></div>`;
+      }).join("");
+    {   // widen the card (up to 720 px) when a label + value pair needs it; past that, labels wrap
+      const inner = card.clientWidth - 66 - 20;
+      let need = 0;
+      card.querySelectorAll(".cr").forEach(r => { need = Math.max(need, 62 + 82 + r.querySelector(".lb").scrollWidth + 14 + r.querySelector(".vl").scrollWidth); });
+      if (need > inner) card.style.width = Math.min(720, 620 + need - inner + 2) + "px";
+    }
+    card.querySelectorAll(".cr").forEach(r => {
+      const lb = r.querySelector(".lb"), vl = r.querySelector(".vl");
+      for (let fs = 30; fs >= 26 && vl.scrollWidth > 240; fs -= 1) vl.style.fontSize = fs + "px";
+      for (let fs = 32; fs >= 30 && lb.scrollWidth > lb.clientWidth + 1; fs -= 1) lb.style.fontSize = fs + "px";
+      if (lb.scrollWidth > lb.clientWidth + 1) { lb.style.whiteSpace = "normal"; lb.style.lineHeight = "1.0"; r.style.height = "auto"; r.style.minHeight = rowH + "px"; r.style.padding = "4px 0"; }
+    });
+    {   // the set this chart shows: its number circled in the card, like a drill writer marks a performer
+      const c1 = card.querySelectorAll(".cr .c1")[act];
+      if (c1) c1.insertAdjacentHTML("beforeend", penRing(-11, -5, 42, c1.offsetHeight + 10, 4));
+    }
+    const CW = card.offsetWidth, CH = card.offsetHeight, TH = 2 * Math.PI / 180;
+    const cardTop = Math.round(noteTop - 26 - CH - (CW / 2) * Math.sin(TH));
+    card.style.top = cardTop + "px";
+    const ccx = 96 + CW / 2, ccy = cardTop + CH / 2;
+    const yTop = x => ccy - (CH / 2) * Math.cos(TH) + (x - ccx) * Math.tan(TH);   // card's rotated top edge
+    const cardL = 96 - (CH / 2) * Math.sin(TH), cardR = 96 + CW;
+
+    // ---------- the field ----------
+    const FY0 = Math.round(tbBottom + 24), FY1 = Math.round(cardTop + CH - 34), FH = FY1 - FY0;
+    const STEP = 225 / 8; // 8 steps per 5 yards
+    const svg = [];
+    for (let x = 90 - 225; x <= 1080 + 225; x += 112.5) {
+      if (x < -4 || x > 1084) continue;
+      const yard = Math.abs(((x - 90) / 225) % 1) < 0.01;
+      svg.push(yard
+        ? `<line x1="${x}" y1="${FY0}" x2="${x}" y2="${FY1}" stroke="${GRID}" stroke-width="3"/>`
+        : `<line x1="${x}" y1="${FY0}" x2="${x}" y2="${FY1}" stroke="${GRID}" stroke-width="1.6" stroke-dasharray="6 8"/>`);
+    }
+    for (let y = FY1 - 112.5; y > FY0 + 8; y -= 112.5)
+      svg.push(`<line x1="0" y1="${y.toFixed(1)}" x2="1080" y2="${y.toFixed(1)}" stroke="${GRID}" stroke-width="1.6" stroke-dasharray="6 8"/>`);
+    svg.push(`<line x1="0" y1="${FY0}" x2="1080" y2="${FY0}" stroke="${INK}" stroke-width="2"/>`);
+    svg.push(`<line x1="0" y1="${FY1}" x2="1080" y2="${FY1}" stroke="${INK}" stroke-width="5"/>`);
+    for (let k = -4; k * STEP <= 1080; k++) {
+      const x = 90 + k * STEP; if (x < 0) continue;
+      const big = k % 4 === 0;
+      svg.push(`<line x1="${x.toFixed(1)}" y1="${FY1}" x2="${x.toFixed(1)}" y2="${FY1 - (big ? 16 : 9)}" stroke="${INK}" stroke-width="${big ? 2.4 : 1.6}"/>`);
+      svg.push(`<line x1="${x.toFixed(1)}" y1="${FY0}" x2="${x.toFixed(1)}" y2="${FY0 + (big ? 12 : 7)}" stroke="${INK}" stroke-width="1.6"/>`);
+    }
+    const HB = FY0 + FH * 0.24, HF = FY0 + FH * 0.62;
+    for (let i = 0; i < 5; i++) {
+      const x = 90 + 225 * i;
+      for (const y of [HB, HF]) svg.push(`<line x1="${x - 16}" y1="${y.toFixed(1)}" x2="${x + 16}" y2="${y.toFixed(1)}" stroke="${INK}" stroke-width="3"/>`);
+    }
+    // painted yard numbers, split by their line ("4|5"), arrow to the nearer goal line (the card covers the ones under it)
+    const NUMY = FY1 - 20;
+    [[315, "4", "5", -1], [540, "5", "0", 0], [765, "4", "5", 1]].filter(([x]) => x - 40 > cardR + 6 || x + 40 < cardL).forEach(([x, a, b, dir]) => {
+      svg.push(`<text x="${x - 9}" y="${NUMY}" text-anchor="end" font-family="Archivo" font-weight="800" font-size="44" font-stretch="84%" fill="#5A5F66">${a}</text>`);
+      svg.push(`<text x="${x + 9}" y="${NUMY}" text-anchor="start" font-family="Archivo" font-weight="800" font-size="44" font-stretch="84%" fill="#5A5F66">${b}</text>`);
+      if (dir) { const ax = x + dir * 62, ay = NUMY - 17; svg.push(`<path d="M${ax + dir * 12},${ay} L${ax - dir * 4},${ay - 9} L${ax - dir * 4},${ay + 9} Z" fill="#5A5F66"/>`); }
+    });
+
+    // ---------- the picture: hard-coded target formation (a cat's head) ----------
+    const P = Math.PI;
+    const arc = (t0, t1, f) => Array.from({ length: 61 }, (_, i) => f(t0 + (t1 - t0) * i / 60));
+    const along = (pts, gap) => {                      // evenly spaced points along a polyline, ends included
+      const cum = [0]; for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+      const L = cum[cum.length - 1], m = Math.max(1, Math.round(L / gap)), out = [];
+      for (let q = 0; q <= m; q++) {
+        const d = L * q / m; let i = 1; while (i < cum.length - 1 && cum[i] < d) i++;
+        const tt = (d - cum[i - 1]) / ((cum[i] - cum[i - 1]) || 1);
+        out.push([pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * tt, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * tt]);
+      }
+      return out;
+    };
+    const makeCat = (S, OX, OY) => {
+      const U = (x, y) => [OX + x * S, OY + y * S];
+      const face = th => U(0.5 + 0.5 * Math.cos(th), 0.6 + 0.38 * Math.sin(th));
+      const GAP = Math.max(28, S * 0.072);
+      const tgt = []; let TR = 0;                      // [x, y, kind] kind 0 = head outline, 1 = eyes + nose (the last move)
+      const apexL = U(0.12, 0.0), apexR = U(0.88, 0.0);
+      const chain = [[face(-0.86 * P), apexL], [apexL, face(-0.61 * P)], arc(-0.61 * P, -0.39 * P, face),
+                     [face(-0.39 * P), apexR], [apexR, face(-0.14 * P)], arc(-0.14 * P, 1.14 * P, face)];
+      chain.forEach((edge, e) => {
+        const pts = along(edge, GAP);
+        pts.slice(0, e === chain.length - 1 ? -1 : pts.length).forEach((q, i) => {
+          if (i === 0 && e > 0) return;                // shared corner already placed
+          tgt.push([q[0], q[1], 0]);
+          if (e === 0 && i === pts.length - 1) TR = tgt.length - 1;   // tracked performer = left ear tip
+        });
+      });
+      [[0.325, 0.555], [0.675, 0.555]].forEach(([cx, cy]) =>
+        along(arc(0, 2 * P, th => U(cx + 0.098 * Math.cos(th), cy + 0.058 * Math.sin(th))), Math.max(GAP * 0.9, S * 0.072)).slice(0, -1).forEach(q => tgt.push([q[0], q[1], 1])));
+      [[0.452, 0.69], [0.548, 0.69], [0.5, 0.732]].forEach(([x, y]) => { const q = U(x, y); tgt.push([q[0], q[1], 1]); });
+      return { tgt, TR, GAP, S };
+    };
+    // largest cat (centre x 645, right edge <= 870) that clears the card's tilted top edge and the yard numbers
+    const OY = FY0 + 34;
+    let cat;
+    for (let S = 450; S >= 240; S -= 2) {
+      cat = makeCat(S, 645 - S / 2, OY);
+      const ok = cat.tgt.every(([x, y]) => y + 11 <= FY1 - 66 && (x < cardL - 24 || x > cardR + 24 || y + 11 + 18 <= yTop(x)));
+      if (ok) break;
+    }
+    const { tgt, TR, GAP } = cat;
+    const DR = Math.min(11, GAP * 0.37), DRI = Math.min(11, cat.S * 0.025);   // outline / eyes + nose (scaled with the head)
+    const isNear = (q, r) => tgt.some(p => Math.hypot(p[0] - q[0], p[1] - q[1]) < r);
+
+    // fixed sine hash (deterministic, no RNG)
+    const h = i => { const v = Math.sin(i * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); };
+
+    // tracked performer: a clear walk from the lower-left of the noise up to the left ear tip, one stop per set
+    const tip = tgt[TR];
+    const path = [];
+    {
+      const W = [tip[0] - 84, tip[1] + 112];          // waypoint left of the ear's outer edge
+      const o = [165, Math.max(W[1] + 60, Math.min(yTop(165) - 92, tip[1] + 360))];
+      const dx = W[0] - o[0], dy = W[1] - o[1], L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+      const wob = [0, -26, 20, -12];
+      for (let k = 0; k < n - 1; k++) {
+        const a = n <= 2 ? 0 : k / (n - 2), w = k === n - 2 ? 0 : wob[Math.min(k, 3)];
+        path.push([o[0] + dx * a + nx * w, o[1] + dy * a + ny * w]);
+      }
+      path.push([tip[0], tip[1]]);
+    }
+    const markAt = k => k === n - 1 && n > 1 ? [path[k][0] - 64, path[k][1] + 6] : path[k];
+    const marks = path.map((_, k) => markAt(k));
+
+    // SET 1 ghost rings: where every performer stood in the random scatter (skipped under the card, on the outline, at stops)
+    const NX0 = 40, NX1 = 1040, NY0 = FY0 + 26, NY1 = FY1 - 70;
+    tgt.forEach((p, j) => {
+      if (j === TR) return;
+      const q = [NX0 + h(j * 3 + 1) * (NX1 - NX0), NY0 + h(j * 3 + 2) * (NY1 - NY0)];
+      if (isNear(q, 30) || marks.some(m => Math.hypot(m[0] - q[0], m[1] - q[1]) < 44)) return;
+      if (q[0] > cardL - 12 && q[0] < cardR + 12 && q[1] > yTop(q[0]) - 30) return;
+      svg.push(`<circle cx="${q[0].toFixed(1)}" cy="${q[1].toFixed(1)}" r="7" fill="none" stroke="#8E97A3" stroke-width="2"/>`);
+    });
+    // the move from the previous set into this one (drill-sheet convention, blue): only the eyes and nose still had to march in,
+    // drawn as one block move so the face stays readable
+    tgt.forEach((p, j) => {
+      if (!p[2]) return;
+      const a = 0.80 * P + (h(j * 7 + 3) - 0.5) * 0.5, L = 28 + 16 * h(j * 11 + 5);   // one block move: all came up from the lower-left
+      const q = [p[0] + Math.cos(a) * L, p[1] + Math.sin(a) * L];
+      svg.push(`<line x1="${q[0].toFixed(1)}" y1="${q[1].toFixed(1)}" x2="${p[0].toFixed(1)}" y2="${p[1].toFixed(1)}" stroke="${BLUE}" stroke-width="2.6" stroke-linecap="round"/>`);
+      svg.push(`<circle cx="${q[0].toFixed(1)}" cy="${q[1].toFixed(1)}" r="4" fill="${BLUE}"/>`);
+    });
+    // final formation
+    tgt.forEach(p => svg.push(`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${(p[2] ? DRI : DR).toFixed(1)}" fill="${INK}"/>`));
+    // tracked performer's path in vermilion, final spot ringed (the ear tip stays visible)
+    svg.push(`<polyline points="${path.map(q => q[0].toFixed(1) + "," + q[1].toFixed(1)).join(" ")}" fill="none" stroke="${VERM}" stroke-width="5" stroke-linejoin="round"/>`);
+    svg.push(`<circle cx="${tip[0].toFixed(1)}" cy="${tip[1].toFixed(1)}" r="20" fill="none" stroke="${VERM}" stroke-width="5"/>`);
+    $("field").innerHTML = svg.join("");
+
+    // numbered set stops; the filled one is the set the field draws (n)
+    $("marks").innerHTML = marks.map((q, k) =>
+      `<div class="mk${k === act ? " on" : ""}" style="left:${q[0].toFixed(1)}px;top:${q[1].toFixed(1)}px">${k + 1}</div>`).join("");
+  }
+</script>
+</body>
+</html>

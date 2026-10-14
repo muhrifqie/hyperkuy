@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Caveat:wght@600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Stone and Chalk: an unframed slate plaque (tabula ansata: dovetail handles with
+    bronze-capped fixings, one corner snapped off along the cleavage) fixed to a
+    lime-plastered wall. No moulding, no inner border: the inscription is cut
+    straight into the face, the way slate memorial letter cutters work.
+    CARVED = what the model learned in training (weights): title, item labels,
+    numerals, meta, source. V-cut Roman capitals: a stepped-erode height map lit from
+    the lower right, which the eye reads as a groove cut in and lit from the upper left.
+    CHALK = what you said in this chat (context): item values, hook arrows, the loop
+    around the highlighted word, the voice-over caption. Faint sponge-wipe arcs are
+    chats already wiped. Deterministic: fixed paths, fixed noise seeds.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #D9D4C8; }
+  body { position: relative; font-family: "Cinzel", serif; color: #D9D4C8; }
+
+  #wall { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  /* the plaque face itself (silhouette clip set from the same points as the SVG slab) */
+  #field { position: absolute; left: 34px; top: 222px; width: 1012px; height: 1428px; background: #2E2C29; overflow: hidden; }
+  /* decorative layers never take hit-tests, so the text under #over stays reachable (contrast audit probes by hit-test) */
+  #wall, #under, #over { pointer-events: none; }
+  #under, #over { position: absolute; left: 0; top: 0; width: 1012px; height: 1428px; overflow: visible; }
+  #over { z-index: 3; }
+
+  /* carved: pale stone exposed by the chisel, shaded by a generated V-cut filter */
+  .carved { color: #D9D4C8; text-transform: uppercase; }
+  #meta { position: absolute; left: 106px; width: 800px; top: 82px; text-align: center; font-weight: 700; font-size: 29px; letter-spacing: .22em; line-height: 1.2; filter: url(#vcutS); }
+  #title { position: absolute; left: 106px; width: 800px; top: 144px; text-align: center; font-weight: 700; line-height: 1.12; letter-spacing: .025em; text-wrap: balance; }
+  #title .c { filter: url(#vcutL); }
+  /* the hl word: same cut, filled with red-ochre paint (Roman minium), so a shallower relief */
+  #title .hl { color: #E0874F; filter: url(#vcutP); }
+  /* the hl word (+ trailing punctuation) gets extra word space so the chalk loop clears its neighbours */
+  #title .hlw { margin: 0 .3em; }
+  #subC { position: absolute; left: 116px; width: 780px; text-align: center; font-weight: 700; font-size: 34px; letter-spacing: .05em; line-height: 1.22; text-wrap: balance; filter: url(#vcutS); }
+
+  #items { position: absolute; left: 116px; width: 730px; }
+  .row { position: absolute; left: 0; width: 730px; }
+  .row .l1 { display: flex; align-items: baseline; }
+  .row .no { flex: 0 0 auto; font-weight: 700; color: #D9D4C8; filter: url(#vcutS); }
+  .row .lb { flex: 0 1 auto; font-weight: 700; color: #D9D4C8; text-transform: uppercase; letter-spacing: .04em; line-height: 1.06; filter: url(#vcutM); }
+  .row .vl { display: inline-block; font-family: "Caveat", cursive; font-weight: 700; color: #F4F1EA; white-space: nowrap; line-height: 1; filter: url(#chalkTx); }
+  .row.inl { display: flex; align-items: center; }
+
+  #cap { position: absolute; left: 116px; width: 730px; font-family: "Caveat", cursive; font-weight: 700; color: #F4F1EA; line-height: 1.16; text-wrap: balance; filter: url(#chalkTxC); }
+  #cap .w.on { color: #E0874F; }
+
+  #foot { position: absolute; left: 146px; width: 720px; text-align: center; font-weight: 700; font-size: 27px; letter-spacing: .08em; line-height: 1.3; color: #D9D4C8; text-transform: uppercase; filter: url(#vcutS); }
+  #foot span { display: block; text-wrap: balance; }
+  #foot .dt { margin-top: 2px; }
+</style>
+</head>
+<body>
+<svg id="wall" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap aria-hidden="true">
+  <defs id="wallDefs">
+    <filter id="wallTex" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" seed="21" result="n" />
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.45  0 0 0 0 0.43  0 0 0 0 0.39  1.6 0 0 0 -0.86" />
+    </filter>
+    <filter id="wallCloud" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.004 0.006" numOctaves="4" seed="8" result="n" />
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.50  0 0 0 0 0.47  0 0 0 0 0.41  1.7 0 0 0 -0.72" />
+    </filter>
+    <filter id="wallLite" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012 0.02" numOctaves="2" seed="31" result="n" />
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 0.97  1.8 0 0 0 -0.95" />
+    </filter>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="16" /></filter>
+    <filter id="trowel" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="7" /></filter>
+    <filter id="chalkSt" filterUnits="userSpaceOnUse" x="-200" y="-200" width="1500" height="2300" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.95" numOctaves="2" seed="13" result="n" />
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  -2.4 0 0 0 1.85" result="m" />
+      <feComposite in="SourceGraphic" in2="m" operator="in" />
+    </filter>
+    <filter id="chalkTx" x="-4%" y="-12%" width="108%" height="124%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="1.05" numOctaves="2" seed="11" result="n" />
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  -2.5 0 0 0 2.0" result="m" />
+      <feComposite in="SourceGraphic" in2="m" operator="in" result="g" />
+      <feTurbulence type="fractalNoise" baseFrequency="0.06" numOctaves="1" seed="4" result="w" />
+      <feDisplacementMap in="g" in2="w" scale="2.5" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+    <!-- caption chalk: softer grain so the thin Caveat strokes stay whole -->
+    <filter id="chalkTxC" x="-3%" y="-10%" width="106%" height="120%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="1.05" numOctaves="2" seed="11" result="n" />
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  -1.8 0 0 0 1.7" result="m" />
+      <feComposite in="SourceGraphic" in2="m" operator="in" result="g" />
+      <feTurbulence type="fractalNoise" baseFrequency="0.06" numOctaves="1" seed="4" result="w" />
+      <feDisplacementMap in="g" in2="w" scale="2" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+    <linearGradient id="wallShade" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".22" /><stop offset=".5" stop-color="#fff" stop-opacity="0" /><stop offset="1" stop-color="#6F6C66" stop-opacity=".22" /></linearGradient>
+  </defs>
+
+  <!-- lime plaster: warm mottling, trowel sweeps, fine grit, two hairline cracks -->
+  <rect width="1080" height="1920" fill="#D9D4C8" />
+  <rect width="1080" height="1920" filter="url(#wallCloud)" opacity="0.32" />
+  <rect width="1080" height="1920" filter="url(#wallLite)" opacity="0.35" />
+  <g filter="url(#trowel)" fill="none" stroke-linecap="round">
+    <path d="M0 64 C 160 20, 420 40, 640 120 S 960 150, 1080 86" stroke="#ECE8DF" stroke-width="34" opacity=".55" />
+    <path d="M0 172 C 220 210, 520 150, 760 196 S 1000 228, 1080 192" stroke="#C9C3B6" stroke-width="22" opacity=".45" />
+    <path d="M0 1716 C 200 1690, 470 1760, 700 1716 S 960 1684, 1080 1736" stroke="#ECE8DF" stroke-width="40" opacity=".5" />
+    <path d="M0 1846 C 240 1870, 520 1800, 820 1850 S 1030 1878, 1080 1834" stroke="#C9C3B6" stroke-width="26" opacity=".4" />
+  </g>
+  <rect width="1080" height="1920" filter="url(#wallTex)" opacity="0.45" />
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M0 58 L38 66 L61 92 L104 98 L131 126 L176 133 L204 158" stroke="#A9A396" stroke-width="1.4" />
+    <path d="M61 92 L70 118 L66 140" stroke="#A39D90" stroke-width="1.1" />
+    <path d="M1080 1790 L1046 1781 L1021 1758 L986 1756 L958 1731 L921 1726" stroke="#A39D90" stroke-width="1.5" />
+    <path d="M1021 1758 L1010 1786 L1016 1812" stroke="#A39D90" stroke-width="1" />
+  </g>
+  <rect width="1080" height="1920" fill="url(#wallShade)" />
+  <g id="slabG"></g>
+</svg>
+
+<div id="field">
+  <svg id="under" viewBox="0 0 1012 1428" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap aria-hidden="true"></svg>
+  <div id="meta" class="carved"></div>
+  <div id="title" class="carved"></div>
+  <div id="subC" class="carved"></div>
+  <div id="items"></div>
+  <div id="cap" data-slot="caption"></div>
+  <div id="foot" class="carved"></div>
+  <svg id="over" viewBox="0 0 1012 1428" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap aria-hidden="true"></svg>
+</div>
+
+<script>
+  // Built-in sample so the file also opens on its own.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  // V-cut filter: the letter's alpha eroded in N steps and summed = a ramp that peaks on the stroke
+  // centre line (the bottom of the V). Lit from the lower right it reads as a groove lit from the upper left.
+  function vcut(id, steps, scale, elev, lift) {
+    const k = (1 / (steps + 1)).toFixed(4);
+    let s = `<filter id="${id}" x="-4%" y="-12%" width="108%" height="124%" color-interpolation-filters="sRGB">`
+      + `<feComponentTransfer in="SourceAlpha" result="h0"><feFuncA type="linear" slope="${k}"/></feComponentTransfer>`;
+    let p = "h0";
+    for (let r = 1; r <= steps; r++) {
+      s += `<feMorphology in="SourceAlpha" operator="erode" radius="${r}" result="e${r}"/>`
+        + `<feComposite in="${p}" in2="e${r}" operator="arithmetic" k1="0" k2="1" k3="${k}" k4="0" result="h${r}"/>`;
+      p = "h" + r;
+    }
+    const f = c => `<feFunc${c} type="linear" slope="${1 - lift}" intercept="${lift}"/>`;
+    return s + `<feGaussianBlur in="${p}" stdDeviation="0.7" result="hh"/>`
+      + `<feDiffuseLighting in="hh" surfaceScale="${scale}" diffuseConstant="1" lighting-color="#ffffff" result="d"><feDistantLight azimuth="50" elevation="${elev}"/></feDiffuseLighting>`
+      + `<feComponentTransfer in="d" result="d2">${f("R")}${f("G")}${f("B")}</feComponentTransfer>`
+      + `<feComposite in="d2" in2="SourceAlpha" operator="in" result="dIn"/><feBlend in="SourceGraphic" in2="dIn" mode="multiply"/></filter>`;
+  }
+  document.getElementById("wallDefs").insertAdjacentHTML("beforeend",
+    vcut("vcutL", 8, 10, 36, 0.1) + vcut("vcutP", 8, 4, 44, 0.42) + vcut("vcutM", 4, 4.6, 40, 0.2) + vcut("vcutS", 2, 2.2, 46, 0.4));
+
+  const FONTS = ['700 100px Cinzel', '700 40px Cinzel', '700 60px Caveat'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const NS = "http://www.w3.org/2000/svg";
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+  const FX = 34, FY = 222, FW = 1012, FH = 1428;               // field = plaque bounding box (page px)
+  const FACE_L = 84 - FX, FACE_R = 996 - FX;                    // face edges in field coords
+  const CL = 116, CW = 730;                                     // content column: page x 150-880
+  const CHALK = "#F4F1EA", OCHRE = "#E0874F", SCORE = "#6F6C66";
+  const under = $("under"), over = $("over"), field = $("field");
+  const add = (parent, tag, attrs) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); parent.appendChild(e); return e; };
+  const fBox = field.getBoundingClientRect();
+  const rel = r => ({ x: r.left - fBox.left, y: r.top - fBox.top, w: r.width, h: r.height, r: r.right - fBox.left, b: r.bottom - fBox.top });
+  const pd = pts => "M" + pts.map(p => p.join(" ")).join(" L");
+
+  // ---------- slab (page coords): tabula ansata, bottom-right corner snapped off ----------
+  // FRACT = where the top lamina (the face) broke; LEDGE = the lower lamina, which split off further out (a cleavage step)
+  const FRACT = [[996, 1472], [978, 1488], [972, 1487], [955, 1512], [941, 1520], [924, 1548], [912, 1556], [893, 1590], [884, 1594], [866, 1628], [856, 1650]];
+  // the lower laminae held on longer near the right edge: a wedge of exposed cleavage plane, rejoining the break lower down
+  const LEDGE = [[996, 1494], [985, 1507], [978, 1523], [962, 1534], [948, 1556], [930, 1566], [912, 1585], [893, 1590], [884, 1594], [866, 1628], [856, 1650]];
+  const RIM = [[996, 222], [996, 905], [1046, 852], [1046, 1028], [996, 975]], LFT = [[104, 1650], [95, 1643], [84, 1638], [84, 975], [34, 1028], [34, 852], [84, 905]];
+  const SLAB = [[84, 222], [330, 222], [338, 226], [349, 222], ...RIM, ...FRACT, ...LFT];
+  const BACK = [[84, 222], [996, 222], ...RIM.slice(1), ...LEDGE, ...LFT];
+  field.style.clipPath = "polygon(" + SLAB.map(([x, y]) => `${x - FX}px ${y - FY}px`).join(",") + ")";
+  const sg = $("slabG"), T = [8, 22];                                                            // thickness offset
+  const shift = (pts, dx, dy) => pts.map(([x, y]) => [x + dx, y + dy]);
+  const jit = (pts, t, s) => pts.map(([x, y], i) => [+(x + T[0] * t + (((i * 7 + s) % 5) - 2) * 0.7).toFixed(1), +(y + T[1] * t + (((i * 3 + s) % 5) - 2) * 0.9).toFixed(1)]);
+  add(sg, "path", { d: pd(shift(BACK, 20, 40)) + " Z", fill: "#3b352d", opacity: ".42", filter: "url(#soft)" });   // cast shadow on plaster
+  add(sg, "path", { d: pd(shift(BACK, ...T)) + " Z", fill: "#1d1b18" });                                         // sawn thickness
+  // sawn edges: two faint laminations along the thickness
+  const BOT = [[104, 1650], [856, 1650]], RGT = [[996, 222], [996, 905]], RGT2 = [[996, 975], [996, 1494]];
+  for (const [t, c] of [[0.38, "#2d2a26"], [0.72, "#2a2723"]]) for (const e of [BOT, RGT, RGT2]) add(sg, "path", { d: pd(shift(e, T[0] * t, T[1] * t)), stroke: c, "stroke-width": 1.4, fill: "none" });
+  // the lower lamina's broken edge: raw paler slate, layered cleavage across the 22 px thickness
+  add(sg, "path", { d: pd([...LEDGE, ...shift(LEDGE, ...T).reverse()]) + " Z", fill: "#4E4A44" });
+  [[0.3, "#646059", 1.3], [0.52, "#3A3733", 1.1], [0.74, "#5A564F", 1.2]].forEach(([t, c, w], k) =>
+    add(sg, "path", { d: pd(jit(LEDGE, t, k * 2)), stroke: c, "stroke-width": w, fill: "none", "stroke-linejoin": "round" }));
+  // the step between the two laminae: the exposed cleavage plane, then the top lamina's thin broken riser
+  add(sg, "path", { d: pd([...FRACT.slice(0, 8), ...LEDGE.slice(0, 8).reverse()]) + " Z", fill: "#4A4640" });
+  add(sg, "path", { d: "M962 1534 L948 1556 L956 1549 Z M985 1507 L978 1523 L984 1516 Z", fill: "#57534D" });
+  add(sg, "path", { d: pd([...FRACT, ...shift(FRACT, 2.5, 6).reverse()]) + " Z", fill: "#5E5A53" });
+  for (const [cx, cy] of [[59, 940], [1021, 940]]) {                                            // bronze-capped fixings
+    add(sg, "circle", { cx: cx + 2, cy: cy + 3, r: 12, fill: "#141210", opacity: ".6" });
+  }
+
+  // ---------- face (field coords): honed slate, cleavage streaks, arris, fixings ----------
+  add(under, "defs", {}).innerHTML = `
+    <filter id="fTex" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="3" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.85  0 0 0 0 0.83  0 0 0 0 0.78  1.9 0 0 0 -1.0"/>
+    </filter>
+    <filter id="fCloud" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.005 0.009" numOctaves="3" seed="17" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0.85  0 0 0 0 0.83  0 0 0 0 0.78  1.5 0 0 0 -0.62"/>
+    </filter>
+    <filter id="smear" filterUnits="userSpaceOnUse" x="-100" y="-100" width="1212" height="1628"><feGaussianBlur stdDeviation="16"/></filter>
+    <filter id="smear2" filterUnits="userSpaceOnUse" x="-100" y="-100" width="1212" height="1628"><feGaussianBlur stdDeviation="2.2"/></filter>
+    <filter id="streak" filterUnits="userSpaceOnUse" x="-100" y="-100" width="1212" height="1628"><feGaussianBlur stdDeviation="1.2"/></filter>`;
+  add(under, "rect", { width: FW, height: FH, filter: "url(#fCloud)", opacity: ".15" });
+  add(under, "rect", { width: FW, height: FH, filter: "url(#fTex)", opacity: ".13" });
+  // riven cleavage streaks, very faint, shallow diagonal
+  const STREAKS = [[60, 120, 520, 96], [400, 520, 980, 470], [70, 860, 640, 812], [520, 1060, 990, 1018], [80, 1290, 700, 1240], [300, 40, 900, 12]];
+  for (const [x1, y1, x2, y2] of STREAKS) add(under, "path", { d: `M${x1} ${y1} Q${(x1 + x2) / 2} ${(y1 + y2) / 2 + 9} ${x2} ${y2}`, stroke: "#6F6C66", "stroke-width": 1.4, fill: "none", opacity: ".22", filter: "url(#streak)" });
+  // weathering pits (fixed positions)
+  const PITS = [[110, 520, 3], [880, 400, 2.5], [826, 1172, 3.5], [140, 1236, 2.5], [470, 1330, 2], [660, 980, 2.5], [96, 760, 3], [904, 812, 2], [330, 40, 2.5], [742, 30, 2], [560, 1370, 3], [190, 1010, 2]];
+  for (const [x, y, r] of PITS) { add(under, "circle", { cx: x, cy: y, r, fill: "#1A1816", opacity: ".8" }); add(under, "path", { d: `M${x - r} ${y + 1} A${r} ${r} 0 0 0 ${x + r} ${y + 1}`, stroke: SCORE, "stroke-width": 1, fill: "none", opacity: ".7" }); }
+  // arris: pencil-round edge lit on top/left, in shade on bottom/right; crisp pale lip along the break
+  const F = pts => pd(pts.map(([x, y]) => [x - FX, y - FY]));
+  add(under, "path", { d: F([[84, 1638], [84, 975]]) + " " + F([[84, 905], [84, 222], [996, 222]]) + " " + F([[34, 1028], [34, 852], [84, 905]]), stroke: "#8C8880", "stroke-width": 5, fill: "none", opacity: ".8" });
+  add(under, "path", { d: F([[996, 222], [996, 905]]) + " " + F([[996, 975], [996, 1478]]) + " " + F([[846, 1650], [104, 1650]]) + " " + F([[1046, 852], [1046, 1028], [996, 975]]), stroke: "#121110", "stroke-width": 6, fill: "none", opacity: ".85" });
+  add(under, "path", { d: F(FRACT), stroke: "#8C8880", "stroke-width": 4, fill: "none", "stroke-linejoin": "round", opacity: ".9" });
+  for (const [cx, cy] of [[59, 940], [1021, 940]]) {
+    const x = cx - FX, y = cy - FY;
+    add(under, "circle", { cx: x, cy: y, r: 11, fill: "#4A3A28" });
+    add(under, "circle", { cx: x, cy: y, r: 11, fill: "none", stroke: "#8A6A44", "stroke-width": 2 });
+    add(under, "path", { d: `M${x - 6} ${y - 5} A8 8 0 0 1 ${x + 4} ${y - 8}`, stroke: "#B08E62", "stroke-width": 2.4, fill: "none", "stroke-linecap": "round" });
+  }
+
+  // ---------- meta ----------
+  const epTxt = D.ep ? String(D.ep) : "";
+  const seriesTxt = D.series || "";
+  $("meta").textContent = seriesTxt && epTxt ? seriesTxt + "  ·  " + epTxt : (D.kicker || seriesTxt || epTxt);
+
+  // ---------- title (carved; the hl word painted red-ochre in its groove) ----------
+  const t = D.title || "", hl = D.hl || "";
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  const seg = s => s ? `<span class="c">${esc(s)}</span>` : "";
+  if (at < 0) titleEl.innerHTML = seg(t);
+  else {
+    const rest = t.slice(at + hl.length), pm = rest.match(/^[.,!?:;…"'”)\]]*/)[0];
+    titleEl.innerHTML = seg(t.slice(0, at).replace(/\s+$/, "")) + (at > 0 ? " " : "") + '<span class="hlw"><span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + seg(pm) + "</span>" + seg(rest.slice(pm.length));
+  }
+  const fitTitle = from => { for (let fs = from; fs >= 72; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (titleEl.offsetHeight <= 322 && titleEl.scrollWidth <= 800) return fs; } return 72; };
+  let tFs = fitTitle(116);
+  const cv = document.createElement("canvas").getContext("2d");
+  let capA = 0, fAsc = 0, lineTops = [];
+  const measureTitle = () => {
+    cv.font = `700 ${tFs}px Cinzel`;
+    const mH = cv.measureText("H"); capA = mH.actualBoundingBoxAscent; fAsc = mH.fontBoundingBoxAscent || tFs;
+    const range = document.createRange(); range.selectNodeContents(titleEl);
+    lineTops = [];
+    for (const r of range.getClientRects()) { const y = r.top - fBox.top; if (!lineTops.some(v => Math.abs(v - y) < tFs * 0.4)) lineTops.push(y); }
+    lineTops.sort((a, b) => a - b);
+  };
+  measureTitle();
+
+  // chalk loop around the highlighted word: a superellipse (n = 3) whose curve passes outside the corners of the
+  // padded cap box, drawn as a 1.1-turn spiral that only ever grows outward, so it never cuts a letter. Its height is
+  // capped by the real gap to the lines above/below; the word gets just enough side margin for the loop's reach.
+  const SEN = 3, SE = 2 / SEN, G = 1.076;                       // G = largest outward growth of the spiral
+  const sp = (v, e) => Math.sign(v) * Math.pow(Math.abs(v), e);
+  const loopPath = (cx, cy, rx, ry, k) => {
+    const pts = [], a0 = -2.5 + 0.3 * k, turns = 1.1, N = 72;
+    for (let i = 0; i <= N; i++) {
+      const u = i / N, a = a0 + u * turns * Math.PI * 2, g = (1 + 0.045 * u) * (1 + 0.01 * (1 + Math.sin(3 * a + k)) + 0.0045 * (1 + Math.sin(7 * a + 2 * k)));
+      pts.push([cx + sp(Math.cos(a), SE) * rx * g, cy + sp(Math.sin(a), SE) * ry * g]);
+    }
+    let d = `M${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
+    for (let i = 1; i < pts.length - 1; i++) {
+      const p1 = pts[i], p2 = pts[i + 1];
+      d += ` Q${p1[0].toFixed(1)} ${p1[1].toFixed(1)} ${((p1[0] + p2[0]) / 2).toFixed(1)} ${((p1[1] + p2[1]) / 2).toFixed(1)}`;
+    }
+    return d;
+  };
+  const hlEl = titleEl.querySelector(".hl"), hlwEl = titleEl.querySelector(".hlw");
+  const metaBot = $("meta").offsetTop + $("meta").offsetHeight;
+  const fragsNow = () => hlEl ? [...hlEl.getClientRects()].filter(r => r.width > 4) : [];
+  const loopGeom = () => {
+    const fr = fragsNow(); if (fr.length !== 1) return null;
+    const q = rel(fr[0]);
+    const wr = [...hlwEl.getClientRects()].filter(r => r.width > 4).map(rel).filter(r => Math.abs(r.y - q.y) < 4);
+    const x1 = Math.min(q.x, ...wr.map(r => r.x)), x2 = Math.max(q.r, ...wr.map(r => r.r));
+    const li = lineTops.findIndex(v => Math.abs(v - q.y) < tFs * 0.4);
+    const cap = q.y + fAsc - capA, base = q.y + fAsc;
+    const tBot = rel(titleEl.getBoundingClientRect()).b;
+    const gapA = li > 0 ? cap - (lineTops[li - 1] + fAsc) : cap - metaBot;
+    const gapB = li >= 0 && li < lineTops.length - 1 ? (lineTops[li + 1] + fAsc - capA) - base : tBot + 50 - 24 - base;
+    const ry = Math.min(capA / 2 + 32, (capA / 2 + Math.min(gapA, gapB) - 5) / G);
+    const a = (x2 - x1) / 2 + 12, b = capA / 2 + 7;
+    if (ry < b + 8) return null;
+    const rx = a / Math.pow(1 - Math.pow(b / ry, SEN), 1 / SEN); // corner (a, b) lies on the superellipse
+    return { cx: (x1 + x2) / 2, cy: cap + capA / 2, rx, ry, reach: rx * G + 3, half: (x2 - x1) / 2 };
+  };
+  let geo = loopGeom();
+  for (let it = 0; it < 2 && geo; it++) {
+    cv.font = `700 ${tFs}px Cinzel`;
+    const sw = cv.measureText(" ").width + 0.025 * tFs;
+    const m = Math.max(0, Math.ceil(geo.reach - geo.half + 8 - sw));
+    if (Math.abs(m - parseFloat(getComputedStyle(hlwEl).marginLeft)) <= 2) break;
+    hlwEl.style.margin = `0 ${m}px`;
+    tFs = fitTitle(tFs); measureTitle(); geo = loopGeom();
+  }
+  if (geo && (titleEl.offsetHeight > 322 || titleEl.scrollWidth > 800)) geo = null;   // the loop's room would overflow the title budget
+  let loopMode = "none";
+  if (geo && geo.cx - geo.reach >= FACE_L + 12 && geo.cx + geo.reach <= FACE_R - 16) {
+    add(over, "path", { d: loopPath(geo.cx, geo.cy, geo.rx, geo.ry, 0), stroke: CHALK, "stroke-width": 5.5, fill: "none", "stroke-linecap": "round", filter: "url(#chalkSt)" });
+    loopMode = "loop";
+  } else if (hlEl) {
+    // no room for a loop that clears everything: a chalk double underline under each fragment instead
+    if (hlwEl) { hlwEl.style.margin = "0"; tFs = fitTitle(116); measureTitle(); }
+    fragsNow().forEach((r, k) => {
+      const q = rel(r), y = q.y + fAsc + 12, x1 = q.x - 4, x2 = q.r + 6;
+      add(over, "path", { d: `M${x1.toFixed(1)} ${(y + 2).toFixed(1)} Q${((x1 + x2) / 2).toFixed(1)} ${(y + 6 - 3 * k).toFixed(1)} ${x2.toFixed(1)} ${(y - 2).toFixed(1)}`, stroke: CHALK, "stroke-width": 5.5, fill: "none", "stroke-linecap": "round", filter: "url(#chalkSt)" });
+      add(over, "path", { d: `M${(x1 + 12).toFixed(1)} ${(y + 11).toFixed(1)} Q${((x1 + x2) / 2).toFixed(1)} ${(y + 13).toFixed(1)} ${(x2 - 16).toFixed(1)} ${(y + 9).toFixed(1)}`, stroke: CHALK, "stroke-width": 4, fill: "none", "stroke-linecap": "round", filter: "url(#chalkSt)", opacity: ".85" });
+    });
+    loopMode = "underline";
+  }
+  const tR = rel(titleEl.getBoundingClientRect());
+
+  // ordinatio: the mason's scored guidelines at cap height and baseline of every title line
+  for (const lt of lineTops) {
+    const base = lt + fAsc, cap = base - capA;
+    for (const y of [cap - 8, base + 8]) add(under, "line", { x1: FACE_L + 26, x2: FACE_R - 26, y1: y.toFixed(1), y2: y.toFixed(1), stroke: SCORE, "stroke-width": 1.4, opacity: ".6" });
+  }
+  document.body.dataset.hlMark = loopMode;
+
+  // divider below the title (y = title bottom + 50)
+  const hY = tR.b + 50, MID = FW / 2;
+  // triangular interpuncts (the Roman word-stop), V-cut, between scored rules
+  const stop = add(under, "g", { filter: "url(#vcutM)" });
+  const tri = (cx, cy, r) => add(stop, "path", { d: `M${cx - r} ${cy - r * 0.62} L${cx + r} ${cy - r * 0.62} L${cx} ${cy + r * 0.95} Z`, fill: "#D9D4C8" });
+  tri(MID, hY, 17); tri(MID - 44, hY, 9); tri(MID + 44, hY, 9);
+  for (const s of [-1, 1]) add(under, "line", { x1: MID + s * 72, x2: MID + s * 260, y1: hY, y2: hY, stroke: SCORE, "stroke-width": 2, opacity: ".95" });
+
+  // optional carved sub line: only when a separate voice-over caption takes the caption slot
+  let iTop = hY + 52;
+  const subEl = $("subC"), capRaw = String(D.caption || "").trim(), subRaw = String(D.sub || "").trim();
+  if (capRaw && subRaw && capRaw.toLowerCase() !== subRaw.toLowerCase()) {
+    subEl.textContent = subRaw;
+    subEl.style.top = (hY + 40) + "px";
+    iTop = hY + 40 + subEl.offsetHeight + 40;
+  } else subEl.remove();
+
+  // ---------- foot: source + date, carved small, sits at the bottom of the face ----------
+  const foot = $("foot");
+  foot.innerHTML = (D.source ? `<span class="src">Sumber · ${esc(D.source)}</span>` : "") + (D.date ? `<span class="dt">${esc(D.date)}</span>` : "");
+  const footTop = 1598 - FY - foot.offsetHeight;
+  foot.style.top = footTop + "px";
+  add(under, "line", { x1: 190, x2: FW - 190, y1: footTop - 18, y2: footTop - 18, stroke: SCORE, "stroke-width": 1.6, opacity: ".8" });
+
+  // ---------- caption (chalk, karaoke) ----------
+  const capEl = $("cap");
+  const capText = String(D.caption || D.sub || "").trim();
+  const words = capText.split(/\s+/).filter(Boolean);
+  const hlL = hl.toLowerCase();
+  let s0 = -1, s1 = -1;
+  if (hlL) {
+    const ci = capText.toLowerCase().indexOf(hlL);
+    if (ci >= 0) {
+      let pos = 0;
+      words.forEach((w, i) => { const ws = capText.indexOf(w, pos), we = ws + w.length; pos = we; if (we > ci && ws < ci + hlL.length) { if (s0 < 0) s0 = i; s1 = i; } });
+    }
+  }
+  if (s0 < 0) { s0 = 0; s1 = 0; }
+  capEl.innerHTML = words.map((w, i) => `<span class="w${i >= s0 && i <= s1 ? " on" : ""}">${esc(w)}</span>`).join(" ");
+  for (let cFs = 56; cFs >= 40; cFs -= 2) { capEl.style.fontSize = cFs + "px"; if (capEl.offsetHeight <= cFs * 1.16 * 2 + 4) break; }
+  const capH = capEl.offsetHeight, capBot = Math.min(1484 - FY, footTop - 52), capTop = capBot - capH;
+  capEl.style.top = capTop + "px";
+
+  // ---------- items: carved label (learned), chalk value (said in this chat) ----------
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(1, items.length);
+  const iBot = capTop - 44;
+  const rowH = (iBot - iTop) / n;
+  const ROMAN = ["I", "II", "III", "IV", "V"];
+  const itemsEl = $("items");
+  itemsEl.style.top = iTop + "px";
+  // stacked (carved line, chalk note hooked under it) whenever rows are tall enough; otherwise one line
+  const IND = 60;                                               // chalk note indent under the label
+  const LMIN = 38, VMIN = 54, STACK_GAP = 10, PAD = 14;       // stacked only while chalk values stay >= 54 px
+  let lFs = Math.max(LMIN, Math.min(64, Math.round(rowH * 0.34)));
+  let vFs = Math.max(VMIN, Math.min(88, Math.round(rowH * 0.45)));
+  const stackH = () => lFs * 1.06 + STACK_GAP + vFs + PAD;
+  while (stackH() > rowH) { if (vFs > VMIN && vFs >= lFs * 1.25) vFs--; else if (lFs > LMIN) lFs--; else if (vFs > VMIN) vFs--; else break; }
+  const stacked = stackH() <= rowH;
+  const rows = items.map((it, i) => {
+    const row = document.createElement("div");
+    row.className = "row" + (stacked ? "" : " inl");
+    row.innerHTML = stacked
+      ? `<div class="l1"><span class="no">${ROMAN[i]}</span><span class="lb">${esc(it.label)}</span></div><div class="l2"><span class="vl">${esc(it.value)}</span></div>`
+      : `<span class="no">${ROMAN[i]}</span><span class="lb">${esc(it.label)}</span><span class="vl">${esc(it.value)}</span>`;
+    itemsEl.appendChild(row);
+    const no = row.querySelector(".no"), lb = row.querySelector(".lb"), vl = row.querySelector(".vl");
+    return { row, no, lb, vl };
+  });
+  const lbRange = document.createRange();
+  let noW = 0;
+  const setNo = (fs) => { rows.forEach(r => { r.no.style.fontSize = Math.max(32, Math.round(fs * 0.72)) + "px"; r.no.style.width = "auto"; }); noW = Math.max(...rows.map(r => r.no.offsetWidth)) + 30; rows.forEach(r => { r.no.style.width = noW + "px"; }); };
+  if (stacked) {
+    // one label size and one value size for every row, shrunk only as far as the longest needs
+    const fitL = fs => { setNo(fs); return rows.every(r => { r.lb.style.fontSize = fs + "px"; r.lb.style.whiteSpace = "nowrap"; return r.lb.scrollWidth <= CW - noW; }); };
+    while (!fitL(lFs) && lFs > 32) lFs -= 2;
+    rows.forEach(r => { r.vl.style.fontSize = vFs + "px"; r.vl.style.marginLeft = (noW + IND) + "px"; r.row.querySelector(".l2").style.marginTop = STACK_GAP + "px"; });
+    while (rows.some(r => r.vl.offsetWidth > CW - noW - IND) && vFs > 48) { vFs -= 2; rows.forEach(r => { r.vl.style.fontSize = vFs + "px"; }); }
+  } else {
+    // tight: value follows its label on the same line after a short chalk arrow (never a right-aligned column)
+    lFs = Math.max(34, Math.min(50, Math.round(rowH * 0.4)));
+    vFs = Math.max(48, Math.min(64, Math.round(rowH * 0.56)));
+    const ARW = 84;
+    rows.forEach(r => { r.vl.style.fontSize = vFs + "px"; r.vl.style.marginLeft = ARW + "px"; });
+    const fits = (fs, two) => { setNo(fs); return rows.map(r => {
+      const avail = CW - noW - r.vl.offsetWidth - ARW;
+      r.lb.style.fontSize = fs + "px"; r.lb.style.maxWidth = avail + "px"; r.lb.style.whiteSpace = two ? "normal" : "nowrap";
+      const lines = Math.round(r.lb.offsetHeight / (fs * 1.06));
+      return r.lb.scrollWidth <= avail + 1 && lines <= (two ? 2 : 1);
+    }).every(Boolean); };
+    let ok = false, l0 = lFs;
+    for (; lFs >= 34; lFs -= 2) if ((ok = fits(lFs, false))) break;
+    if (!ok) for (lFs = l0; lFs >= 32; lFs -= 2) if (2 * lFs * 1.06 <= rowH - 10 && (ok = fits(lFs, true))) break;
+    if (!ok) fits(32, true);
+  }
+  document.body.dataset.itemMode = stacked ? "stacked" : "inline";
+  // the item block is centred under the title like the body of an inscription (no column pinned to the right edge)
+  const ARW_I = 84;
+  const BW = Math.ceil(Math.max(...rows.map(r => stacked
+    ? Math.max(noW + r.lb.scrollWidth, noW + IND + r.vl.offsetWidth)
+    : noW + r.lb.offsetWidth + ARW_I + r.vl.offsetWidth)));
+  const BL = Math.round(Math.min(Math.max(FW / 2 - BW / 2, CL), CL + CW - BW));
+  itemsEl.style.left = BL + "px"; itemsEl.style.width = BW + "px";
+  rows.forEach(r => { r.row.style.width = BW + "px"; });
+  rows.forEach(({ row, vl }, i) => {
+    row.style.top = (i * rowH + (rowH - row.offsetHeight) / 2).toFixed(1) + "px";
+    vl.style.transform = `rotate(${[-1.8, 1.2, -1.2, 1.6, -1.4][i]}deg)`;
+  });
+  rows.forEach(({ lb, vl }, i) => {
+    lbRange.selectNodeContents(lb);
+    const a = rel(lbRange.getBoundingClientRect()), v = rel(vl.getBoundingClientRect());
+    const st = { stroke: CHALK, "stroke-width": 4.5, fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round", filter: "url(#chalkSt)" };
+    if (stacked) {
+      // scored ordinatio line under the carved label; the chalk note hangs below it on a hooked arrow
+      const base = a.b - lFs * 0.16;
+      add(under, "line", { x1: Math.max(FACE_L + 26, BL - 30), x2: Math.min(FACE_R - 26, BL + BW + 30), y1: (base + 7).toFixed(1), y2: (base + 7).toFixed(1), stroke: SCORE, "stroke-width": 1.4, opacity: ".55" });
+      const x0 = a.x + 12, y0 = base + 16, yM = v.y + v.h * 0.55, x2 = v.x - 12;
+      add(over, "path", { d: `M${x0.toFixed(1)} ${y0.toFixed(1)} Q${(x0 - 2).toFixed(1)} ${(yM + 2).toFixed(1)} ${(x0 + 22).toFixed(1)} ${yM.toFixed(1)} L${x2.toFixed(1)} ${(yM - 1).toFixed(1)}`, ...st });
+      add(over, "path", { d: `M${(x2 - 13).toFixed(1)} ${(yM - 10).toFixed(1)} L${x2.toFixed(1)} ${(yM - 1).toFixed(1)} L${(x2 - 12).toFixed(1)} ${(yM + 10).toFixed(1)}`, ...st });
+    } else {
+      const yMid = v.y + v.h * 0.56, x2 = v.x - 14, x1 = a.r + 14;
+      if (x2 - x1 < 40) return;
+      const bow = [-8, 7, -6, 8, -7][i];
+      add(over, "path", { d: `M${x1.toFixed(1)} ${(yMid + 3).toFixed(1)} Q${((x1 + x2) / 2).toFixed(1)} ${(yMid + bow).toFixed(1)} ${x2.toFixed(1)} ${yMid.toFixed(1)}`, ...st });
+      add(over, "path", { d: `M${(x2 - 15).toFixed(1)} ${(yMid - 10).toFixed(1)} L${x2.toFixed(1)} ${yMid.toFixed(1)} L${(x2 - 14).toFixed(1)} ${(yMid + 11).toFixed(1)}`, ...st });
+    }
+  });
+
+  // active caption word: a double chalk underline in ochre
+  const on = [...capEl.querySelectorAll(".w.on")];
+  if (on.length) {
+    const byLine = {};
+    on.map(e => rel(e.getBoundingClientRect())).forEach(r => { const k = Math.round(r.y / 10); (byLine[k] = byLine[k] || []).push(r); });
+    Object.values(byLine).forEach(g => {
+      const x1 = Math.min(...g.map(r => r.x)) - 6, x2 = Math.max(...g.map(r => r.r)) + 6, y = Math.max(...g.map(r => r.b)) - 6;
+      add(over, "path", { d: `M${x1.toFixed(1)} ${(y + 1).toFixed(1)} Q${((x1 + x2) / 2).toFixed(1)} ${(y + 5).toFixed(1)} ${x2.toFixed(1)} ${(y - 2).toFixed(1)}`, stroke: OCHRE, "stroke-width": 5.5, fill: "none", "stroke-linecap": "round", filter: "url(#chalkSt)" });
+      add(over, "path", { d: `M${(x1 + 10).toFixed(1)} ${(y + 12).toFixed(1)} Q${((x1 + x2) / 2).toFixed(1)} ${(y + 14).toFixed(1)} ${(x2 - 14).toFixed(1)} ${(y + 9).toFixed(1)}`, stroke: OCHRE, "stroke-width": 4, fill: "none", "stroke-linecap": "round", filter: "url(#chalkSt)", opacity: ".85" });
+    });
+  }
+
+  // sponge-wipe ghosts: arcs of chalk dust left by earlier, wiped chats
+  const ghost = add(under, "g", {});
+  add(ghost, "path", { d: `M${FACE_L - 20} ${capTop + 40} C 230 ${capTop - 70}, 580 ${capTop - 50}, ${FACE_R + 10} ${capTop + 90}`, stroke: CHALK, "stroke-width": 130, fill: "none", opacity: ".065", filter: "url(#smear)" });
+  for (let j = 0; j < 8; j++) {
+    const o = j * 12;
+    add(ghost, "path", { d: `M${FACE_L - 10 + j * 6} ${capTop + 66 + o} C ${250 + j * 4} ${capTop - 40 + o}, ${590 - j * 6} ${capTop - 24 + o}, ${FACE_R} ${capTop + 104 + o}`, stroke: CHALK, "stroke-width": 2 + (j % 3), fill: "none", opacity: (0.06 + 0.025 * (j % 3)).toFixed(3), filter: "url(#smear2)" });
+  }
+  add(ghost, "path", { d: `M520 ${iTop + 6} C 650 ${iTop - 44}, 800 ${iTop + 36}, ${FACE_R + 20} ${iTop - 14}`, stroke: CHALK, "stroke-width": 90, fill: "none", opacity: ".05", filter: "url(#smear)" });
+  }
+</script>
+</body>
+</html>

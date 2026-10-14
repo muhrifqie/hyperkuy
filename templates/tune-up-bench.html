@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Tune Up Bench</title>
+<link href="https://fonts.googleapis.com/css2?family=Chivo+Mono:wght@500;700;800&family=Chivo:wght@500;600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Tune Up Bench: a motorcycle workshop bench under a work lamp. Pegboard wall
+    behind, a cast-alloy carburettor on a shop rag, an analogue rev tester behind it,
+    and an amber-handled flat screwdriver turning ONE brass mixture screw.
+    Metaphor: fine-tuning. The engine (pretrained model) is already built; a tune-up
+    only turns a few small screws (a small set of new weights).
+    Items = numbered brass screws on the carburettor (masking-tape number dots),
+    each with a manila parts tag on the bench (label + value). The item that
+    matches D.hl (else item 1) is the screw under the screwdriver.
+    Deterministic: every shape is hard-coded or computed from D; no randomness.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #1B1C1E; }
+  body { position: relative; color: #E9E4DA; font-family: "Chivo", sans-serif; }
+  #scene { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  .meta { position: absolute; left: 90px; right: 90px; top: 292px; display: flex; justify-content: space-between; align-items: baseline;
+    font: 500 28px "Chivo Mono", monospace; letter-spacing: 0.04em; text-transform: uppercase; color: #9AA0A6; white-space: nowrap; }
+  .meta b { color: #D8A23A; font-weight: 700; }
+  .title { position: absolute; left: 90px; width: 900px; top: 348px; font-family: "Chivo Mono", monospace; font-weight: 800;
+    color: #E9E4DA; line-height: 1.06; letter-spacing: -0.035em; }
+  .title .hl { color: #D8A23A; background: linear-gradient(transparent 84%, #C8452C 84%, #C8452C 95%, transparent 95%);
+    -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  .title .hl.nw { white-space: nowrap; }
+
+  .tag { position: absolute; left: 90px; width: 372px; filter: drop-shadow(0 10px 8px rgba(0,0,0,0.55)); }
+  .tag .card { position: relative; display: flex; align-items: stretch; background: linear-gradient(180deg, #EEE9DF 0%, #E9E4DA 60%, #DED7C9 100%);
+    clip-path: polygon(0 0, calc(100% - 38px) 0, 100% 34px, 100% calc(100% - 34px), calc(100% - 38px) 100%, 0 100%); padding: 14px 62px 16px 0; }
+  .tag .no { flex: 0 0 66px; display: flex; align-items: center; justify-content: center; font: 800 36px "Chivo Mono", monospace; color: #1B1C1E;
+    border-right: 3px dashed rgba(27,28,30,0.35); margin-right: 18px; }
+  .tag .tx { flex: 1; min-width: 0; }
+  .tag .lb { font: 600 30px "Chivo", sans-serif; line-height: 1.15; color: #3A3B3E; }
+  .tag .vl { font: 700 44px "Chivo Mono", monospace; line-height: 1.12; color: #1B1C1E; white-space: nowrap; letter-spacing: -0.02em; }
+  .tag .hole { position: absolute; right: 22px; top: 50%; width: 22px; height: 22px; margin-top: -11px; border-radius: 50%;
+    background: #141517; box-shadow: 0 0 0 7px #CFC6B4, 0 0 0 9px rgba(27,28,30,0.25); }
+  .tag.on .card { background: linear-gradient(180deg, #E4B24C 0%, #D8A23A 60%, #C99230 100%); }
+  .tag.on .lb { color: #1B1C1E; }
+  .tag.on .no { border-right-color: rgba(27,28,30,0.5); }
+  .tag.on .hole { box-shadow: 0 0 0 7px #B98A2C, 0 0 0 9px rgba(27,28,30,0.3); }
+
+  .tape { position: absolute; left: 76px; width: 832px; top: 1438px; padding: 12px 34px 14px;
+    background: repeating-linear-gradient(92deg, rgba(0,0,0,0) 0 7px, rgba(120,100,70,0.05) 7px 9px), linear-gradient(180deg, #ECE6DB, #E2DACB);
+    clip-path: polygon(0.6% 6%, 1.8% 0, 98.6% 3%, 99.4% 14%, 98.7% 27%, 100% 41%, 99.1% 58%, 99.8% 74%, 98.8% 90%, 99.5% 100%, 1.2% 97%, 0 84%, 1% 66%, 0.2% 49%, 1.3% 31%, 0 17%);
+    filter: drop-shadow(0 6px 6px rgba(0,0,0,0.4)); }
+  .cap { font: 600 44px "Chivo", sans-serif; line-height: 1.2; color: #1B1C1E; text-wrap: balance; }
+  .cap .w { display: inline; }
+  .cap .w.on { background: #1B1C1E; color: #D8A23A; border-radius: 6px; padding: 0 10px; margin: 0 -2px; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  .src { position: absolute; left: 90px; width: 900px; font: 500 26px "Chivo Mono", monospace; color: #9AA0A6; line-height: 1.25; letter-spacing: 0.01em; }
+</style>
+</head>
+<body>
+<svg id="scene" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <pattern id="peg" width="40" height="40" patternUnits="userSpaceOnUse">
+      <circle cx="20" cy="21.5" r="5" fill="#2A2B2E" />
+      <circle cx="20" cy="20" r="5" fill="#111214" />
+    </pattern>
+    <linearGradient id="wallG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#191A1C" /><stop offset="1" stop-color="#222326" />
+    </linearGradient>
+    <radialGradient id="pool" cx="700" cy="1140" r="720" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#D8A23A" stop-opacity="0.2" /><stop offset="0.55" stop-color="#D8A23A" stop-opacity="0.06" /><stop offset="1" stop-color="#D8A23A" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="cone" x1="0.9" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#F1D9A0" stop-opacity="0.16" /><stop offset="1" stop-color="#D8A23A" stop-opacity="0" />
+    </linearGradient>
+    <linearGradient id="stV" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5E636A" /><stop offset="0.16" stop-color="#C3C8CC" /><stop offset="0.34" stop-color="#9AA0A6" /><stop offset="0.72" stop-color="#666C73" /><stop offset="1" stop-color="#3A3E43" />
+    </linearGradient>
+    <linearGradient id="stV2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#50555B" /><stop offset="0.2" stop-color="#ABB1B6" /><stop offset="0.45" stop-color="#868C93" /><stop offset="1" stop-color="#34383C" />
+    </linearGradient>
+    <linearGradient id="stV3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7C828A" /><stop offset="0.3" stop-color="#8E949B" /><stop offset="1" stop-color="#3C4045" />
+    </linearGradient>
+    <linearGradient id="stH" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#454A50" /><stop offset="0.18" stop-color="#B4BABF" /><stop offset="0.38" stop-color="#D2D6D9" /><stop offset="0.7" stop-color="#7E848B" /><stop offset="1" stop-color="#3F4348" />
+    </linearGradient>
+    <linearGradient id="capG" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#DDE0E3" /><stop offset="0.5" stop-color="#A7ADB3" /><stop offset="1" stop-color="#6B7178" />
+    </linearGradient>
+    <radialGradient id="brass" cx="0.36" cy="0.32" r="0.75">
+      <stop offset="0" stop-color="#F7DE97" /><stop offset="0.42" stop-color="#D8A23A" /><stop offset="1" stop-color="#6E4E17" />
+    </radialGradient>
+    <linearGradient id="shaftG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4C5157" /><stop offset="0.3" stop-color="#E4E7EA" /><stop offset="0.6" stop-color="#8E949A" /><stop offset="1" stop-color="#3A3E43" />
+    </linearGradient>
+    <linearGradient id="handleG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7A5212" /><stop offset="0.18" stop-color="#E9B94F" /><stop offset="0.32" stop-color="#F6D27C" /><stop offset="0.6" stop-color="#D8A23A" /><stop offset="1" stop-color="#6E4810" />
+    </linearGradient>
+    <linearGradient id="boxG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#303236" /><stop offset="1" stop-color="#232427" />
+    </linearGradient>
+    <radialGradient id="faceG" cx="0.42" cy="0.36" r="0.8">
+      <stop offset="0" stop-color="#F1ECE2" /><stop offset="0.75" stop-color="#E9E4DA" /><stop offset="1" stop-color="#CFC8BA" />
+    </radialGradient>
+    <filter id="blur8" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="8" /></filter>
+    <filter id="blur3" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3" /></filter>
+    <filter id="blur18" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="18" /></filter>
+  </defs>
+
+  <!-- wall: pegboard -->
+  <rect x="0" y="0" width="1080" height="676" fill="url(#wallG)" />
+  <rect x="0" y="0" width="1080" height="676" fill="url(#peg)" opacity="0.85" />
+  <!-- hanging tools, out of focus, in the top margin only -->
+  <g filter="url(#blur3)" fill="#2C2E32" fill-rule="evenodd">
+    <path d="M118,22 a30,30 0 1 1 -0.1,0 Z M118,38 a14,14 0 1 0 0.1,0 Z M108,74 L128,74 L131,236 L146,250 L140,282 L128,270 L126,252 L110,252 L108,270 L96,282 L90,250 L105,236 Z" />
+    <path d="M196,40 a24,24 0 1 1 -0.1,0 Z M196,53 a11,11 0 1 0 0.1,0 Z M188,82 L204,82 L206,206 L218,218 L213,244 L204,234 L202,220 L190,220 L188,234 L179,244 L174,218 L186,206 Z" />
+    <path d="M266,40 L282,40 L282,72 L292,80 L296,170 L284,180 L264,180 L252,170 L256,80 L266,72 Z M270,180 L278,180 L277,262 L274,272 L271,262 Z" />
+  </g>
+  <!-- work lamp, top right -->
+  <path d="M1110,-40 L1110,40 L1010,110 L840,236 Q830,170 900,104 Q980,30 1110,-40 Z" fill="#2B2D31" />
+  <path d="M1110,-40 Q990,20 920,92 L1110,6 Z" fill="#3B3E43" />
+  <ellipse cx="928" cy="186" rx="104" ry="34" transform="rotate(-38 928 186)" fill="#F3E2B4" opacity="0.9" />
+  <ellipse cx="928" cy="186" rx="150" ry="70" transform="rotate(-38 928 186)" fill="#D8A23A" opacity="0.18" filter="url(#blur18)" />
+  <polygon points="846,232 1010,104 1080,700 1080,1500 260,1500" fill="url(#cone)" />
+
+  <!-- bench top -->
+  <rect x="0" y="676" width="1080" height="1244" fill="#17181A" />
+  <rect x="0" y="676" width="1080" height="1244" fill="url(#pool)" />
+  <rect x="0" y="664" width="1080" height="14" fill="#2F3135" />
+  <rect x="0" y="664" width="1080" height="2" fill="#4A4D52" />
+  <rect x="0" y="678" width="1080" height="18" fill="#000" opacity="0.35" />
+  <g stroke="#9AA0A6" stroke-linecap="round" opacity="0.07" stroke-width="2">
+    <path d="M40,1210 L330,1188" /><path d="M120,1530 L520,1560" /><path d="M560,1640 L980,1610" /><path d="M700,760 L560,790" /><path d="M30,880 L110,872" /><path d="M930,1660 L1060,1700" />
+  </g>
+
+  <!-- spare parts on the bench (bottom margin, decoration) -->
+  <g opacity="0.55" filter="url(#blur3)">
+    <ellipse cx="214" cy="1734" rx="34" ry="14" fill="#000" opacity="0.5" filter="url(#blur3)" />
+    <path d="M214,1704 a30,22 0 1 1 -0.1,0 Z M214,1716 a12,8 0 1 0 0.1,0 Z" fill="#6A7076" fill-rule="evenodd" />
+    <ellipse cx="318" cy="1790" rx="22" ry="10" fill="#000" opacity="0.5" filter="url(#blur3)" />
+    <polygon points="300,1762 336,1762 348,1776 336,1790 300,1790 288,1776" fill="#55595F" /><ellipse cx="318" cy="1776" rx="9" ry="7" fill="#1B1C1E" />
+    <g transform="rotate(-18 760 1760)"><rect x="700" y="1750" width="70" height="20" rx="4" fill="#9C7426" /><rect x="770" y="1746" width="22" height="28" rx="3" fill="#B98A2C" /><rect x="706" y="1754" width="58" height="4" fill="#E2BC63" opacity="0.6" /></g>
+    <path d="M880,1700 a20,14 0 1 1 -0.1,0 Z M880,1708 a8,5 0 1 0 0.1,0 Z" fill="#7C828A" fill-rule="evenodd" />
+  </g>
+
+  <!-- rev tester box (behind the carburettor) -->
+  <ellipse cx="800" cy="1006" rx="178" ry="14" fill="#000" opacity="0.6" filter="url(#blur8)" />
+  <polygon points="652,706 948,706 926,684 674,684" fill="#3C3F44" />
+  <rect x="640" y="704" width="320" height="300" rx="20" fill="url(#boxG)" />
+  <rect x="640" y="704" width="320" height="3" fill="#4C4F55" />
+  <circle cx="800" cy="866" r="138" fill="#0F1011" />
+  <circle cx="800" cy="860" r="136" fill="url(#stH)" />
+  <circle cx="800" cy="860" r="122" fill="#2A2C2F" />
+  <circle cx="800" cy="860" r="118" fill="url(#faceG)" />
+  <g id="dial"></g>
+
+  <!-- carburettor group is drawn by script into #carb -->
+  <g id="carb"></g>
+  <g id="screws"></g>
+  <g id="driver"></g>
+</svg>
+
+<div class="meta"><span id="kick"></span><span id="date"></span></div>
+<div class="title" id="title"></div>
+<div id="tags"></div>
+<div class="tape" id="tape"><div class="cap" id="cap" data-slot="caption"></div></div>
+<div class="src" id="src"></div>
+
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series_id: "how-ai-works", series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "Fine-tuning cuma muter beberapa sekrup kecil", hl: "sekrup kecil",
+    sub: "Mesinnya sudah jadi. Kita cuma setel sedikit biar jalannya pas.",
+    items: [{ label: "Gaya bahasa", value: "+1/4 putar" }, { label: "Format jawaban", value: "+1/2 putar" }, { label: "Istilah kantor", value: "+1/4 putar" }, { label: "Bobot diubah", value: "±1%" }],
+    source: "ilustrasi — angka bukan dari model asli", date: "per 14 Okt 2026" };
+
+  const fonts = ['800 90px "Chivo Mono"', '700 44px "Chivo Mono"', '500 28px "Chivo Mono"', '600 44px "Chivo"', '600 30px "Chivo"'];
+  Promise.all(fonts.map(f => document.fonts.load(f))).then(() => document.fonts.ready).catch(() => {}).then(render);
+
+  function render() {
+  const NS = "http://www.w3.org/2000/svg";
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const svgEl = (parent, tag, attrs, text) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; parent.appendChild(e); return e; };
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+  const hl = String(D.hl || "").trim();
+
+  // ---- meta + title ----
+  const ep = String(D.ep || "").trim();
+  document.getElementById("kick").innerHTML = "<b>Servis " + esc(ep) + "</b> · " + esc(D.series || D.kicker || "");
+  document.getElementById("date").textContent = D.date || "";
+  const t = String(D.title || "");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = document.getElementById("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl' + (hl.length <= 16 ? ' nw' : '') + '">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  for (let fs = 100; fs >= 66; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (titleEl.offsetHeight <= 292) break; }
+
+  // ---- which screw is being turned: the item that mentions hl, else item 1 ----
+  let act = 0;
+  if (hl) { const h = hl.toLowerCase(); const k = items.findIndex(it => (String(it.label) + " " + String(it.value)).toLowerCase().includes(h)); if (k >= 0) act = k; }
+
+  // ---- rev tester dial: 0..10 (x1000 rpm), needle settled at idle, ghost needles = the rough idle it had ----
+  const dial = document.getElementById("dial");
+  const C = { x: 800, y: 860 };
+  const ang = v => (225 - v * 27) * Math.PI / 180;
+  const pt = (v, r) => [C.x + r * Math.cos(ang(v)), C.y - r * Math.sin(ang(v))];
+  const arc = (v0, v1, r) => { const a = pt(v0, r), b = pt(v1, r); return `M${a[0].toFixed(1)},${a[1].toFixed(1)} A${r},${r} 0 0 1 ${b[0].toFixed(1)},${b[1].toFixed(1)}`; };
+  svgEl(dial, "path", { d: arc(7.6, 10, 104), stroke: "#C8452C", "stroke-width": 14, fill: "none" });
+  svgEl(dial, "path", { d: arc(1, 2, 104), stroke: "#D8A23A", "stroke-width": 14, fill: "none" });
+  for (let v = 0; v <= 10; v += 0.5) {
+    const major = v % 1 === 0; const a = pt(v, 114), b = pt(v, major ? 92 : 100);
+    svgEl(dial, "line", { x1: a[0], y1: a[1], x2: b[0], y2: b[1], stroke: "#1B1C1E", "stroke-width": major ? 4.5 : 2.5, "stroke-linecap": "round" });
+    if (major) { const p = pt(v, 72); svgEl(dial, "text", { x: p[0], y: p[1] + 10, "text-anchor": "middle", "font-family": "Chivo Mono", "font-weight": 700, "font-size": 28, fill: "#1B1C1E" }, String(v)); }
+  }
+  svgEl(dial, "text", { x: C.x, y: C.y - 30, "text-anchor": "middle", "font-family": "Chivo Mono", "font-weight": 500, "font-size": 26, fill: "#3A3B3E" }, "rpm");
+  const needle = (v, op) => { const tip = pt(v, 106), a = ang(v), px = Math.sin(a) * 5, py = Math.cos(a) * 5, tail = pt(v, -20);
+    svgEl(dial, "polygon", { points: `${tip[0]},${tip[1]} ${tail[0] + px},${tail[1] + py} ${tail[0] - px},${tail[1] - py}`, fill: "#C8452C", opacity: op }); };
+  needle(0.45, 0.2); needle(2.75, 0.2); needle(3.35, 0.14);
+  needle(1.5, 1);
+  svgEl(dial, "circle", { cx: C.x, cy: C.y, r: 15, fill: "url(#stH)", stroke: "#2A2C2F", "stroke-width": 2 });
+
+  // ---- carburettor (side view, intake bell left, engine boot right), origin (500,1000) ----
+  const carb = document.getElementById("carb");
+  carb.innerHTML = `
+    <ellipse cx="720" cy="1398" rx="270" ry="26" fill="#000" opacity="0.6" filter="url(#blur8)" />
+    <path d="M462,1404 Q520,1366 610,1374 Q700,1352 800,1366 Q900,1350 1004,1376 L1030,1428 Q930,1446 840,1436 Q720,1450 610,1440 Q520,1452 452,1436 Z" fill="#C8452C" opacity="0.5" />
+    <path d="M540,1384 Q600,1404 640,1436 M760,1372 Q800,1400 790,1440 M900,1366 Q920,1396 960,1414" stroke="#000" stroke-opacity="0.28" stroke-width="5" fill="none" stroke-linecap="round" />
+    <g transform="translate(500,1000)">
+      <path d="M352,72 C360,30 400,-6 446,-22" stroke="#141516" stroke-width="10" fill="none" stroke-linecap="round" />
+      <path d="M352,72 C360,30 400,-6 446,-22" stroke="#5A5F65" stroke-width="2" fill="none" stroke-linecap="round" transform="translate(-2,-2)" />
+      <path d="M402,140 L436,152 L436,276 L402,290 Z" fill="#26272A" />
+      <path d="M412,144 L412,286 M422,148 L422,282" stroke="#3A3C40" stroke-width="3" />
+      <rect x="370" y="126" width="32" height="176" rx="8" fill="url(#stH)" />
+      <circle cx="386" cy="146" r="9" fill="#5C6167" stroke="#2C2F33" stroke-width="2" />
+      <circle cx="386" cy="282" r="9" fill="#5C6167" stroke="#2C2F33" stroke-width="2" />
+      <path d="M112,276 L328,276 L328,342 Q328,372 298,372 L142,372 Q112,372 112,342 Z" fill="url(#stV3)" />
+      <path d="M112,286 L328,286" stroke="#43474C" stroke-width="3" />
+      <circle cx="128" cy="300" r="7" fill="#4A4F55" /><circle cx="312" cy="300" r="7" fill="#4A4F55" />
+            <rect x="204" y="368" width="32" height="10" rx="3" fill="#5A5F65" />
+      <rect x="58" y="148" width="320" height="132" rx="26" fill="url(#stV)" />
+      <path d="M66,152 C46,150 34,126 12,116 L12,314 C34,304 46,282 66,278 Z" fill="url(#stV2)" />
+      <ellipse cx="12" cy="215" rx="20" ry="99" fill="url(#stH)" stroke="#2A2C2F" stroke-width="2" />
+      <ellipse cx="16" cy="215" rx="11" ry="80" fill="#0E0F10" />
+      <path d="M4,140 Q2,215 4,290" stroke="#E6E9EB" stroke-opacity="0.5" stroke-width="3" fill="none" />
+      <rect x="128" y="136" width="194" height="22" rx="6" fill="url(#stV)" />
+      <rect x="140" y="52" width="170" height="92" fill="url(#stH)" />
+      <rect x="134" y="38" width="182" height="26" rx="4" fill="url(#stH)" />
+      <ellipse cx="225" cy="38" rx="91" ry="22" fill="url(#capG)" stroke="#4A4E53" stroke-width="3" />
+      <ellipse cx="166" cy="40" rx="9" ry="5" fill="#4E535A" /><ellipse cx="284" cy="40" rx="9" ry="5" fill="#4E535A" />
+      <circle cx="352" cy="112" r="40" fill="url(#stH)" stroke="#2C2F33" stroke-width="2" />
+      <circle cx="352" cy="112" r="27" fill="#383B40" />
+      <circle cx="352" cy="112" r="10" fill="url(#stH)" />
+      <rect x="86" y="96" width="16" height="56" fill="url(#stH)" />
+      <rect x="80" y="134" width="28" height="16" rx="3" fill="url(#stV)" />
+      <circle cx="118" cy="238" r="31" fill="#5E646A" stroke="#3A3E42" stroke-width="2" />
+      <path d="M338,278 l8,6 -10,4 10,4 -10,4 10,4 -10,4" stroke="#B9BEC3" stroke-width="3" fill="none" />
+      <circle cx="350" cy="300" r="38" fill="#4F545A" stroke="#33363A" stroke-width="2" />
+    </g>`;
+
+  // ---- screws: slot H (mixture screw, lower right) = the one being turned ----
+  const SLOT = { A: { x: 725, y: 1036, r: 24, flat: true, dot: [94, -4], rot: 20 },
+                 B: { x: 594, y: 1088, r: 23, dot: [-72, -8], rot: -38 },
+                 Cc: { x: 618, y: 1238, r: 24, dot: [-76, 26], rot: 64 },
+                 E: { x: 720, y: 1384, r: 21, dot: [-80, -18], rot: -12 },
+                 H: { x: 850, y: 1300, r: 30, dot: [-96, 14], rot: 35 } };
+  const others = n >= 5 ? ["A", "B", "Cc", "E"] : n === 4 ? ["A", "B", "Cc"] : ["B", "Cc"];
+  const slotOf = []; let oi = 0;
+  for (let i = 0; i < n; i++) slotOf.push(i === act ? "H" : others[oi++]);
+
+  const sg = document.getElementById("screws");
+  const tilts = [-6, 5, -4, 7, -5];
+  slotOf.forEach((key, i) => {
+    const s = SLOT[key]; const on = key === "H";
+    const g = svgEl(sg, "g", {});
+    if (s.flat) {
+      svgEl(g, "ellipse", { cx: s.x, cy: s.y + 3, rx: s.r + 2, ry: s.r * 0.55 + 2, fill: "#2A2C2F" });
+      svgEl(g, "ellipse", { cx: s.x, cy: s.y, rx: s.r, ry: s.r * 0.55, fill: "url(#brass)" });
+      svgEl(g, "rect", { x: s.x - s.r * 0.75, y: s.y - 3, width: s.r * 1.5, height: 6, rx: 2, fill: "#3E2C0C", transform: `rotate(${s.rot / 4} ${s.x} ${s.y})` });
+    } else {
+      svgEl(g, "circle", { cx: s.x + 2, cy: s.y + 3, r: s.r + 3, fill: "#25272A" });
+      if (on) for (let k = 0; k < 24; k++) { const a = k * 15 * Math.PI / 180; svgEl(g, "line", { x1: s.x + (s.r + 2) * Math.cos(a), y1: s.y + (s.r + 2) * Math.sin(a), x2: s.x + (s.r - 4) * Math.cos(a), y2: s.y + (s.r - 4) * Math.sin(a), stroke: "#6E4E17", "stroke-width": 3 }); }
+      svgEl(g, "circle", { cx: s.x, cy: s.y, r: on ? s.r - 3 : s.r, fill: "url(#brass)", stroke: "#6E4E17", "stroke-width": 2 });
+      svgEl(g, "rect", { x: s.x - s.r * 0.78, y: s.y - 3.5, width: s.r * 1.56, height: 7, rx: 2, fill: "#3E2C0C", transform: `rotate(${s.rot} ${s.x} ${s.y})` });
+    }
+    // masking-tape number dot
+    const dx = s.x + s.dot[0], dy = s.y + s.dot[1];
+    const dg = svgEl(sg, "g", { transform: `rotate(${tilts[i]} ${dx} ${dy})` });
+    svgEl(dg, "rect", { x: dx - 25, y: dy - 25, width: 50, height: 50, rx: 3, fill: on ? "#D8A23A" : "#E9E4DA" });
+    svgEl(dg, "text", { x: dx, y: dy + 11, "text-anchor": "middle", "font-family": "Chivo Mono", "font-weight": 800, "font-size": 31, fill: "#1B1C1E" }, String(i + 1));
+  });
+
+  // ---- quarter-turn mark + screwdriver on slot H ----
+  const H = SLOT.H, drv = document.getElementById("driver");
+  const R = 50, a0 = -150 * Math.PI / 180, a1 = -62 * Math.PI / 180;
+  const p0 = [H.x + R * Math.cos(a0), H.y + R * Math.sin(a0)], p1 = [H.x + R * Math.cos(a1), H.y + R * Math.sin(a1)];
+  svgEl(drv, "path", { d: `M${p0[0].toFixed(1)},${p0[1].toFixed(1)} A${R},${R} 0 0 1 ${p1[0].toFixed(1)},${p1[1].toFixed(1)}`, stroke: "#C8452C", "stroke-width": 7, fill: "none", "stroke-linecap": "round" });
+  const ta = a1 + Math.PI / 2; // tangent direction (clockwise)
+  const ah = [[p1[0] + 16 * Math.cos(ta), p1[1] + 16 * Math.sin(ta)], [p1[0] - 11 * Math.cos(a1), p1[1] - 11 * Math.sin(a1)], [p1[0] + 11 * Math.cos(a1), p1[1] + 11 * Math.sin(a1)]];
+  svgEl(drv, "polygon", { points: ah.map(p => p.map(v => v.toFixed(1)).join(",")).join(" "), fill: "#C8452C" });
+  drv.insertAdjacentHTML("beforeend", `
+    <g transform="translate(${H.x + 30},${H.y + 34}) rotate(35)" opacity="0.55" filter="url(#blur8)">
+      <rect x="20" y="-8" width="130" height="16" fill="#000" /><path d="M160,-34 L330,-50 L360,-50 L360,50 L330,50 L160,34 Z" fill="#000" />
+    </g>
+    <g transform="translate(${H.x},${H.y}) rotate(35)">
+      <polygon points="-4,-4 20,-8 20,8 -4,4" fill="#5B6066" />
+      <rect x="18" y="-8" width="126" height="16" fill="url(#shaftG)" />
+      <rect x="140" y="-15" width="26" height="30" rx="4" fill="url(#shaftG)" />
+      <path d="M164,-32 L182,-40 L336,-50 Q356,-50 356,-30 L356,30 Q356,50 336,50 L182,40 L164,32 Z" fill="url(#handleG)" />
+      <path d="M186,-26 L350,-32 M186,-9 L352,-11 M186,9 L352,11 M186,26 L350,32" stroke="#7A5212" stroke-opacity="0.45" stroke-width="5" />
+      <path d="M182,-34 L336,-44" stroke="#FBEBC0" stroke-opacity="0.55" stroke-width="4" stroke-linecap="round" />
+    </g>`);
+  // witness (torque-paint) mark across the turned screw
+  svgEl(drv, "path", { d: `M${H.x - 46},${H.y - 22} L${H.x - 20},${H.y - 9}`, stroke: "#C8452C", "stroke-width": 8, "stroke-linecap": "round" });
+
+  // ---- parts tags (left column) ----
+  const tagsEl = document.getElementById("tags");
+  const rots = [-1.1, 0.8, -0.6, 1.0, -0.8];
+  const tagNodes = items.map((it, i) => {
+    const d = document.createElement("div");
+    d.className = "tag" + (i === act ? " on" : "");
+    d.innerHTML = '<div class="card"><div class="no">' + (i + 1) + '</div><div class="tx"><div class="lb">' + esc(it.label) + '</div><div class="vl">' + esc(it.value) + '</div></div><i class="hole"></i></div>';
+    tagsEl.appendChild(d);
+    const vl = d.querySelector(".vl");
+    for (let fs = 44; fs > 32 && vl.scrollWidth > vl.clientWidth + 1; fs -= 2) vl.style.fontSize = (fs - 2) + "px";
+    return d;
+  });
+  const Y0 = 704, Y1 = 1420;
+  const hs = tagNodes.map(d => d.offsetHeight), tot = hs.reduce((a, b) => a + b, 0);
+  const gap = n > 1 ? Math.min(64, Math.max(12, (Y1 - Y0 - tot) / (n - 1))) : 0;
+  let y = Y0 + Math.max(0, (Y1 - Y0 - tot - gap * (n - 1)) / 2);
+  tagNodes.forEach((d, i) => { d.style.top = Math.round(y) + "px"; d.style.transform = `rotate(${rots[i]}deg)`; y += hs[i] + gap; });
+
+  // ---- caption on masking tape: karaoke, one active word ----
+  const capText = String(D.caption || D.sub || "");
+  const words = capText.split(/\s+/).filter(Boolean);
+  let actW = 0;
+  if (hl) {
+    const pos = capText.toLowerCase().indexOf(hl.toLowerCase());
+    if (pos >= 0) { let c = 0; for (let i = 0; i < words.length; i++) { const s = capText.indexOf(words[i], c); if (pos < s + words[i].length) { actW = i; break; } c = s + words[i].length; } }
+  }
+  const cap = document.getElementById("cap");
+  cap.innerHTML = words.map((w, i) => '<span class="w' + (i === actW ? " on" : "") + '">' + esc(w) + "</span>").join(" ");
+  for (let fs = 44; fs >= 40; fs -= 2) { cap.style.fontSize = fs + "px"; if (cap.offsetHeight <= fs * 1.2 * 2 + 4) break; }
+  const tape = document.getElementById("tape");
+  const src = document.getElementById("src");
+  src.textContent = D.source ? "Sumber: " + D.source : "";
+  const tapeBottom = 1438 + tape.offsetHeight;
+  src.style.top = Math.min(tapeBottom + 16, 1620 - src.offsetHeight) + "px";
+  }
+</script>
+</body>
+</html>

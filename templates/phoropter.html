@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@500..700&family=Tinos:ital,wght@0,400;0,700;1,400&family=Spline+Sans+Mono:wght@400;500;600&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Phoropter: the patient's view in an eye-exam room.
+    Top: a backlit acuity chart in a black monitor bezel. The title is printed
+    ON the chart in Sloan-style capitals, each line a step smaller, with acuity
+    fractions (6/60, 6/36...) in the left margin; the line holding D.hl is the
+    line being tested (blue word, red index marks). Middle: the phoropter itself,
+    two wing-shaped lens batteries with a sphere wheel, sphere power window,
+    auxiliary and cylinder knobs, a 0-180 axis ring and a cross-cylinder flip
+    lens on an arm in front of each small aperture. Both apertures show the
+    tested word out of focus (hook state: lens 1 blur 6 px, lens 2 blur 3 px).
+    Bottom: the near-point reading rod drops from the top pivot to a clip that
+    holds the near-vision reading card. Items are the card's Jaeger lines J1-J5;
+    the card's last paragraph of reading print is the karaoke caption, and its
+    fine print is the source.
+    Metaphor: RLHF, people repeatedly pick the better of two answers and each
+    pick clicks the lens one step closer to sharp.
+    Deterministic: no randomness, all geometry is fixed.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #F2F0EB; }
+  body { position: relative; color: #1E1F22; font-family: "Tinos", "Times New Roman", serif; }
+
+  #inst { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* chart monitor chin: series + episode left, date right (light on the black bezel) */
+  .chin { position: absolute; left: 112px; right: 112px; top: 704px; height: 28px; display: flex; justify-content: space-between; gap: 30px;
+          font: 500 26px/28px "Spline Sans Mono", monospace; letter-spacing: 0.06em; text-transform: uppercase; color: #D9D4C8; white-space: nowrap; }
+  .chin b { color: #F7F4EC; font-weight: 600; }
+
+  /* acuity chart: Sloan-style capitals, wide tracking, one step smaller per line */
+  #chart { position: absolute; left: 186px; width: 708px; }
+  .cl { display: block; text-align: center; white-space: nowrap; font-family: "Lexend", sans-serif; font-weight: 600; letter-spacing: 0.1em;
+        padding-left: 0.1em; color: #1E1F22; text-transform: uppercase; }
+  .cl .hl { color: #2F62D1; }
+  .fr { position: absolute; left: 106px; font: 500 26px/30px "Spline Sans Mono", monospace; color: #4A4943; white-space: nowrap; }
+  .ptr { position: absolute; width: 20px; height: 26px; background: #C6452E; }
+  .ptr.l { clip-path: polygon(0 0, 100% 50%, 0 100%); }
+  .ptr.r { clip-path: polygon(100% 0, 0 50%, 100% 100%); }
+  #meas { position: absolute; left: -4000px; top: 0; white-space: nowrap; font-family: "Lexend", sans-serif; font-weight: 600; letter-spacing: 0.1em; }
+
+  /* what each aperture shows: the tested word, magnified, out of focus */
+  .lens { position: absolute; border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; text-align: center;
+          background: radial-gradient(circle at 50% 44%, #FFFFFF 0%, #F6F4EE 58%, #D3CEC1 100%); }
+  .lens .lt { position: relative; font-family: "Lexend", sans-serif; font-weight: 700; line-height: 1.02; color: #1E1F22; letter-spacing: 0.02em;
+              text-transform: uppercase; }
+  #lens1 .lt { filter: blur(6px); opacity: 0.9; }
+  #lens2 .lt { filter: blur(3px); opacity: 0.95; }
+  .lens::after { content: ""; position: absolute; inset: 0; border-radius: 50%;
+    background: radial-gradient(ellipse 44% 20% at 36% 22%, rgba(255,255,255,0.8), rgba(255,255,255,0) 72%),
+                radial-gradient(circle at 50% 58%, rgba(0,0,0,0) 62%, rgba(30,31,34,0.42) 100%);
+    box-shadow: inset 0 8px 14px rgba(14,15,17,0.36); }
+
+  /* near-vision reading card: Jaeger lines in Times-style reading print */
+  #rows { position: absolute; }
+  .row { position: absolute; left: 0; right: 0; display: flex; align-items: center; overflow: hidden; }
+  .row .jt { flex: none; width: 70px; font: 600 30px/1 "Spline Sans Mono", monospace; color: #5F5B52; letter-spacing: -0.02em; }
+  .row .lb { flex: 0 1 auto; min-width: 0; font-weight: 400; font-size: 32px; line-height: 1.1; color: #2E2D29;
+             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .lb.two { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.04; }
+  .row .ld { flex: 1 1 28px; min-width: 28px; margin: 0 14px; height: 0; border-bottom: 3px dotted #ADA594; transform: translateY(8px); }
+  .row .vl { flex: none; max-width: 330px; font-weight: 700; font-size: 42px; line-height: 1.1; color: #1E1F22;
+             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* karaoke voice-over line = the card's last paragraph of reading print */
+  .caption { position: absolute; left: 184px; width: 682px; font-weight: 400; font-size: 44px; line-height: 1.18; color: #5A5750; }
+  .caption .w { white-space: nowrap; }
+  .caption .w.on { color: #FFFFFF; background: #2F62D1; border-radius: 6px; padding: 0 0.14em; margin: 0 -0.03em; }
+  .caption .w.done { color: #1E1F22; }
+
+  .foot { position: absolute; left: 184px; width: 712px; top: 1548px; height: 32px; font: italic 400 26px/32px "Tinos", serif; color: #514E47;
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+</style>
+</head>
+<body>
+<svg id="inst" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="chin"><span id="kick"></span><span id="date"></span></div>
+<div id="chart"></div>
+<div id="fracs"></div>
+<div class="lens" id="lens1"><div class="lt"></div></div>
+<div class="lens" id="lens2"><div class="lt"></div></div>
+<div id="rows"></div>
+<div class="caption" id="cap" data-slot="caption"></div>
+<div class="foot" id="src"></div>
+<span id="meas"></span>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  // Lay out only after the web fonts are in: every fit below measures real glyph widths.
+  const ready = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
+  Promise.all([ready].concat(['600 100px "Lexend"', '700 40px "Lexend"', '400 44px "Tinos"', '700 42px "Tinos"', 'italic 400 26px "Tinos"',
+    '500 26px "Spline Sans Mono"', '600 30px "Spline Sans Mono"'].map(f => document.fonts.load(f)))).catch(() => {}).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const INK = "#1E1F22", RED = "#C6452E";
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+
+  // ---- chin: series + episode / date ------------------------------------------
+  const epNo = String(D.ep || "").trim(), ser = D.series || "";
+  document.getElementById("kick").innerHTML = ser ? esc(ser) + (epNo ? " · <b>" + esc(epNo) + "</b>" : "") : esc(D.kicker || "");
+  document.getElementById("date").textContent = D.date || "";
+
+  // ---- acuity chart: the title, one line per acuity row --------------------------
+  const t = String(D.title || ""), hl = String(D.hl || "").trim();
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  // words with their offsets; the words that make up hl stay together as one token
+  const toks = [];
+  t.replace(/\S+/g, (m, off) => {
+    const inHl = at >= 0 && off < at + hl.length && off + m.length > at, last = toks[toks.length - 1];
+    if (inHl && last && last.hl) last.e = off + m.length; else toks.push({ s: off, e: off + m.length, hl: inHl });
+    return m;
+  });
+  const tokText = tk => t.slice(tk.s, tk.e);
+  const lineText = ln => ln.map(tokText).join(" ");
+  const meas = document.getElementById("meas");
+  // glyph extent (trailing tracking removed) and the line box it needs (tracking + the centring pad)
+  const width = (s, fs) => { meas.style.fontSize = fs + "px"; meas.textContent = s.toUpperCase(); return meas.getBoundingClientRect().width - 0.1 * fs; };
+  const boxW = (s, fs) => width(s, fs) + 0.2 * fs + 1;
+  const CW = 708, CH = 376, CTOP = 300, LH = 1.12, STEP = 0.87, MAXL = 5;
+  let fit = null;
+  for (let S = 136; S >= 40 && !fit; S -= 2) {
+    const sz = k => Math.max(Math.min(S, 46), Math.round(S * Math.pow(STEP, k)));
+    const lines = []; let cur = [], ok = true;
+    for (const tk of toks) {
+      const trial = cur.concat([tk]);
+      if (boxW(lineText(trial), sz(lines.length)) <= CW) { cur = trial; continue; }
+      if (!cur.length) { ok = false; break; }
+      lines.push(cur); cur = [tk];
+      if (boxW(lineText(cur), sz(lines.length)) > CW) { ok = false; break; }
+    }
+    if (!ok) continue;
+    if (cur.length) lines.push(cur);
+    const hsum = lines.reduce((a, _, i) => a + sz(i) * LH, 0);
+    if (lines.length <= MAXL && hsum <= CH) fit = { lines, sz, hsum };
+  }
+  if (!fit) fit = { lines: [toks], sz: () => 40, hsum: 40 * LH };
+  const chart = document.getElementById("chart"), fracs = document.getElementById("fracs");
+  const FR = ["6/60", "6/36", "6/24", "6/18", "6/12"];
+  let tested = fit.lines.findIndex(ln => ln.some(tk => tk.hl));
+  if (tested < 0) tested = fit.lines.length - 1;
+  let y = CTOP + Math.round((CH - fit.hsum) / 2);
+  chart.style.top = y + "px";
+  const ptrs = [];
+  fit.lines.forEach((ln, i) => {
+    const fs = fit.sz(i), lh = Math.round(fs * LH);
+    const el = document.createElement("div"); el.className = "cl";
+    el.style.fontSize = fs + "px"; el.style.lineHeight = lh + "px"; el.style.height = lh + "px";
+    el.innerHTML = ln.map(tk => {
+      if (!tk.hl) return esc(tokText(tk));
+      const a = Math.max(at, tk.s), b = Math.min(at + hl.length, tk.e);
+      return esc(t.slice(tk.s, a)) + '<span class="hl">' + esc(t.slice(a, b)) + "</span>" + esc(t.slice(b, tk.e));
+    }).join(" ");
+    chart.appendChild(el);
+    const fr = document.createElement("div"); fr.className = "fr"; fr.textContent = FR[i] || "";
+    fr.style.top = (y + Math.round((lh - 30) / 2)) + "px"; fracs.appendChild(fr);
+    if (i === tested) {
+      const w = width(lineText(ln), fs), cy = y + Math.round(lh / 2);
+      ptrs.push({ x: Math.round(540 + w / 2 + 18), y: cy - 13, cls: "r" });
+      if (540 - w / 2 - 40 >= 180) ptrs.push({ x: Math.round(540 - w / 2 - 38), y: cy - 13, cls: "l" });
+    }
+    y += lh;
+  });
+  ptrs.forEach(p => { const d = document.createElement("div"); d.className = "ptr " + p.cls; d.style.left = p.x + "px"; d.style.top = p.y + "px"; document.body.appendChild(d); });
+
+  // ---- instrument geometry (fixed) ------------------------------------------------
+  const AY = 928, AXL = 372, AXR = 708, RB = 150, DEPTH = 14;
+  const R_VIEW = 84, R_TUBE = 90, R_CELL = 98, R_JCC = 101, R_AXI = 104, R_AXO = 134;
+  const CX0 = 150, CX1 = 930, CY0 = 1074, CY1 = 1600;      // near card
+  const pt = (cx, cy, r, deg) => [cx + r * Math.cos(deg * Math.PI / 180), cy - r * Math.sin(deg * Math.PI / 180)];
+  const f1 = v => (+v).toFixed(1);
+  const SIDE = "#A9A08B", EDGE = "#968D79";
+
+  // engraved numerals drawn as monoline paths (6 x 10 box), so they are decoration, not text
+  const DG = {
+    "0": "M3,0C1,0 0,2.1 0,5C0,7.9 1,10 3,10C5,10 6,7.9 6,5C6,2.1 5,0 3,0Z",
+    "1": "M1.2,2.2L3.6,0V10",
+    "2": "M0.3,2.4C0.7,0.8 1.8,0 3.1,0C4.8,0 5.8,1.1 5.8,2.7C5.8,4.6 4.2,5.8 0.2,10H6",
+    "3": "M0.6,0H5.6L2.6,4C4.7,4 6,5.2 6,7C6,8.8 4.7,10 3,10C1.7,10 0.7,9.4 0.2,8.4",
+    "4": "M4.6,10V0L0,6.9H6",
+    "5": "M5.6,0H1.1L0.6,4.5C1.3,4 2.1,3.8 3,3.8C4.8,3.8 6,5.1 6,6.9C6,8.8 4.7,10 2.9,10C1.6,10 0.6,9.4 0.1,8.4",
+    "6": "M5.2,0.7C4.6,0.2 3.9,0 3.2,0C1.2,0 0,2.2 0,5.5C0,8.5 1.2,10 3,10C4.8,10 6,8.7 6,6.8C6,5 4.8,3.8 3.1,3.8C1.6,3.8 0.5,4.7 0.1,6",
+    "7": "M0,0H6L2.2,10",
+    "8": "M3,4.6C1.5,4.6 0.5,3.7 0.5,2.3C0.5,0.9 1.5,0 3,0C4.5,0 5.5,0.9 5.5,2.3C5.5,3.7 4.5,4.6 3,4.6C1.3,4.6 0,5.6 0,7.3C0,8.9 1.3,10 3,10C4.7,10 6,8.9 6,7.3C6,5.6 4.7,4.6 3,4.6Z",
+    "9": "M5.9,4.4C5.5,5.6 4.4,6.3 3,6.3C1.2,6.3 0,5 0,3.2C0,1.3 1.2,0 3,0C4.9,0 6,1.6 6,4.8C6,8 4.8,10 2.8,10C2.1,10 1.5,9.8 0.9,9.3",
+    "-": "M0.6,5.4H5.4", ".": "M2.6,9.6h0.8", "+": "M3,2.6V8.2M0.2,5.4H5.8"
+  };
+  const glyphs = (str, h, sw, col) => {
+    const s = h / 10, adv = 8.2, w = (str.length * adv - 2.2) * s;
+    return '<g fill="none" stroke="' + col + '" stroke-width="' + sw + '" stroke-linecap="round" stroke-linejoin="round">' +
+      [...str].map((c, i) => DG[c] ? '<path vector-effect="non-scaling-stroke" d="' + DG[c] + '" transform="translate(' + f1(-w / 2 + i * adv * s) + ',' + f1(-h / 2) + ') scale(' + s + ')"/>' : "").join("") + "</g>";
+  };
+
+  let g = '<defs>' +
+    '<linearGradient id="gWallV" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E7E3DA"/><stop offset="0.42" stop-color="#F3F1EC"/><stop offset="1" stop-color="#EDEAE3"/></linearGradient>' +
+    '<radialGradient id="gHalo"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.75"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>' +
+    '<linearGradient id="gBezel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#34353A"/><stop offset="0.08" stop-color="#232428"/><stop offset="1" stop-color="#151619"/></linearGradient>' +
+    '<radialGradient id="gScreen" cx="50%" cy="44%" r="72%"><stop offset="0" stop-color="#FFFFFF"/><stop offset="0.7" stop-color="#FBFAF7"/><stop offset="1" stop-color="#EEEBE4"/></radialGradient>' +
+    '<linearGradient id="gBody" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#EEE9DE"/><stop offset="0.5" stop-color="#DCD5C6"/><stop offset="1" stop-color="#C2B9A5"/></linearGradient>' +
+    '<linearGradient id="gBridge" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#C9C1AE"/><stop offset="0.4" stop-color="#E4DED1"/><stop offset="1" stop-color="#BFB6A2"/></linearGradient>' +
+    '<linearGradient id="gRing" x1="0.2" y1="0" x2="0.8" y2="1"><stop offset="0" stop-color="#3A3B40"/><stop offset="0.5" stop-color="#1E1F22"/><stop offset="1" stop-color="#111214"/></linearGradient>' +
+    '<linearGradient id="gChrome" x1="0.15" y1="0" x2="0.85" y2="1"><stop offset="0" stop-color="#FAFAF8"/><stop offset="0.35" stop-color="#A6A7A5"/><stop offset="0.62" stop-color="#E9E9E6"/><stop offset="1" stop-color="#6B6C6B"/></linearGradient>' +
+    '<linearGradient id="gRod" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#77787A"/><stop offset="0.3" stop-color="#F4F4F2"/><stop offset="0.55" stop-color="#B8B9B7"/><stop offset="1" stop-color="#5E5F61"/></linearGradient>' +
+    '<radialGradient id="gTube"><stop offset="0.72" stop-color="#3B3C41"/><stop offset="1" stop-color="#0C0D0F"/></radialGradient>' +
+    '<linearGradient id="gWheel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0E0F11"/><stop offset="0.45" stop-color="#4A4B50"/><stop offset="0.55" stop-color="#3C3D42"/><stop offset="1" stop-color="#0E0F11"/></linearGradient>' +
+    '<radialGradient id="gKnob" cx="40%" cy="34%" r="70%"><stop offset="0" stop-color="#55565C"/><stop offset="0.55" stop-color="#26272B"/><stop offset="1" stop-color="#0B0C0E"/></radialGradient>' +
+    '<linearGradient id="gPad" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4A4B50"/><stop offset="0.4" stop-color="#26272B"/><stop offset="1" stop-color="#0E0F11"/></linearGradient>' +
+    '<linearGradient id="gCard" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#F8F6F0"/></linearGradient>' +
+    '<filter id="fShadow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="18"/></filter>' +
+    '</defs>';
+
+  // exam-room wall, a soft halo where the backlit chart lights it
+  g += '<rect width="1080" height="1920" fill="url(#gWallV)"/>';
+  g += '<ellipse cx="540" cy="490" rx="540" ry="420" fill="url(#gHalo)"/>';
+
+  // ---- chart monitor (bezel, backlit screen) ----------------------------
+  g += '<rect x="90" y="262" width="918" height="500" rx="24" fill="#3A332A" opacity="0.26" filter="url(#fShadow)"/>';
+  g += '<rect x="72" y="244" width="936" height="500" rx="22" fill="url(#gBezel)"/>';
+  g += '<path d="M94,246 H986" stroke="#5A5B60" stroke-width="2" stroke-linecap="round"/>';
+  g += '<rect x="92" y="262" width="896" height="430" rx="6" fill="url(#gScreen)"/>';
+  g += '<rect x="92" y="262" width="896" height="430" rx="6" fill="none" stroke="#0B0C0E" stroke-width="3"/>';
+  g += '<circle cx="540" cy="718" r="4" fill="' + RED + '"/><circle cx="540" cy="718" r="8" fill="none" stroke="#3A3B40" stroke-width="2"/>';
+
+  // ---- phoropter ----------------------------------------------------------------
+  // cast shadow on the wall
+  g += '<g filter="url(#fShadow)" opacity="0.26" fill="#3A332A" transform="translate(16,30)">' +
+       '<rect x="66" y="' + (AY - 118) + '" width="948" height="236" rx="60"/>' +
+       '<circle cx="' + AXL + '" cy="' + AY + '" r="' + RB + '"/><circle cx="' + AXR + '" cy="' + AY + '" r="' + RB + '"/></g>';
+
+  // top bar + forehead rest + central bridge (behind the batteries)
+  g += '<rect x="300" y="' + (AY - 166 + DEPTH) + '" width="480" height="28" rx="14" fill="' + SIDE + '"/>';
+  g += '<rect x="300" y="' + (AY - 166) + '" width="480" height="28" rx="14" fill="url(#gBody)" stroke="' + EDGE + '" stroke-width="2"/>';
+  g += '<rect x="498" y="' + (AY - 150) + '" width="84" height="236" rx="16" fill="url(#gBridge)" stroke="' + EDGE + '" stroke-width="2"/>';
+  // forehead rest: the nearest part, it overlaps the chart's chin (patient's eye is right behind it)
+  g += '<rect x="446" y="' + (AY - 186) + '" width="188" height="44" rx="22" fill="#0B0C0E" opacity="0.45" filter="url(#fShadow)"/>' +
+       '<rect x="452" y="' + (AY - 192 + 8) + '" width="176" height="36" rx="18" fill="#0E0F11"/>' +
+       '<rect x="452" y="' + (AY - 192) + '" width="176" height="36" rx="18" fill="url(#gPad)" stroke="#0B0C0E" stroke-width="2"/>' +
+       '<path d="M472,' + (AY - 182) + ' H608" stroke="#6B6C72" stroke-width="3" stroke-linecap="round" opacity="0.7"/>';
+
+  // one lens battery; out = -1 (left, outer side to the left) or +1 (right)
+  const battery = (ax, out, tag, jccDeg) => {
+    const X = d => f1(ax + out * d);
+    const sweep = out < 0 ? 1 : 0;
+    const wing = dy => 'M' + X(280) + ',' + (AY - 120 + dy) + ' C' + X(186) + ',' + (AY - 140 + dy) + ' ' + X(90) + ',' + (AY - 152 + dy) + ' ' + ax + ',' + (AY - RB + dy) +
+      ' A' + RB + ',' + RB + ' 0 0 ' + sweep + ' ' + ax + ',' + (AY + RB + dy) +
+      ' C' + X(90) + ',' + (AY + 152 + dy) + ' ' + X(186) + ',' + (AY + 140 + dy) + ' ' + X(280) + ',' + (AY + 120 + dy) +
+      ' Q' + X(306) + ',' + (AY + 116 + dy) + ' ' + X(306) + ',' + (AY + 92 + dy) + ' V' + (AY - 92 + dy) +
+      ' Q' + X(306) + ',' + (AY - 116 + dy) + ' ' + X(280) + ',' + (AY - 120 + dy) + 'Z';
+    let s = '';
+    // sphere wheel, edge-on at the flat outer side
+    const wx = out < 0 ? ax - 330 : ax + 306;
+    s += '<rect x="' + wx + '" y="' + (AY - 104) + '" width="24" height="208" rx="8" fill="url(#gWheel)"/>';
+    for (let yy = AY - 96; yy < AY + 100; yy += 7) s += '<path d="M' + (wx + 3) + ',' + yy + 'h18" stroke="#5C5D62" stroke-width="2" opacity="' + (0.3 + 0.55 * Math.sin(Math.PI * (yy - AY + 104) / 208)).toFixed(2) + '"/>';
+    // body: thickness, face, rim light
+    s += '<path d="' + wing(DEPTH) + '" fill="' + SIDE + '"/>';
+    s += '<path d="' + wing(0) + '" fill="url(#gBody)" stroke="' + EDGE + '" stroke-width="2.5"/>';
+    s += '<path d="M' + X(272) + ',' + (AY - 112) + ' C' + X(186) + ',' + (AY - 130) + ' ' + X(96) + ',' + (AY - 142) + ' ' + ax + ',' + (AY - 140) + '" fill="none" stroke="#FAF7F0" stroke-width="3" opacity="0.8" stroke-linecap="round"/>';
+    // sphere power window
+    const wcx = ax + out * 214;
+    s += '<rect x="' + f1(wcx - 56) + '" y="' + (AY - 98) + '" width="112" height="42" rx="8" fill="#B3AA96"/>' +
+         '<rect x="' + f1(wcx - 52) + '" y="' + (AY - 95) + '" width="104" height="36" rx="6" fill="#16171A"/>' +
+         '<g transform="translate(' + f1(wcx) + ',' + (AY - 77) + ')">' + glyphs(out < 0 ? "-1.25" : "-0.75", 17, 2.4, "#EDE8DC") + '</g>' +
+         '<path d="M' + f1(wcx - 52) + ',' + (AY - 66) + ' h104" stroke="' + RED + '" stroke-width="2" opacity="0.9"/>';
+    // auxiliary lens knob with its engraved position dots
+    const kx = ax + out * 222, ky = AY + 22;
+    for (let k = 0; k < 8; k++) { const p = pt(kx, ky, 50, 90 + k * 36); s += '<circle cx="' + f1(p[0]) + '" cy="' + f1(p[1]) + '" r="' + (k === 0 ? 5 : 3.2) + '" fill="' + (k === 0 ? RED : "#6E6656") + '"/>'; }
+    s += '<circle cx="' + f1(kx + 3) + '" cy="' + (ky + 6) + '" r="37" fill="#0B0C0E" opacity="0.35"/>';
+    s += '<circle cx="' + f1(kx) + '" cy="' + ky + '" r="36" fill="url(#gKnob)"/>';
+    for (let k = 0; k < 40; k++) { const a = pt(kx, ky, 35, k * 9), b = pt(kx, ky, 29, k * 9); s += '<path d="M' + f1(a[0]) + ',' + f1(a[1]) + 'L' + f1(b[0]) + ',' + f1(b[1]) + '" stroke="#5E5F65" stroke-width="1.6"/>'; }
+    s += '<circle cx="' + f1(kx) + '" cy="' + ky + '" r="20" fill="#2C2D31" stroke="#46474C" stroke-width="2"/>' +
+         '<path d="M' + f1(kx) + ',' + (ky - 4) + 'V' + (ky - 18) + '" stroke="#F2F0EB" stroke-width="3.5" stroke-linecap="round"/>';
+    // cylinder power knob
+    const cx2 = ax + out * 170, cy2 = AY + 104;
+    s += '<circle cx="' + f1(cx2 + 2) + '" cy="' + (cy2 + 4) + '" r="19" fill="#0B0C0E" opacity="0.35"/>' +
+         '<circle cx="' + f1(cx2) + '" cy="' + cy2 + '" r="18" fill="url(#gKnob)"/>';
+    for (let k = 0; k < 24; k++) { const a = pt(cx2, cy2, 17, k * 15), b = pt(cx2, cy2, 13, k * 15); s += '<path d="M' + f1(a[0]) + ',' + f1(a[1]) + 'L' + f1(b[0]) + ',' + f1(b[1]) + '" stroke="#5E5F65" stroke-width="1.4"/>'; }
+    { const p = pt(cx2, cy2, 10, out < 0 ? 120 : 60); s += '<path d="M' + f1(cx2) + ',' + cy2 + 'L' + f1(p[0]) + ',' + f1(p[1]) + '" stroke="#F2F0EB" stroke-width="3" stroke-linecap="round"/>'; }
+    // screws
+    [[ax + out * 292, AY - 98], [ax + out * 292, AY + 98]].forEach(([x, yy], i) => {
+      s += '<circle cx="' + f1(x) + '" cy="' + yy + '" r="7" fill="#E6E0D2" stroke="#8F8673" stroke-width="2"/>' +
+           '<path d="M' + f1(x - 4) + ',' + (yy + (i ? 2 : -2)) + 'L' + f1(x + 4) + ',' + (yy + (i ? -2 : 2)) + '" stroke="#6E6656" stroke-width="2" stroke-linecap="round"/>';
+    });
+    // axis ring: 0-180 scale over the upper half
+    s += '<circle cx="' + ax + '" cy="' + AY + '" r="' + (R_AXO + 6) + '" fill="none" stroke="#B9B09C" stroke-width="4"/>';
+    s += '<circle cx="' + ax + '" cy="' + AY + '" r="' + R_AXO + '" fill="url(#gRing)"/>';
+    for (let d = 0; d <= 180; d += 5) {
+      const len = d % 30 === 0 ? 10 : d % 15 === 0 ? 7 : 4;
+      const a = pt(ax, AY, R_AXO - 2, d), b = pt(ax, AY, R_AXO - 2 - len, d);
+      s += '<path d="M' + f1(a[0]) + ',' + f1(a[1]) + 'L' + f1(b[0]) + ',' + f1(b[1]) + '" stroke="#E9E4D8" stroke-width="' + (d % 30 === 0 ? 2.6 : 1.6) + '"/>';
+    }
+    for (let d = 30; d <= 150; d += 30) {
+      const p = pt(ax, AY, 115, d);
+      s += '<g transform="translate(' + f1(p[0]) + ',' + f1(p[1]) + ') rotate(' + (90 - d) + ')">' + glyphs(String(d), 9, 1.5, "#E9E4D8") + '</g>';
+    }
+    // chrome cell + lens tube
+    s += '<circle cx="' + ax + '" cy="' + AY + '" r="' + R_CELL + '" fill="url(#gChrome)"/>';
+    s += '<circle cx="' + ax + '" cy="' + AY + '" r="' + R_TUBE + '" fill="url(#gTube)"/>';
+    // cross-cylinder flip lens swung in front of the aperture: ring, axis dots, flip handle on its arm
+    s += '<circle cx="' + ax + '" cy="' + AY + '" r="' + R_JCC + '" fill="none" stroke="#151619" stroke-width="6"/>' +
+         '<circle cx="' + ax + '" cy="' + AY + '" r="' + (R_JCC - 2) + '" fill="none" stroke="#C9CAC7" stroke-width="1.2" opacity="0.8"/>';
+    [jccDeg - 90, jccDeg + 90].forEach(d => { const p = pt(ax, AY, R_JCC, d); s += '<circle cx="' + f1(p[0]) + '" cy="' + f1(p[1]) + '" r="5" fill="' + RED + '" stroke="#151619" stroke-width="1.5"/>'; });
+    [jccDeg, jccDeg + 180].forEach(d => { const p = pt(ax, AY, R_JCC, d); s += '<circle cx="' + f1(p[0]) + '" cy="' + f1(p[1]) + '" r="5" fill="#F7F4EC" stroke="#151619" stroke-width="1.5"/>'; });
+    {
+      const hd = jccDeg + 45 * (out < 0 ? 1 : -1);   // handle sits between the red and white axes
+      const a = pt(ax, AY, R_JCC + 4, hd), b = pt(ax, AY, 176, hd), k0 = pt(ax, AY, 138, hd);
+      s += '<path d="M' + f1(a[0]) + ',' + f1(a[1]) + 'L' + f1(b[0]) + ',' + f1(b[1]) + '" stroke="#151619" stroke-width="8" stroke-linecap="round"/>';
+      s += '<g transform="translate(' + f1(k0[0]) + ',' + f1(k0[1]) + ') rotate(' + f1(90 - hd) + ')">' +
+           '<rect x="-12" y="-16" width="24" height="32" rx="5" fill="url(#gWheel)"/>' +
+           [-10, -5, 0, 5, 10].map(yy => '<path d="M-10,' + yy + 'h20" stroke="#6B6C72" stroke-width="1.6"/>').join("") + '</g>';
+      s += '<circle cx="' + f1(b[0]) + '" cy="' + f1(b[1]) + '" r="10" fill="url(#gChrome)" stroke="#5E5F61" stroke-width="2"/>';
+    }
+    // lens number plate on the lower, outer part of the axis ring
+    const bp = pt(ax, AY, 119, out < 0 ? 225 : 315), bx = f1(bp[0]), by = +f1(bp[1]);
+    s += '<circle cx="' + bx + '" cy="' + (by + 3) + '" r="20" fill="#0E0F11"/>' +
+         '<circle cx="' + bx + '" cy="' + by + '" r="20" fill="#F2F0EB" stroke="#0E0F11" stroke-width="2.5"/>' +
+         '<text x="' + bx + '" y="' + f1(by + 11) + '" text-anchor="middle" font-family="Lexend" font-weight="700" font-size="31" fill="' + INK + '">' + tag + '</text>';
+    return s;
+  };
+  // left: flip handle up-left (135 deg); right: up-right (45 deg)
+  g += battery(AXL, -1, "1", 90) + battery(AXR, 1, "2", 90);
+
+  // near-point rod: pivot at the top, graduated chrome bar down to the card clip
+  g += '<rect x="534" y="' + (AY - 126) + '" width="16" height="' + (CY0 - 20 - (AY - 126)) + '" rx="4" fill="#3A332A" opacity="0.25" transform="translate(5,4)"/>';
+  g += '<rect x="532" y="' + (AY - 126) + '" width="16" height="' + (CY0 - 20 - (AY - 126)) + '" rx="4" fill="url(#gRod)" stroke="#5E5F61" stroke-width="1"/>';
+  for (let yy = AY - 96, k = 0; yy < CY0 - 28; yy += 10, k++) g += '<path d="M532,' + yy + 'h' + (k % 5 === 0 ? 10 : 6) + '" stroke="#3E3F44" stroke-width="1.6"/>';
+  g += '<circle cx="540" cy="' + (AY - 128) + '" r="15" fill="url(#gChrome)" stroke="#5E5F61" stroke-width="2"/><circle cx="540" cy="' + (AY - 128) + '" r="5" fill="#1E1F22"/>';
+
+  // near card: cast shadow, card, clip
+  g += '<rect x="' + (CX0 + 14) + '" y="' + (CY0 + 22) + '" width="' + (CX1 - CX0) + '" height="' + (CY1 - CY0) + '" rx="10" fill="#3A332A" opacity="0.24" filter="url(#fShadow)"/>';
+  g += '<rect x="' + CX0 + '" y="' + CY0 + '" width="' + (CX1 - CX0) + '" height="' + (CY1 - CY0) + '" rx="10" fill="url(#gCard)" stroke="#D3CCBC" stroke-width="2"/>';
+  g += '<path d="M184,1414 H896" stroke="#CFC8B8" stroke-width="2"/>';
+  g += '<rect x="486" y="' + (CY0 - 24) + '" width="108" height="50" rx="9" fill="url(#gChrome)" stroke="#6B6C6B" stroke-width="2"/>' +
+       '<rect x="496" y="' + (CY0 + 18) + '" width="88" height="10" rx="3" fill="#8D8E8C"/>' +
+       '<circle cx="508" cy="' + (CY0 - 1) + '" r="5" fill="#5E5F61"/><circle cx="572" cy="' + (CY0 - 1) + '" r="5" fill="#5E5F61"/>';
+
+  document.getElementById("inst").innerHTML = g;
+
+  // ---- apertures: the tested word, out of focus in both (hook state) ---------------
+  let word = hl;
+  if (!word) { const ln = fit.lines[tested] || []; word = ln.length ? tokText(ln[ln.length - 1]).replace(/[^\p{L}\p{N}]+$/u, "") : ""; }
+  ["lens1", "lens2"].forEach((id, i) => {
+    const el = document.getElementById(id), cx = (i ? AXR - 4 : AXL + 4), cy = AY + 3;
+    el.style.left = (cx - R_VIEW) + "px"; el.style.top = (cy - R_VIEW) + "px";
+    el.style.width = el.style.height = (R_VIEW * 2) + "px";
+    const lt = el.querySelector(".lt"); lt.textContent = word;
+    const Wl = R_VIEW * 2 - 20, cap = 46;
+    let fs = cap; lt.style.whiteSpace = "nowrap";
+    for (; fs >= 34; fs -= 2) { lt.style.fontSize = fs + "px"; if (lt.scrollWidth <= Wl) break; }
+    if (lt.scrollWidth > Wl) {   // long word(s): up to three lines
+      lt.style.whiteSpace = "normal"; lt.style.maxWidth = Wl + "px";
+      for (fs = 40; fs >= 30; fs -= 2) { lt.style.fontSize = fs + "px"; if (lt.scrollWidth <= Wl && lt.offsetHeight <= R_VIEW * 1.5) break; }
+      // a single word longer than the aperture: scale the (blurred) view down instead of clipping it
+      const k = Math.min(Wl / lt.scrollWidth, (R_VIEW * 1.5) / lt.offsetHeight);
+      if (k < 1) lt.style.transform = "scale(" + k.toFixed(3) + ")";
+    }
+  });
+
+  // ---- near card: one Jaeger line per item (J1 = smallest print) ------------------
+  const rowsEl = document.getElementById("rows");
+  const RX0 = 184, RX1 = 866, RY0 = 1110, RY1 = 1402;
+  rowsEl.style.left = RX0 + "px"; rowsEl.style.top = RY0 + "px"; rowsEl.style.width = (RX1 - RX0) + "px"; rowsEl.style.height = (RY1 - RY0) + "px";
+  const rh = Math.min(84, Math.floor((RY1 - RY0) / Math.max(1, n)));
+  const top0 = Math.round((RY1 - RY0 - rh * n) / 2);
+  items.forEach((it, i) => {
+    const r = document.createElement("div"); r.className = "row";
+    r.style.top = (top0 + i * rh) + "px"; r.style.height = rh + "px";
+    r.innerHTML = '<div class="jt">J' + (i + 1) + '</div><div class="lb">' + esc(it.label) + '</div><div class="ld"></div><div class="vl">' + esc(it.value) + '</div>';
+    rowsEl.appendChild(r);
+    const lb = r.querySelector(".lb"), vl = r.querySelector(".vl");
+    const v0 = Math.min(44, 38 + 2 * i), l0 = Math.min(34, 30 + i);
+    vl.style.fontSize = v0 + "px"; lb.style.fontSize = l0 + "px";
+    const cut = () => lb.scrollWidth > lb.clientWidth + 1;
+    for (let fs = v0; fs >= 34 && cut(); fs -= 2) vl.style.fontSize = fs + "px";
+    for (let fs = l0; fs >= 30 && cut(); fs -= 1) lb.style.fontSize = fs + "px";
+    if (cut() && rh >= 68) { lb.classList.add("two"); lb.style.fontSize = "30px"; }
+  });
+
+  // ---- caption: karaoke voice-over line, the card's last paragraph of print -------
+  // Active unit = D.hl when it appears in the caption (one span), else the first word.
+  const capEl = document.getElementById("cap");
+  const words = String(D.caption || D.sub || "").split(/\s+/).filter(Boolean);
+  const nw = s => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+  const hw = hl.split(/\s+/).map(nw).filter(Boolean);
+  let act = 0, actLen = 1;
+  for (let i = 0; hw.length && i + hw.length <= words.length; i++) {
+    if (hw.every((h, k) => nw(words[i + k]) === h)) { act = i; actLen = hw.length; break; }
+  }
+  const units = [];
+  words.forEach((w, i) => {
+    if (i > act && i < act + actLen) { units[units.length - 1].text += " " + w; return; }
+    units.push({ text: w, cls: i === act ? " on" : i < act ? " done" : "" });
+  });
+  const ai = units.findIndex(u => u.cls === " on");
+  const paint = (lo, hi) => {
+    capEl.innerHTML = units.slice(lo, hi).map((u, k) => '<span class="w' + u.cls + '">' + (k === 0 && lo > 0 ? "… " : "") + esc(u.text) + (k === hi - lo - 1 && hi < units.length ? " …" : "") + "</span>").join(" ");
+  };
+  capEl.style.top = "1428px";
+  const fits = fs => capEl.offsetHeight <= Math.ceil(fs * 1.18 * 2) + 2;
+  let cfs = 44, lo = 0, hi = units.length;
+  paint(lo, hi);
+  for (; cfs >= 40; cfs -= 2) { capEl.style.fontSize = cfs + "px"; if (fits(cfs)) break; }
+  if (cfs < 40) cfs = 40;
+  capEl.style.fontSize = cfs + "px";
+  // still more than two lines at 40 px: show the karaoke window around the active word
+  while (!fits(cfs) && hi - lo > 1) { if (hi - 1 > ai) hi--; else lo++; paint(lo, hi); }
+
+  document.getElementById("src").textContent = D.source ? "Sumber: " + D.source : "";
+  }
+</script>
+</body>
+</html>

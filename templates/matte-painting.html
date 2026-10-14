@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Matte Painting</title>
+<link href="https://fonts.googleapis.com/css2?family=Gloock&family=Work+Sans:wght@500;600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Matte Painting (matte-painting): the frame IS the camera's view through a glass shot.
+    A pane of glass fills the lens. Through its clear lower half we see the small real set
+    (checker floor, low walls, one glowing doorway); painted on the glass above, the set goes
+    on into a vast vaulted hall. The camera sits exactly at cornice height, so the join
+    (the seam) is one level line across the whole frame.
+    Key frame = the instant after someone bumped the glass: the painting has slipped ~9 px
+    against the real set (pilasters jog, a dark sliver opens under the paint), a lamp glare
+    slides across the pane and shows the brush strokes. The title is lettered on the glass
+    like an old painted main title; the items are china-marker notes written on the glass
+    next to fixed, named features of the hall; the caption is a burned-in film subtitle.
+    Metaphor: outpainting / generative fill - convincing at the seam, invented beyond it.
+    Deterministic: one fixed perspective model, xorshift-seeded brush strokes.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #191715; }
+  body { position: relative; color: #EDE6D8; font-family: "Work Sans", sans-serif; }
+
+  #scene, #marks, #tape { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* camera-report strip taped to the pane's top frame */
+  .report { position: absolute; left: 90px; top: 304px; max-width: 900px; padding: 8px 18px 9px; background: #E8E0CE; color: #2A2724;
+            font: 600 28px "Work Sans", sans-serif; line-height: 1.2; letter-spacing: 0.09em; text-transform: uppercase; white-space: nowrap;
+            box-shadow: 0 6px 14px rgba(8, 7, 6, 0.4); }
+  .report b { font-weight: 700; color: #141210; }
+
+  /* main title lettered on the glass across the painted vault */
+  .title { position: absolute; left: 90px; width: 900px; top: 384px; text-align: center; text-wrap: balance;
+           font-family: "Gloock", serif; font-weight: 400; line-height: 1.02; letter-spacing: -0.01em; color: #EDE6D8;
+           text-shadow: 0 3px 16px rgba(10, 11, 16, 0.6); }
+  .title .hl { color: #F4C15D; text-shadow: none; filter: drop-shadow(0 3px 9px rgba(10, 11, 16, 0.55)); }
+  .sym { font-family: "Work Sans", sans-serif; font-weight: 600; font-size: 0.86em; vertical-align: 0.04em; letter-spacing: 0; }
+
+  /* china-marker notes written on the glass */
+  .note { position: absolute; max-width: 340px; padding: 7px 14px 9px; background: rgba(20, 18, 16, 0.78); border-radius: 6px; }
+  .note .nl { font: 600 30px "Work Sans", sans-serif; line-height: 1.12; color: #E8E0D0; white-space: nowrap; }
+  .note .nr { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+  .note .nv { font: 400 44px "Gloock", serif; line-height: 1.04; color: #F3EDE0; }
+  .chip { font: 700 30px "Work Sans", sans-serif; line-height: 1; letter-spacing: 0.06em; text-transform: uppercase;
+          color: #141210; background: #6E8FAF; padding: 6px 10px 5px; border-radius: 3px; white-space: nowrap; }
+  .chip.real { background: #C27C4A; }
+  .legend { position: absolute; box-shadow: 0 4px 10px rgba(8, 7, 6, 0.35); }
+
+  /* burned-in subtitle at the bottom of the plate */
+  .strip { position: absolute; left: 0; width: 1080px;
+           background: linear-gradient(180deg, rgba(14, 12, 11, 0) 0, rgba(14, 12, 11, 0.82) 26px, rgba(14, 12, 11, 0.82) calc(100% - 18px), rgba(14, 12, 11, 0) 100%); }
+  .dek { position: absolute; left: 90px; width: 810px; text-align: center; font: 500 40px "Work Sans", sans-serif; line-height: 1.2; color: #D8D0C1; }
+  .cap { position: absolute; left: 90px; width: 810px; text-align: center; font: 500 44px "Work Sans", sans-serif; line-height: 1.2; color: #EFE8DA; }
+  .cap .up { color: #C4BBAB; }
+  .cap .now { color: #F4C15D; font-weight: 600; }
+  .foot { position: absolute; left: 90px; width: 900px; display: flex; justify-content: space-between; align-items: flex-end; gap: 36px;
+          font: 500 26px "Work Sans", sans-serif; line-height: 1.25; color: #C2B9AA; }
+  .foot span:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg id="scene" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+<div class="strip" id="strip"></div>
+<svg id="marks" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+<div class="report" id="report"></div>
+<svg id="tape" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+<div class="title" id="title"></div>
+<div id="notes"></div>
+<div class="chip legend" id="legAI">Dilukis AI</div>
+<div class="chip real legend" id="legReal">Asli</div>
+<div class="dek" id="dek"></div>
+<div class="cap" id="cap" data-slot="caption"><span id="capText"></span></div>
+<div class="foot" id="foot"><span id="src"></span><span id="date"></span></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series_id: "ai-tools", series: "Tools AI", ep: "#01", kicker: "Tools AI · #01",
+    title: "Separuh gambar ini tidak pernah ada", hl: "tidak pernah ada",
+    sub: "Generative fill melukis yang tidak ada, menyambung pas di tepi foto asli.",
+    items: [{ label: "Langit-langit", value: "dikarang" }, { label: "Jendela", value: "dikarang" }, { label: "Pintu", value: "foto asli" }, { label: "Lantai", value: "foto asli" }],
+    source: "ilustrasi", date: "per 14 Okt 2026" };
+
+  const FONTS = ['400 100px Gloock', '400 44px Gloock', '600 30px "Work Sans"', '600 28px "Work Sans"', '700 30px "Work Sans"', '500 44px "Work Sans"', '500 26px "Work Sans"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+    const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    // Gloock draws = ± × ≈ % + − as hairlines: set them in Work Sans so the hinge of a claim stays readable
+    const sym = s => esc(s).replace(/[=±×≈%+−]/g, m => '<span class="sym">' + m + "</span>");
+    const $ = id => document.getElementById(id);
+    const CREAM = "#EDE6D8", LAMP = "#F4C15D";
+    const f1 = v => v.toFixed(1);
+
+    // ---------- camera-report strip ----------
+    const epNo = String(D.ep || "#01").replace(/^#/, "").padStart(2, "0");
+    const show = [D.series, D.ep].filter(Boolean).join(" ") || D.kicker || "";
+    const rep = $("report");
+    const repHTML = full => (full ? "Shot kaca · " : "") + "Take <b>" + esc(epNo) + "</b>" + (show ? " · " + esc(show) : "");
+    rep.innerHTML = repHTML(true);
+    if (rep.offsetWidth > 900) { rep.style.fontSize = "26px"; }
+    if (rep.offsetWidth > 900) { rep.innerHTML = repHTML(false); }
+
+    // ---------- items -> fixed, named features of the hall (reading order, top to bottom) ----------
+    const items = (D.items || []).slice(0, 5), n = items.length;
+    const kindOf = it => { const t = String(it.tag || "").trim().toLowerCase(); if (!t) return "U";
+      if (/^(asli|real|nyata|foto)/.test(t)) return "R"; if (/^(dilukis|lukis|ai|painted|paint|karang)/.test(t)) return "P"; return "U"; };
+    const kinds = items.map(kindOf), tagged = kinds.some(k => k !== "U");
+    // explicit tags only: painted-tagged items go above the seam, real-tagged below it
+    const order = items.map((it, i) => i);
+    if (tagged) order.sort((a, b) => ({ P: 0, U: 1, R: 2 }[kinds[a]] - { P: 0, U: 1, R: 2 }[kinds[b]]) || a - b);
+    const FK = ["P", "P", "P", "R", "R"];
+    const DEF = { 0: [], 1: [1], 2: [1, 3], 3: [1, 2, 3], 4: [1, 2, 3, 4], 5: [0, 1, 2, 3, 4] }[n];
+    let feats = DEF;
+    if (tagged) {
+      let best = null, bestScore = -1;
+      const pick = (start, acc) => {
+        if (acc.length === n) {
+          const ok = acc.every((f, k) => kinds[order[k]] === "U" || kinds[order[k]] === FK[f]);
+          const score = acc.filter(f => DEF.includes(f)).length;
+          if (ok && score > bestScore) { best = acc.slice(); bestScore = score; }
+          return;
+        }
+        for (let f = start; f < 5; f++) { acc.push(f); pick(f + 1, acc); acc.pop(); }
+      };
+      pick(0, []);
+      if (best) feats = best;
+    }
+
+    // ---------- stage model: one-point perspective, lens at cornice height ----------
+    const H = 1010, S = 22, BACK = 16, F = S * BACK, VX = 540;
+    const HW = 7, SPRING = 10, CORN = 4.5;
+    const PL = 44, PR = 1036, PT = 300;            // the glass pane inside the frame
+    const RX = -9, RY = 7;                          // the bump: the real set sits 9 px left / 7 px low against the slipped painting
+    const P = (X, Y, Z) => [VX + F * X / Z, H - F * (Y - CORN) / Z];
+    const R = (p) => [p[0] + RX, p[1] + RY];
+    const pts = a => a.map(p => f1(p[0]) + "," + f1(p[1])).join(" ");
+    const poly = (a, attr) => '<polygon points="' + pts(a) + '" ' + attr + "/>";
+    const pl = (a, attr) => '<polyline points="' + pts(a) + '" fill="none" ' + attr + "/>";
+    const mix = (c1, c2, k) => { k = Math.max(0, Math.min(1, k)); const a = parseInt(c1.slice(1), 16), b = parseInt(c2.slice(1), 16);
+      const ch = s => Math.round(((a >> s) & 255) * (1 - k) + ((b >> s) & 255) * k);
+      return "#" + [16, 8, 0].map(s => ch(s).toString(16).padStart(2, "0")).join(""); };
+    const wq = (X, z0, z1, y0, y1) => [P(X, y0, z0), P(X, y0, z1), P(X, y1, z1), P(X, y1, z0)];
+    const bw = (x0, x1, y0, y1) => [P(x0, y0, BACK), P(x1, y0, BACK), P(x1, y1, BACK), P(x0, y1, BACK)];
+    const DEG = Math.PI / 180;
+    const V = (th, Z) => P(HW * Math.cos(th), SPRING + HW * Math.sin(th), Z);
+
+    // feature anchors (ring centre, ring radii, label side); real features carry the bump offset
+    const FEAT = [
+      { name: "coffer",  c: V(97.5 * DEG, 15),                rx: 22, ry: 19, side: "L" },
+      { name: "lunette", c: P(4.3 * Math.cos(38 * DEG), SPRING + 4.3 * Math.sin(38 * DEG), BACK), rx: 30, ry: 26, side: "R" },
+      { name: "arcade",  c: P(-2.4, 7.3, BACK),               rx: 22, ry: 34, side: "L" },
+      { name: "doorway", c: R(P(0, 1.75, BACK)),              rx: 50, ry: 54, side: "L" },
+      { name: "floor",   c: R(P(-1, 0, 9)),                   rx: 46, ry: 17, side: "R" }
+    ];
+
+    // ---------- title (largest element), lettered on the glass ----------
+    const t = String(D.title || ""), hl = String(D.hl || "");
+    const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    const titleEl = $("title");
+    titleEl.innerHTML = at < 0 ? sym(t) : sym(t.slice(0, at)) + '<span class="hl">' + sym(t.slice(at, at + hl.length)) + "</span>" + sym(t.slice(at + hl.length));
+    const firstLabelTop = Math.min(...feats.map(f => FEAT[f].c[1] - 48), 1000);
+    const limit = firstLabelTop - 16;
+    const fits = (fs, maxLines) => { titleEl.style.fontSize = fs + "px";
+      return Math.round(titleEl.offsetHeight / (fs * 1.02)) <= maxLines && titleEl.offsetTop + titleEl.offsetHeight <= limit; };
+    let tfs = 0;
+    for (let fs = 112; fs >= 92 && !tfs; fs -= 2) if (fits(fs, 2)) tfs = fs;      // two big painted lines when the title allows it
+    for (let fs = 104; fs >= 72 && !tfs; fs -= 2) if (fits(fs, 3)) tfs = fs;
+    titleEl.style.fontSize = (tfs || 72) + "px";
+    const titleBottom = titleEl.offsetTop + titleEl.offsetHeight;
+    const hlEl = titleEl.querySelector(".hl");
+    const tr = titleEl.getBoundingClientRect();
+    let hx = 540, hy = tr.top + tr.height / 2;
+    if (hlEl) { const rr = hlEl.getClientRects(); const r0 = rr[rr.length - 1]; hx = r0.left + r0.width / 2; hy = r0.top + r0.height / 2; }
+
+    if (hlEl) {
+      const ang = hx > 540 ? 120 : 60;
+      hlEl.style.backgroundImage = `linear-gradient(${ang}deg, #F4C15D 0, #F4C15D 42%, #FFF1C9 49%, #FFF8E4 50%, #FFF1C9 51%, #F4C15D 58%, #F4C15D 100%)`;
+      hlEl.style.webkitBackgroundClip = "text"; hlEl.style.backgroundClip = "text"; hlEl.style.webkitTextFillColor = "transparent";
+      hlEl.style.webkitBoxDecorationBreak = "clone"; hlEl.style.boxDecorationBreak = "clone";
+    }
+
+    // ---------- scene ----------
+    let s = `<defs>
+      <linearGradient id="rig" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#121110"/><stop offset="1" stop-color="#22201D"/></linearGradient>
+      <radialGradient id="door" cx="0.5" cy="0.78" r="0.8"><stop offset="0" stop-color="#FFF4D6"/><stop offset="0.5" stop-color="#F4C15D"/><stop offset="1" stop-color="#C98A3C"/></radialGradient>
+      <radialGradient id="bloom" gradientUnits="userSpaceOnUse" cx="${VX}" cy="${f1(P(0, SPRING + 2.6, BACK)[1])}" r="330"><stop offset="0" stop-color="#F8F3E8" stop-opacity="0.3"/><stop offset="0.45" stop-color="#ECE8DF" stop-opacity="0.1"/><stop offset="1" stop-color="#ECE8DF" stop-opacity="0"/></radialGradient>
+      <radialGradient id="dglow" gradientUnits="userSpaceOnUse" cx="${f1(R(P(0, 1.2, BACK))[0])}" cy="${f1(R(P(0, 1.2, BACK))[1])}" r="150"><stop offset="0" stop-color="#F4C15D" stop-opacity="0.45"/><stop offset="1" stop-color="#F4C15D" stop-opacity="0"/></radialGradient>
+      <linearGradient id="shade" gradientUnits="userSpaceOnUse" x1="0" y1="${PT}" x2="0" y2="${f1(titleBottom + 130)}">
+        <stop offset="0" stop-color="#14171E" stop-opacity="0.84"/><stop offset="${f1((titleBottom - PT) / (titleBottom + 130 - PT) * 100) / 100}" stop-color="#14171E" stop-opacity="0.66"/><stop offset="1" stop-color="#14171E" stop-opacity="0"/></linearGradient>
+      <linearGradient id="vig" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0E0D0C" stop-opacity="0"/><stop offset="1" stop-color="#0E0D0C" stop-opacity="0.78"/></linearGradient>
+      <clipPath id="paneC"><rect x="${PL}" y="${PT}" width="${PR - PL}" height="${1920 - PT}"/></clipPath>
+      <clipPath id="paintC"><rect x="${PL}" y="${PT}" width="${PR - PL}" height="${H - PT}"/></clipPath>
+    </defs>`;
+
+    // studio behind and above the glass (the flats simply stop at the cornice)
+    s += `<rect width="1080" height="1920" fill="url(#rig)"/>`;
+    s += `<rect x="0" y="86" width="1080" height="8" fill="#26231F"/>`;
+    s += `<rect x="0" y="170" width="1080" height="12" fill="#35302B"/><rect x="0" y="171" width="1080" height="2" fill="#5C544B"/>`;
+    s += `<path d="M120 94 C 210 150, 330 150, 420 94" fill="none" stroke="#2C2824" stroke-width="4"/>`;
+
+    // ---------- the REAL set (built to the cornice only), shifted by the bump ----------
+    let r = `<g transform="translate(${RX} ${RY})" data-layout-allow-overflow>`;
+    for (let k = 0; k < 8; k++) for (let xi = 0; xi < 7; xi++) {
+      const z0 = Math.max(1.3, 2 * k), z1 = 2 * k + 2, x0 = -HW + xi * 2, x1 = x0 + 2;
+      const haze = ((z0 + z1) / 2 - 2) / 14, dark = (xi + k) % 2 === 0;
+      r += poly([P(x0, 0, z0), P(x1, 0, z0), P(x1, 0, z1), P(x0, 0, z1)], `fill="${dark ? mix("#A9683F", "#C9A784", haze) : mix("#EADFCB", "#E2D7C5", haze)}" stroke="#7E5C40" stroke-width="1.3" stroke-opacity="0.45"`);
+    }
+    r += poly([P(-1.5, 0, BACK - 0.01), P(1.5, 0, BACK - 0.01), P(2.9, 0, 8.5), P(-0.9, 0, 8.5)], `fill="${LAMP}" opacity="0.26"`);
+    for (const side of [-1, 1]) {
+      const X = side * HW, base = side < 0 ? "#B49C7E" : "#D3BFA2", pil = side < 0 ? "#C3AC8E" : "#E1D0B6", line = side < 0 ? "#8A7056" : "#9C7F60";
+      r += poly(wq(X, 1.2, BACK, 0, CORN), `fill="${base}"`);
+      for (let zp = 4; zp <= 14; zp += 2) {
+        r += poly(wq(X, zp + 0.5, zp + 1.5, 0.7, 3.4), `fill="none" stroke="${line}" stroke-width="2"`);
+        r += poly(wq(X, zp - 0.3, zp + 0.3, 0, CORN), `fill="${pil}"`);
+        r += poly(wq(X, zp - 0.3, zp + 0.3, 0, 0.45), `fill="${line}" opacity="0.6"`);
+      }
+      r += poly(wq(X, 1.2, BACK, 0, 0.35), `fill="${line}" opacity="0.5"`);
+      r += poly(wq(X, 1.2, BACK, 4.05, CORN), `fill="${side < 0 ? "#D2BEA2" : "#EADCC6"}"`);
+      r += poly(wq(X, 1.2, BACK, 3.92, 4.05), `fill="${line}" opacity="0.75"`);
+    }
+    r += poly(bw(-HW, HW, 0, CORN), `fill="#C9B293"`);
+    r += poly(bw(-6.2, -2.8, 0.7, 3.4), `fill="none" stroke="#977A5C" stroke-width="2"`);
+    r += poly(bw(2.8, 6.2, 0.7, 3.4), `fill="none" stroke="#977A5C" stroke-width="2"`);
+    for (const x of [-2.5, 2.5]) r += poly(bw(x - 0.25, x + 0.25, 0, CORN), `fill="#D8C4A6"`);
+    r += poly(bw(-HW, HW, 4.05, CORN), `fill="#E3D4BC"`);
+    r += poly(bw(-HW, HW, 3.92, 4.05), `fill="#977A5C" opacity="0.75"`);
+    r += poly(bw(-HW, HW, 0, 0.35), `fill="#977A5C" opacity="0.5"`);
+    const arch = (hw, yS) => { const a = [P(-hw, 0, BACK), P(hw, 0, BACK)]; for (let k = 0; k <= 18; k++) { const ph = Math.PI * k / 18; a.push(P(hw * Math.cos(ph), yS + hw * Math.sin(ph), BACK)); } return a; };
+    r += `<defs><linearGradient id="ao" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2B1E14" stop-opacity="0"/><stop offset="1" stop-color="#2B1E14" stop-opacity="0.26"/></linearGradient></defs>`;
+    for (const side of [-1, 1]) {
+      r += poly(wq(side * HW, 1.2, BACK, 0, CORN), `fill="url(#ao)"`);
+      r += poly([P(side * HW, 0, 1.2), P(side * HW, 0, BACK), P(side * (HW - 0.9), 0, BACK), P(side * (HW - 0.9), 0, 1.2)], `fill="#2B1E14" opacity="0.16"`);
+    }
+    r += poly(bw(-HW, HW, 0, CORN), `fill="url(#ao)"`);
+    r += poly([P(-HW, 0, BACK), P(HW, 0, BACK), P(HW, 0, BACK - 0.8), P(-HW, 0, BACK - 0.8)], `fill="#2B1E14" opacity="0.14"`);
+    r += poly(arch(1.85, 2.4), `fill="#EADBC3" stroke="#8E7154" stroke-width="2"`);
+    r += poly(arch(1.5, 2.4), `fill="url(#door)"`);
+    r += `</g>`;
+    s += r;
+    s += `<rect x="0" y="0" width="1080" height="1920" fill="url(#dglow)" opacity="0.8"/>`;
+
+    // ---------- the PAINTING on the glass (above the seam only) ----------
+    let g = `<g clip-path="url(#paintC)">`;
+    g += `<rect x="${PL}" y="${PT}" width="${PR - PL}" height="${H - PT}" fill="#8E9AA8"/>`;
+    // coffered barrel vault
+    const ribs = [2, 4, 6, 8, 10, 12, 14, BACK];
+    for (let k = 0; k < ribs.length - 1; k++) {
+      const z0 = ribs[k] + 0.22, z1 = ribs[k + 1] - 0.22, haze = (z0 - 2) / 14;
+      g += poly([V(0, ribs[k]), ...Array.from({ length: 37 }, (_, q) => V(q * 5 * DEG, ribs[k])), ...Array.from({ length: 37 }, (_, q) => V((180 - q * 5) * DEG, ribs[k + 1]))], `fill="${mix("#C7CCCC", "#DADBD5", haze)}"`);
+      for (let j = 0; j < 12; j++) {
+        const a0 = j * 15 * DEG + 0.02, a1 = (j + 1) * 15 * DEG - 0.02;
+        const c = [(a0 + a1) / 2, (z0 + z1) / 2], sh = (p, q, f) => p + (q - p) * f;
+        const cell = (f) => [[a0, z0], [a1, z0], [a1, z1], [a0, z1]].map(([a, z]) => V(sh(c[0], a, f), sh(c[1], z, f)));
+        g += poly(cell(1), `fill="${mix("#7D8DA1", "#B4BEC6", haze)}"`);
+        g += poly(cell(0.64), `fill="${mix("#4C5F7C", "#8E9FB1", haze)}"`);
+        g += pl([V(sh(c[0], a0, 0.64), sh(c[1], z1, 0.64)), V(sh(c[0], a1, 0.64), sh(c[1], z1, 0.64))], `stroke="${mix("#C8CCCA", "#DFE0DA", haze)}" stroke-width="2"`);
+        g += `<circle cx="${f1(V(c[0], c[1])[0])}" cy="${f1(V(c[0], c[1])[1])}" r="${f1(Math.max(1.6, 0.16 * F / c[1]))}" fill="${mix("#8E8A78", "#C9C4B2", haze)}" opacity="0.55"/>`;
+      }
+    }
+    // side walls, upper (painted): matches the real wall at the seam, then drifts cool and invented
+    const BANDS = [CORN - 0.02, 5.2, 6.0, 7.0, 8.2, 9.0];
+    for (const side of [-1, 1]) {
+      const X = side * HW;
+      const wallW = side < 0 ? "#B49C7E" : "#D3BFA2", wallC = side < 0 ? "#95A2AF" : "#C2C7C6";
+      const pilW = side < 0 ? "#C3AC8E" : "#E1D0B6", pilC = side < 0 ? "#AAB4BD" : "#D6D8D3";
+      for (let b = 0; b < BANDS.length - 1; b++) g += poly(wq(X, 1.2, BACK, BANDS[b], BANDS[b + 1] + 0.02), `fill="${mix(wallW, wallC, b / 3)}"`);
+      for (let zc = 5; zc <= 15; zc += 2) {
+        const w = [P(X, 5.4, zc - 0.55), P(X, 5.4, zc + 0.55)];
+        for (let k = 0; k <= 12; k++) { const ph = Math.PI * k / 12; w.push(P(X, 7.9 + 0.55 * Math.sin(ph), zc + 0.55 * Math.cos(ph))); }
+        g += poly(w, `fill="${side < 0 ? "#CFD5D6" : "#F2EFE6"}" stroke="${side < 0 ? "#7B8DA1" : "#8C9DAE"}" stroke-width="2"`);
+        g += pl([P(X, 5.4, zc), P(X, 8.45, zc)], `stroke="${side < 0 ? "#8796A6" : "#9AA8B6"}" stroke-width="2"`);
+      }
+      for (let zp = 4; zp <= 14; zp += 2) {
+        for (let b = 0; b < BANDS.length - 1; b++) g += poly(wq(X, zp - 0.3, zp + 0.3, BANDS[b], BANDS[b + 1] + 0.02), `fill="${mix(pilW, pilC, b / 3)}"`);
+        g += poly(wq(X, zp - 0.42, zp + 0.42, 8.6, 9.0), `fill="${side < 0 ? "#BEC6CA" : "#E0E1DB"}"`);
+      }
+      g += poly(wq(X, 1.2, BACK, 9.0, 9.45), `fill="${side < 0 ? "#C9CED0" : "#E6E6E0"}"`);
+      g += poly(wq(X, 1.2, BACK, 9.45, SPRING), `fill="${side < 0 ? "#A9B3BB" : "#D3D6D2"}"`);
+    }
+    // back wall, upper (painted): frieze, an arcade that keeps the hall going, entablature
+    for (let b = 0; b < BANDS.length - 1; b++) g += poly(bw(-HW, HW, BANDS[b], BANDS[b + 1] + 0.02), `fill="${mix("#C9B293", "#BEC4C5", b / 3)}"`);
+    for (let x = -6.6; x <= 6.61; x += 0.6) g += poly(bw(x - 0.08, x + 0.08, 4.62, 5.15), `fill="#A39887"`);
+    const bArch = (cx, hw, y0, yS) => { const a = [P(cx - hw, y0, BACK), P(cx + hw, y0, BACK)]; for (let k = 0; k <= 14; k++) { const ph = Math.PI * k / 14; a.push(P(cx + hw * Math.cos(ph), yS + hw * Math.sin(ph), BACK)); } return a; };
+    for (const cx of [-4.8, -2.4, 0, 2.4, 4.8]) {
+      g += poly(bArch(cx, 0.8, 5.3, 7.5), `fill="#7A8FA6" stroke="#E6E3DA" stroke-width="3"`);
+      g += poly(bArch(cx, 0.48, 5.3, 7.6), `fill="#AAB8C4" opacity="0.75"`);
+    }
+    g += poly(bw(-HW, HW, 8.6, 9.0), `fill="#D9D6CB"`);
+    g += poly(bw(-HW, HW, 9.0, 9.45), `fill="#E2E1DA"`);
+    g += poly(bw(-HW, HW, 9.45, SPRING), `fill="#CBD0CF"`);
+    // the lunette: a great fan window
+    const lun = (Rr) => { const a = []; for (let k = 0; k <= 36; k++) { const ph = Math.PI * k / 36; a.push(P(Rr * Math.cos(ph), SPRING + Rr * Math.sin(ph), BACK)); } return a; };
+    g += poly(lun(HW), `fill="#CCD1D0"`);
+    g += poly(lun(5.6), `fill="#F7F3EA" stroke="#8C9DAE" stroke-width="3"`);
+    g += pl(lun(2.3), `stroke="#8C9DAE" stroke-width="3"`);
+    for (const d of [30, 60, 90, 120, 150]) {
+      const a = d * DEG;
+      g += pl([P(2.3 * Math.cos(a), SPRING + 2.3 * Math.sin(a), BACK), P(5.6 * Math.cos(a), SPRING + 5.6 * Math.sin(a), BACK)], `stroke="#8C9DAE" stroke-width="3"`);
+    }
+    g += `<rect x="${PL}" y="${PT}" width="${PR - PL}" height="${H - PT}" fill="url(#bloom)"/>`;
+    // the vault is painted in shadow under the lettering
+    g += `<rect x="${PL}" y="${PT}" width="${PR - PL}" height="${H - PT}" fill="url(#shade)"/>`;
+    g += `</g>`;
+    s += g;
+
+    // ---------- lamp glare across the pane, through the highlighted word ----------
+    const sgn = hx > VX ? -1 : 1, phi = 30 * DEG;
+    const d = [sgn * Math.sin(phi), Math.cos(phi)], nrm = [d[1], -d[0]];
+    const G = (u, v) => [hx + d[0] * u + nrm[0] * v, hy + d[1] * u + nrm[1] * v];
+    const W = 150;
+    const band = [G(-500, -W), G(1700, -W), G(1700, W), G(-500, W)];
+    s += `<defs>
+      <linearGradient id="glare" gradientUnits="userSpaceOnUse" x1="${f1(G(0, -W)[0])}" y1="${f1(G(0, -W)[1])}" x2="${f1(G(0, W)[0])}" y2="${f1(G(0, W)[1])}">
+        <stop offset="0" stop-color="#FFF6DE" stop-opacity="0"/><stop offset="0.3" stop-color="#FFF6DE" stop-opacity="0.08"/><stop offset="0.5" stop-color="#FFF6DE" stop-opacity="0.26"/><stop offset="0.7" stop-color="#FFF6DE" stop-opacity="0.08"/><stop offset="1" stop-color="#FFF6DE" stop-opacity="0"/></linearGradient>
+      <linearGradient id="gmk" gradientUnits="userSpaceOnUse" x1="${f1(G(0, -W)[0])}" y1="${f1(G(0, -W)[1])}" x2="${f1(G(0, W)[0])}" y2="${f1(G(0, W)[1])}">
+        <stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="0.5" stop-color="#fff" stop-opacity="1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+      <mask id="glareM"><polygon points="${pts(band)}" fill="url(#gmk)"/></mask>
+    </defs>`;
+
+    // brush strokes: faint everywhere on the paint, vivid where the glare hits the glass
+    let st = "", seed = 0x2F6E2B1;
+    const rnd = () => { seed ^= seed << 13; seed ^= seed >>> 17; seed ^= seed << 5; return ((seed >>> 0) % 100000) / 100000; };
+    // dry-brush strokes: a few parallel bristle lines each, laid along the form (arcs round the lunette, upright on the walls)
+    for (let i = 0; i < 300; i++) {
+      const x = PL + rnd() * (PR - PL), y = PT + rnd() * (H - PT - 10);
+      const ang = Math.atan2(y - 870, x - VX) + Math.PI / 2 + (rnd() - 0.5) * 0.35;
+      const len = 34 + rnd() * 56, bend = (rnd() - 0.5) * 12;
+      const ca = Math.cos(ang), sa = Math.sin(ang), light = rnd() < 0.6;
+      const col = light ? "#F7F1E3" : "#1C2230", op = (light ? 0.2 : 0.16) + rnd() * 0.14;
+      for (let b = 0; b < 4; b++) {
+        const off = (b - 1.5) * 3.4, sh = rnd() * 8, cut = rnd() * 10;
+        const ox = -sa * off, oy = ca * off;
+        const x0 = x - ca * (len / 2 - sh) + ox, y0 = y - sa * (len / 2 - sh) + oy, x1 = x + ca * (len / 2 - cut) + ox, y1 = y + sa * (len / 2 - cut) + oy;
+        st += `<path d="M${f1(x0)} ${f1(y0)} Q${f1(x - sa * bend + ox)} ${f1(y + ca * bend + oy)} ${f1(x1)} ${f1(y1)}" stroke="${col}" stroke-opacity="${(op * (0.6 + 0.4 * rnd())).toFixed(3)}" stroke-width="${f1(1.4 + rnd() * 1.4)}" stroke-linecap="round" fill="none"/>`;
+      }
+    }
+    s += `<defs><g id="strokes">${st}</g></defs>`;
+    s += `<g clip-path="url(#paintC)"><use href="#strokes" opacity="0.22"/><g mask="url(#glareM)"><use href="#strokes"/><use href="#strokes" opacity="0.6"/></g></g>`;
+    s += `<g clip-path="url(#paneC)"><polygon points="${pts(band)}" fill="url(#glare)"/>`;
+    s += pl([G(-500, -22), G(1700, -22)], `stroke="#FFF9EA" stroke-width="3.5" stroke-opacity="0.42"`);
+    s += pl([G(-500, 64), G(1700, 64)], `stroke="#FFF9EA" stroke-width="1.5" stroke-opacity="0.2"`);
+    s += `</g>`;
+
+    // floor darkens into the bottom of the plate
+    s += `<rect x="0" y="1560" width="1080" height="360" fill="url(#vig)"/>`;
+
+    // ---------- the seam: china-marker line along the painting's lower edge, on the glass ----------
+    const wob = [0, -1.4, 0.8, -0.6, 1.5, -1, 0.4, 1.1, -1.3, 0.6, -0.2, 1.2, -0.9];
+    const seamPts = wob.map((dy, i) => [PL + 8 + i * (PR - PL - 16) / (wob.length - 1), H - 3 + dy]);
+    const seamD = "M" + seamPts.map(p => f1(p[0]) + " " + f1(p[1])).join(" L");
+    s += `<path d="${seamD}" fill="none" stroke="#141210" stroke-width="10" stroke-opacity="0.4" stroke-linejoin="round"/>`;
+    s += `<path d="${seamD}" fill="none" stroke="${LAMP}" stroke-width="5.5" stroke-dasharray="26 12" stroke-linecap="round" stroke-linejoin="round"/>`;
+
+    // ---------- pane frame (the glass is bigger than the plate on top, its side edges just show) ----------
+    s += `<rect x="${PL - 10}" y="${PT - 16}" width="${PR - PL + 20}" height="16" fill="#151311"/><rect x="${PL - 10}" y="${PT - 16}" width="${PR - PL + 20}" height="2" fill="#4F4841"/>`;
+    for (const x of [PL - 10, PR]) s += `<rect x="${x}" y="${PT - 16}" width="10" height="${1920 - PT + 16}" fill="#151311"/>`;
+    s += `<rect x="${PL + 1}" y="${PT + 1}" width="${PR - PL - 2}" height="${1920 - PT}" fill="none" stroke="#DCE3E8" stroke-width="2" stroke-opacity="0.22"/>`;
+
+    // ---------- work lamp hung from the pipe, on the side the glare comes from ----------
+    const lx = sgn < 0 ? 846 : 234, tilt = sgn < 0 ? 24 : -24;
+    s += `<defs><radialGradient id="halo"><stop offset="0" stop-color="${LAMP}" stop-opacity="0.35"/><stop offset="1" stop-color="${LAMP}" stop-opacity="0"/></radialGradient>
+      <linearGradient id="dome" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#57504A"/><stop offset="1" stop-color="#25211E"/></linearGradient></defs>`;
+    s += `<line x1="${lx}" y1="182" x2="${lx}" y2="214" stroke="#0E0D0C" stroke-width="5"/>`;
+    s += `<circle cx="${lx}" cy="262" r="120" fill="url(#halo)"/>`;
+    s += `<g transform="translate(${lx} 214) rotate(${tilt})">
+      <rect x="-9" y="0" width="18" height="16" rx="3" fill="#2A2622"/>
+      <path d="M-14 14 L14 14 L52 62 L-52 62 Z" fill="url(#dome)" stroke="#0E0D0C" stroke-width="2"/>
+      <ellipse cx="0" cy="62" rx="52" ry="9" fill="#FFF3D0"/><ellipse cx="0" cy="62" rx="30" ry="5" fill="#FFFDF5"/></g>`;
+
+    $("scene").innerHTML = s;
+
+    // ---------- china-marker notes ----------
+    const notesEl = $("notes");
+    const placed = feats.map((f, k) => ({ f: FEAT[f], it: items[order[k]], kind: kinds[order[k]] }));
+    notesEl.innerHTML = placed.map(p => '<div class="note"><div class="nl">' + esc(p.it.label) + '</div><div class="nr"><span class="nv">' + sym(p.it.value) + "</span>" +
+      (p.kind === "U" ? "" : '<span class="chip' + (p.kind === "R" ? " real" : "") + '">' + (p.kind === "R" ? "Asli" : "Dilukis") + "</span>") + "</div></div>").join("");
+    const notes = [...notesEl.children];
+    // hand-drawn marker loop around a feature (fixed wobble, no randomness)
+    const loop = (cx, cy, rx, ry) => { const q = []; for (let k = 0; k <= 26; k++) { const a = -2.2 + k * (2 * Math.PI + 0.42) / 26, w = 1 + 0.04 * Math.sin(3 * a + 1) + 0.0035 * k;
+      q.push([cx + rx * w * Math.cos(a), cy + ry * w * Math.sin(a)]); } return "M" + q.map(p => f1(p[0]) + " " + f1(p[1])).join(" L"); };
+    let m = "";
+    notes.forEach((el, k) => {
+      const { c, rx, ry, side } = placed[k].f;
+      if (el.offsetWidth > 340) el.querySelector(".nv").style.fontSize = "40px";
+      const w = el.offsetWidth, h = el.offsetHeight, top = Math.round(c[1] - h / 2);
+      const maxR = top < 1500 && top + h > 900 ? 900 : 990;
+      let left;
+      if (side === "L") left = Math.max(90, Math.min(c[0] - rx - 26 - w, c[0] - rx - 8 - w));
+      else left = Math.min(maxR - w, c[0] + rx + 26);
+      el.style.left = Math.round(left) + "px"; el.style.top = top + "px";
+      const ex = side === "L" ? left + w : left, rx2 = side === "L" ? c[0] - rx : c[0] + rx;
+      const ring = loop(c[0], c[1], rx, ry);
+      m += `<path d="${ring}" fill="none" stroke="#141210" stroke-width="8" stroke-opacity="0.42" stroke-linecap="round" stroke-linejoin="round"/>`;
+      m += `<line x1="${f1(ex)}" y1="${f1(c[1])}" x2="${f1(rx2)}" y2="${f1(c[1])}" stroke="#141210" stroke-width="8" stroke-opacity="0.42" stroke-linecap="round"/>`;
+      m += `<path d="${ring}" fill="none" stroke="${CREAM}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`;
+      m += `<line x1="${f1(ex)}" y1="${f1(c[1])}" x2="${f1(rx2)}" y2="${f1(c[1])}" stroke="${CREAM}" stroke-width="3.5" stroke-linecap="round"/>`;
+    });
+
+    // ---------- seam legend: describes the picture (paint above the line, real set below) ----------
+    const lAI = $("legAI"), lRe = $("legReal"), lr = 890;
+    lAI.style.left = (lr - lAI.offsetWidth) + "px"; lAI.style.top = (H - 16 - lAI.offsetHeight) + "px";
+    lRe.style.left = (lr - lRe.offsetWidth) + "px"; lRe.style.top = (H + RY + 14) + "px";
+    const tx = lr - lRe.offsetWidth - 22;
+    m += `<line x1="${tx}" y1="${H - 16 - lAI.offsetHeight / 2}" x2="${tx}" y2="${H + RY + 14 + lRe.offsetHeight / 2}" stroke="#141210" stroke-width="7" stroke-opacity="0.4" stroke-linecap="round"/>`;
+    m += `<line x1="${tx}" y1="${H - 16 - lAI.offsetHeight / 2}" x2="${tx}" y2="${H + RY + 14 + lRe.offsetHeight / 2}" stroke="${CREAM}" stroke-width="3" stroke-linecap="round"/>`;
+    $("marks").innerHTML = m;
+
+    // ---------- tape holding the camera report on the frame ----------
+    const rl = rep.offsetLeft, rw = rep.offsetWidth, rt = rep.offsetTop;
+    $("tape").innerHTML = [[rl - 14, -5], [rl + rw - 34, 6]].map(([x, a]) =>
+      `<rect x="${x}" y="${rt - 22}" width="48" height="40" fill="#F3EEE2" fill-opacity="0.5" stroke="#FFFFFF" stroke-opacity="0.25" transform="rotate(${a} ${x + 24} ${rt - 2})"/>`).join("");
+
+    // ---------- burned-in subtitle (karaoke): active = hl if it is in the caption, else the first word ----------
+    const capStr = String(D.caption || D.sub || "").trim();
+    const words = [];
+    capStr.replace(/\S+/g, (w0, idx) => { words.push({ w: w0, a: idx, b: idx + w0.length }); return w0; });
+    let on0 = 0, on1 = 0;
+    const hit = hl ? capStr.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+    if (hit >= 0) {
+      const he = hit + hl.length;
+      on0 = Math.max(0, words.findIndex(x => x.b > hit)); on1 = on0;
+      while (on1 + 1 < words.length && words[on1 + 1].a < he) on1++;
+    }
+    const pieces = [];
+    for (let i = 0; i < words.length; i++) {
+      if (i === on0) { pieces.push('<span class="now">' + words.slice(on0, on1 + 1).map(x => esc(x.w)).join(" ") + "</span>"); i = on1; }
+      else pieces.push('<span class="' + (i > on1 ? "up" : "") + '">' + esc(words[i].w) + "</span>");
+    }
+    // no orphan: the last two words always travel together
+    const capText = $("capText"), capEl = $("cap");
+    capText.innerHTML = pieces.length > 2 ? pieces.slice(0, -2).join(" ") + " " + pieces.slice(-2).join("&nbsp;") : pieces.join(" ");
+    for (let f = 46; f >= 40; f -= 2) { capEl.style.fontSize = f + "px"; if (capEl.offsetHeight <= 2 * f * 1.2 + 4) break; }
+
+    $("src").textContent = D.source ? "Sumber: " + D.source : "";
+    $("date").textContent = D.date || "";
+    const foot = $("foot");
+    foot.style.top = (1618 - foot.offsetHeight) + "px";
+    capEl.style.top = (foot.offsetTop - 12 - capEl.offsetHeight) + "px";
+    let blockTop = capEl.offsetTop;
+    // sub prints as the subtitle; only when a separate caption exists does sub get its own line above it
+    const dek = $("dek");
+    if (D.caption && D.sub && String(D.caption).trim() !== String(D.sub).trim()) {
+      dek.textContent = D.sub;
+      dek.style.top = (capEl.offsetTop - 14 - dek.offsetHeight) + "px";
+      blockTop = dek.offsetTop;
+    } else dek.style.display = "none";
+    const strip = $("strip");
+    strip.style.top = (blockTop - 34) + "px";
+    strip.style.height = (1650 - blockTop + 34) + "px";
+  }
+</script>
+</body>
+</html>

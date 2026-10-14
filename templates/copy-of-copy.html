@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Familjen+Grotesk:wght@600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Copy of Copy: a shingled stack of five photocopies of one copy-log slip.
+    GEN 1 (front) is the crisp original, set in DOM: a ruled copy log (No. | isi | nilai)
+    and, at its foot, the hook line typed in bold Courier with D.hl inside a red stamp frame.
+    GEN 2..5 sit behind it and are real generation loss: each one is computed on a canvas
+    FROM the previous one (grayscale optics, lower resolution, blur, skew around the
+    registration corner, a toner curve that thickens strokes, toner dust, drum streaks,
+    edge shadow, greyer paper). Only the foot of each copy shows, so the title's last line
+    repeats five times, from crisp to smear, and the small source line under it dies first.
+    Each new red GEN stamp lands almost exactly on the ghost of the previous one, so the
+    ghosts read only as a dark toner sliver.
+    Metaphor: model collapse, models trained on AI output lose detail every generation.
+    Deterministic: all noise is an integer hash of (x, y, generation); no Math.random.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #E3DFD4; }
+  body { position: relative; color: #111111; font-family: "Courier Prime", monospace; }
+
+  .ruler { position: absolute; left: 0; top: 0; width: 1080px; height: 300px; }
+  .panel { position: absolute; left: 92px; width: 896px; top: 300px; height: 54px; display: flex; align-items: center; justify-content: space-between; }
+  .panel .ser { font: 600 28px "Familjen Grotesk", sans-serif; letter-spacing: 0.12em; text-transform: uppercase; line-height: 34px; white-space: nowrap; }
+  .lcd { display: flex; align-items: center; height: 54px; padding: 0 18px 0 16px; background: #111111; border-radius: 8px;
+         color: #F6F5F1; font: 700 30px "Courier Prime", monospace; line-height: 34px; letter-spacing: 0.06em; white-space: nowrap; }
+  .lcd .led { width: 12px; height: 12px; border-radius: 50%; background: #D3452C; margin-right: 14px; }
+  .lcd .k { font-weight: 400; margin-right: 14px; }
+
+  #stack { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  .sheet { position: absolute; background: #F6F5F1; transform-origin: 50% 100%; }
+  .sheet canvas { position: absolute; left: 0; top: 0; display: block; }
+  .sheet .t { position: absolute; white-space: nowrap; }
+  .sheet .r { position: absolute; }
+  .sheet .hl { display: inline-block; vertical-align: baseline; white-space: nowrap; border-style: solid; border-color: #D3452C; border-radius: 4px; color: #D3452C; }
+  .stamp { position: absolute; width: 80px; height: 70px; background: #D3452C; border-radius: 5px; color: #F6F5F1; }
+  .stamp span { position: absolute; left: 0; width: 80px; text-align: center; font-family: "Courier Prime", monospace; font-weight: 700; white-space: nowrap; }
+
+  .cap { position: absolute; left: 92px; width: 896px; font: 700 40px "Courier Prime", monospace; line-height: 50px; color: #111111; }
+  .cap .pre { font-weight: 400; white-space: nowrap; }
+  .cap .w { white-space: nowrap; }
+  .cap .w.on { background: #111111; color: #F6F5F1; border-radius: 3px; padding: 0 0.15em;
+               -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+</style>
+</head>
+<body>
+<svg class="ruler" viewBox="0 0 1080 300" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" id="ruler"></svg>
+<div class="panel"><span class="ser" id="ser"></span><div class="lcd" id="lcd"><i class="led"></i><span class="k">SALINAN</span><span>05/05</span></div></div>
+<div id="stack"></div>
+<div class="cap" data-slot="caption" id="cap"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Berita AI", ep: "#07", kicker: "Berita AI · #07",
+    title: "AI belajar dari AI. Hasilnya makin kabur.", hl: "makin kabur",
+    sub: "Data latih yang isinya hasil AI bikin model makin lupa detail.",
+    items: [{ label: "Generasi 1", value: "tajam" }, { label: "Generasi 3", value: "mulai blur" }, { label: "Generasi 5", value: "rusak" }],
+    source: "Shumailov dkk., Nature 2024", date: "per 14 Okt 2026" };
+
+  const FONTS = ['700 80px "Courier Prime"', '400 30px "Courier Prime"', '700 30px "Familjen Grotesk"', '600 28px "Familjen Grotesk"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const PAPER = "#F6F5F1", INK = "#111111", RED = "#D3452C", GREY = "#8E8C85";
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(1, items.length);
+
+  // ---------- copier glass ruler (decoration only) ----------
+  let rp = "";
+  for (let x = 92, k = 0; x <= 988; x += 12, k++) {
+    const h = k % 10 === 0 ? 26 : k % 5 === 0 ? 16 : 9;
+    rp += "M" + x + " 284V" + (284 - h);
+  }
+  document.getElementById("ruler").innerHTML =
+    '<path d="M80 284H1000" stroke="' + GREY + '" stroke-width="2" fill="none"/>' +
+    '<path d="' + rp + '" stroke="' + GREY + '" stroke-width="2" fill="none"/>';
+
+  // ---------- control panel: series label + LCD copy counter ----------
+  const epNo = String(D.ep || "").trim();
+  document.getElementById("ser").textContent = [D.series || D.kicker || "", epNo].filter(Boolean).join(" · ");
+
+  // ---------- text measuring (canvas, so DOM and raster share one layout) ----------
+  const mc = document.createElement("canvas").getContext("2d");
+  const F = (w, s, fam, ls) => ({ w, s, fam, ls: ls || 0, css: w + " " + s + "px " + (fam === "m" ? "'Courier Prime'" : "'Familjen Grotesk'") });
+  const setF = f => { mc.font = f.css; mc.letterSpacing = f.ls + "px"; };
+  const width = (s, f) => { setF(f); return mc.measureText(s).width; };
+  const met = f => { setF(f); const m = mc.measureText("Hgjy"); return { a: m.fontBoundingBoxAscent, d: m.fontBoundingBoxDescent }; };
+
+  // ---------- caption: copier / fax transmit header + karaoke line ----------
+  const capEl = document.getElementById("cap");
+  const capText = String(D.caption || D.sub || "");
+  const words = capText.split(/\s+/).filter(Boolean);
+  const norm = s => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+  const hlRaw = String(D.hl || "");
+  const hw = hlRaw.split(/\s+/).map(norm).filter(Boolean);
+  let aS = 0, aE = 0;
+  if (hw.length) for (let i = 0; i + hw.length <= words.length; i++) {
+    if (hw.every((w, j) => norm(words[i + j]) === w)) { aS = i; aE = i + hw.length - 1; break; }
+  }
+  const parts = [];
+  for (let i = 0; i < words.length; i++) {
+    if (i === aS) { parts.push('<span class="w on">' + esc(words.slice(aS, aE + 1).join(" ")) + "</span>"); i = aE; }
+    else parts.push('<span class="w">' + esc(words[i]) + "</span>");
+  }
+  const MON = { jan: 1, feb: 2, mar: 3, apr: 4, mei: 5, may: 5, jun: 6, jul: 7, agu: 8, ags: 8, aug: 8, sep: 9, okt: 10, oct: 10, nov: 11, des: 12, dec: 12 };
+  const dm = String(D.date || "").match(/(\d{1,2})\s+([A-Za-z]{3})/);
+  const dd = dm && MON[dm[2].toLowerCase()] ? dm[1].padStart(2, "0") + "/" + String(MON[dm[2].toLowerCase()]).padStart(2, "0") + " " : "";
+  capEl.innerHTML = '<span class="pre">' + esc(dd + "P.01 |") + "</span> " + parts.join(" ");
+  const CAP_LH = 50;
+  let fits = capEl.offsetHeight <= CAP_LH * 2 + 2;
+  // a voice-over line is a chunk: drop trailing words (keeping the active one) until it holds 2 lines
+  while (!fits) {
+    const spans = capEl.querySelectorAll(".w");
+    const last = spans[spans.length - 1];
+    if (!last || spans.length <= 2 || last.classList.contains("on")) break;
+    last.previousSibling && last.previousSibling.nodeType === 3 && last.previousSibling.remove();
+    last.remove();
+    const tail = capEl.querySelectorAll(".w"); const lw = tail[tail.length - 1];
+    if (!lw.classList.contains("on")) lw.textContent = lw.textContent.replace(/[.,;:!?…]*$/, "") + "…";
+    fits = capEl.offsetHeight <= CAP_LH * 2 + 2;
+    if (!fits && !lw.classList.contains("on")) lw.textContent = lw.textContent.replace(/…$/, "");
+  }
+  const capTop = 1612 - capEl.offsetHeight;
+  capEl.style.top = capTop + "px";
+
+  // ---------- sheet geometry ----------
+  const SX = 92, W = 868, PL = 36, CR = W - 36;           // content x 36..832 in sheet coords (page 128..924)
+  const STAMP_W = 80, STAMP_H = 70, STAMP_CX = 838 - SX;  // stamp column centred at page x 838
+  const LWL = STAMP_CX - STAMP_W / 2 - 24 - PL;           // the title's last line stops before the stamp
+  const SRC_R = 896 - SX;                                 // source row stays left of page x 896
+  const STACK_TOP = 368, STACK_BOT = capTop - 24;
+
+  // ---------- title atoms (D.hl kept as one unbreakable unit) ----------
+  const t = String(D.title || ""), hl = hlRaw;
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1, he = at + hl.length;
+  const atoms = [];
+  t.replace(/\S+/g, (m, off) => {
+    const a = off, b = off + m.length, inHl = at >= 0 && a < he && b > at;
+    const prev = atoms[atoms.length - 1];
+    if (inHl && prev && prev.hl) prev.b = b; else atoms.push({ a, b, hl: inHl });
+    return m;
+  });
+  atoms.forEach(A => {
+    if (!A.hl) { A.segs = [{ s: t.slice(A.a, A.b), hl: false }]; return; }
+    const x0 = Math.max(A.a, at), x1 = Math.min(A.b, he);
+    A.segs = [{ s: t.slice(A.a, x0), hl: false }, { s: t.slice(x0, x1), hl: true }, { s: t.slice(x1, A.b), hl: false }].filter(g => g.s);
+  });
+  const tf = fs => F(700, fs, "m", Math.round(-0.02 * fs * 10) / 10);
+  const hb = fs => ({ px: Math.round(0.1 * fs), py: Math.round(0.07 * fs), bw: Math.max(3, Math.round(0.05 * fs)), gap: Math.round(0.05 * fs) });
+  // the stamp frame hugs the INK of D.hl (Courier glyphs sit in wide cells), and trailing
+  // punctuation tucks in right after the frame
+  const atomGeo = (A, fs) => {
+    const f = tf(fs), b = hb(fs); let w = 0; const segs = [];
+    A.segs.forEach((g, i) => {
+      if (!g.hl) { const sw = width(g.s, f); segs.push({ s: g.s, hl: false, dx: w }); w += sw; return; }
+      setF(f); const m = mc.measureText(g.s);
+      const lb = -m.actualBoundingBoxLeft, inkW = m.actualBoundingBoxLeft + m.actualBoundingBoxRight;
+      // padding at least the glyph bearings, so the text box never pokes out of the frame
+      const pad = Math.ceil(Math.max(b.px, lb, m.width - m.actualBoundingBoxRight) + 1);
+      const fw = Math.ceil(inkW + 2 * (pad + b.bw)), mL = i > 0 ? b.gap : 0;
+      let mR = 0;
+      const post = A.segs[i + 1];
+      if (post) { setF(f); mR = Math.round(2 * b.gap + mc.measureText(post.s[0]).actualBoundingBoxLeft); }
+      segs.push({ s: g.s, hl: true, dx: w + mL, fw, ti: Math.round((pad - lb) * 10) / 10, mL, mR, b });
+      w += mL + fw + mR;
+    });
+    return { w, segs };
+  };
+  const atomW = (A, fs) => atomGeo(A, fs).w;
+  const breakTitle = (fs, LW, maxK) => {
+    const ws = atoms.map(A => atomW(A, fs)), sp = width(" ", tf(fs)), m = atoms.length;
+    const lineW = (i, j) => { let w = 0; for (let q = i; q < j; q++) w += ws[q] + (q > i ? sp : 0); return w; };
+    for (let k = 1; k <= Math.min(maxK, m); k++) {
+      let best = null;
+      const rec = (start, line, acc, cuts) => {
+        if (line === k - 1) {
+          const w = lineW(start, m);
+          if (w <= LWL) {
+            const c = acc + 0.6 * (1 - w / LWL) ** 2 + (k > 1 && m - start === 1 && m > 3 ? 0.25 : 0);
+            if (!best || c < best.c) best = { c, cuts: cuts.concat([m]) };
+          }
+          return;
+        }
+        for (let j = start + 1; j <= m - (k - 1 - line); j++) {
+          const w = lineW(start, j);
+          if (w > LW) break;
+          rec(j, line + 1, acc + (1 - w / LW) ** 2, cuts.concat([j]));
+        }
+      };
+      rec(0, 0, 0, []);
+      if (best) { const lines = []; let s = 0; best.cuts.forEach(e => { lines.push({ i: s, j: e, w: lineW(s, e) }); s = e; }); return { fs, k, lines, sp, ws }; }
+    }
+    return null;
+  };
+
+  // ---------- source row (form footer, small print: the first detail copies lose) ----------
+  const fSrcL = F(700, 26, "g", 1.5), fSrc = F(400, 26, "m");
+  const SRC_X = PL + Math.ceil(width("ASAL:", fSrcL)) + 12;
+  const srcText = String(D.source || "-");
+  let srcLines = [], sl = "";
+  for (const w of srcText.split(/\s+/)) {
+    const tryL = sl ? sl + " " + w : w;
+    if (width(tryL, fSrc) <= SRC_R - SRC_X || !sl) sl = tryL; else { srcLines.push(sl); sl = w; }
+  }
+  if (sl) srcLines.push(sl);
+  if (srcLines.length > 2) { srcLines = srcLines.slice(0, 2); srcLines[1] = srcLines[1].replace(/.{0,2}$/, "") + "…"; }
+  const SRC_LH = 32;
+
+  // ---------- vertical plan: biggest title that fits, rows shrink before the title does ----------
+  // inStrip: the source row sits under the title, so every copy strip repeats it (it dies first).
+  // Only very long content moves it up under the log and keeps the strips to the title line.
+  const plan = (T, rowH, inStrip) => {
+    const fs = T.fs, L = { fs, T, rowH, inStrip };
+    let y = 18;
+    L.headY = y; y += 46 + 12;
+    L.tabY = y; y += 3 + 42 + 3 + n * rowH + 3; L.tabB = y;
+    if (!inStrip) { L.srcY = y + 8; y = L.srcY + srcLines.length * SRC_LH; }
+    y += inStrip ? 24 : 16;
+    L.base0 = Math.round(y + 0.76 * fs + 2);
+    L.pitch = Math.round(1.08 * fs + 12);
+    L.lastBase = L.base0 + (T.k - 1) * L.pitch;
+    // small type: the stamp is taller than the line, so open the last line's gap until the strip
+    // (cut at the stamp top) clears the line above
+    if (T.k > 1) {
+      const need = (L.lastBase - 0.22 * fs + 4 - STAMP_H / 2 - 18) - (L.lastBase - L.pitch + 0.32 * fs + 3);
+      if (need < 0) L.lastBase += Math.ceil(-need);
+    }
+    if (inStrip) {
+      L.ruleY = Math.round(L.lastBase + 0.32 * fs + 6);
+      L.srcY = L.ruleY + 2 + 7;
+      L.H = L.srcY + srcLines.length * SRC_LH + 12;
+    } else L.H = Math.round(L.lastBase + 0.32 * fs + 18);
+    L.stampCY = Math.round(L.lastBase - 0.22 * fs + 4);
+    const stripTop = Math.min(L.lastBase - 0.76 * fs - 8, L.stampCY - STAMP_H / 2 - 7 - 11);
+    // a strip is at least 120 px; extra height goes to the bottom margin, never above the line
+    L.H += Math.max(0, Math.ceil(120 - (L.H - stripTop)));
+    L.S = Math.ceil(L.H - stripTop);
+    L.total = L.H + 4 * L.S;
+    return L;
+  };
+  const solve = LW => {
+    const room = STACK_BOT - STACK_TOP;
+    const passes = [
+      { inStrip: true, rows: [52, 48, 44, 40], fsMin: 60, hMax: 600 },
+      { inStrip: true, rows: [52, 48, 44, 40, 36], fsMin: 60, hMax: 1e5 },
+      { inStrip: false, rows: [48, 44, 40, 36], fsMin: 54, hMax: 1e5 }
+    ];
+    for (const ps of passes) for (let fs = 96; fs >= ps.fsMin; fs -= 2) {
+      const T = breakTitle(fs, LW, fs >= 64 ? 3 : 4);
+      if (!T) continue;
+      for (const rowH of ps.rows) { const L = plan(T, rowH, ps.inStrip); if (L.total <= room && L.H <= ps.hMax) return L; }
+    }
+    let L = null;
+    for (let fs = 52; fs >= 40; fs -= 2) { const T = breakTitle(fs, LW, 8); if (T) { L = plan(T, 36, false); if (L.total <= room) return L; } }
+    return L;
+  };
+  let P, stackTop;
+  for (const LW of [CR - PL, 900 - SX - PL - 4]) {
+    P = solve(LW);
+    stackTop = STACK_TOP + Math.max(0, Math.floor((STACK_BOT - STACK_TOP - P.total) / 2));
+    // a full-width title line may not reach into the action-button column (x > 900, y > 900)
+    const bad = P.T.lines.slice(0, -1).some((ln, i) => stackTop + P.base0 + i * P.pitch + 0.32 * P.fs > 900 && SX + PL + ln.w > 900);
+    if (!bad) break;
+  }
+  const H = P.H, S = P.S, fs = P.fs;
+
+  // ---------- GEN 1 layout as a list of ops ----------
+  const ops = [];
+  const text = (x, base, s, f, color) => ops.push({ k: "t", x, base, s, f, color });
+  const rect = (x, y, w, h, color) => ops.push({ k: "r", x, y, w, h, color });
+  const capC = f => (f.fam === "m" ? 0.58 : 0.65) * f.s;  // cap height
+  // header: [LOG SALINAN] No. 01                 date
+  {
+    const fChip = F(700, 30, "g", 4), fNo = F(400, 28, "m");
+    const chipH = 46, chipW = Math.ceil(width("LOG SALINAN", fChip) - fChip.ls) + 32, cy = P.headY + chipH / 2;
+    rect(PL, P.headY, chipW, chipH, INK);
+    text(PL + 16, Math.round(cy + capC(fChip) / 2), "LOG SALINAN", fChip, PAPER);
+    const nb = Math.round(cy + capC(fNo) / 2);
+    if (epNo) text(PL + chipW + 18, nb, "No. " + epNo.replace(/^#/, ""), fNo, INK);
+    const ds = String(D.date || "");
+    text(CR - width(ds, fNo) + fNo.ls, nb, ds, fNo, INK);
+  }
+  // ruled copy log: NO | ISI | NILAI
+  const x0 = PL, x1 = CR, xA = x0 + 76, xB = x1 - 292;
+  {
+    const ty = P.tabY, hdrTop = ty + 3, hdrH = 42, r0 = hdrTop + hdrH + 3, bot = r0 + n * P.rowH;
+    const fTh = F(700, 30, "g", 2), hb0 = Math.round(hdrTop + hdrH / 2 + capC(fTh) / 2);
+    text(x0 + (76 - (width("NO", fTh) - fTh.ls)) / 2, hb0, "NO", fTh, INK);
+    text(xA + 16, hb0, "ISI", fTh, INK);
+    text(x1 - 16 - (width("NILAI", fTh) - fTh.ls), hb0, "NILAI", fTh, INK);
+    let fIL = F(400, 34, "m"), fIV = F(700, 36, "m");
+    for (const [ls, vs] of [[34, 36], [32, 34], [30, 32]].filter(([, vs], i) => vs <= P.rowH - 4 || i === 2)) {
+      fIL = F(400, ls, "m"); fIV = F(700, vs, "m");
+      if (items.every(it => width(String(it.label), fIL) <= xB - xA - 30 && width(String(it.value), fIV) <= x1 - xB - 30)) break;
+    }
+    const fN = F(400, 30, "m");
+    items.forEach((it, i) => {
+      const top = r0 + i * P.rowH, base = Math.round(top + P.rowH / 2 + 0.26 * fIV.s);
+      const no = String(i + 1).padStart(2, "0");
+      text(x0 + (76 - width(no, fN)) / 2, base, no, fN, INK);
+      text(xA + 16, base, String(it.label), fIL, INK);
+      text(x1 - 16 - width(String(it.value), fIV), base, String(it.value), fIV, INK);
+      if (i < n - 1) rect(x0 + 3, top + P.rowH - 1, x1 - x0 - 6, 2, GREY);
+    });
+    rect(x0, ty, x1 - x0, 3, INK);
+    rect(x0, hdrTop + hdrH, x1 - x0, 3, INK);
+    rect(x0, bot, x1 - x0, 3, INK);
+    rect(x0, ty, 3, bot + 3 - ty, INK);
+    rect(x1 - 3, ty, 3, bot + 3 - ty, INK);
+    rect(xA - 1, ty, 2, bot + 3 - ty, INK);
+    rect(xB - 1, ty, 2, bot + 3 - ty, INK);
+  }
+  // the hook line, typed: D.title in bold Courier, D.hl inside a red stamp frame
+  {
+    const f = tf(fs);
+    P.T.lines.forEach((ln, li) => {
+      const segs = [];
+      let x = 0;
+      for (let q = ln.i; q < ln.j; q++) {
+        if (q > ln.i) { segs.push({ s: " ", hl: false, dx: x }); x += P.T.sp; }
+        const G = atomGeo(atoms[q], fs);
+        G.segs.forEach(g => segs.push(Object.assign({}, g, { dx: x + g.dx })));
+        x += G.w;
+      }
+      ops.push({ k: "ln", x: PL, base: li === P.T.k - 1 ? P.lastBase : P.base0 + li * P.pitch, f, segs, rot: -1.6 });
+    });
+    if (P.inStrip) rect(PL, P.ruleY, CR - PL, 2, INK);
+    const sb = P.srcY + Math.round(SRC_LH / 2 + capC(fSrc) / 2);
+    text(PL, sb, "ASAL:", fSrcL, INK);
+    srcLines.forEach((ln, i) => text(SRC_X, sb + i * SRC_LH, ln, fSrc, INK));
+  }
+
+  // ---------- DOM renderer (GEN 1) ----------
+  const stack = document.getElementById("stack");
+  const sheetEl = () => { const s = document.createElement("div"); s.className = "sheet"; s.style.width = W + "px"; s.style.height = H + "px"; return s; };
+  const g1 = sheetEl();
+  let html = "";
+  for (const o of ops) {
+    if (o.k === "r") html += '<div class="r" style="left:' + o.x + "px;top:" + o.y + "px;width:" + o.w + "px;height:" + o.h + "px;background:" + o.color + '"></div>';
+    else if (o.k === "t") {
+      const m = met(o.f);
+      html += '<span class="t" style="font:' + o.f.css + ";letter-spacing:" + o.f.ls + "px;color:" + o.color + ";line-height:" + (m.a + m.d) + "px;left:" + o.x + "px;top:" + (o.base - m.a) + 'px">' + esc(o.s) + "</span>";
+    } else if (o.k === "ln") {
+      const m = met(o.f), fsz = o.f.s;
+      let inner = "";
+      for (const g of o.segs) {
+        if (!g.hl) { inner += esc(g.s); continue; }
+        const b = g.b;
+        inner += '<span class="hl" style="width:' + g.fw + "px;margin-left:" + g.mL + "px;margin-right:" + g.mR + "px;text-indent:" + g.ti + "px;padding:" + b.py + "px 0;border-width:" + b.bw +
+          "px;line-height:" + (0.84 * fsz) + "px;transform:rotate(" + o.rot + 'deg)">' + esc(g.s) + "</span>";
+      }
+      html += '<span class="t" style="font:' + o.f.css + ";letter-spacing:" + o.f.ls + "px;color:" + INK + ";line-height:" + (m.a + m.d) + "px;left:" + o.x + "px;top:" + (o.base - m.a) + 'px">' + inner + "</span>";
+    }
+  }
+  g1.innerHTML = html;
+
+  // ---------- stamps: big generation digit, readable at phone size ----------
+  const stampHTML = (st, g) => '<div class="stamp" style="left:' + (st.x - STAMP_W / 2) + "px;top:" + (st.y - STAMP_H / 2) + "px;transform:rotate(" + st.r + 'deg)">' +
+    '<span style="top:7px;height:26px;font-size:30px;line-height:26px;letter-spacing:2px;padding-left:2px">GEN</span>' +
+    '<span style="top:33px;height:34px;font-size:46px;line-height:34px">' + g + "</span></div>";
+  const drawStamp = (x, st, g, alpha) => {
+    x.save(); x.translate(st.x, st.y); x.rotate(st.r * Math.PI / 180);
+    x.globalAlpha = alpha; x.fillStyle = RED;
+    x.beginPath(); x.roundRect(-STAMP_W / 2, -STAMP_H / 2, STAMP_W, STAMP_H, 5); x.fill();
+    x.globalAlpha = 1; x.fillStyle = PAPER; x.textAlign = "center"; x.textBaseline = "alphabetic";
+    x.font = '700 30px "Courier Prime"'; x.letterSpacing = "2px"; x.fillText("GEN", 1, -STAMP_H / 2 + 26.6);
+    x.font = '700 46px "Courier Prime"'; x.letterSpacing = "0px"; x.fillText(String(g), 0, -STAMP_H / 2 + 60.6);
+    x.restore();
+  };
+  const ST = [null, { x: STAMP_CX, y: P.stampCY, r: -2.2 }];
+  g1.insertAdjacentHTML("beforeend", stampHTML(ST[1], 1));
+
+  // ---------- raster renderer (same ops) ----------
+  const raster = () => {
+    const c = document.createElement("canvas"); c.width = W; c.height = H;
+    const x = c.getContext("2d");
+    x.fillStyle = PAPER; x.fillRect(0, 0, W, H);
+    for (const o of ops) {
+      if (o.k === "r") { x.fillStyle = o.color; x.fillRect(o.x, o.y, o.w, o.h); }
+      else if (o.k === "t") { x.font = o.f.css; x.letterSpacing = o.f.ls + "px"; x.fillStyle = o.color; x.textBaseline = "alphabetic"; x.textAlign = "left"; x.fillText(o.s, o.x, o.base); }
+      else if (o.k === "ln") {
+        const fsz = o.f.s;
+        x.font = o.f.css; x.letterSpacing = o.f.ls + "px"; x.textBaseline = "alphabetic"; x.textAlign = "left";
+        for (const g of o.segs) {
+          if (!g.hl) { x.fillStyle = INK; x.fillText(g.s, o.x + g.dx, o.base); continue; }
+          const b = g.b, bx = o.x + g.dx, by = o.base - 0.64 * fsz - b.py - b.bw, bh = 0.84 * fsz + 2 * (b.py + b.bw);
+          x.save(); x.translate(bx + g.fw / 2, by + bh / 2); x.rotate(o.rot * Math.PI / 180); x.translate(-bx - g.fw / 2, -by - bh / 2);
+          x.strokeStyle = RED; x.lineWidth = b.bw; x.beginPath(); x.roundRect(bx + b.bw / 2, by + b.bw / 2, g.fw - b.bw, bh - b.bw, 4); x.stroke();
+          x.fillStyle = RED; x.fillText(g.s, bx + b.bw + g.ti, o.base);
+          x.restore();
+        }
+      }
+    }
+    drawStamp(x, ST[1], 1, 0.85);
+    return c;
+  };
+
+  // ---------- generation loss: copy(src) -> next generation ----------
+  const hash = (a, b, s) => { let h = Math.imul(a, 374761393) ^ Math.imul(b, 668265263) ^ Math.imul(s, 1442695041); h = Math.imul(h ^ (h >>> 13), 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; };
+  const vnoise = (px, py, s) => {
+    const xi = Math.floor(px), yi = Math.floor(py), xf = px - xi, yf = py - yi;
+    const a = hash(xi, yi, s), b = hash(xi + 1, yi, s), c = hash(xi, yi + 1, s), d = hash(xi + 1, yi + 1, s);
+    const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+  };
+  // every step is a visible jump: optics lose resolution, toner fogs, paper greys
+  const GEN = {
+    2: { blur: 1.6, res: 0.9, rot: 0.22, sc: 1.002, dx: 2, dy: -1, T: 0.62, K: 2.8, speck: 0.0016, dust: 0.026, fade: 0.22, fog: 0.07, edge: 0.6, streaks: [[0.30, 0.22]], paper: [225, 222, 213] },
+    3: { blur: 2.0, res: 0.75, rot: -0.30, sc: 1.003, dx: -1, dy: 1, T: 0.66, K: 3.0, speck: 0.0026, dust: 0.040, fade: 0.32, fog: 0.10, edge: 0.75, streaks: [[0.30, 0.32]], paper: [213, 210, 200] },
+    4: { blur: 2.6, res: 0.6, rot: 0.34, sc: 1.004, dx: 2, dy: -1, T: 0.71, K: 3.2, speck: 0.0036, dust: 0.055, fade: 0.42, fog: 0.13, edge: 0.9, streaks: [[0.30, 0.36], [0.69, 0.26]], paper: [202, 198, 187] },
+    5: { blur: 3.4, res: 0.46, rot: -0.30, sc: 1.005, dx: -2, dy: 1, T: 0.77, K: 3.5, speck: 0.0050, dust: 0.070, fade: 0.52, fog: 0.16, edge: 1.0, streaks: [[0.30, 0.42], [0.69, 0.32], [0.47, 0.24]], paper: [190, 186, 175] }
+  };
+  const REG = { x: 40, y: H - 30 }; // registration corner of the copier glass
+  const mapCopy = (pt, g) => {      // where a point of the source sheet lands on copy g
+    const p = GEN[g], a = p.rot * Math.PI / 180, vx = pt.x - REG.x, vy = pt.y - REG.y;
+    return { x: REG.x + p.dx + p.sc * (Math.cos(a) * vx - Math.sin(a) * vy), y: REG.y + p.dy + p.sc * (Math.sin(a) * vx + Math.cos(a) * vy) };
+  };
+  const copyOf = (src, g) => {
+    const p = GEN[g];
+    const c = document.createElement("canvas"); c.width = W; c.height = H;
+    const x = c.getContext("2d", { willReadFrequently: true });
+    x.fillStyle = "#fff"; x.fillRect(0, 0, W, H);
+    x.save();
+    x.translate(REG.x + p.dx, REG.y + p.dy); x.rotate(p.rot * Math.PI / 180); x.scale(p.sc, p.sc); x.translate(-REG.x, -REG.y);
+    // optical resolution loss: the copier sees the page at a lower resolution each time
+    let img = src;
+    if (p.res < 1) {
+      img = document.createElement("canvas"); img.width = Math.round(W * p.res); img.height = Math.round(H * p.res);
+      const ix = img.getContext("2d"); ix.imageSmoothingQuality = "high"; ix.drawImage(src, 0, 0, img.width, img.height);
+    }
+    x.filter = "grayscale(1) blur(" + p.blur + "px)";
+    x.drawImage(img, 0, 0, W, H);
+    x.restore(); x.filter = "none";
+    const im = x.getImageData(0, 0, W, H), d = im.data;
+    const pap = p.paper, ink = [17, 17, 17];
+    // auto exposure: the copier reads the previous sheet's paper tone as white (background suppression)
+    const pp = g === 2 ? [246, 245, 241] : GEN[g - 1].paper, white = 0.2126 * pp[0] + 0.7152 * pp[1] + 0.0722 * pp[2] - 3;
+    for (let yy = 0; yy < H; yy++) {
+      for (let xx = 0; xx < W; xx++) {
+        const i = (yy * W + xx) * 4;
+        let v = Math.min(1, d[i] / white);
+        // toner starvation: horizontal bands where ink transfers weakly
+        const band = vnoise(xx / 150, yy / 7, g * 31 + 3);
+        v += (1 - v) * p.fade * Math.max(0, (band - 0.45) / 0.55);
+        // toner curve: crush mid-tones, bias toward black so strokes thicken
+        v = 0.5 + (v - p.T) * p.K;
+        // background fog: mottled toner haze that greys the paper a little more each copy
+        v = Math.min(1, v) - p.fog * vnoise(xx / 38, yy / 30, g * 7 + 1);
+        // drum streaks (same copier, same x every time)
+        for (const s of p.streaks) { const dxs = xx - s[0] * W; v -= s[1] * Math.exp(-(dxs * dxs) / 1.6); }
+        // toner dust + single specks
+        if (vnoise(xx / 2.4, yy / 2.4, g * 17 + 9) > 1 - p.dust) v -= 0.75;
+        if (hash(xx, yy, g * 101) < p.speck) v -= 0.9;
+        // lid shadow along right, bottom and left edges
+        v -= p.edge * (Math.exp(-(W - 1 - xx) / 7) + 0.8 * Math.exp(-(H - 1 - yy) / 5) + 0.6 * Math.exp(-xx / 6));
+        v = v < 0 ? 0 : v > 1 ? 1 : v;
+        d[i] = ink[0] + (pap[0] - ink[0]) * v; d[i + 1] = ink[1] + (pap[1] - ink[1]) * v; d[i + 2] = ink[2] + (pap[2] - ink[2]) * v; d[i + 3] = 255;
+      }
+    }
+    x.putImageData(im, 0, 0);
+    return c;
+  };
+
+  // ---------- build the stack ----------
+  // each new stamp lands on the ghost of the previous one, nudged 7 px up-left / back,
+  // so older stamps survive only as a dark toner sliver, never as a readable digit
+  const OFF = { 2: [-7, -6], 3: [7, 6], 4: [-7, -6], 5: [7, 6] }, DELTA = { 2: 1.3, 3: -1.1, 4: 1.2, 5: -1.4 };
+  const SHEET = { 1: { dx: 0, r: -0.25 }, 2: { dx: 5, r: 0.3 }, 3: { dx: -5, r: -0.36 }, 4: { dx: 6, r: 0.4 }, 5: { dx: -4, r: -0.46 } };
+  const place = (el, g) => {
+    el.style.left = (SX + SHEET[g].dx) + "px"; el.style.top = (stackTop + (g - 1) * S) + "px";
+    el.style.transform = "rotate(" + SHEET[g].r + "deg)"; el.style.zIndex = String(10 - g);
+    el.style.boxShadow = g === 1 ? "0 2px 0 rgba(60,52,40,.08), 0 26px 40px -18px rgba(54,46,32,.55)" : "0 1px 0 rgba(60,52,40,.10), 0 14px 22px -12px rgba(54,46,32,.50)";
+  };
+  let src = raster();
+  for (let g = 2; g <= 5; g++) {
+    const gen = copyOf(src, g);
+    const ghost = mapCopy(ST[g - 1], g);
+    ST[g] = { x: ghost.x + OFF[g][0], y: ghost.y + OFF[g][1], r: ST[g - 1].r + GEN[g].rot + DELTA[g] };
+    const el = sheetEl(); el.style.background = "rgb(" + GEN[g].paper.join(",") + ")";
+    el.appendChild(gen);
+    el.insertAdjacentHTML("beforeend", stampHTML(ST[g], g));
+    el.setAttribute("data-layout-allow-overlap", "");
+    place(el, g); stack.appendChild(el);
+    // the next copy is made from this sheet, red stamp included
+    const next = document.createElement("canvas"); next.width = W; next.height = H;
+    const nx = next.getContext("2d"); nx.drawImage(gen, 0, 0); drawStamp(nx, ST[g], g, 0.85);
+    src = next;
+  }
+  place(g1, 1); stack.appendChild(g1);
+  }
+</script>
+</body>
+</html>

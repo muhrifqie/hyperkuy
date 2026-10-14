@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<title>Salt Pans</title>
+<link href="https://fonts.googleapis.com/css2?family=Sofia+Sans+Extra+Condensed:wght@700;800&family=Sofia+Sans:wght@500;600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Salt Pans (salt-pans): an aerial plan of coastal salt pans under a low sun.
+    The title is lettered on the stop-log planks of the sea gate (one plank per line);
+    the sea wall below it carries the gauge plate (what flows IN = items[0].value).
+    Then a meander of ponds (one pond per item, equal size) stepping from sea-blue to
+    milky brine while the white salt crust thickens; the last row is the crystalliser
+    with one big raked salt heap whose peak breaks through the dike (what is LEFT = hl).
+    The caption is the plan's legend (KETERANGAN).
+    Metaphor: summarising. A long text flows pond to pond, water evaporates at each
+    step, what remains is the salt (the key point).
+    Everything is drawn from window.D; irregular shapes come from a fixed hash
+    (no randomness, no time).
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #24384F; }
+  body { position: relative; font-family: "Sofia Sans", sans-serif; color: #FBFBF8; }
+  #field { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* kicker painted on the top rail of the gate */
+  .kick { position: absolute; left: 90px; right: 90px; top: 308px; height: 34px; display: flex; justify-content: space-between; align-items: center; gap: 30px;
+          font: 700 28px/34px "Sofia Sans", sans-serif; letter-spacing: 0.14em; text-transform: uppercase; color: #FBFBF8; white-space: nowrap; }
+  /* title lettered on the stop-log planks: one plank per line */
+  .title { position: absolute; left: 90px; width: 900px; top: 0; font-family: "Sofia Sans Extra Condensed", sans-serif; font-weight: 800;
+           text-transform: uppercase; letter-spacing: 0.012em; color: #FBFBF8; }
+  .title .bp { display: inline-block; width: 0; height: 0; }
+  /* the highlighted word: a plate of white salt crust set into the plank */
+  .title .hl { display: inline-block; color: #24384F; background: #FBFBF8; line-height: 0.84; padding: 0.07em 0.08em 0.01em; margin: 0 0.08em; }
+  .gauge { position: absolute; font: 700 30px/36px "Sofia Sans", sans-serif; letter-spacing: 0.1em; text-transform: uppercase; color: #FBFBF8; white-space: nowrap; }
+
+  .pond { position: absolute; white-space: nowrap; }
+  .pond.one { display: flex; align-items: center; gap: 20px; }
+  .pond.one .vl { margin-left: auto; }
+  .pond.two { display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 4px; }
+  .pond .row { display: flex; align-items: center; gap: 18px; }
+  .pond .no { font: 700 30px/36px "Sofia Sans Extra Condensed", sans-serif; letter-spacing: 0.06em; border: 2px solid currentColor; padding: 0 9px; flex: none; }
+  .pond .lb { font: 600 38px/1.1 "Sofia Sans", sans-serif; overflow: hidden; text-overflow: clip; }
+  .pond .vl { font: 800 76px/0.95 "Sofia Sans Extra Condensed", sans-serif; letter-spacing: 0.01em; flex: none; }
+
+  .harvest { position: absolute; left: 90px; color: #24384F; display: flex; flex-direction: column; justify-content: center; white-space: nowrap; }
+  .harvest .hv-lb { font: 700 30px/1.2 "Sofia Sans", sans-serif; letter-spacing: 0.12em; text-transform: uppercase; color: #6E5238; }
+  .harvest .hv-hl { font: 800 84px/0.95 "Sofia Sans Extra Condensed", sans-serif; text-transform: uppercase; letter-spacing: 0.005em; }
+
+  /* legend box (KETERANGAN) = caption / voice-over slot */
+  .ltab { position: absolute; left: 106px; font: 700 26px/28px "Sofia Sans", sans-serif; letter-spacing: 0.16em; text-transform: uppercase; color: #24384F; white-space: nowrap; }
+  .caption { position: absolute; left: 148px; width: 752px; font: 500 44px/1.26 "Sofia Sans", sans-serif; color: #56677A; }
+  .caption .wg, .caption .w { white-space: nowrap; }
+  .caption .w.done { color: #24384F; }
+  .caption .w.on { color: #24384F; font-weight: 700; padding-bottom: 3px;
+                   background: linear-gradient(#9A7A5A, #9A7A5A) 0 100% / 100% 6px no-repeat; }
+
+  .foot { position: absolute; left: 90px; right: 90px; display: flex; justify-content: space-between; gap: 36px;
+          font: 600 27px/1.25 "Sofia Sans", sans-serif; color: #46566A; }
+  .foot span:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg id="field" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap></svg>
+<div class="kick"><span id="kl"></span><span id="kr"></span></div>
+<div class="title" id="title"></div>
+<div class="gauge" id="gauge"></div>
+<div id="ponds"></div>
+<div class="harvest" id="harvest"><span class="hv-lb" id="hvlb"></span><span class="hv-hl" id="hvhl"></span></div>
+<div class="ltab" id="ltab">Keterangan</div>
+<div class="caption" id="cap" data-slot="caption"></div>
+<div class="foot" id="foot"><span id="src"></span><span id="date"></span></div>
+<script>
+  // Built-in sample so the file opens on its own in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const FONTS = ['800 120px "Sofia Sans Extra Condensed"', '700 30px "Sofia Sans Extra Condensed"', '600 38px "Sofia Sans"', '500 44px "Sofia Sans"', '700 28px "Sofia Sans"'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const $ = id => document.getElementById(id);
+  const SEA = "#24384F", BRINE = "#8AABC5", MILK = "#D7E1E6", CRYSTAL = "#FBFBF8", DIKE = "#9A7A5A", WOOD = "#6E5238";
+  // salinity ramp, sea-blue -> milky brine (steps between SEA, BRINE and CRYSTAL).
+  // Mid-luminance tones are skipped so pond text always passes 4.5:1.
+  const TONES = ["#2E4A68", "#45678A", "#8AABC5", "#AFC3D2", "#C9D6DF", "#DFE7EB"];
+  const PICK = { 1: [2], 2: [0, 3], 3: [0, 2, 4], 4: [0, 1, 2, 4], 5: [0, 1, 2, 3, 4] };
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(1, items.length);
+  const hz = i => { const s = Math.sin(i * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };   // fixed hash, not random
+  const f1 = v => (Math.round(v * 10) / 10).toString();
+  const lum = hex => { const c = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16) / 255).map(v => v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  const inkOn = hex => lum(hex) < 0.2 ? CRYSTAL : SEA;
+  const rel = el => { const r = el.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height, r: r.right, b: r.bottom }; };
+
+  // ---- the sea gate: kicker rail + one stop-log plank per title line ---------------
+  const epNo = String(D.ep || "").replace(/^#/, "");
+  $("kl").textContent = D.series || D.kicker || "";
+  $("kr").textContent = epNo ? "Petak #" + epNo : "";
+  const RAIL_T = 298, RAIL_H = 54, PL_T = RAIL_T + RAIL_H + 6, PG = 8, MAX_STACK = 304;
+  const t = D.title || "", hl = (D.hl || "").trim();
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  titleEl.innerHTML = '<i class="bp" id="bp"></i>' + (at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl" id="hlw">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length)));
+  let titleFs = 150, PH = 156, LH = 164, lines = 1;
+  for (; titleFs >= 84; titleFs -= 2) {
+    PH = Math.round(titleFs * 1.04); LH = PH + PG;
+    titleEl.style.fontSize = titleFs + "px"; titleEl.style.lineHeight = LH + "px";
+    lines = Math.max(1, Math.round(titleEl.offsetHeight / LH));
+    if (lines * LH - PG <= MAX_STACK && titleEl.scrollWidth <= 900) break;
+  }
+  // centre each line's capitals on its plank
+  const cv = document.createElement("canvas").getContext("2d");
+  cv.font = '800 100px "Sofia Sans Extra Condensed"';
+  const capH = (cv.measureText("H").actualBoundingBoxAscent || 70) / 100 * titleFs;
+  const base0 = $("bp").offsetTop;
+  titleEl.style.top = Math.round(PL_T + PH / 2 - base0 + capH / 2) + "px";
+  const BB = PL_T + lines * LH - PG;            // bottom of the lowest plank = top of the sea wall
+
+  // ---- sea wall with the sluice and the gauge plate (what flows in) ------------------
+  const Y0 = BB, WALL = 46, DK = 14;
+  const pondsTop = Y0 + WALL;
+  const gaugeEl = $("gauge");
+  const inVal = items[0] ? String(items[0].value || "").trim() : "";
+  gaugeEl.textContent = inVal ? "Masuk · " + inVal : "";
+  let PLX0 = 990, PLX1 = 990;
+  if (inVal) {
+    for (let f = 30; f >= 28 && gaugeEl.offsetWidth > 420; f--) gaugeEl.style.fontSize = f + "px";
+    PLX0 = Math.round(990 - gaugeEl.offsetWidth - 34); PLX1 = 1002;
+    gaugeEl.style.left = (PLX0 + 17) + "px"; gaugeEl.style.top = (Y0 + (WALL - 36) / 2) + "px";
+  } else gaugeEl.style.display = "none";
+  const SG0 = PLX0 - 78, SG1 = PLX0 - 20;      // sea sluice, just west of the plate
+
+  // ---- pond rows: equal size; scaled only for same-unit numbers that really shrink ---
+  const parseVal = s => {
+    const m = String(s == null ? "" : s).trim().match(/^([^\d]*?)(\d[\d.,]*)\s*(.*)$/);
+    if (!m) return null;
+    let num = m[2];
+    if (num.includes(",")) num = num.replace(/\./g, "").replace(",", ".");
+    else if (/^\d{1,3}(\.\d{3})+$/.test(num)) num = num.replace(/\./g, "");
+    const v = parseFloat(num);
+    return isFinite(v) ? { v, unit: (m[1] + "|" + m[3]).toLowerCase().trim() } : null;
+  };
+  const pv = items.map(it => parseVal(it.value));
+  const scaled = n >= 2 && pv.every(p => p) && pv.every(p => p.unit === pv[0].unit) && pv.every((p, j) => j === 0 || p.v < pv[j - 1].v);
+  const wts = items.length ? items.map((_, j) => scaled ? 1.14 - 0.28 * j / (n - 1) : 1) : [1];
+  const wsum = wts.reduce((a, b) => a + b, 0), wmin = Math.min(...wts);
+  const HV_BOT = 1400;
+  let HV_H = 168;
+  const availFor = hh => HV_BOT - hh - DK - pondsTop - (n - 1) * DK;
+  while (HV_H > 150 && availFor(HV_H) * wmin / wsum < 100) HV_H -= 2;
+  while (HV_H < 210 && availFor(HV_H) * wmin / wsum > 190) HV_H += 2;
+  const HV_TOP = HV_BOT - HV_H, avail = availFor(HV_H);
+  const rows = []; let yy = pondsTop;
+  wts.forEach(w => { const h = Math.round(avail * w / wsum); rows.push({ y: yy, h }); yy += h + DK; });
+  rows[rows.length - 1].h = HV_TOP - DK - rows[rows.length - 1].y;
+
+  // brickwork meander. Even rows: main pond left + side cells right; odd rows the reverse.
+  const MAIN = [[60, 900], [180, 1040]];
+  const crustOf = j => j === 0 || n === 1 ? 0 : Math.round(7 + 19 * Math.pow(j / (n - 1), 1.15));
+  const toneOf = j => TONES[(PICK[n] || PICK[5])[j] ?? 2];
+  const boxes = rows.map((r, j) => { const [x0, x1] = MAIN[j % 2]; return { x0, x1, y: r.y, h: r.h, t: crustOf(j), tone: toneOf(j) }; });
+
+  // ---- pond labels (items written on the water) ----------------------------
+  const twoLine = rows.every(r => r.h >= 150);
+  const vCap = Math.min(twoLine ? 100 : 78, Math.round(titleFs * 0.8));
+  const vUni = twoLine ? Math.max(64, Math.min(vCap, Math.min(...rows.map(r => r.h - 70)))) : Math.max(56, Math.min(vCap, Math.min(...rows.map(r => Math.round(r.h * 0.6)))));
+  $("ponds").innerHTML = items.map((it, j) => {
+    const b = boxes[j], ink = inkOn(b.tone);
+    const padX = 24 + (ink === CRYSTAL ? b.t : b.t * 0.4);
+    const x0 = Math.max(90, b.x0 + padX), x1 = Math.min(880, b.x1 - padX);
+    const head = '<span class="no">' + String(j + 1).padStart(2, "0") + '</span><span class="lb">' + esc(it.label) + "</span>";
+    const inner = twoLine ? '<div class="row">' + head + '</div><span class="vl">' + esc(it.value) + "</span>" : head + '<span class="vl">' + esc(it.value) + "</span>";
+    return '<div class="pond ' + (twoLine ? "two" : "one") + '" style="left:' + x0 + "px;width:" + (x1 - x0) + "px;top:" + (b.y + 6) + "px;height:" + (b.h - 12) + "px;color:" + ink + '">' + inner + "</div>";
+  }).join("");
+  const pondEls = [...document.querySelectorAll(".pond")];
+  pondEls.forEach(p => {
+    const vl = p.querySelector(".vl"), lb = p.querySelector(".lb");
+    vl.style.fontSize = vUni + "px";
+    for (let f = vUni; f >= 52 && (p.scrollWidth > p.clientWidth || vl.offsetWidth > p.clientWidth); f -= 2) vl.style.fontSize = f + "px";
+    for (let f = 38; f >= 32 && p.scrollWidth > p.clientWidth; f -= 1) lb.style.fontSize = f + "px";
+    if (!twoLine) lb.style.maxWidth = (p.clientWidth - vl.offsetWidth - 90) + "px";
+  });
+
+  // ---- harvest: what is left once the water is gone (hl) --------------------
+  const hvLbl = $("hvlb"), hvHl = $("hvhl"), hv = $("harvest");
+  hvLbl.textContent = D.harvest || ("Intinya · " + n + " petak");
+  hvHl.textContent = hl || (items[n - 1] ? items[n - 1].value : "");
+  hv.style.top = HV_TOP + "px"; hv.style.height = HV_H + "px";
+  let hvFs = Math.max(60, Math.min(96, Math.round(titleFs * 0.6)));
+  for (; hvFs >= 56; hvFs -= 2) { hvHl.style.fontSize = hvFs + "px"; if (hvHl.offsetWidth <= 440) break; }
+  for (let f = 30; f >= 30 && hvLbl.offsetWidth > 440; f--) hvLbl.style.fontSize = f + "px";
+  const hvRight = 90 + Math.max(hvHl.offsetWidth, hvLbl.offsetWidth);
+
+  // ---- legend box (KETERANGAN): karaoke caption + meta -----------------------
+  const CP_TOP = HV_BOT + DK, LG_T = CP_TOP + 24;
+  const ltab = $("ltab"); ltab.style.top = (LG_T - 14) + "px";
+  const capText = D.caption || D.sub || "";
+  const capEl = $("cap");
+  const words = capText.split(/\s+/).filter(Boolean);
+  const nw = s => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+  const hw = hl ? hl.split(/\s+/).map(nw).filter(Boolean) : [];
+  let a0 = 0, aN = 1;
+  if (hw.length) for (let i = 0; i + hw.length <= words.length; i++) if (hw.every((h, q) => nw(words[i + q]) === h)) { a0 = i; aN = hw.length; break; }
+  // the active word is underlined by a dike bar; punctuation around it stays outside the bar
+  const activeHtml = s => { const m = s.match(/^([^\p{L}\p{N}]*)(.*?)([^\p{L}\p{N}]*)$/u) || ["", "", s, ""];
+    return '<span class="wg">' + esc(m[1]) + '<span class="w on">' + esc(m[2] || s) + "</span>" + esc(m[2] ? m[3] : "") + "</span>"; };
+  // the key frame shows one karaoke window of at most 2 lines; a longer voice-over line is cut with an ellipsis
+  const paint = (from, to) => {
+    const parts = from > 0 ? ['<span class="w done">…</span>'] : [];
+    for (let i = from; i < to; i++) {
+      if (i === a0) { parts.push(activeHtml(words.slice(i, i + aN).join(" ") + (i + aN - 1 === to - 1 && to < words.length ? "…" : ""))); i += aN - 1; continue; }
+      parts.push('<span class="w' + (i < a0 ? " done" : "") + '">' + esc(words[i]) + (i === to - 1 && to < words.length ? "…" : "") + "</span>");
+    }
+    capEl.innerHTML = parts.join(" ");
+  };
+  const twoLines = fs => capEl.offsetHeight <= fs * 1.26 * 2 + 2;
+  const CAP_T = LG_T + 26;
+  capEl.style.top = CAP_T + "px";
+  let cFrom = 0, cTo = words.length, cFs = 46;
+  capEl.style.fontSize = cFs + "px";
+  paint(cFrom, cTo);
+  for (; cFs > 40 && !twoLines(cFs); cFs -= 2) capEl.style.fontSize = (cFs - 2) + "px";
+  while (!twoLines(cFs) && cTo - cFrom > 1) { if (cTo - 1 >= a0 + aN) cTo--; else cFrom++; paint(cFrom, cTo); }
+  $("src").textContent = D.source ? "Sumber: " + D.source : "";
+  $("date").textContent = D.date || "";
+  const foot = $("foot");
+  const footTop = Math.min(1620 - foot.offsetHeight, CAP_T + capEl.offsetHeight + 12);
+  foot.style.top = footTop + "px";
+  const LG_B = footTop + foot.offsetHeight + 16;
+  const CP_BOT = LG_B + 18;
+
+  // ---- drawing --------------------------------------------------------------
+  let S = "";
+  // sea
+  S += `<rect x="0" y="0" width="1080" height="${Y0 + 4}" fill="${SEA}"/>`;
+  for (let r = 0, y = 34; y < Y0 - 10; r++, y += 44) {
+    for (let x = -60 + (r % 2) * 64 + Math.round(hz(r) * 40); x < 1100; x += 128) {
+      const L = 26 + Math.round(hz(r * 31 + x) * 22);
+      if (x < 6 || x + L > 1074) continue;
+      S += `<path d="M${x},${y} q${L / 2},-8 ${L},0" fill="none" stroke="#2F4966" stroke-width="3" stroke-linecap="round"/>`;
+    }
+  }
+  // a salt boat heading home, seen from above (shadow, a soft wake)
+  { const bx = 812, by = 176, a = -14;
+    S += `<g transform="translate(${bx + 20},${by + 8}) rotate(${a})" opacity="0.3"><path d="M-74,0 Q-30,-21 74,0 Q-30,21 -74,0 Z" fill="#162436"/></g>`;
+    S += `<g transform="translate(${bx},${by}) rotate(${a})">
+      <path d="M-200,-16 L-80,-4 M-200,16 L-80,4" stroke="#3A5675" stroke-width="3" stroke-linecap="round" fill="none"/>
+      <path d="M-74,0 Q-30,-21 74,0 Q-30,21 -74,0 Z" fill="${WOOD}"/>
+      <path d="M-60,0 Q-28,-13 56,0 Q-28,13 -60,0 Z" fill="#8C6C4C"/>
+      <path d="M-34,-9 V9 M-6,-11 V11 M22,-9 V9" stroke="${WOOD}" stroke-width="3"/>
+      <rect x="-24" y="-7" width="40" height="14" fill="${CRYSTAL}" opacity="0.92"/></g>`; }
+
+  // the gate: two piers, a top rail (kicker) and the stop-log planks (title)
+  const GX0 = 36, GX1 = 1044;
+  S += `<rect x="${GX0 + 14}" y="${RAIL_T + 12}" width="${GX1 - GX0}" height="${BB - RAIL_T}" fill="#16263A" opacity="0.5"/>`;
+  const grain = (x0, x1, y0, h, seed) => {
+    let o = "";
+    for (let g = 0; g < 4; g++) {
+      const gy = y0 + h * (0.18 + 0.21 * g) + (hz(seed + g) - 0.5) * 6;
+      let d = `M${x0 + 6},${f1(gy)}`;
+      for (let x = x0 + 6; x < x1 - 6; x += 120) d += ` q60,${f1((hz(seed * 5 + g * 3 + x) - 0.5) * 8)} 120,0`;
+      o += `<path d="${d}" fill="none" stroke="#5E4631" stroke-width="2" opacity="0.75"/>`;
+    }
+    return o;
+  };
+  const plank = (y, h, seed, fill) => {
+    let o = `<rect x="${GX0 + 20}" y="${y}" width="${GX1 - GX0 - 40}" height="${h}" fill="${fill}"/>`;
+    o += grain(GX0 + 20, GX1 - 20, y, h, seed);
+    o += `<rect x="${GX0 + 20}" y="${y}" width="${GX1 - GX0 - 40}" height="3" fill="#87684B"/>`;
+    o += `<rect x="${GX0 + 20}" y="${y + h - 3}" width="${GX1 - GX0 - 40}" height="3" fill="#4B3826"/>`;
+    const kx = 260 + hz(seed * 9) * 560, ky = y + h * (0.3 + hz(seed * 4) * 0.4);
+    o += `<ellipse cx="${f1(kx)}" cy="${f1(ky)}" rx="14" ry="5" fill="none" stroke="#5E4631" stroke-width="2"/>`;
+    [GX0 + 34, GX1 - 34].forEach(bx => { o += `<circle cx="${bx}" cy="${f1(y + h * 0.3)}" r="4.5" fill="#4B3826"/><circle cx="${bx}" cy="${f1(y + h * 0.7)}" r="4.5" fill="#4B3826"/>`; });
+    return o;
+  };
+  S += `<rect x="${GX0}" y="${RAIL_T - 18}" width="26" height="${BB - RAIL_T + 36}" fill="#5E4631"/><rect x="${GX1 - 26}" y="${RAIL_T - 18}" width="26" height="${BB - RAIL_T + 36}" fill="#5E4631"/>`;
+  S += `<rect x="${GX0}" y="${RAIL_T - 18}" width="26" height="6" fill="#87684B"/><rect x="${GX1 - 26}" y="${RAIL_T - 18}" width="26" height="6" fill="#87684B"/>`;
+  S += plank(RAIL_T, RAIL_H, 7, "#5E4631");
+  for (let i = 0; i < lines; i++) S += plank(PL_T + i * LH, PH, 20 + i * 7, WOOD);
+  // a salt tide-line along the foot of the lowest plank
+  { let d = `M${GX0 + 20},${BB}`; for (let x = GX0 + 20; x <= GX1 - 20; x += 9) d += ` L${x},${f1(BB - 3 - hz(x * 0.37) * 7)}`; d += ` L${GX1 - 20},${BB} Z`;
+    S += `<path d="${d}" fill="${CRYSTAL}" opacity="0.9"/>`;
+    for (let i = 0; i < 26; i++) { const cx = GX0 + 40 + hz(i * 3.3) * (GX1 - GX0 - 80), cy = BB - 12 - hz(i * 7.1) * 16, sz = 2.5 + hz(i) * 3;
+      S += `<rect x="${f1(cx - sz / 2)}" y="${f1(cy - sz / 2)}" width="${f1(sz)}" height="${f1(sz)}" transform="rotate(45 ${f1(cx)} ${f1(cy)})" fill="${CRYSTAL}" opacity="0.8"/>`; } }
+  // the hl plate: a jagged rim of salt crust around the white plate
+  const hlw = $("hlw");
+  if (hlw) {
+    const r = rel(hlw), e = 7; const pts = []; let k = 0; const j = () => 2 + hz(500 + k++) * 6;
+    for (let x = r.x - e; x < r.r + e; x += 10) pts.push([x, r.y - e + 7 - j()]);
+    for (let y = r.y - e; y < r.b + e; y += 10) pts.push([r.r + e - 7 + j(), y]);
+    for (let x = r.r + e; x > r.x - e; x -= 10) pts.push([x, r.b + e - 7 + j()]);
+    for (let y = r.b + e; y > r.y - e; y -= 10) pts.push([r.x - e + 7 - j(), y]);
+    S += `<path d="M${pts.map(q => f1(q[0]) + "," + f1(q[1])).join("L")}Z" fill="${CRYSTAL}"/>`;
+    for (let i = 0; i < 10; i++) { const cx = r.x - 16 + hz(i * 9.7) * (r.w + 32), cy = (i % 2 ? r.b + 12 : r.y - 12) + (hz(i * 2.1) - 0.5) * 6, sz = 3 + hz(i * 5) * 3;
+      S += `<rect x="${f1(cx - sz / 2)}" y="${f1(cy - sz / 2)}" width="${f1(sz)}" height="${f1(sz)}" transform="rotate(45 ${f1(cx)} ${f1(cy)})" fill="${CRYSTAL}" opacity="0.85"/>`; }
+  }
+
+  // earth under everything below the sea = the dikes; the sea wall on top
+  S += `<rect x="0" y="${Y0}" width="1080" height="${1920 - Y0}" fill="${DIKE}"/>`;
+  S += `<rect x="0" y="${Y0 + WALL - 8}" width="1080" height="8" fill="#86684B"/>`;
+  // sea sluice through the wall: water, a lifted plank, a tide staff
+  if (inVal) {
+    S += `<rect x="${SG0}" y="${Y0}" width="${SG1 - SG0}" height="${WALL + 2}" fill="${TONES[0]}"/>`;
+    S += `<path d="M${SG0 + 10},${Y0 + 14} v18 M${SG0 + 26},${Y0 + 8} v24 M${SG0 + 42},${Y0 + 14} v18" stroke="${CRYSTAL}" stroke-width="2.5" stroke-linecap="round" opacity="0.55"/>`;
+    S += `<rect x="${SG0 - 9}" y="${Y0 - 4}" width="10" height="${WALL + 8}" fill="${WOOD}"/><rect x="${SG1 - 1}" y="${Y0 - 4}" width="10" height="${WALL + 8}" fill="${WOOD}"/>`;
+    S += `<rect x="${SG0}" y="${Y0 + 2}" width="${SG1 - SG0}" height="6" fill="${WOOD}"/>`;
+    // gauge plate on the wall
+    S += `<rect x="${PLX0}" y="${Y0 + 4}" width="${PLX1 - PLX0}" height="${WALL - 8}" fill="${WOOD}"/><rect x="${PLX0}" y="${Y0 + 4}" width="${PLX1 - PLX0}" height="3" fill="#87684B"/>`;
+    S += `<rect x="${PLX0 - 14}" y="${Y0 + 3}" width="10" height="${WALL - 6}" fill="${CRYSTAL}"/>`;
+    for (let i = 0; i < 4; i++) S += `<rect x="${PLX0 - 14}" y="${Y0 + 7 + i * 9}" width="${i % 2 ? 5 : 8}" height="3" fill="${SEA}"/>`;
+  }
+
+  function crust(x, y, w, h, t, seed) {
+    if (t <= 0) return "";
+    const layer = (tt, amp, st, op) => {
+      const tx = tt, ty = Math.max(3, tt * 0.62), ix0 = x + tx, ix1 = x + w - tx, iy0 = y + ty, iy1 = y + h - ty;
+      let k = seed * 13 + st; const j = a => (hz(k++) - 0.5) * 2 * a;
+      const pts = [];
+      for (let p = ix0; p < ix1; p += st) pts.push([p, iy0 + j(ty * amp)]);
+      for (let p = iy0; p < iy1; p += st) pts.push([ix1 + j(tx * amp), p]);
+      for (let p = ix1; p > ix0; p -= st) pts.push([p, iy1 + j(ty * amp)]);
+      for (let p = iy1; p > iy0; p -= st) pts.push([ix0 + j(tx * amp), p]);
+      return `<path d="M${x},${y}h${w}v${h}h${-w}Z M${pts.map(q => f1(q[0]) + "," + f1(q[1])).join("L")}Z" fill="${CRYSTAL}" fill-rule="evenodd" opacity="${op}"/>`;
+    };
+    let out = layer(t * 1.55, 0.22, 26, 0.26) + layer(t, 0.32, 9, 0.96);
+    const per = 2 * (w + h), cnt = Math.round(per / 70);
+    for (let i = 0; i < cnt; i++) {
+      const s = hz(seed * 7 + i * 3) * per, dep = t * 1.1 + 3 + hz(seed + i * 11) * (t * 0.6 + 4), sz = 2.5 + hz(seed * 3 + i) * 3.5;
+      let cx, cy;
+      if (s < w) { cx = x + s; cy = y + dep * 0.62; } else if (s < w + h) { cx = x + w - dep; cy = y + s - w; }
+      else if (s < 2 * w + h) { cx = x + (2 * w + h - s); cy = y + h - dep * 0.62; } else { cx = x + dep; cy = y + (per - s); }
+      if (cx < x + 6 || cx > x + w - 6 || cy < y + 6 || cy > y + h - 6) continue;
+      out += `<rect x="${f1(cx - sz / 2)}" y="${f1(cy - sz / 2)}" width="${f1(sz)}" height="${f1(sz)}" transform="rotate(45 ${f1(cx)} ${f1(cy)})" fill="${CRYSTAL}" opacity="0.85"/>`;
+    }
+    return out;
+  }
+  function pond(x, y, w, h, tone, t, seed) {
+    let o = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${tone}"/>` + crust(x, y, w, h, t, seed);
+    // low western sun: each dike shades the water along the pond's west and north edge
+    o += `<rect x="${x}" y="${y}" width="${Math.min(12, w)}" height="${h}" fill="${SEA}" opacity="0.22"/>`;
+    o += `<rect x="${x}" y="${y}" width="${w}" height="5" fill="${SEA}" opacity="0.14"/>`;
+    return o;
+  }
+  const ripple = (x, y, L, col, op) => `<path d="M${f1(x)},${f1(y)} q${f1(L / 4)},-5 ${f1(L / 2)},0 t${f1(L / 2)},0" fill="none" stroke="${col}" stroke-width="2.5" stroke-linecap="round" opacity="${op}"/>`;
+  function ripples(x0, x1, y0, y1, seed, tone, count) {
+    let o = ""; if (x1 - x0 < 60 || y1 - y0 < 16) return o;
+    const op = lum(tone) < 0.2 ? 0.22 : 0.6;
+    for (let i = 0; i < count; i++) {
+      const L = 30 + hz(seed + i) * 30, x = x0 + hz(seed + i * 5) * (x1 - x0 - L), y = y0 + 8 + hz(seed * 3 + i * 7) * (y1 - y0 - 16);
+      o += ripple(x, y, L, CRYSTAL, op);
+    }
+    return o;
+  }
+  function gate(x, y, w, tone) {   // sluice in a dike: water crosses, two posts and a plank
+    let o = `<rect x="${x}" y="${y - 1}" width="${w}" height="${DK + 2}" fill="${tone}"/>`;
+    o += `<rect x="${x - 7}" y="${y - 6}" width="9" height="${DK + 12}" fill="${WOOD}"/><rect x="${x + w - 2}" y="${y - 6}" width="9" height="${DK + 12}" fill="${WOOD}"/>`;
+    o += `<rect x="${x}" y="${y + DK / 2 - 2}" width="${w}" height="4" fill="${WOOD}" opacity="0.8"/>`;
+    o += `<path d="M${x + 8},${y + DK + 8} h${w / 2 - 12} M${x + w / 2 + 4},${y + DK + 14} h${w / 2 - 12}" stroke="${CRYSTAL}" stroke-width="2.5" stroke-linecap="round" opacity="0.65"/>`;
+    return o;
+  }
+
+  // ponds, one per item, plus the neighbouring cells of the field
+  const SIDE_FR = [0.46, 0.6, 0.38, 0.55, 0.42];
+  rows.forEach((r, j) => {
+    const odd = j % 2 === 1, b = boxes[j], tone = b.tone, tt = b.t;
+    const k = (PICK[n] || PICK[5])[j] ?? 2, toneB = TONES[Math.min(5, k + 1)];
+    const sh = Math.round(r.h * SIDE_FR[j % 5]);
+    if (!odd) {
+      S += pond(0, r.y, 46, r.h, tone, 0, 900 + j);
+      S += pond(914, r.y, 166, sh - 5, toneB, Math.round(tt * 0.8), 300 + j);
+      S += pond(914, r.y + sh + 5, 166, r.h - sh - 5, tone, Math.round(tt * 0.8), 400 + j);
+      S += ripples(934, 1064, r.y + tt * 0.6 + 4, r.y + sh - 5 - tt * 0.6 - 4, 50 + j, toneB, 3);
+    } else {
+      S += pond(0, r.y, 166, sh - 5, toneB, Math.round(tt * 0.8), 500 + j);
+      S += pond(0, r.y + sh + 5, 166, r.h - sh - 5, tone, Math.round(tt * 0.8), 600 + j);
+      S += pond(1054, r.y, 26, r.h, tone, 0, 700 + j);
+      S += ripples(20, 150, r.y + sh + 5 + tt * 0.6 + 4, r.y + r.h - tt * 0.6 - 4, 60 + j, tone, 2);
+    }
+    S += pond(b.x0, r.y, b.x1 - b.x0, r.h, tone, tt, 100 + j * 17);
+    // wind ripples in the open water the text leaves free
+    const p = pondEls[j];
+    if (p) {
+      const y0 = r.y + tt * 0.62 + 6, y1 = r.y + r.h - tt * 0.62 - 6;
+      if (twoLine) {
+        const used = Math.max(...[...p.querySelectorAll(".row, .vl")].map(e => e.getBoundingClientRect().right));
+        S += ripples(used + 60, b.x1 - tt - 20, y0, y1, 80 + j * 9, tone, 6);
+      } else {
+        const lbR = p.querySelector(".lb").getBoundingClientRect().right, vlL = p.querySelector(".vl").getBoundingClientRect().left;
+        S += ripples(lbR + 40, vlL - 40, y0, y1, 80 + j * 9, tone, 3);
+        if (odd) S += ripples(900, b.x1 - tt - 16, y0, y1, 90 + j * 9, tone, 3);
+      }
+    }
+  });
+  // meander: the sea sluice feeds pond 1, then gates alternate left / right down the rows
+  const GATE_L = 206, GATE_R = 820;
+  rows.forEach((r, j) => { if (j < rows.length - 1) S += gate(j % 2 === 0 ? GATE_L : GATE_R, r.y + r.h, 44, toneOf(j + 1)); });
+  const lastGateX = (rows.length - 1) % 2 === 0 ? GATE_L : GATE_R;
+
+  // windmill pump on the first cross dike (top view) with its long shadow
+  if (rows.length >= 2) {
+    const wx = 974, wy = rows[0].y + rows[0].h + DK / 2, ang = [22, 112, 202, 292];
+    const sail = (dx, dy, col, op) => ang.map(a => `<g transform="translate(${wx + dx},${wy + dy}) rotate(${a})" opacity="${op}">
+        <rect x="12" y="-8" width="70" height="16" fill="none" stroke="${col}" stroke-width="3.5"/>
+        <path d="M12,0 H82 M29,-8 V8 M47,-8 V8 M64,-8 V8" stroke="${col}" stroke-width="2.5"/></g>`).join("");
+    S += sail(16, 8, SEA, 0.26) + `<circle cx="${wx + 16}" cy="${wy + 8}" r="16" fill="${SEA}" opacity="0.26"/>`;
+    S += `<rect x="${wx - 15}" y="${wy - 15}" width="30" height="30" fill="${WOOD}" transform="rotate(12 ${wx} ${wy})"/>`;
+    S += sail(0, 0, WOOD, 1) + `<circle cx="${wx}" cy="${wy}" r="9" fill="#4B3826"/>`;
+  }
+
+  // crystalliser: raked white salt, one big heap whose peak breaks through the dike
+  const rake = (x0, x1, y0, y1, col) => { let o = ""; for (let y = y0 + 10; y < y1 - 5; y += 13) o += `<line x1="${x0 + 14}" y1="${y}" x2="${x1 - 4}" y2="${y}" stroke="${col || "#E3EAEE"}" stroke-width="2"/>`; return o; };
+  const whitePan = (x0, x1, y0, y1, raked) => `<rect x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}" fill="${CRYSTAL}"/>` + (raked ? rake(x0, x1, y0, y1) : "") + `<rect x="${x0}" y="${y0}" width="${Math.min(12, x1 - x0)}" height="${y1 - y0}" fill="${SEA}" opacity="0.07"/>`;
+  S += whitePan(0, 46, HV_TOP, HV_BOT, true) + whitePan(60, 1040, HV_TOP, HV_BOT, true) + whitePan(1054, 1080, HV_TOP, HV_BOT, true);
+  S += gate(lastGateX, HV_TOP - DK, 44, MILK);
+  // heap: lit west face in crystal, solid brine-blue east face, sea-blue shadow thrown east
+  function heap(cx, by, R, h, big) {
+    const P = (x, y) => f1(cx + R * x) + "," + f1(by + y);   // x in R units, y in px from the base line
+    const tip = Math.min(1036, cx + R + h * (big ? 1.25 : 1.6));
+    // long shadow thrown east along the ground
+    let o = `<path d="M${P(-0.35, R * 0.1)} L${P(0.85, -R * 0.05)} L${f1(tip)},${f1(by + R * 0.03)} L${P(0.55, R * 0.17)} Z" fill="${SEA}" opacity="0.35"/>`;
+    // a rounded cone: lit west face (crystal), half-tone, shaded east face (brine)
+    const flankL = `C${P(-0.7, -h * 0.42)} ${P(-0.3, -h * 0.86)} ${P(-0.1, -h * 0.98)} Q${P(0, -h * 1.03)} ${P(0.1, -h * 0.98)}`;
+    const flankR = `C${P(0.3, -h * 0.86)} ${P(0.7, -h * 0.42)} ${P(1, 0)}`;
+    o += `<path d="M${P(-1, 0)} ${flankL} ${flankR} Q${P(0, R * 0.16)} ${P(-1, 0)} Z" fill="${CRYSTAL}" stroke="${BRINE}" stroke-width="${big ? 3 : 2}"/>`;
+    o += `<path d="M${P(-0.04, -h * 1.0)} Q${P(0.1, -h * 0.98)} ${P(0.1, -h * 0.98)} ${flankR} Q${P(0.5, R * 0.13)} ${P(0.02, R * 0.16)} C${P(0.0, -h * 0.4)} ${P(-0.04, -h * 0.8)} ${P(-0.04, -h * 1.0)} Z" fill="${MILK}"/>`;
+    o += `<path d="M${P(0.1, -h * 0.98)} ${flankR} Q${P(0.62, R * 0.12)} ${P(0.3, R * 0.15)} C${P(0.22, -h * 0.4)} ${P(0.12, -h * 0.8)} ${P(0.1, -h * 0.98)} Z" fill="${BRINE}"/>`;
+    // granules
+    const g = big ? 34 : 8;
+    for (let i = 0; i < g; i++) {
+      const fy = 0.08 + hz(i * 3.7 + R) * 0.8, half = 1 - fy * 0.92, fx = (hz(i * 5.3 + R) * 2 - 1) * half * 0.86;
+      const shade = fx > 0.18, mid = !shade && fx > -0.02;
+      o += `<circle cx="${P(fx, 0).split(",")[0]}" cy="${f1(by - h * fy)}" r="${f1((big ? 2.2 : 1.4) + hz(i) * 1.4)}" fill="${shade ? "#7398B6" : mid ? "#BCCDD9" : MILK}"/>`;
+    }
+    return o;
+  }
+  {
+    const by = HV_BOT - 26, last = rows[rows.length - 1];
+    let peakY = last.y + last.h - 30;
+    const sizeFor = py => { const h = by - py; return { h, R: Math.max(110, Math.min(150, h / 1.2)) }; };
+    let { h, R } = sizeFor(peakY);
+    let cx = Math.max(hvRight + 44 + R, 600);
+    for (let pass = 0; pass < 2; pass++) {
+      const p = pondEls[rows.length - 1];
+      if (!p) break;
+      const hits = [...p.querySelectorAll(".no, .lb, .vl")].map(rel).filter(q => q.r > cx - R * 0.42 && q.x < cx + R * 0.42);
+      const tb = hits.length ? Math.max(...hits.map(q => q.b)) + 10 : -1;
+      if (tb > peakY) { peakY = Math.min(tb, HV_TOP - 2); ({ h, R } = sizeFor(peakY)); cx = Math.max(hvRight + 44 + R, 600); } else break;
+    }
+    if (cx + R > 1010) R = Math.max(110, 1010 - cx);
+    // a small heap further back, then the big one, then the rake resting at its foot
+    const sx = cx + R + 120;
+    if (sx + 50 < 1070) S += heap(sx, HV_TOP + Math.min(96, HV_H * 0.55), 50, 54, false);
+    S += heap(cx, by, R, h, true);
+    const rx = cx + R * 0.86, ry = by - 6;
+    S += `<path d="M${f1(rx + 8)},${f1(ry)} L${f1(Math.min(1068, rx + 200))},${f1(ry + 10)}" stroke="${WOOD}" stroke-width="7" stroke-linecap="round"/>`;
+    S += `<rect x="${f1(rx - 2)}" y="${f1(ry - 30)}" width="10" height="60" fill="${WOOD}" transform="rotate(3 ${f1(rx)} ${f1(ry)})"/>`;
+    for (let i = 0; i < 6; i++) S += `<path d="M${f1(rx - 2)},${f1(ry - 26 + i * 10.5)} h-9" stroke="${WOOD}" stroke-width="3"/>`;
+  }
+
+  // caption pan with the legend box (KETERANGAN), then the white yard below
+  S += whitePan(0, 46, CP_TOP, CP_BOT, false) + whitePan(60, 1040, CP_TOP, CP_BOT, false) + whitePan(1054, 1080, CP_TOP, CP_BOT, false);
+  S += `<rect x="76" y="${LG_T}" width="928" height="${LG_B - LG_T}" fill="none" stroke="${SEA}" stroke-width="2.5"/>`;
+  S += `<rect x="96" y="${LG_T - 16}" width="${ltab.offsetWidth + 20}" height="32" fill="${CRYSTAL}"/>`;
+  { const sy = CAP_T + Math.round((parseFloat(capEl.style.fontSize) * 1.26 - 38) / 2), sx = 92;
+    S += `<rect x="${sx}" y="${sy}" width="38" height="38" fill="${DIKE}"/><rect x="${sx + 5}" y="${sy + 5}" width="28" height="28" fill="${TONES[1]}"/>`;
+    S += `<rect x="${sx + 7.5}" y="${sy + 7.5}" width="23" height="23" fill="none" stroke="${CRYSTAL}" stroke-width="3"/>`; }
+  const Y1 = CP_BOT + DK, Y2 = Y1 + Math.round((1920 - Y1) * 0.56);
+  const yards = [[Y1, Y2, [[0, 46], [60, 470], [484, 1040], [1054, 1080]]], [Y2 + DK, 1920, [[0, 300], [314, 760], [774, 1080]]]];
+  yards.forEach(([y0, y1, cells], r) => cells.forEach(([x0, x1], c) => {
+    S += whitePan(x0, x1, y0, y1, true);
+    const cnt = Math.floor((x1 - x0 - 40) / 130);
+    for (let i = 0; i < cnt; i++) { const R2 = 24 + hz(r + c * 7 + i * 13) * 12;
+      S += heap(x0 + 60 + i * 130 + hz(r * 9 + c * 3 + i) * 24, y1 - 20 - hz(c + i * 5 + r) * Math.max(0, y1 - y0 - 90), R2, R2 * 1.05, false); }
+  }));
+  $("field").innerHTML = S;
+  }
+</script>
+</body>
+</html>

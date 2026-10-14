@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo+Narrow:wght@700&family=Onest:wght@500;600;700;800&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Refill Depot (refill-depot): an Indonesian "depot air minum isi ulang" shop
+    front in flat elevation. The title is the shop's blue acrylic signboard
+    (hl = the red price label on it). Raw water runs from the tank through a
+    row of filter housings (one per item: value on the blue head, label on the
+    sump sticker), then a UV tube and a tap into a gallon on the counter.
+    The "catch" housing (item matching D.hl, else the middle one) holds the
+    clogged cartridge and the grit: water is murky before it, clear after it.
+    A dark clump with a red flag tag rides the inlet pipe (the hook detail).
+    The source sits on a framed "Hasil Uji Lab" certificate on the wall and the
+    karaoke caption is vinyl lettering on the counter front.
+    Metaphor: an AI answer passes a row of filters before it reaches you.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #EEF1F2; }
+  body { position: relative; color: #17222E; font-family: "Onest", sans-serif; }
+  #scene { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  /* signboard */
+  .sign { position: absolute; left: 90px; width: 900px; top: 308px; background: #3A6FB5; border: 4px solid #17222E; border-radius: 16px;
+          padding: 13px 30px 24px; box-shadow: inset 0 0 0 6px #3A6FB5, inset 0 0 0 9px #6A93CB, 0 12px 0 rgba(23, 34, 46, 0.13); }
+  .sign .bolt { position: absolute; width: 16px; height: 16px; border-radius: 50%; background: #D9DEE2; border: 3px solid #17222E; }
+  .strip { display: flex; justify-content: space-between; align-items: center; gap: 18px; margin: 0 -4px; padding: 5px 14px 6px; background: #FFFFFF;
+           border-radius: 8px; font: 700 27px "Onest", sans-serif; letter-spacing: 0.07em; text-transform: uppercase; line-height: 1.12; color: #17222E; }
+  .strip .depot { color: #3A6FB5; display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+  .strip .ser { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .title { margin-top: 16px; font-family: "Archivo Black", sans-serif; font-weight: 400; color: #FFFFFF; text-align: center; line-height: 1.06;
+           letter-spacing: -0.005em; text-wrap: balance; }
+  .title .hl { display: inline-block; background: #D24A2E; padding: 0.02em 0.17em 0.08em; margin: 0 0.03em; border-radius: 12px; line-height: 1.02;
+               box-shadow: inset 0 0 0 6px #D24A2E, inset 0 0 0 9px #FFFFFF; transform: rotate(-1.5deg); }
+
+  /* housings: stage tab on the bracket, value on the blue head, label on the sump sticker */
+  .tab { position: absolute; background: #FFFFFF; border: 2.5px solid #17222E; border-radius: 6px; padding: 1px 10px 2px; font: 700 26px "Onest", sans-serif;
+         line-height: 1.2; letter-spacing: 0.05em; color: #17222E; white-space: nowrap; }
+  .head { position: absolute; background: #3A6FB5; border: 3px solid #17222E; border-radius: 9px; display: flex; align-items: center; justify-content: center;
+          padding: 0 6px; color: #FFFFFF; text-align: center; }
+  .head .v { font: 700 48px "Archivo Narrow", sans-serif; line-height: 1.0; letter-spacing: 0.005em; white-space: nowrap; text-wrap: balance; }
+  .stk { position: absolute; background: #FFFFFF; border: 3px solid #17222E; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; }
+  .stk .band { height: 12px; flex: none; background: #3A6FB5; }
+  .stk.catch .band { background: #D24A2E; height: 16px; }
+  .stk .l { flex: 1; display: flex; align-items: center; justify-content: center; padding: 9px 0 12px; }
+  .stk .lt { width: 100%; text-align: center; font: 500 32px "Onest", sans-serif; line-height: 1.08; color: #17222E; hyphens: manual; -webkit-hyphens: manual; text-wrap: balance; }
+
+  /* framed lab certificate = source card */
+  .cert { position: absolute; background: #FFFFFF; border: 8px solid #17222E; padding: 16px 20px 14px;
+          box-shadow: inset 0 0 0 5px #FFFFFF, inset 0 0 0 7px #3A6FB5, 0 8px 0 rgba(23, 34, 46, 0.12); }
+  .cert .ch { display: flex; justify-content: space-between; align-items: center; font: 700 26px "Onest", sans-serif; letter-spacing: 0.08em; text-transform: uppercase;
+              color: #17222E; padding-bottom: 8px; border-bottom: 2.5px solid #17222E; margin-bottom: 10px; }
+  .cert .cs { font: 500 28px "Onest", sans-serif; line-height: 1.22; color: #17222E; }
+  .cert .cf { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-top: 6px; }
+  .cert .cd { font: 500 26px "Onest", sans-serif; color: #3B4652; padding-bottom: 6px; }
+
+  /* caption = white vinyl lettering on the counter front */
+  .cap { position: absolute; left: 90px; width: 900px; background: #17222E; color: #FFFFFF; font: 600 46px "Onest", sans-serif; line-height: 1.2; text-align: center; }
+  .cap .w { white-space: nowrap; }
+  .cap .next { color: #B7C2CC; }
+  .cap .on { font-weight: 800; text-decoration: underline 7px #D24A2E; text-underline-offset: 9px; text-decoration-skip-ink: none; }
+</style>
+</head>
+<body>
+<svg id="scene" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" data-layout-allow-overlap data-layout-allow-overflow></svg>
+<div class="sign" id="sign">
+  <span class="bolt" style="left:8px;top:8px"></span><span class="bolt" style="right:8px;top:8px"></span>
+  <span class="bolt" style="left:8px;bottom:8px"></span><span class="bolt" style="right:8px;bottom:8px"></span>
+  <div class="strip"><span class="depot"><svg width="20" height="28" viewBox="0 0 22 30" aria-hidden="true"><path d="M11 2 C11 2 2 14 2 20 A9 9 0 0 0 20 20 C20 14 11 2 11 2 Z" fill="#3A6FB5"/></svg>Depot air minum</span><span class="ser" id="ser"></span></div>
+  <div class="title" id="title"></div>
+</div>
+<div id="layer"></div>
+<div class="cert" id="cert">
+  <div class="ch"><span>Hasil uji lab</span><svg width="22" height="30" viewBox="0 0 22 30" aria-hidden="true"><path d="M11 2 C11 2 2 14 2 20 A9 9 0 0 0 20 20 C20 14 11 2 11 2 Z" fill="#CFE3F1" stroke="#17222E" stroke-width="2.5"/></svg></div>
+  <div class="cs" id="src"></div>
+  <div class="cf"><div class="cd" id="date"></div>
+    <svg width="70" height="70" viewBox="0 0 70 70" aria-hidden="true" style="flex:none;transform:rotate(-12deg)"><circle cx="35" cy="35" r="31" fill="none" stroke="#3A6FB5" stroke-width="4"/><circle cx="35" cy="35" r="23" fill="none" stroke="#3A6FB5" stroke-width="2" stroke-dasharray="4 4"/><path d="M35 19 C35 19 26 31 26 37 A9 9 0 0 0 44 37 C44 31 35 19 35 19 Z" fill="#3A6FB5"/><path d="M29 48 L41 48" stroke="#3A6FB5" stroke-width="3" stroke-linecap="round"/></svg>
+  </div>
+</div>
+<div class="cap" id="cap" data-slot="caption"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak baca kata. Dia baca token.", hl: "token",
+    sub: "Makanya AI kadang salah hitung huruf di kata \"strawberry\".",
+    items: [{ label: "Ken·apa", value: "2 token" }, { label: "AI", value: "1 token" }, { label: "bisa", value: "1 token" }, { label: "ng·arang", value: "2 token" }],
+    source: "ilustrasi — jumlah token beda tiap model", date: "per 14 Okt 2026" };
+
+  const FONTS = ['400 80px "Archivo Black"', '700 48px "Archivo Narrow"', '500 32px Onest', '600 46px Onest', '700 44px Onest', '800 46px Onest'];
+  Promise.all(FONTS.map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  // Indonesian syllable splitter -> soft hyphens (V-CV, VC-CV, VC-CCV; ng/ny/kh/sy stay together; no V-V splits)
+  function hyph(word) {
+    return word.replace(/[A-Za-zÀ-ÿ]{5,}/g, run => {
+      const isV = k => /[aiueoéAIUEOÉ]/.test(run[k]);
+      const glued = k => k > 0 && /^(ng|ny|kh|sy)$/i.test(run[k - 1] + run[k]);
+      const vs = []; for (let k = 0; k < run.length; k++) if (isV(k)) vs.push(k);
+      const cuts = [];
+      for (let a = 0; a < vs.length - 1; a++) {
+        const units = [];
+        for (let k = vs[a] + 1; k < vs[a + 1]; k++) { if (glued(k) && units.length) units[units.length - 1].push(k); else units.push([k]); }
+        if (!units.length) continue;
+        const cut = units.length === 1 ? units[0][0] : units[1][0];
+        if (cut >= 2 && run.length - cut >= 2) cuts.push(cut);
+      }
+      let out = "", p = 0; cuts.forEach(c => { out += run.slice(p, c) + "­"; p = c; });
+      return out + run.slice(p);
+    });
+  }
+
+  function render() {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const PAPER = "#EEF1F2", INK = "#17222E", BLUE = "#3A6FB5", WATER = "#CFE3F1", RED = "#D24A2E";
+  const MUD = "#9A7D58", CREAM = "#E6DCC8";   // functional tints for dirty water + grit only (tea-brown, never a surface colour)
+  const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const mix = (a, b, t) => { const A = hex(a), B = hex(b); return "#" + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, "0")).join(""); };
+  const STEEL = mix(PAPER, INK, 0.1), STEEL2 = mix(PAPER, INK, 0.2);
+  const hsh = i => { const s = Math.sin(i * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); }; // deterministic
+  const cv = document.createElement("canvas").getContext("2d");
+  const tw = (txt, font) => { cv.font = font; return cv.measureText(txt).width; };
+  const words = s => String(s == null ? "" : s).split(/\s+/).filter(Boolean);
+  const items = (D.items || []).slice(0, 5);
+  const n = Math.max(1, items.length);
+
+  /* ---------- signboard: kicker strip + title, hl = red price label ---------- */
+  $("ser").textContent = D.series ? D.series + (D.ep ? " · " + D.ep : "") : (D.kicker || "");
+  const t = String(D.title || ""), hl = String(D.hl || "");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  for (let fs = 104; fs >= 54; fs -= 2) {
+    titleEl.style.fontSize = fs + "px";
+    const h = titleEl.offsetHeight;
+    if (titleEl.scrollWidth <= titleEl.clientWidth + 1 && h <= 204 && h <= fs * 1.06 * 3 + 14) break;
+  }
+  const sign = $("sign");
+  const SB = sign.offsetTop + sign.offsetHeight;
+
+  /* ---------- caption first: its height sets the counter top ---------- */
+  const capText = String(D.caption || D.sub || "").trim();
+  const cw = words(capText);
+  let act = 0;                                   // one active word: first word of hl in the caption, else the first word
+  if (hl) {
+    const low = capText.toLowerCase(), k = low.indexOf(hl.toLowerCase());
+    if (k >= 0) { let pos = 0; for (let i = 0; i < cw.length; i++) { const st = low.indexOf(cw[i].toLowerCase(), pos), e = st + cw[i].length; pos = e; if (e > k) { act = i; break; } } }
+  }
+  const cap = $("cap");
+  cap.innerHTML = cw.map((w, i) => `<span class="w${i < act ? " past" : i > act ? " next" : " on"}">${esc(w)}</span>`).join(" ");
+  let capFs = 46;
+  for (; capFs >= 40; capFs -= 1) { cap.style.fontSize = capFs + "px"; if (cap.offsetHeight <= capFs * 1.2 * 2 + 2) break; }
+  if (capFs < 40) { capFs = 40; cap.style.fontSize = "40px"; cap.style.letterSpacing = "-0.012em"; }
+  const capH = cap.offsetHeight;
+  const CT = Math.min(1478, 1580 - capH);       // counter top; lifts only for a 3-line caption
+  const capTop = Math.round(CT + 20 + (1620 - CT - 20 - capH) / 2);
+  cap.style.top = capTop + "px";
+
+  /* ---------- horizontal geometry ---------- */
+  const RX0 = n >= 5 ? 78 : 96, RX1 = n >= 5 ? 1002 : 984, P = (RX1 - RX0) / n;
+  const SW = n <= 3 ? Math.min(244, P - 50) : n >= 5 ? P - 10 : P - 26;   // sump width
+  const HW = Math.min(SW + 16, P - 6);                                       // head width
+  const cxs = items.map((_, i) => RX0 + P * (i + 0.5));
+
+  /* ---------- catch housing: the item matching hl, else the middle stage ---------- */
+  // (a hl that matches every item, e.g. "token" in "2 token", picks nothing: fall back to the middle)
+  let catchI = Math.floor((n - 1) / 2);
+  if (hl) {
+    const H = hl.toLowerCase(), hit = f => items.map((it, i) => String(it[f]).toLowerCase().includes(H) ? i : -1).filter(i => i >= 0);
+    const byL = hit("label"), byV = hit("value");
+    const pick = byL.length && byL.length < n ? byL : byV.length && byV.length < n ? byV : [];
+    if (pick.length) catchI = pick[0];
+  }
+  // dirt left after k stages: a little removed before the catch, most of it at the catch, the rest after
+  const q = [1];
+  for (let k = 0; k < n; k++) q.push(q[k] * (k < catchI ? 0.8 : k === catchI ? 0.15 : 0.35));
+  const tint = d => d >= 0.3 ? mix(CREAM, MUD, Math.min(1, (d - 0.3) / 0.7)) : mix(WATER, CREAM, Math.pow(d / 0.3, 1.6));
+
+  /* ---------- tabs, heads (value), stickers (label) ---------- */
+  const layer = $("layer");
+  layer.innerHTML = items.map((it, i) =>
+    `<div class="tab" id="t${i}">${String(i + 1).padStart(2, "0")}</div>` +
+    `<div class="head" id="h${i}"><div class="v">${esc(it.value)}</div></div>` +
+    `<div class="stk${i === catchI ? " catch" : ""}" id="k${i}"><div class="band"></div><div class="l"><div class="lt"></div></div></div>`).join("");
+
+  // values: one common size; a long value may take 2 lines (split on spaces only)
+  const vPad = 8, vInner = HW - 6 - 2 * vPad;   // text stays inside x 90-990
+  const vW = (s, fs) => tw(s, `700 ${fs}px "Archivo Narrow"`) + 0.005 * fs * s.length;
+  const pack = (s, fs, W) => { const L = []; let cur = ""; for (const w of words(s)) { if (vW(w, fs) > W) return null; const nx = cur ? cur + " " + w : w; if (vW(nx, fs) <= W) cur = nx; else { L.push(cur); cur = w; } } if (cur) L.push(cur); return L; };
+  let vfs = 0, vwrap = false;
+  for (let fs = 50; fs >= 30; fs -= 2) if (items.every(it => vW(String(it.value), fs) <= vInner)) { vfs = fs; break; }
+  if (vfs < 40) for (let fs = 50; fs > Math.max(vfs, 29); fs -= 2) if (items.every(it => { const L = pack(String(it.value), fs, vInner); return L && L.length <= 2; })) { vfs = fs; vwrap = true; break; }
+  const vLast = !vfs;
+  if (vLast) { vfs = 30; vwrap = true; }
+  let valH = 0;
+  items.forEach((_, i) => {
+    const h = $("h" + i), v = h.querySelector(".v");
+    h.style.width = HW + "px"; h.style.padding = `0 ${vPad}px`;
+    v.style.fontSize = vfs + "px"; v.style.whiteSpace = vwrap ? "normal" : "nowrap";
+    if (vLast) { v.style.letterSpacing = "-0.03em"; v.style.overflowWrap = "anywhere"; }
+    valH = Math.max(valH, v.offsetHeight);
+  });
+  const HH = Math.max(64, Math.round(valH + 18));
+
+  // labels: sticker as narrow as the labels allow (more glass visible); long words get soft hyphens
+  const stMax = n >= 5 ? SW : n === 4 ? SW - 8 : SW - 14, pad = n >= 5 ? 4 : 8;
+  const lInMax = stMax - 6 - 2 * pad;
+  const lW = (s, fs) => tw(s, `500 ${fs}px Onest`);
+  let natural = 0;
+  items.forEach(it => { const w = lW(String(it.label), 32); natural = Math.max(natural, w <= lInMax ? w + 18 : lInMax); });
+  const stW = Math.round(Math.max(Math.min(140, stMax), Math.min(stMax, natural + 6 + 2 * pad)));
+  const lIn = stW - 6 - 2 * pad;
+  const setLabels = (fs, hy) => {
+    let ok = true;
+    items.forEach((it, i) => {
+      const k = $("k" + i), lt = k.querySelector(".lt");
+      k.style.width = stW + "px"; k.querySelector(".l").style.padding = `9px ${pad}px 12px`;
+      lt.style.fontSize = fs + "px"; lt.style.letterSpacing = fs < 32 ? "-0.01em" : "0";
+      lt.textContent = words(it.label).map(w => hy && lW(w, fs) > lIn ? hyph(w) : w).join(" ");
+      k.style.height = "auto";
+      if (lt.scrollWidth > lt.clientWidth + 1 || lt.offsetHeight > fs * 1.08 * 3 + 2) ok = false;
+    });
+    return ok;
+  };
+  // prefer no hyphen: 32 px, then 30 px; only then soft-hyphenate the words that do not fit
+  let lfs = [[32, false], [30, false], [32, true], [30, true]].find(([fs, hy]) => setLabels(fs, hy));
+  if (!lfs) { lfs = [30, true]; setLabels(30, true); items.forEach((_, i) => { $("k" + i).querySelector(".lt").style.overflowWrap = "anywhere"; }); }
+  let stH = Math.max(...items.map((_, i) => $("k" + i).offsetHeight));
+
+  /* ---------- vertical geometry ---------- */
+  const tabH = items.length ? $("t0").offsetHeight : 36;
+  const MT = SB + 18;                          // stage tabs hang here
+  const BT = MT + Math.round(tabH / 2);        // wall bracket top
+  const HT = MT + tabH + 6;                    // head top
+  const HCY = HT + HH / 2;                     // header pipe centre
+  const sumpTop = HT + HH + 16;
+  const sumpBot = Math.max(sumpTop + 280, Math.min(sumpTop + 380, 1040));
+  const SH = sumpBot - sumpTop;
+  // stickers sit just under the collar; their bottoms never enter the action-button band (x > 900, y > 900)
+  let stTop = sumpTop + 10;
+  if (stTop + stH > 896 && lfs[0] > 30 && setLabels(30, true)) stH = Math.max(...items.map((_, i) => $("k" + i).offsetHeight));
+  if (stTop + stH > 896) stTop = Math.max(sumpTop - 14, 896 - stH);   // last resort: the sticker covers the collar
+  const UVY = sumpBot + 50, UV0 = 760, UV1 = 990;
+  const GX = 620, GW = 204;
+  const tapY = UVY + 34, GTop = tapY + 58;
+
+  /* ---------- certificate position (measured before the wall is drawn: the wire hangs it) ---------- */
+  const cert = $("cert");
+  $("src").textContent = D.source || "";
+  $("date").textContent = D.date || "";
+  const cX = 96, cW = GX - GW / 2 - 44 - cX;
+  cert.style.left = cX + "px"; cert.style.width = cW + "px";
+  const cH = cert.offsetHeight;
+  const cTop = Math.round(Math.max(sumpBot + 74, Math.min(CT - cH - 22, (sumpBot + CT) / 2 - cH / 2 + 14)));
+  cert.style.top = cTop + "px";
+
+  /* ---------- the wall and the machine (SVG) ---------- */
+  let s = "";
+  s += `<defs>
+    <linearGradient id="clog" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${MUD}" stop-opacity="0.15"/><stop offset="0.45" stop-color="${MUD}" stop-opacity="0.55"/><stop offset="1" stop-color="${mix(MUD, INK, 0.4)}" stop-opacity="0.95"/></linearGradient>
+    <pattern id="wound" width="14" height="14" patternUnits="userSpaceOnUse"><rect width="14" height="14" fill="#F4F1EC"/><path d="M-2 2 L2 -2 M0 14 L14 0 M12 16 L16 12" stroke="${INK}" stroke-opacity="0.22" stroke-width="2"/><path d="M-2 12 L2 16 M0 0 L14 14 M12 -2 L16 2" stroke="${INK}" stroke-opacity="0.12" stroke-width="2"/></pattern>
+    <pattern id="pleat" width="10" height="10" patternUnits="userSpaceOnUse"><rect width="10" height="10" fill="#FAFBFB"/><path d="M5 0 V10" stroke="${INK}" stroke-opacity="0.26" stroke-width="2"/></pattern>
+    <pattern id="fine" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="#FFFFFF"/><path d="M3 0 V6" stroke="${BLUE}" stroke-opacity="0.32" stroke-width="1.5"/></pattern>
+    <pattern id="carbon" width="16" height="16" patternUnits="userSpaceOnUse"><rect width="16" height="16" fill="#2A333E"/><circle cx="4" cy="5" r="1.6" fill="#5A6672"/><circle cx="11" cy="11" r="1.4" fill="#5A6672"/><circle cx="13" cy="3" r="1" fill="#46525E"/></pattern>
+  </defs>`;
+
+  // wall: white ceramic tiles, one band of pale-blue tiles above the counter
+  s += `<rect width="1080" height="${CT}" fill="${PAPER}"/>`;
+  s += `<rect x="0" y="${CT - 120}" width="1080" height="120" fill="${mix(PAPER, WATER, 0.55)}"/>`;
+  for (let x = 0; x <= 1080; x += 120) s += `<path d="M${x} 0 V${CT}" stroke="${INK}" stroke-opacity="0.07" stroke-width="2"/>`;
+  for (let y = CT - 120; y > 0; y -= 120) s += `<path d="M0 ${y} H1080" stroke="${INK}" stroke-opacity="0.07" stroke-width="2"/>`;
+
+  const pipe = (d, fill, w = 28) => `<path d="${d}" fill="none" stroke="${INK}" stroke-width="${w}" stroke-linejoin="round"/><path d="${d}" fill="none" stroke="${fill}" stroke-width="${w - 7}" stroke-linejoin="round"/>`;
+  const chev = (x, y, dir) => { const r = 7; const d = dir === "down" ? `M${x - r} ${y - r / 2} L${x} ${y + r / 2} L${x + r} ${y - r / 2}` : dir === "left" ? `M${x + r / 2} ${y - r} L${x - r / 2} ${y} L${x + r / 2} ${y + r}` : `M${x - r / 2} ${y - r} L${x + r / 2} ${y} L${x - r / 2} ${y + r}`;
+    return `<path d="${d}" fill="none" stroke="${INK}" stroke-opacity="0.55" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`; };
+
+  // raw-water tank (tandon) up top, partly off-frame
+  s += `<rect x="-90" y="-70" width="420" height="200" rx="70" fill="${STEEL}" stroke="${INK}" stroke-width="3.5"/>`;
+  for (const bx of [90, 210]) s += `<path d="M${bx} -70 V130" stroke="${INK}" stroke-opacity="0.35" stroke-width="3"/>`;
+  s += `<rect x="262" y="-10" width="18" height="110" rx="9" fill="${tint(1)}" stroke="${INK}" stroke-width="2.5"/>`;
+  // raw inlet: a wide clear pipe down the left edge, into stage 1
+  const inX = 50;
+  s += pipe(`M${inX} 128 V${HCY - 40} Q${inX} ${HCY} ${inX + 40} ${HCY} H${cxs[0]}`, tint(1), 50);
+  for (let y = 252; y < HCY - 220; y += 150) s += chev(inX, y, "down");
+  s += `<rect x="${inX - 26}" y="196" width="52" height="40" rx="4" fill="${STEEL2}" stroke="${INK}" stroke-width="3"/><path d="M${inX} 196 V170" stroke="${INK}" stroke-width="5"/><rect x="${inX - 28}" y="160" width="56" height="12" rx="6" fill="${RED}" stroke="${INK}" stroke-width="3"/>`;
+  // suspended grit in the raw inlet
+  for (let k = 0; k < 16; k++) { const py = 260 + hsh(k * 7 + 400) * (HCY - 330), px = inX - 14 + hsh(k * 3 + 401) * 28; s += `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="${(1.8 + hsh(k + 402) * 2).toFixed(1)}" fill="${INK}" fill-opacity="0.45"/>`; }
+  // the hook detail: a dark clump with a red flag tag riding down the inlet
+  const clY = Math.round(HCY - 150);
+  s += `<g transform="translate(${inX} ${clY}) scale(1.3)"><path d="M2 -14 L-4 -34" stroke="${INK}" stroke-width="2.5"/>
+    <g transform="rotate(-14 -4 -40)"><rect x="-14" y="-58" width="20" height="26" rx="3" fill="${RED}" stroke="${INK}" stroke-width="2.5"/><path d="M-4 -53 V-42" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round"/><circle cx="-4" cy="-37" r="1.9" fill="#FFFFFF"/></g>
+    <path d="M-14 -8 C-8 -16 5 -16 12 -9 C18 -3 16 8 9 12 C2 16 -9 15 -14 9 C-18 4 -18 -3 -14 -8 Z" fill="${mix(MUD, INK, 0.55)}" stroke="${INK}" stroke-width="2.5"/>
+    <circle cx="-5" cy="-3" r="2.4" fill="${mix(MUD, PAPER, 0.25)}"/><circle cx="5" cy="4" r="1.8" fill="${mix(MUD, PAPER, 0.25)}"/><circle cx="-2" cy="7" r="1.4" fill="${mix(MUD, PAPER, 0.25)}"/></g>`;
+
+  // links between heads + outlet: right, down the riser, through the UV tube, left to the tap
+  const clean = mix(WATER, BLUE, 0.12);
+  for (let i = 0; i < n - 1; i++) s += pipe(`M${cxs[i]} ${HCY} H${cxs[i + 1]}`, tint(q[i + 1]));
+  s += pipe(`M${cxs[n - 1]} ${HCY} H${1040 - 34} Q1040 ${HCY} 1040 ${HCY + 34} V${UVY - 34} Q1040 ${UVY} ${1040 - 34} ${UVY} H${UV1}`, clean);
+  s += pipe(`M${UV0} ${UVY} H${GX + 34} Q${GX} ${UVY} ${GX} ${UVY + 34} V${tapY + 6}`, clean);
+
+  // wall bracket behind the heads (the stage tabs hang on its top edge)
+  s += `<rect x="64" y="${BT}" width="${RX1 + 12 - 64}" height="${HT + HH + 10 - BT}" fill="${STEEL}" stroke="${INK}" stroke-width="3"/>`;
+  for (const bx of [80, RX1 - 4]) for (const by of [BT + 14, HT + HH - 4]) s += `<circle cx="${bx}" cy="${by}" r="6" fill="${PAPER}" stroke="${INK}" stroke-width="2.5"/>`;
+  s += pipe(`M${inX + 40} ${HCY} H${cxs[0]}`, tint(1), 34);
+  for (let i = 0; i < n - 1; i++) s += pipe(`M${cxs[i]} ${HCY} H${cxs[i + 1]}`, tint(q[i + 1]));
+  s += pipe(`M${cxs[n - 1]} ${HCY} H${RX1 + 30}`, clean);
+
+  /* housings */
+  const TYPES = n <= 3 ? ["wound", "carbon", "fine"] : ["wound", "carbon", "pleat", "fine", "fine"];
+  items.forEach((it, i) => {
+    const cx = cxs[i], x0 = cx - SW / 2, x1 = cx + SW / 2, r = Math.min(46, SW * 0.24);
+    const d = q[i], isC = i === catchI;
+    const body = `M${x0} ${sumpTop} V${sumpBot - r} Q${x0} ${sumpBot} ${x0 + r} ${sumpBot} H${x1 - r} Q${x1} ${sumpBot} ${x1} ${sumpBot - r} V${sumpTop} Z`;
+    s += `<clipPath id="sc${i}"><path d="${body}"/></clipPath>`;
+    s += `<path d="${body}" fill="${tint(d)}"/>`;
+    const CW = Math.round(SW * 0.56), cy0 = sumpTop + 16, cy1 = sumpBot - 34;
+    s += `<g clip-path="url(#sc${i})">`;
+    s += `<rect x="${cx - CW / 2}" y="${cy0}" width="${CW}" height="${cy1 - cy0}" fill="url(#${TYPES[i] || "fine"})" stroke="${INK}" stroke-width="2.5"/>`;
+    if (isC) s += `<rect x="${cx - CW / 2}" y="${cy0}" width="${CW}" height="${cy1 - cy0}" fill="url(#clog)"/>`;
+    s += `<rect x="${cx - CW / 2 - 4}" y="${cy0 - 4}" width="${CW + 8}" height="12" fill="${STEEL}" stroke="${INK}" stroke-width="2.5"/>`;
+    s += `<rect x="${cx - CW / 2 - 4}" y="${cy1 - 8}" width="${CW + 8}" height="12" fill="${STEEL}" stroke="${INK}" stroke-width="2.5"/>`;
+    // suspended grit: as much as the water still carries
+    const cnt = Math.round(Math.min(1, d) * 34);
+    for (let k = 0; k < cnt; k++) {
+      const px = x0 + 8 + hsh(i * 97 + k * 3) * (SW - 16), py = sumpTop + 12 + hsh(i * 53 + k * 7 + 1) * (SH - 30), pr = 1.8 + hsh(k * 11 + i) * 2.8;
+      s += `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="${pr.toFixed(1)}" fill="${mix(MUD, INK, 0.6)}" fill-opacity="${(0.35 + 0.4 * d).toFixed(2)}"/>`;
+    }
+    // the catch: settled grit pile with two caught red flag tags in it
+    if (isC) {
+      const gy = sumpBot - 34;
+      let gp = `M${x0} ${gy + 6}`;
+      const bumps = [0, -8, -3, -13, -6, -16, -5, -11, -2, -8, 0];
+      bumps.forEach((b, k) => { gp += ` L${(x0 + (SW * k) / (bumps.length - 1)).toFixed(1)} ${gy + b}`; });
+      gp += ` L${x1} ${sumpBot} L${x0} ${sumpBot} Z`;
+      for (const [fx, rot] of [[0.28, -18], [0.7, 14]]) {
+        const tx = x0 + SW * fx, ty = gy - 12;
+        s += `<g transform="rotate(${rot} ${tx} ${ty + 12})"><path d="M${tx} ${ty + 12} V${ty - 4}" stroke="${INK}" stroke-width="2"/><rect x="${tx - 8}" y="${ty - 24}" width="16" height="21" rx="2.5" fill="${RED}" stroke="${INK}" stroke-width="2"/><path d="M${tx} ${ty - 20} V${ty - 12}" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round"/><circle cx="${tx}" cy="${ty - 7.5}" r="1.5" fill="#FFFFFF"/></g>`;
+      }
+      s += `<path d="${gp}" fill="${mix(MUD, INK, 0.45)}"/>`;
+      for (let k = 0; k < 26; k++) {
+        const px = x0 + 6 + hsh(k * 5 + 900) * (SW - 12), py = gy - 16 + hsh(k * 9 + 901) * 14, pr = 2 + hsh(k * 13 + 902) * 3.5;
+        s += `<circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="${pr.toFixed(1)}" fill="${mix(MUD, INK, 0.3)}"/>`;
+      }
+    }
+    // glass highlights
+    s += `<rect x="${x0 + SW * 0.1}" y="${sumpTop + 16}" width="${Math.max(6, SW * 0.05)}" height="${SH - 60}" rx="4" fill="#FFFFFF" fill-opacity="0.7"/>`;
+    s += `<rect x="${x1 - SW * 0.12}" y="${sumpTop + 30}" width="4" height="${SH - 90}" rx="2" fill="#FFFFFF" fill-opacity="0.5"/>`;
+    s += `</g>`;
+    s += `<path d="${body}" fill="none" stroke="${INK}" stroke-width="3.5"/>`;
+    // collar (threaded ring)
+    s += `<rect x="${x0 - 6}" y="${sumpTop - 14}" width="${SW + 12}" height="22" fill="${BLUE}" stroke="${INK}" stroke-width="3"/>`;
+    for (let x = x0 + 4; x < x1; x += 10) s += `<path d="M${x} ${sumpTop - 11} V${sumpTop + 5}" stroke="${INK}" stroke-opacity="0.35" stroke-width="2"/>`;
+    // pressure-relief button on the head's right shoulder (red on the catch)
+    const bx = cx + HW / 2 - 36;
+    s += `<rect x="${bx + 7}" y="${HT - 8}" width="10" height="10" fill="${STEEL2}" stroke="${INK}" stroke-width="2.5"/><rect x="${bx}" y="${HT - 20}" width="24" height="14" rx="4" fill="${isC ? RED : STEEL}" stroke="${INK}" stroke-width="3"/>`;
+  });
+
+  /* UV sterilizer */
+  s += `<rect x="${UV0}" y="${UVY - 30}" width="${UV1 - UV0}" height="60" rx="10" fill="${STEEL}" stroke="${INK}" stroke-width="3"/>`;
+  s += `<rect x="${UV0 - 8}" y="${UVY - 36}" width="30" height="72" rx="5" fill="${STEEL2}" stroke="${INK}" stroke-width="3"/>`;
+  s += `<rect x="${UV1 - 22}" y="${UVY - 36}" width="30" height="72" rx="5" fill="${STEEL2}" stroke="${INK}" stroke-width="3"/>`;
+  s += `<rect x="${UV0 + 52}" y="${UVY - 11}" width="${UV1 - UV0 - 104}" height="22" rx="11" fill="${WATER}" stroke="${INK}" stroke-width="2.5"/>`;
+  s += `<path d="M${UV0 + 64} ${UVY} H${UV1 - 64}" stroke="${BLUE}" stroke-width="5" stroke-linecap="round"/>`;
+  s += chev(UV0 - 40, UVY, "left");
+
+  /* tap */
+  s += `<rect x="${GX - 22}" y="${tapY - 6}" width="44" height="40" rx="6" fill="${BLUE}" stroke="${INK}" stroke-width="3"/>`;
+  s += `<path d="M${GX + 18} ${tapY + 6} L${GX + 62} ${tapY - 22}" stroke="${INK}" stroke-width="14" stroke-linecap="round"/><path d="M${GX + 18} ${tapY + 6} L${GX + 62} ${tapY - 22}" stroke="${STEEL}" stroke-width="7" stroke-linecap="round"/>`;
+  s += `<path d="M${GX - 15} ${tapY + 34} H${GX + 15} L${GX + 10} ${tapY + 56} H${GX - 10} Z" fill="${INK}"/>`;
+
+  /* gallons: a fresh one just docked under the tap, a capped + sealed one beside it */
+  function gallon(cx, top, level, sealed, id) {
+    const gw = GW, nw = 78, nh = 30, sh = 64, gr = 26, gb = CT, gl = cx - gw / 2, grr = cx + gw / 2, gt = top;
+    const gal = `M${cx - nw / 2} ${gt} V${gt + nh} C${cx - nw / 2} ${gt + nh + sh * 0.55} ${gl} ${gt + nh + sh * 0.35} ${gl} ${gt + nh + sh} V${gb - gr} Q${gl} ${gb} ${gl + gr} ${gb} H${grr - gr} Q${grr} ${gb} ${grr} ${gb - gr} V${gt + nh + sh} C${grr} ${gt + nh + sh * 0.35} ${cx + nw / 2} ${gt + nh + sh * 0.55} ${cx + nw / 2} ${gt + nh} V${gt} Z`;
+    const bodyTop = gt + nh + sh, bH = gb - bodyTop;
+    const lvl = gb - (gb - bodyTop) * level;
+    let g = `<clipPath id="${id}"><path d="${gal}"/></clipPath>`;
+    g += `<path d="${gal}" fill="${mix(PAPER, WATER, 0.5)}"/>`;
+    g += `<g clip-path="url(#${id})"><rect x="${gl}" y="${lvl}" width="${gw}" height="${gb - lvl + 2}" fill="${WATER}"/>`;
+    g += sealed ? `<path d="M${gl} ${lvl} H${grr}" stroke="${BLUE}" stroke-width="4"/>`
+                : `<path d="M${gl} ${lvl} Q${cx - 50} ${lvl - 5} ${cx - 14} ${lvl} T${cx + 40} ${lvl} T${grr} ${lvl}" fill="none" stroke="${BLUE}" stroke-width="4"/>`;
+    for (const f of [0.3, 0.68]) { const gy = bodyTop + bH * f; g += `<path d="M${gl} ${gy} H${grr} M${gl} ${gy + 10} H${grr}" stroke="${INK}" stroke-opacity="0.45" stroke-width="2.5"/>`; }
+    g += `<rect x="${gl + 22}" y="${bodyTop - 6}" width="12" height="${bH - 30}" rx="6" fill="#FFFFFF" fill-opacity="0.85"/>`;
+    g += `<rect x="${grr - 30}" y="${bodyTop + 20}" width="5" height="${bH - 80}" rx="2" fill="#FFFFFF" fill-opacity="0.7"/>`;
+    g += `</g><path d="${gal}" fill="none" stroke="${INK}" stroke-width="3.5"/>`;
+    if (sealed) {
+      // blue cap + white shrink seal (segel) with its tear strip
+      g += `<rect x="${cx - nw / 2 - 6}" y="${gt - 12}" width="${nw + 12}" height="34" rx="5" fill="${BLUE}" stroke="${INK}" stroke-width="3"/>`;
+      for (let x = cx - nw / 2 + 4; x < cx + nw / 2; x += 9) g += `<path d="M${x} ${gt - 8} V${gt + 18}" stroke="${INK}" stroke-opacity="0.3" stroke-width="2"/>`;
+      g += `<path d="M${cx - nw / 2 - 2} ${gt + 20} H${cx + nw / 2 + 2} V${gt + 46} C${cx + nw / 2 - 10} ${gt + 50} ${cx - nw / 2 + 10} ${gt + 50} ${cx - nw / 2 - 2} ${gt + 46} Z" fill="#FFFFFF" stroke="${INK}" stroke-width="2.5"/>`;
+      g += `<path d="M${cx - nw / 2 + 2} ${gt + 33} H${cx + nw / 2 - 2}" stroke="${RED}" stroke-width="2.5" stroke-dasharray="5 4"/>`;
+    } else {
+      g += `<rect x="${cx - nw / 2 - 6}" y="${gt + 6}" width="${nw + 12}" height="12" rx="3" fill="${STEEL}" stroke="${INK}" stroke-width="3"/>`;
+    }
+    return { svg: g, lvl };
+  }
+  const G1 = gallon(GX, GTop, 0.05, false, "gc1");
+  s += G1.svg;
+  s += gallon(GX + GW + 50, GTop, 0.9, true, "gc2").svg;
+  // stream just touching the floor of the fresh gallon + ripples
+  const lvl = G1.lvl;
+  s += `<rect x="${GX - 6}" y="${tapY + 56}" width="12" height="${lvl - tapY - 56}" fill="${WATER}" stroke="${BLUE}" stroke-width="2.5"/>`;
+  s += `<ellipse cx="${GX}" cy="${lvl}" rx="30" ry="5" fill="none" stroke="${BLUE}" stroke-width="2.5"/><ellipse cx="${GX}" cy="${lvl + 1}" rx="56" ry="8" fill="none" stroke="${BLUE}" stroke-opacity="0.5" stroke-width="2"/>`;
+
+  /* counter: steel lip with the gallon hatch under the tap, dark front with vinyl lettering */
+  s += `<rect x="-4" y="${CT}" width="1088" height="20" fill="${STEEL}" stroke="${INK}" stroke-width="3"/>`;
+  s += `<rect x="${GX - GW / 2 - 14}" y="${CT + 3}" width="${GW + 28}" height="14" fill="${STEEL2}" stroke="${INK}" stroke-width="2"/>`;
+  for (const hx of [GX - GW / 2 + 16, GX + GW / 2 - 40]) s += `<rect x="${hx}" y="${CT + 6}" width="24" height="8" rx="2" fill="${STEEL}" stroke="${INK}" stroke-width="2"/>`;
+  s += `<rect x="0" y="${CT + 20}" width="1080" height="${1920 - CT - 20}" fill="${INK}"/>`;
+  const doorY = Math.max(1648, capTop + capH + 22);
+  for (const x of [360, 720]) s += `<path d="M${x} ${doorY} V1920" stroke="#2C3A49" stroke-width="3"/>`;
+  s += `<path d="M0 ${doorY} H1080" stroke="#2C3A49" stroke-width="3"/>`;
+  for (const x of [330, 390, 690, 750]) s += `<rect x="${x - 4}" y="${doorY + 52}" width="8" height="70" rx="4" fill="#2C3A49"/>`;
+
+  /* certificate wire + nail */
+  const nx = cX + cW / 2, ny = cTop - 44;
+  s += `<path d="M${cX + 46} ${cTop + 4} L${nx} ${ny} L${cX + cW - 46} ${cTop + 4}" fill="none" stroke="${INK}" stroke-width="2.5" stroke-linejoin="round"/>`;
+  s += `<circle cx="${nx}" cy="${ny}" r="7" fill="${STEEL2}" stroke="${INK}" stroke-width="2.5"/>`;
+
+  $("scene").innerHTML = s;
+
+  /* ---------- place tabs, heads, stickers ---------- */
+  items.forEach((_, i) => {
+    const tb = $("t" + i); tb.style.left = Math.round(cxs[i] - tb.offsetWidth / 2) + "px"; tb.style.top = MT + "px";
+    const h = $("h" + i); h.style.left = Math.round(cxs[i] - HW / 2) + "px"; h.style.top = HT + "px"; h.style.height = HH + "px";
+    const k = $("k" + i); k.style.left = Math.round(cxs[i] - stW / 2) + "px"; k.style.top = stTop + "px"; k.style.height = stH + "px";
+  });
+  }
+</script>
+</body>
+</html>
