@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Eye Chart (eye-chart): a backlit optometrist's Snellen chart on a pale
+    clinic wall. Each data item is one row of optotypes; difficulty is encoded
+    purely by type size. Row labels sit in the left margin (mono), the reading
+    value sits in the right margin like an acuity fraction (blue chip).
+    Smaller decorative rows are tumbling-E optotypes drawn as SVG paths
+    (never tiny live text). A red line marks one row; a black occluder paddle
+    and a pointer complete the clinic ritual.
+    Deterministic: no randomness, fixed letter sets and fixed E rotations.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #F7F6F2; }
+  body { position: relative; color: #121212; font-family: "Archivo", sans-serif; }
+  .kick { position: absolute; left: 90px; right: 90px; top: 292px; display: flex; justify-content: space-between; font: 500 28px "IBM Plex Mono", monospace; letter-spacing: 0.1em; text-transform: uppercase; color: #5C594F; }
+  .kick b { color: #2F5FB3; font-weight: 600; }
+  .title { position: absolute; left: 90px; width: 900px; top: 348px; font-weight: 900; line-height: 1.02; letter-spacing: -0.01em; }
+  .title .hl { color: #C9302C; text-decoration: underline; text-decoration-thickness: 0.09em; text-underline-offset: 0.1em; text-decoration-skip-ink: none; }
+  #panel { position: absolute; left: 90px; width: 900px; background: #FDFCF8; border: 5px solid #121212; box-shadow: 0 18px 0 #DDDAD2; }
+  #panel .head { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #121212; padding: 14px 26px; font: 600 27px "IBM Plex Mono", monospace; letter-spacing: 0.12em; text-transform: uppercase; color: #121212; }
+  #panel .head .dot { width: 18px; height: 18px; border-radius: 50%; background: #C9302C; }
+  .row { position: absolute; left: 0; right: 0; display: flex; align-items: center; }
+  .row .opts { overflow: visible; height: auto; }
+  .row .mlabel { flex: 0 0 218px; padding-left: 20px; font: 500 30px "IBM Plex Mono", monospace; color: #55524A; white-space: nowrap; overflow: hidden; }
+  .row .opts { flex: 1 1 auto; text-align: center; font-weight: 900; letter-spacing: 0.14em; color: #121212; white-space: nowrap; overflow: hidden; line-height: 1.35; }
+  .row .val { flex: 0 0 212px; margin-right: 16px; text-align: center; font: 600 32px "IBM Plex Mono", monospace; color: #121212; background: #E9EEF8; border: 2.5px solid #2F5FB3; padding: 6px 4px; white-space: nowrap; }
+  .row.redline::after { content: ""; position: absolute; left: 224px; right: 246px; bottom: -12px; height: 7px; background: #C9302C; }
+  #svgrows { position: absolute; left: 0; top: 0; width: 900px; height: 1920px; pointer-events: none; }
+  .cap { position: absolute; left: 90px; width: 900px; font: 600 42px "IBM Plex Mono", monospace; line-height: 1.3; color: #121212; }
+  .cap .w.on { background: #C9302C; color: #F7F6F2; padding: 0 12px 3px; box-decoration-break: clone; }
+  .meta { position: absolute; left: 90px; right: 90px; font: 400 27px "IBM Plex Mono", monospace; color: #6B6759; display: flex; justify-content: space-between; gap: 30px; }
+  .meta span:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="kick"><span id="kick"></span><span>RUANG PEMERIKSAAN</span></div>
+<div class="title" id="title"></div>
+<div id="panel">
+  <div class="head"><span id="headtxt"></span><span class="dot"></span></div>
+  <div id="rows"></div>
+  <svg id="svgrows" viewBox="0 0 900 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+</div>
+<div class="cap" id="cap" data-slot="caption"></div>
+<div class="meta" id="meta"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series_id: "ai-in-numbers", series: "AI dalam angka", ep: "#01", kicker: "AI dalam angka · #01",
+    title: "Sampai baris mana AI masih bisa baca?", hl: "masih bisa baca",
+    sub: "Benchmark itu baris uji: makin kecil, makin sulit.",
+    items: [{ label: "Matematika SD", value: "lulus" }, { label: "Soal SMA", value: "lulus" }, { label: "Coding", value: "lirik-lirik" }, { label: "Olimpiade", value: "buram" }],
+    caption: "Baris demi baris makin kecil, sampai model cuma melihat kabur.",
+    source: "ilustrasi — baris = tingkat tes", date: "per 14 Okt 2026" };
+
+  Promise.all(['900 100px "Archivo"', '900 60px "Archivo"', '600 28px "IBM Plex Mono"', '500 30px "IBM Plex Mono"', '600 36px "IBM Plex Mono"', '600 42px "IBM Plex Mono"'].map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const INK = "#121212", RED = "#C9302C", BLUE = "#2F5FB3";
+  const items = (D.items || []).slice(0, 5);
+
+  // header + title (largest element, auto-fit 100 -> 64 then wrap)
+  const ep = String(D.ep || "#01").replace(/^#/, "");
+  $("kick").innerHTML = "<b>" + esc(D.series || "") + " " + esc(ep) + "</b>";
+  $("headtxt").textContent = (D.series_id || "UJI TAJAM").toUpperCase();
+  const t = String(D.title || ""), hl = String(D.hl || "");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  for (let fs = 100; fs >= 64; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (titleEl.offsetHeight <= fs * 1.06 * 3) break; }
+  const titleBottom = titleEl.offsetTop + titleEl.offsetHeight;
+
+  // panel geometry
+  const panel = $("panel");
+  const PY = Math.max(586, titleBottom + 40);
+  const PB = 1470;
+  panel.style.top = PY + "px"; panel.style.height = (PB - PY) + "px";
+  const headH = panel.querySelector(".head").offsetHeight;
+
+  // rows: 5 item rows + filler E-rows after them (the chart keeps shrinking)
+  const rowTop = PY + headH + 14, rowBot = PB - 34;
+  const N_FIXED = 6;                       // item rows + one transition row
+  const pitch = (rowBot - rowTop) / N_FIXED;
+  const seq = "FPEZLTOD".split("");
+  const optsStr = (i, n) => Array.from({ length: n }, (_, k) => seq[(i * 3 + k) % seq.length]).join(" ");
+
+  // DOM item rows
+  const rowsEl = $("rows");
+  const n = items.length;
+  items.forEach((it, i) => {
+    const size = Math.max(30, Math.round(120 * Math.pow(0.62, i)));
+    const r = document.createElement("div");
+    r.className = "row" + (i === 1 ? " redline" : "");
+    r.style.top = (rowTop - PY + i * pitch + (pitch - size * 1.5) / 2) + "px";
+    r.style.height = Math.round(size * 1.9) + "px";
+    const lEl = document.createElement("div"); lEl.className = "mlabel"; lEl.textContent = it.label;
+    const oEl = document.createElement("div"); oEl.className = "opts";
+    oEl.style.fontSize = size + "px";
+    oEl.textContent = optsStr(i, size > 90 ? 3 : size > 60 ? 4 : 5);
+    const vEl = document.createElement("div"); vEl.className = "val"; vEl.textContent = it.value;
+    r.append(lEl, oEl, vEl); rowsEl.appendChild(r);
+    // guard: measure with canvas, shrink font (then ellipsize) so chip/label never overflow
+    const mcv = document.createElement("canvas").getContext("2d");
+    const fit = (el, txt, maxW, hi, lo) => {
+      for (let f2 = hi; f2 >= lo; f2 -= 1) { mcv.font = '600 ' + f2 + 'px "IBM Plex Mono", monospace'; if (mcv.measureText(txt).width <= maxW) { el.style.fontSize = f2 + "px"; return; } }
+      el.style.fontSize = lo + "px";
+      let t2 = txt; while (t2.length > 1 && mcv.measureText(t2 + "…").width > maxW) t2 = t2.slice(0, -1);
+      el.textContent = t2 + "…";
+    };
+    fit(vEl, it.value, 178, 32, 24);
+    fit(lEl, it.label, 188, 30, 24);
+  });
+
+  // filler rows as SVG tumbling-E paths (below the item rows, shrinking to unreadable)
+  const svg = $("svgrows");
+  let g = "";
+  const E = (cx, cy, s, rot) => {
+    const w = s * 0.92, bar = s * 0.26, arm = s * 0.86;
+    const p = "M0,0 h" + w + " v" + bar + " h-" + (w - bar) + " v" + ((arm - 2 * bar) / 2 - bar + bar) + " h" + (w - bar) + " v" + bar + " h-" + (w - bar) + " v" + (arm / 2 - bar) + " h" + w + " v" + bar + " h-" + w + " z";
+    return '<path d="' + p + '" fill="' + INK + '" transform="translate(' + cx.toFixed(1) + ',' + cy.toFixed(1) + ') rotate(' + rot + ') translate(' + (-w / 2).toFixed(1) + ',' + (-arm / 2).toFixed(1) + ')"/>';
+  };
+  const ROT = [0, -90, 180, 90, 0, -90, 180, 90, 0];
+  for (let k = 0; k < 3; k++) {
+    const i = n + k;
+    if (i >= N_FIXED) break;
+    const size = Math.max(9, Math.round(120 * Math.pow(0.62, i)));
+    const cy = rowTop + i * pitch + pitch / 2 + (pitch - size * 1.5) / 2 + size * 0.75 - PY;
+    const count = 7, cx0 = 172 + 30, span = 900 - 230 - 60;
+    let rowG = "";
+    for (let j = 0; j < count; j++) rowG += E(cx0 + span * j / (count - 1), cy, size, ROT[(i * 5 + j) % 8]);
+    // faint row rule
+    rowG += '<line x1="172" y1="' + (cy - pitch * 0.32).toFixed(1) + '" x2="874" y2="' + (cy - pitch * 0.32).toFixed(1) + '" stroke="#DDDAD2" stroke-width="1.5"/>';
+    g += rowG;
+  }
+  svg.innerHTML = g;
+  svg.style.top = "0px";
+
+  // pointer (black wand) aimed at the top row's first optotype; occluder paddle at mid rows
+  const p0 = rowTop + pitch / 2 - PY;
+  g += '<g>' +
+    '<line x1="212" y1="' + (p0 - 96) + '" x2="268" y2="' + (p0 - 16) + '" stroke="' + INK + '" stroke-width="12" stroke-linecap="round"/>' +
+    '<circle cx="272" cy="' + (p0 - 10) + '" r="17" fill="' + RED + '"/></g>';
+  const oc = rowTop + Math.min(n + 0.4, N_FIXED - 0.4) * pitch - PY;
+  g += '<g><rect x="66" y="' + (oc - 52) + '" width="104" height="104" rx="16" fill="' + INK + '"/>' +
+       '<rect x="96" y="' + (oc + 50) + '" width="40" height="120" fill="' + INK + '"/></g>';
+  svg.innerHTML = g;
+
+  // caption karaoke (data-slot="caption"): D.caption || D.sub, one active word
+  const cap = String(D.caption || D.sub || "").trim();
+  const words = cap.split(/\s+/).filter(Boolean);
+  const norm = w => w.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+  const hws = hl ? hl.split(/\s+/).map(norm).filter(Boolean) : [];
+  let a0 = -1, a1 = -1;
+  if (hws.length) {
+    for (let i = 0; i + hws.length <= words.length && a0 < 0; i++) if (hws.every((h2, k) => norm(words[i + k]) === h2)) { a0 = i; a1 = i + hws.length - 1; }
+    if (a0 < 0 && hws.length === 1) { const j = words.findIndex(w => norm(w).includes(hws[0])); if (j >= 0) a0 = a1 = j; }
+  }
+  if (a0 < 0) a0 = a1 = 0;
+  const parts = [];
+  for (let i = 0; i < words.length; i++) {
+    if (i === a0) { parts.push('<span class="w on">' + esc(words.slice(a0, a1 + 1).join(" ")) + "</span>"); i = a1; }
+    else parts.push('<span class="w">' + esc(words[i]) + "</span>");
+  }
+  const capEl = $("cap");
+  capEl.innerHTML = parts.join(" ");
+  let cfs = 42;
+  for (; cfs >= 40; cfs -= 2) { capEl.style.fontSize = cfs + "px"; if (capEl.offsetHeight <= cfs * 1.3 * 2) break; }
+  capEl.style.top = (PB + 26) + "px";
+
+  // meta
+  const m = $("meta");
+  m.innerHTML = "<span>" + (D.source ? "Sumber: " + esc(D.source) : "") + "</span><span>" + esc(D.date || "") + "</span>";
+  m.style.top = Math.min(1596, PB + 26 + capEl.offsetHeight + 12) + "px";
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Survey Meter (survey-meter): a civil-defence radiation survey meter,
+    chunky yellow enamel case on an olive bench. One big analogue dial 0–5
+    with fine tenth ticks; the needle reads the highlight word. Each data
+    item is one position around the black range knob (candidate next word),
+    listed as engraved rows with its probability as the value. A paper tally
+    tag hangs off the case corner and carries the caption karaoke slot.
+    Deterministic: needle angle from a fixed integer hash of D.hl.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #6F6A5E; }
+  body { position: relative; color: #1B1B1A; font-family: "Barlow Condensed", sans-serif; }
+  .kick { position: absolute; left: 90px; right: 90px; top: 268px; display: flex; justify-content: space-between; font: 600 28px "IBM Plex Mono", monospace; letter-spacing: 0.12em; text-transform: uppercase; color: #F3EEDF; }
+  .title { position: absolute; left: 90px; width: 900px; top: 322px; text-align: center; font-weight: 800; text-transform: uppercase; line-height: 1.0; letter-spacing: 0.01em; color: #F3EEDF; }
+  .title .hl { background: #E8B820; color: #1B1B1A; padding: 0 16px 4px; box-decoration-break: clone; }
+  #stage { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  .rows { position: absolute; white-space: nowrap; }
+  .rows .lbl { font: 600 36px "Barlow Condensed", sans-serif; letter-spacing: 0.03em; }
+  .rows .val { font: 700 34px "IBM Plex Mono", monospace; }
+  .tag { position: absolute; background: #F3EEDF; color: #1B1B1A; box-shadow: 0 10px 18px rgba(0,0,0,0.35); padding: 14px 18px 16px; }
+  .tag .taghead { font: 700 26px "IBM Plex Mono", monospace; letter-spacing: 0.1em; color: #C8322B; margin-bottom: 10px; white-space: nowrap; }
+  .cap { position: absolute; left: 90px; width: 820px; font: 600 42px "IBM Plex Mono", monospace; line-height: 1.3; color: #F3EEDF; }
+  .cap .w.on { background: #C8322B; color: #F3EEDF; padding: 0 10px 3px; box-decoration-break: clone; }
+  .meta { position: absolute; left: 90px; font: 400 27px "IBM Plex Mono", monospace; color: #E4DECB; }
+</style>
+</head>
+<body>
+<div class="kick"><span id="kick"></span><span id="rangebadge"></span></div>
+<div class="title" id="title"></div>
+<svg id="stage" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div id="rowsbox"></div>
+<div class="tag" id="tag">
+  <div class="taghead">CATATAN KLIK · ×1</div>
+  <div id="ticks"></div>
+</div>
+<div class="cap" id="cap" data-slot="caption"></div>
+<div class="meta" id="meta"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series_id: "how-ai-works", series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "Tiap kata AI itu hasil undian berbobot.", hl: "undian",
+    sub: "Dadu dikocok tiap kata, tapi rata-ratanya tetap teratur.",
+    items: [{ label: "kata terduga", value: "p 0,42" }, { label: "sinonim dekat", value: "p 0,21" }, { label: "kata menjauh", value: "p 0,09" }, { label: "liar total", value: "p 0,03" }],
+    caption: "Satu kata dikocok dari dadu berbobot, begini bunyinya.",
+    source: "ilustrasi — sampling suhu 1,0", date: "per 14 Okt 2026" };
+
+  Promise.all(['800 100px "Barlow Condensed"', '600 36px "Barlow Condensed"', '700 34px "IBM Plex Mono"', '600 41px "IBM Plex Mono"', '600 28px "IBM Plex Mono"'].map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const INK = "#1B1B1A", YEL = "#E8B820", CREAM = "#F3EEDF", RED = "#C8322B", OLIVE = "#6F6A5E";
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+
+  // fixed integer hash (FNV) -> needle reading in [1.1, 4.4]
+  const hstr = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0); };
+  const reading = 1.1 + (hstr(String(D.hl || D.title || "x")) % 331) / 100;
+
+  // kicker + title (largest, auto-fit)
+  const ep = String(D.ep || "#01").replace(/^#/, "");
+  $("kick").textContent = (D.series || D.kicker || "") + " " + ep;
+  $("rangebadge").textContent = "RENTANG ×1";
+  const t = String(D.title || ""), hl = String(D.hl || "");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  for (let fs = 104; fs >= 64; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (titleEl.offsetHeight <= fs * 1.06 * 3) break; }
+
+  // ---------- case geometry ----------
+  const CY = Math.max(636, titleEl.offsetTop + titleEl.offsetHeight + 56);
+  const CX = 80, CW = 920, CB = 1462;
+  // item rows on the engraved strip
+  const stripY = 1128, stripB = 1362;
+  const rowH = Math.min(58, (stripB - stripY) / n);
+
+  const svg = $("stage");
+  const rot = (cx, cy, a) => "rotate(" + a + " " + cx + " " + cy + ")";
+  let g = "";
+  // bench shadow + drop shadow under the case
+  g += '<ellipse cx="540" cy="1492" rx="470" ry="34" fill="rgba(0,0,0,0.30)"/>';
+  // handle
+  g += '<path d="M392,' + (CY + 16) + " L392," + (CY - 44) + " Q392," + (CY - 96) + " 444," + (CY - 96) + " L636," + (CY - 96) + " Q688," + (CY - 96) + " 688," + (CY - 44) + " L688," + (CY + 16) + '" fill="none" stroke="' + INK + '" stroke-width="26" stroke-linecap="round"/>';
+  // case body with enamel edge
+  g += '<rect x="' + (CX + 10) + '" y="' + (CY + 14) + '" width="' + CW + '" height="' + (CB - CY) + '" rx="52" fill="#B98F12"/>';
+  g += '<rect x="' + CX + '" y="' + CY + '" width="' + CW + '" height="' + (CB - CY) + '" rx="52" fill="' + YEL + '"/>';
+  g += '<rect x="' + (CX + 18) + '" y="' + (CY + 18) + '" width="' + (CW - 36) + '" height="' + (CB - CY - 36) + '" rx="40" fill="none" stroke="#C99F17" stroke-width="3"/>';
+  // corner screws
+  [[CX + 52, CY + 52], [CX + CW - 52, CY + 52], [CX + 52, CB - 52], [CX + CW - 52, CB - 52]].forEach(p => {
+    g += '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="17" fill="' + INK + '"/><line x1="' + (p[0] - 9) + '" y1="' + (p[1] - 6) + '" x2="' + (p[0] + 9) + '" y2="' + (p[1] + 6) + '" stroke="' + YEL + '" stroke-width="4"/>';
+  });
+  // stencil plate
+  g += '<rect x="162" y="' + (CY + 26) + '" width="440" height="58" fill="' + INK + '" rx="8"/>' +
+       '<text x="382" y="' + (CY + 65) + '" text-anchor="middle" font-family="IBM Plex Mono" font-weight="700" font-size="30" letter-spacing="6" fill="' + YEL + '">PENGUKUR PELUANG</text>';
+
+  // ---------- dial ----------
+  const DX = 540, DBASE = 1046, DR = 300;
+  g += '<circle cx="' + DX + '" cy="' + DBASE + '" r="' + DR + '" fill="' + CREAM + '" stroke="' + INK + '" stroke-width="8"/>';
+  g += '<path d="M' + (DX - DR) + ',' + DBASE + ' A' + DR + ',' + DR + ' 0 0 1 ' + (DX + DR) + ',' + DBASE + ' Z" fill="' + CREAM + '"/>';
+  // clip to the upper half window
+  const angOf = v => (-78 + 156 * v / 5) * Math.PI / 180;   // 0..5 from vertical
+  const pt = (v, r) => [DX + r * Math.sin(angOf(v)), DBASE - r * Math.cos(angOf(v))];
+  // red danger arc 4.4-5
+  const [ax, ay] = pt(4.4, DR - 16), [bx, by] = pt(5, DR - 16);
+  g += '<path d="M' + ax.toFixed(1) + ',' + ay.toFixed(1) + ' A' + (DR - 16) + ',' + (DR - 16) + ' 0 0 1 ' + bx.toFixed(1) + ',' + by.toFixed(1) + '" fill="none" stroke="' + RED + '" stroke-width="14"/>';
+  // tenths ticks + numerals
+  for (let v = 0; v <= 50; v += 1) {
+    const vv = v / 10, major = v % 5 === 0, mid = v % 5 === 0;
+    const [x1, y1] = pt(vv, DR - 26), [x2, y2] = pt(vv, DR - (major ? 74 : 48));
+    g += '<line x1="' + x1.toFixed(1) + '" y1="' + y1.toFixed(1) + '" x2="' + x2.toFixed(1) + '" y2="' + y2.toFixed(1) + '" stroke="' + (major ? INK : "#7A7568") + '" stroke-width="' + (major ? 7 : 2.5) + '" stroke-linecap="round"/>';
+    if (major && vv % 1 === 0) { const [tx, ty] = pt(vv, DR - 124); g += '<text x="' + tx.toFixed(1) + '" y="' + (ty + 14).toFixed(1) + '" text-anchor="middle" font-family="IBM Plex Mono" font-weight="700" font-size="52" fill="' + INK + '" stroke="' + CREAM + '" stroke-width="10" paint-order="stroke">' + vv + '</text>'; }
+  }
+  g += '<text x="' + DX + '" y="' + (DBASE - 44) + '" text-anchor="middle" font-family="IBM Plex Mono" font-weight="600" font-size="27" fill="#6E695C" letter-spacing="4" stroke="' + CREAM + '" stroke-width="8" paint-order="stroke">KATA BERIKUTNYA</text>';
+  // needle
+  const [nx, ny] = pt(reading, DR - 88);
+  g += '<line x1="' + DX + '" y1="' + DBASE + '" x2="' + nx.toFixed(1) + '" y2="' + ny.toFixed(1) + '" stroke="' + RED + '" stroke-width="12" stroke-linecap="round"/>';
+  g += '<line x1="' + DX + '" y1="' + DBASE + '" x2="' + (DX - (nx - DX) * 0.18).toFixed(1) + '" y2="' + (DBASE + (DBASE - ny) * 0.18).toFixed(1) + '" stroke="' + INK + '" stroke-width="10" stroke-linecap="round"/>';
+  g += '<circle cx="' + DX + '" cy="' + DBASE + '" r="26" fill="' + INK + '"/>';
+  // reading chip under the needle
+  g += '<rect x="' + (DX - 92) + '" y="' + (DBASE + 26) + '" width="184" height="52" rx="8" fill="' + INK + '"/>' +
+       '<text x="' + DX + '" y="' + (DBASE + 62) + '" text-anchor="middle" font-family="IBM Plex Mono" font-weight="700" font-size="33" fill="' + CREAM + '">' + reading.toFixed(1) + '</text>';
+
+  // ---------- range knob ----------
+  const KX = 208, KY = 1298, KR = 74;
+  g += '<circle cx="' + (KX + 5) + '" cy="' + (KY + 6) + '" r="' + KR + '" fill="#0F0F0E"/>' +
+       '<circle cx="' + KX + '" cy="' + KY + '" r="' + KR + '" fill="' + INK + '"/>' +
+       '<circle cx="' + KX + '" cy="' + KY + '" r="' + (KR - 30) + '" fill="#2A2A28"/>';
+  for (let i = 0; i < n; i++) {
+    const a = (-125 + 250 * i / Math.max(1, n - 1)) * Math.PI / 180;
+    const tx = KX + (KR + 22) * Math.sin(a), ty = KY - (KR + 22) * Math.cos(a);
+    g += '<line x1="' + (KX + (KR + 8) * Math.sin(a)).toFixed(1) + '" y1="' + (KY - (KR + 8) * Math.cos(a)).toFixed(1) + '" x2="' + tx.toFixed(1) + '" y2="' + ty.toFixed(1) + '" stroke="' + YEL + '" stroke-width="5"/>';
+  }
+  // pointer at position 0
+  g += '<path d="M' + KX + ',' + (KY - KR - 4) + ' l-13,26 h26 z" fill="' + YEL + '"/>';
+  g += '<text x="' + KX + '" y="' + (KY + KR + 58) + '" text-anchor="middle" font-family="IBM Plex Mono" font-weight="700" font-size="29" fill="' + INK + '">×1</text>';
+
+  // ---------- item rows (engraved strip, right of the knob) ----------
+  const stripX = 336, stripW = 604;
+  g += '<rect x="' + stripX + '" y="' + stripY + '" width="' + stripW + '" height="' + (stripB - stripY) + '" fill="#DFB41C" stroke="#C99F17" stroke-width="3"/>';
+  const rowsBox = $("rowsbox");
+  let rowHtml = "";
+  items.forEach((it, i) => {
+    const y = stripY + 6 + i * rowH;
+    if (i) g += '<line x1="' + (stripX + 14) + '" y1="' + y + '" x2="' + (stripX + stripW - 14) + '" y2="' + y + '" stroke="#C99F17" stroke-width="2.5"/>';
+    const cy = y + rowH / 2;
+    const act = i === 0;
+    g += '<circle cx="' + (stripX + 34) + '" cy="' + cy.toFixed(1) + '" r="11" fill="' + (act ? RED : "#8A6E10") + '"/>';
+    if (act) g += '<rect x="' + (stripX + 8) + '" y="' + (y + 4) + '" width="' + (stripW - 16) + '" height="' + (rowH - 8) + '" fill="none" stroke="' + RED + '" stroke-width="4"/>';
+    rowHtml += '<div class="rows" style="left:' + (stripX + 60) + 'px;top:' + (cy - 22) + 'px;color:' + INK + '"><span class="lbl">' + esc(it.label) + '</span></div>';
+    rowHtml += '<div class="rows" style="top:' + (cy - 21) + 'px;color:' + (act ? INK : "#4C4438") + ';" data-right="' + (stripX + stripW - 18) + '"><span class="val">' + esc(it.value) + '</span></div>';
+  });
+  rowsBox.innerHTML = rowHtml;
+  // right-align values by measured width
+  rowsBox.querySelectorAll(".rows[data-right]").forEach(el => {
+    let fs = 34; const w = el.offsetWidth;
+    const maxW = 604 - (el.previousElementSibling.offsetWidth) - 110;
+    if (w > maxW) { for (fs = 28; fs >= 24 && el.offsetWidth > maxW; fs -= 2) el.style.fontSize = fs + "px"; }
+    el.style.left = (parseFloat(el.dataset.right) - el.offsetWidth) + "px";
+  });
+
+  svg.innerHTML = g;
+
+  // ---------- tally tag on the case shoulder (tally ticks only) ----------
+  const ticks = 3 + n;
+  let tk = "";
+  for (let i = 0; i < Math.min(5, ticks); i++) {
+    const ty = 26 + i * 30;
+    tk += '<path d="M8,' + ty + ' L44,' + (ty - 10) + '" stroke="#1B1B1A" stroke-width="6" stroke-linecap="round"/>';
+  }
+  $("ticks").innerHTML = '<svg width="52" height="170" viewBox="0 0 52 170">' + tk + '</svg>';
+  const tag = $("tag");
+  tag.style.left = "690px"; tag.style.top = (CY - 30) + "px";
+  tag.style.transform = "rotate(4deg)";
+
+  // ---------- caption karaoke on the bench ----------
+  const cap = String(D.caption || D.sub || "").trim();
+  const words = cap.split(/\s+/).filter(Boolean);
+  const norm = w => w.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+  const hws = hl ? hl.split(/\s+/).map(norm).filter(Boolean) : [];
+  let a0 = -1, a1 = -1;
+  if (hws.length) {
+    for (let i = 0; i + hws.length <= words.length && a0 < 0; i++) if (hws.every((h2, k) => norm(words[i + k]) === h2)) { a0 = i; a1 = i + hws.length - 1; }
+    if (a0 < 0 && hws.length === 1) { const j = words.findIndex(w => norm(w).includes(hws[0])); if (j >= 0) a0 = a1 = j; }
+  }
+  if (a0 < 0) a0 = a1 = 0;
+  const parts = [];
+  for (let i = 0; i < words.length; i++) {
+    if (i === a0) { parts.push('<span class="w on">' + esc(words.slice(a0, a1 + 1).join(" ")) + "</span>"); i = a1; }
+    else parts.push('<span class="w">' + esc(words[i]) + "</span>");
+  }
+  const capEl = $("cap");
+  capEl.innerHTML = parts.join(" ");
+  let cfs = 42;
+  for (; cfs >= 40; cfs -= 2) { capEl.style.fontSize = cfs + "px"; if (capEl.offsetHeight <= cfs * 1.3 * 2) break; }
+  if (capEl.offsetHeight > 40 * 1.3 * 2) {          // trim to two lines, keep the active word, end on ellipsis
+    capEl.style.fontSize = "40px";
+    const fits = () => capEl.offsetHeight <= 40 * 1.3 * 2 + 2;
+    let ws = Array.from(capEl.querySelectorAll(".w"));
+    while (ws.length > 1 && !ws[ws.length - 1].classList.contains("on")) {
+      const w = ws[ws.length - 1], keep = w.textContent;
+      w.textContent = keep.replace(/[.,;:!?]*$/, "") + "…";
+      if (fits()) break;
+      w.textContent = keep;
+      const prev = w.previousSibling; w.remove(); if (prev && prev.nodeType === 3) prev.remove();
+      ws.pop();
+    }
+  }
+  capEl.style.top = (1612 - capEl.offsetHeight) + "px";
+
+  // ---------- meta ----------
+  const m = $("meta");
+  m.style.width = "820px";
+  m.innerHTML = (D.source ? "Sumber: " + esc(D.source) : "") + " · " + esc(D.date || "");
+  m.style.top = "1618px";
+  }
+</script>
+</body>
+</html>

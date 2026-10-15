@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=Literata:ital,opsz,wght@0,7..72,500;0,7..72,600;1,7..72,500&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Camera Obscura (camera-obscura): a blacked-out room; a pinhole in the
+    shutter throws a dim, upside-down street onto a white table, where a
+    half-finished tracing waits. Each data item is one projected element
+    lying on the table (a strip of the projection) with how much of it
+    reaches the model. A typed card carries the struck myth
+    ("dunia nyata" crossed, "bayangannya" written in amber).
+    Deterministic: fixed geometry, fixed hash for silhouette jitter.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #0F0E0D; }
+  body { position: relative; color: #EDE6D8; font-family: "Onest", sans-serif; }
+  .kick, .title { z-index: 2; }
+  .kick { position: absolute; left: 90px; right: 90px; top: 268px; display: flex; justify-content: space-between; font: 600 27px "Onest", sans-serif; letter-spacing: 0.16em; text-transform: uppercase; color: #8D7A63; }
+  .kick b { color: #EDE6D8; font-weight: 700; }
+  .title { position: absolute; left: 90px; width: 900px; top: 320px; font-weight: 800; line-height: 1.04; letter-spacing: -0.005em; color: #EDE6D8; }
+  .title .hl { color: #D6A64B; border-bottom: 6px solid #D6A64B; }
+  #scene { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  .card { position: absolute; background: #EDE6D8; color: #1A1613; padding: 20px 26px; font: 500 32px "Onest", sans-serif; transform: rotate(-1.2deg); box-shadow: 0 14px 30px rgba(0,0,0,0.5); }
+  .card .strike { text-decoration: line-through; text-decoration-color: #B0432E; text-decoration-thickness: 5px; color: #7A6E5C; }
+  .card .fix { color: #8A6212; font-weight: 700; }
+  .strip { position: absolute; display: flex; align-items: center; gap: 16px; background: #F2EBDC; border: 2.5px solid #8D7A63; padding: 5px 16px 7px; box-shadow: 0 10px 22px rgba(0,0,0,0.4); }
+  .strip .lb { font: italic 500 34px "Literata", serif; color: #1A1613; white-space: nowrap; overflow: hidden; }
+  .strip .vl { font: 600 31px "Onest", sans-serif; color: #F2EBDC; background: #33475E; padding: 4px 12px 6px; white-space: nowrap; }
+  .cap { position: absolute; left: 90px; width: 810px; font: 600 42px "Onest", sans-serif; line-height: 1.32; color: #EDE6D8; }
+  .cap .w.on { background: #D6A64B; color: #14110C; padding: 0 12px 3px; box-decoration-break: clone; }
+  .meta { position: absolute; left: 90px; width: 900px; white-space: nowrap; font: 500 27px "Onest", sans-serif; color: #8D7A63; line-height: 1.3; }
+</style>
+</head>
+<body>
+<div class="kick"><span id="kick"></span><span>RUANG GELAP · 2.5D</span></div>
+<div class="title" id="title"></div>
+<svg id="scene" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="card" id="card"></div>
+<div id="strips"></div>
+<div class="cap" id="cap" data-slot="caption"></div>
+<div class="meta" id="meta"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series_id: "how-ai-works", series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI nggak lihat dunia. Dia lihat bayangan.", hl: "bayangan",
+    sub: "Model hanya mengenal proyeksi teks dari dunia.",
+    items: [{ label: "Teks", value: "penuh" }, { label: "Gambar", value: "sebagian" }, { label: "Suara", value: "samar" }, { label: "Sentuhan", value: "nihil" }],
+    caption: "Yang sampai ke model hanyalah proyeksinya.",
+    source: "ilustrasi — modalitas input model", date: "per 14 Okt 2026" };
+
+  Promise.all(['800 100px "Onest"', '600 34px "Onest"', 'italic 500 36px "Literata"', '600 42px "Onest"', '600 27px "Onest"'].map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const DARK = "#0F0E0D", CREAM = "#EDE6D8", TAUPE = "#8D7A63", AMBER = "#D6A64B", SLATE = "#33475E";
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+  const h01 = (a, b) => { let h = Math.imul(2166136261 ^ a, 16777619) ^ Math.imul(b * 131 + 17, 2246822519); h = Math.imul(h ^ (h >>> 13), 3266489917); return ((h ^ (h >>> 15)) >>> 0) / 4294967296; };
+
+  // kicker + title
+  const ep = String(D.ep || "#01").replace(/^#/, "");
+  $("kick").innerHTML = "<b>" + esc(D.series || "") + " " + esc(ep) + "</b>";
+  const t = String(D.title || ""), hl = String(D.hl || "");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  for (let fs = 100; fs >= 64; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (titleEl.offsetHeight <= fs * 1.08 * 3) break; }
+
+  const svg = $("scene");
+  let g = "";
+  // faint wall glow from the pinhole side
+  g += '<rect width="1080" height="1920" fill="' + DARK + '"/>';
+  g += '<radialGradient id="glow" cx="0.86" cy="0.36" r="0.55"><stop offset="0" stop-color="' + AMBER + '" stop-opacity="0.28"/><stop offset="1" stop-color="' + DARK + '" stop-opacity="0"/></radialGradient>';
+  g += '<rect width="1080" height="1920" fill="url(#glow)"/>';
+
+  // shutter wall panel on the right with the pinhole
+  const PIN = [928, 700];
+  g += '<rect x="852" y="470" width="228" height="560" fill="#161310" stroke="' + TAUPE + '" stroke-width="3"/>';
+  for (let i = 1; i < 4; i++) g += '<line x1="852" y1="' + (470 + i * 140) + '" x2="1080" y2="' + (470 + i * 140) + '" stroke="#241E17" stroke-width="2"/>';
+  g += '<circle cx="' + PIN[0] + '" cy="' + PIN[1] + '" r="46" fill="' + AMBER + '" opacity="0.25"/>';
+  g += '<circle cx="' + PIN[0] + '" cy="' + PIN[1] + '" r="17" fill="' + AMBER + '"/>';
+  g += '<circle cx="' + PIN[0] + '" cy="' + PIN[1] + '" r="7" fill="#14110C"/>';
+  g += '<text x="966" y="446" text-anchor="middle" font-family="Onest" font-weight="600" font-size="26" fill="' + TAUPE + '" letter-spacing="4">PINHOLE</text>';
+
+  // light rays pinhole -> table corners
+  const T = { x0: 130, x1: 950, y0: 880, y1: 1460 };   // table top edge / bottom edge
+  g += '<line x1="' + PIN[0] + '" y1="' + PIN[1] + '" x2="' + T.x1 + '" y2="' + (T.y0 - 26) + '" stroke="' + AMBER + '" stroke-width="2.5" opacity="0.55"/>';
+  g += '<line x1="' + PIN[0] + '" y1="' + PIN[1] + '" x2="' + (T.x0 + 60) + '" y2="' + T.y1 + '" stroke="' + AMBER + '" stroke-width="2.5" opacity="0.35"/>';
+
+  // the white table (2.5D trapezoid) with soft falloff
+  g += '<path d="M' + T.x0 + ',' + T.y0 + ' L' + T.x1 + ',' + (T.y0 - 26) + ' L' + T.x1 + ',' + T.y1 + ' L' + T.x0 + ',' + (T.y1 - 40) + ' Z" fill="' + CREAM + '"/>';
+  g += '<path d="M' + T.x0 + ',' + T.y0 + ' L' + T.x1 + ',' + (T.y0 - 26) + ' L' + T.x1 + ',' + (T.y0 + 210) + ' L' + T.x0 + ',' + (T.y0 + 236) + ' Z" fill="#F6F0E2"/>';
+  g += '<path d="M' + T.x0 + ',' + T.y0 + ' L' + T.x1 + ',' + (T.y0 - 26) + ' L' + T.x1 + ',' + T.y1 + ' L' + T.x0 + ',' + (T.y1 - 40) + ' Z" fill="none" stroke="' + TAUPE + '" stroke-width="3"/>';
+
+  // INVERTED street projection across the table's far edge (upside-down skyline)
+  g += '<defs><clipPath id="tclip"><path d="M' + T.x0 + ',' + T.y0 + ' L' + T.x1 + ',' + (T.y0 - 26) + ' L' + T.x1 + ',' + T.y1 + ' L' + T.x0 + ',' + (T.y1 - 40) + ' Z"/></clipPath></defs>';
+  let sky = "";
+  for (let i = 0; i < 9; i++) {
+    const bw = 62 + h01(i, 3) * 54;
+    const bx = T.x0 + 30 + i * 86 + h01(i, 5) * 10;
+    const bh = 70 + h01(i, 7) * 110;
+    const top = T.y0 + 28 + h01(i, 9) * 12;      // buildings hang DOWN from the far edge (inverted)
+    sky += '<rect x="' + bx.toFixed(0) + '" y="' + top.toFixed(0) + '" width="' + bw.toFixed(0) + '" height="' + bh.toFixed(0) + '" fill="' + (i % 3 === 0 ? TAUPE : "#6E5F4E") + '" opacity="0.5"/>';
+    sky += '<rect x="' + (bx + 10).toFixed(0) + '" y="' + (top + bh - 26).toFixed(0) + '" width="' + (bw - 20).toFixed(0) + '" height="12" fill="' + AMBER + '" opacity="0.55"/>';
+  }
+  g += '<g opacity="0.8" clip-path="url(#tclip)">' + sky + "</g>";
+  g += '<text x="' + (T.x1 - 28) + '" y="' + (T.y1 - 26) + '" text-anchor="end" font-family="Literata" font-style="italic" font-weight="500" font-size="30" fill="' + TAUPE + '">proyeksi terbalik — belum dilacak</text>';
+  svg.innerHTML = g;   // scene is complete up to here; strips are DOM nodes on top
+
+  // item strips lying on the table (lower half), staggered like a tracing
+  const strips = $("strips");
+  const zoneY0 = T.y0 + 220, zoneY1 = T.y1 - 66;
+  const rowH = Math.min(86, (zoneY1 - zoneY0) / n);
+  let sh = "";
+  items.forEach((it, i) => {
+    const cy = zoneY0 + rowH * i + rowH / 2;
+    const off = (i % 2) * 46;
+    sh += '<div class="strip" style="left:' + (170 + off) + 'px;top:' + (cy - 32) + 'px;max-width:640px"><span class="lb">' + esc(it.label) + '</span><span class="vl">' + esc(it.value) + '</span></div>';
+  });
+  strips.innerHTML = sh;
+  // shrink any strip wider than its slot, then re-center within the table
+  strips.querySelectorAll(".strip").forEach((el, i) => {
+    const maxW = 620;
+    if (el.offsetWidth > maxW) {
+      const lb = el.querySelector(".lb"), vl = el.querySelector(".vl");
+      const keep = vl.offsetWidth;
+      let fs = 34; lb.style.fontSize = fs + "px";
+      while (el.offsetWidth > maxW && fs > 28) { fs -= 2; lb.style.fontSize = fs + "px"; }
+      if (el.offsetWidth > maxW) { const fit = maxW - keep - 76; let t2 = lb.textContent; while (t2.length > 1 && lb.getBoundingClientRect().width > fit) t2 = t2.slice(0, -1); lb.textContent = t2 + "…"; }
+    }
+  });
+
+  // typed card: the struck myth
+  const card = $("card");
+  card.innerHTML = 'AI paham <span class="strike">dunia nyata</span> → <span class="fix">bayangannya.</span>';
+  card.style.left = "90px";
+  card.style.top = Math.max(620, titleEl.offsetTop + titleEl.offsetHeight + 36) + "px";
+
+  // caption karaoke on the dark wall
+  const cap = String(D.caption || D.sub || "").trim();
+  const words = cap.split(/\s+/).filter(Boolean);
+  const norm = w => w.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+  const hws = hl ? hl.split(/\s+/).map(norm).filter(Boolean) : [];
+  let a0 = -1, a1 = -1;
+  if (hws.length) {
+    for (let i = 0; i + hws.length <= words.length && a0 < 0; i++) if (hws.every((h2, k) => norm(words[i + k]) === h2)) { a0 = i; a1 = i + hws.length - 1; }
+    if (a0 < 0 && hws.length === 1) { const j = words.findIndex(w => norm(w).includes(hws[0])); if (j >= 0) a0 = a1 = j; }
+  }
+  if (a0 < 0) a0 = a1 = 0;
+  const parts = [];
+  for (let i = 0; i < words.length; i++) {
+    if (i === a0) { parts.push('<span class="w on">' + esc(words.slice(a0, a1 + 1).join(" ")) + "</span>"); i = a1; }
+    else parts.push('<span class="w">' + esc(words[i]) + "</span>");
+  }
+  const capEl = $("cap");
+  capEl.innerHTML = parts.join(" ");
+  capEl.style.top = (1616 - capEl.offsetHeight) + "px";
+
+  // meta
+  const m = $("meta");
+  m.innerHTML = (D.source ? "Sumber: " + esc(D.source) : "") + " · " + esc(D.date || "");
+  m.style.top = "1622px";
+  }
+</script>
+</body>
+</html>

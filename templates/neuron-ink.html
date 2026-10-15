@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:ital,wght@0,500;0,600;1,500;1,600&family=Inter+Tight:wght@400;500;600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Neuron Ink (neuron-ink): a scientist's pen-and-ink drawing of a single
+    neuron on aged notebook paper. Each data item is one dendrite input,
+    hand-lettered with its weight at the branch tip; the axon carries the
+    highlighted result to a small rust output plate. A typed slip carries
+    the struck myth ("otak manusia" crossed out, "sketsa ini" written in).
+    The blue catalogue stamp at the bottom holds the caption karaoke slot.
+    Deterministic: fixed branch geometry + fixed integer jitter hash.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #EDE3CC; }
+  body { position: relative; color: #1A1714; font-family: "Crimson Pro", serif; }
+  .kick, .title { z-index: 3; }
+  .dend, .slip, .out, .stamp, .meta { z-index: 2; }
+  .kick { position: absolute; left: 90px; right: 90px; top: 266px; display: flex; justify-content: space-between; font: 600 28px "Inter Tight", sans-serif; letter-spacing: 0.16em; text-transform: uppercase; color: #5A5142; }
+  .kick b { color: #3B5BA0; font-weight: 700; }
+  .title { position: absolute; left: 90px; width: 900px; top: 322px; font-weight: 600; line-height: 1.06; }
+  .title .hl { color: #A6402E; border-bottom: 7px solid #A6402E; }
+  #paper { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  .dend { position: absolute; font: italic 600 36px "Crimson Pro", serif; color: #1A1714; line-height: 1.12; }
+  .dend .lb, .dend .wt { text-shadow: -6px -3px 0 #EDE3CC, 6px -3px 0 #EDE3CC, -6px 3px 0 #EDE3CC, 6px 3px 0 #EDE3CC, 0 -5px 0 #EDE3CC, 0 5px 0 #EDE3CC, -8px 0 0 #EDE3CC, 8px 0 0 #EDE3CC; position: relative; }
+  .dend .wt { display: block; font: 600 30px "Inter Tight", sans-serif; font-style: normal; color: #3B5BA0; letter-spacing: 0.04em; }
+  .slip { position: absolute; background: #F4EDDD; border: 1.5px solid #CFC2A3; box-shadow: 3px 5px 0 rgba(26,23,20,0.12); padding: 18px 24px; font: 500 32px "Inter Tight", sans-serif; color: #1A1714; }
+  .slip .strike { text-decoration: line-through; text-decoration-color: #A6402E; text-decoration-thickness: 5px; color: #7C7466; }
+  .slip .fix { font: italic 600 34px "Crimson Pro", serif; color: #3B5BA0; }
+  .slip .arr { color: #7C7466; font-weight: 400; }
+  .out { position: absolute; background: #A6402E; color: #F4EDDD; padding: 10px 20px 13px; font: 600 36px "Crimson Pro", serif; }
+  .out small { display: block; font: 600 26px "Inter Tight", sans-serif; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.85; }
+  .stamp { position: absolute; border: 4px solid #3B5BA0; outline: 2px solid #3B5BA0; outline-offset: 5px; color: #3B5BA0; padding: 18px 26px 20px; transform: rotate(-2.5deg); }
+  .stamp .shead { font: 600 25px "Inter Tight", sans-serif; letter-spacing: 0.14em; white-space: nowrap; text-transform: uppercase; margin-bottom: 8px; }
+  .cap { font: 600 42px "Inter Tight", sans-serif; line-height: 1.3; color: #1A1714; }
+  .cap .w.on { background: #3B5BA0; color: #F4EDDD; padding: 0 10px 3px; box-decoration-break: clone; }
+  .meta { position: absolute; left: 90px; width: 340px; font: 500 27px "Inter Tight", sans-serif; color: #6B6252; line-height: 1.3; }
+</style>
+</head>
+<body>
+<div class="kick"><span id="kick"></span><span>FIG. 01 — POTON NEURON</span></div>
+<div class="title" id="title"></div>
+<svg id="paper" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div id="labels"></div>
+<div class="slip" id="slip"></div>
+<div class="out" id="out"></div>
+<div class="stamp" id="stamp">
+  <div class="shead">KATALOG · LEMBAR 19-C</div>
+  <div class="cap" id="cap" data-slot="caption"></div>
+</div>
+<div class="meta" id="meta"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series_id: "how-ai-works", series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "Neuron buatan cuma meniru sketsa ini.", hl: "sketsa ini",
+    sub: "Input dikali bobot, dijumlah, lalu menyala — selesai.",
+    items: [{ label: "masukan", value: "×0,5" }, { label: "ingatan", value: "×1,2" }, { label: "naluri", value: "×0,8" }, { label: "koreksi", value: "×2,0" }],
+    caption: "Satu neuron: kalikan bobot, jumlahkan, menyala.",
+    source: "ilustrasi — model MVP 1958", date: "per 14 Okt 2026" };
+
+  Promise.all(['600 100px "Crimson Pro"', 'italic 600 36px "Crimson Pro"', '600 36px "Crimson Pro"', '600 42px "Inter Tight"', '600 30px "Inter Tight"', '600 28px "Inter Tight"'].map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const INK = "#1A1714", BLUE = "#3B5BA0", RUST = "#A6402E", FAINT = "#CFC2A3";
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+
+  // fixed integer jitter hash
+  const h01 = (a, b) => { let h = Math.imul(2166136261 ^ a, 16777619) ^ Math.imul(b * 31 + 7, 2246822519); h = Math.imul(h ^ (h >>> 13), 3266489917); return ((h ^ (h >>> 15)) >>> 0) / 4294967296; };
+
+  // kicker + title
+  const ep = String(D.ep || "#01").replace(/^#/, "");
+  $("kick").innerHTML = "<b>" + esc(D.series || "") + " " + esc(ep) + "</b>";
+  const t = String(D.title || ""), hl = String(D.hl || "");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  for (let fs = 96; fs >= 64; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (titleEl.offsetHeight <= fs * 1.1 * 3) break; }
+
+  // ---------- paper: stains, ruled lines, margin rule ----------
+  const svg = $("paper");
+  let g = "";
+  g += '<rect width="1080" height="1920" fill="#EDE3CC"/>';
+  // fixed stains
+  g += '<path d="M-40,150 Q120,110 220,190 Q120,260 -40,240 Z" fill="#CFC2A3" opacity="0.5"/>';
+  g += '<path d="M900,1760 Q1060,1700 1120,1790 Q1020,1880 880,1840 Z" fill="#CFC2A3" opacity="0.45"/>';
+  g += '<ellipse cx="950" cy="330" rx="150" ry="60" fill="#CFC2A3" opacity="0.3"/>';
+  // ruled lines
+  for (let y = 560; y <= 1440; y += 88) g += '<line x1="0" y1="' + y + '" x2="1080" y2="' + y + '" stroke="' + FAINT + '" stroke-width="1.6" opacity="0.7"/>';
+  // red margin rule
+  g += '<line x1="66" y1="0" x2="66" y2="1920" stroke="' + RUST + '" stroke-width="2.5" opacity="0.55"/>';
+  // three punch holes
+  [640, 960, 1280].forEach(y => g += '<circle cx="42" cy="' + y + '" r="17" fill="#E2D6B8" stroke="' + FAINT + '" stroke-width="3"/>');
+
+  // ---------- neuron geometry ----------
+  const SOM = [470, 1030];
+  // dendrite tips fan left/up/down, item labels sit beyond each tip
+  const tips = items.map((_, i) => {
+    const a = (Math.PI * 0.62) + (Math.PI * 0.86) * (n === 1 ? 0.5 : i / (n - 1));  // 112°..267°
+    const r = 300 + 26 * ((i * 7) % 3);
+    return [SOM[0] + r * Math.cos(a), SOM[1] + r * Math.sin(a) * 0.78];
+  });
+  const wavy = (x0, y0, x1, y1, seed, bulge) => {
+    const mx = (x0 + x1) / 2 + (h01(seed, 1) - 0.5) * 60 + bulge * Math.cos(Math.atan2(y1 - y0, x1 - x0) + Math.PI / 2);
+    const my = (y0 + y1) / 2 + (h01(seed, 2) - 0.5) * 60 + bulge * Math.sin(Math.atan2(y1 - y0, x1 - x0) + Math.PI / 2);
+    return "M" + x0.toFixed(1) + "," + y0.toFixed(1) + " Q" + mx.toFixed(1) + "," + my.toFixed(1) + " " + x1.toFixed(1) + "," + y1.toFixed(1);
+  };
+  // dendrites (drawn first, under everything)
+  tips.forEach((tp, i) => {
+    g += '<path d="' + wavy(SOM[0], SOM[1], tp[0], tp[1], i * 13 + 3, 34) + '" fill="none" stroke="' + INK + '" stroke-width="5" stroke-linecap="round"/>';
+    // two small twigs
+    const t1 = [tp[0] + 60 * Math.cos(0.5 + i), tp[1] + 60 * Math.sin(0.5 + i)];
+    g += '<path d="' + wavy(tp[0], tp[1], t1[0], t1[1], i * 7 + 1, 16) + '" fill="none" stroke="' + INK + '" stroke-width="3.2" stroke-linecap="round"/>';
+    g += '<circle cx="' + tp[0].toFixed(1) + '" cy="' + tp[1].toFixed(1) + '" r="7" fill="' + INK + '"/>';
+  });
+  // axon: soma -> down-right -> terminal
+  const AXM = [660, 1130], AXT = [836, 1252];
+  g += '<path d="M' + SOM[0] + ',' + SOM[1] + ' Q' + AXM[0] + ',' + AXM[1] + ' ' + AXT[0] + ',' + AXT[1] + '" fill="none" stroke="' + INK + '" stroke-width="9" stroke-linecap="round"/>';
+  g += '<path d="M' + AXT[0] + ',' + AXT[1] + ' l-26,-34 M' + AXT[0] + ',' + AXT[1] + ' l-40,10" stroke="' + INK + '" stroke-width="7" stroke-linecap="round" fill="none"/>';
+  // myelin segments on the axon
+  for (let k = 0; k < 3; k++) {
+    const q = 0.3 + k * 0.2;
+    const px = (1 - q) * (1 - q) * SOM[0] + 2 * (1 - q) * q * AXM[0] + q * q * AXT[0];
+    const py = (1 - q) * (1 - q) * SOM[1] + 2 * (1 - q) * q * AXM[1] + q * q * AXT[1];
+    g += '<rect x="' + (px - 15).toFixed(1) + '" y="' + (py - 15).toFixed(1) + '" width="30" height="30" fill="none" stroke="' + INK + '" stroke-width="4" transform="rotate(45 ' + px.toFixed(1) + ' ' + py.toFixed(1) + ')"/>';
+  }
+  // soma blob + nucleus
+  g += '<path d="M' + (SOM[0] - 74) + ',' + (SOM[1] - 26) + ' Q' + (SOM[0] - 60) + ',' + (SOM[1] - 86) + ' ' + (SOM[0] + 8) + ',' + (SOM[1] - 78) + ' Q' + (SOM[0] + 78) + ',' + (SOM[1] - 60) + ' ' + (SOM[0] + 70) + ',' + (SOM[1] + 6) + ' Q' + (SOM[0] + 58) + ',' + (SOM[1] + 66) + ' ' + (SOM[0] - 10) + ',' + (SOM[1] + 62) + ' Q' + (SOM[0] - 78) + ',' + (SOM[1] + 44) + ' ' + (SOM[0] - 74) + ',' + (SOM[1] - 26) + ' Z" fill="#EDE3CC" stroke="' + INK + '" stroke-width="6"/>';
+  g += '<circle cx="' + (SOM[0] - 6) + '" cy="' + (SOM[1] - 6) + '" r="26" fill="none" stroke="' + INK + '" stroke-width="5"/>' +
+       '<circle cx="' + (SOM[0] - 6) + '" cy="' + (SOM[1] - 6) + '" r="8" fill="' + INK + '"/>';
+  // signal direction arrows A · B · C (ink letters, big enough)
+  [["A", 560, 780], ["B", 596, 908], ["C", 706, 1148]].forEach(a => {
+    g += '<text x="' + a[1] + '" y="' + a[2] + '" font-family="Crimson Pro" font-style="italic" font-weight="600" font-size="34" fill="' + BLUE + '">' + a[0] + '</text>';
+    g += '<path d="M' + (a[1] + 16) + ',' + (a[2] - 10) + ' h34 m0,0 l-12,-9 m12,9 l-12,9" stroke="' + BLUE + '" stroke-width="4" fill="none" stroke-linecap="round"/>';
+  });
+  svg.innerHTML = g;
+
+  // ---------- dendrite labels (label + weight) ----------
+  const labels = $("labels");
+  let lh = "";
+  const placed = [];
+  items.forEach((it, i) => {
+    const tp = tips[i];
+    const left = tp[0] > 300;                       // place label away from the soma
+    const bw = 270;
+    const lx = left ? tp[0] - bw - 40 : tp[0] + 40;
+    let ly = Math.max(596, Math.min(1330, tp[1] - 40));
+    placed.push({ it, tp, left, bw, lx, ly });
+  });
+  // resolve vertical collisions (top-down), inside x 90-990
+  placed.sort((a, b) => a.ly - b.ly);
+  for (let i = 1; i < placed.length; i++) {
+    const a = placed[i - 1], b = placed[i];
+    if (b.ly < a.ly + 96) b.ly = a.ly + 96;
+  }
+  placed.forEach(o => {
+    const lx = Math.max(90, Math.min(990 - o.bw, o.lx));
+    lh += '<div class="dend" style="left:' + lx + 'px;top:' + o.ly + 'px;width:' + o.bw + 'px;text-align:' + (o.left ? "right" : "left") + '"><span class="lb">' + esc(o.it.label) + '</span><span class="wt">' + esc(o.it.value) + '</span></div>';
+    const cx = o.left ? lx + o.bw : lx;
+    const cy = o.ly + 22;
+    g += '<line x1="' + cx + '" y1="' + cy + '" x2="' + o.tp[0].toFixed(0) + '" y2="' + o.tp[1].toFixed(0) + '" stroke="' + INK + '" stroke-width="2.4" stroke-dasharray="2 7" stroke-linecap="round"/>';
+  });
+  labels.innerHTML = lh;
+
+  // ---------- typed slip (myth struck out) ----------
+  const slip = $("slip");
+  slip.innerHTML = 'AI meniru <span class="strike">otak manusia</span> <span class="arr">→</span> <span class="fix">sketsa ini</span>';
+  slip.style.left = "560px";
+  slip.style.top = Math.max(600, titleEl.offsetTop + titleEl.offsetHeight + 40) + "px";
+  slip.style.transform = "rotate(1.6deg)";
+
+  // ---------- rust output plate at the axon terminal ----------
+  const out = $("out");
+  out.innerHTML = "<small>output</small>" + esc(hl || D.title || "");
+  let ofs = 36;
+  out.style.fontSize = ofs + "px";
+  while (out.offsetWidth > 330 && ofs > 28) { ofs -= 2; out.style.fontSize = ofs + "px"; }
+  if (out.offsetWidth > 330) out.style.width = "330px";
+  out.style.left = Math.max(90, Math.min(990 - out.offsetWidth, AXT[0] - 40)) + "px";
+  out.style.top = (AXT[1] + 14) + "px";
+
+  // ---------- blue catalogue stamp with caption karaoke ----------
+  const cap = String(D.caption || D.sub || "").trim();
+  const words = cap.split(/\s+/).filter(Boolean);
+  const norm = w => w.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+  const hws = hl ? hl.split(/\s+/).map(norm).filter(Boolean) : [];
+  let a0 = -1, a1 = -1;
+  if (hws.length) {
+    for (let i = 0; i + hws.length <= words.length && a0 < 0; i++) if (hws.every((h2, k) => norm(words[i + k]) === h2)) { a0 = i; a1 = i + hws.length - 1; }
+    if (a0 < 0 && hws.length === 1) { const j = words.findIndex(w => norm(w).includes(hws[0])); if (j >= 0) a0 = a1 = j; }
+  }
+  if (a0 < 0) a0 = a1 = 0;
+  const parts = [];
+  for (let i = 0; i < words.length; i++) {
+    if (i === a0) { parts.push('<span class="w on">' + esc(words.slice(a0, a1 + 1).join(" ")) + "</span>"); i = a1; }
+    else parts.push('<span class="w">' + esc(words[i]) + "</span>");
+  }
+  const capEl = $("cap");
+  capEl.innerHTML = parts.join(" ");
+  let cfs = 42;
+  for (; cfs >= 40; cfs -= 2) { capEl.style.fontSize = cfs + "px"; if (capEl.offsetHeight <= cfs * 1.3 * 2) break; }
+  if (capEl.offsetHeight > 40 * 1.3 * 2) {          // trim to two lines, keep the active word, end on ellipsis
+    capEl.style.fontSize = "40px";
+    const fits = () => capEl.offsetHeight <= 40 * 1.3 * 2 + 2;
+    let ws = Array.from(capEl.querySelectorAll(".w"));
+    while (ws.length > 1 && !ws[ws.length - 1].classList.contains("on")) {
+      const w = ws[ws.length - 1], keep = w.textContent;
+      w.textContent = keep.replace(/[.,;:!?]*$/, "") + "\u2026";
+      if (fits()) break;
+      w.textContent = keep;
+      const prev = w.previousSibling; w.remove(); if (prev && prev.nodeType === 3) prev.remove();
+      ws.pop();
+    }
+  }
+  const stamp = $("stamp");
+  stamp.style.left = "480px"; stamp.style.width = "470px";
+  stamp.style.top = (1620 - stamp.offsetHeight) + "px";
+
+  // ---------- meta ----------
+  const m = $("meta");
+  m.innerHTML = (D.source ? "Sumber: " + esc(D.source) : "") + "<br>" + esc(D.date || "");
+  m.style.top = (1620 - m.offsetHeight + 8) + "px";
+  }
+</script>
+</body>
+</html>

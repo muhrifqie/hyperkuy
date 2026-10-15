@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Sofia+Sans+Extra+Condensed:wght@500;600;700;800&family=Spline+Sans+Mono:wght@400;500;600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Cutoff Dater (cutoff-dater): a self-inking date stamp caught mid-press
+    on a lavender desk, above a fan of pages each stamped with the same old
+    date — knowledge cutoff. Each data item is one stamped page (event label
+    + the date the model would stamp it). The newest page carries a red "?"
+    stamp. The date is set once and repeated mechanically: that is the point.
+    Deterministic: fixed fan angles, fixed hash for ink wear.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #E6E1F0; }
+  body { position: relative; color: #1F1F22; font-family: "Sofia Sans Extra Condensed", sans-serif; }
+  .kick { position: absolute; left: 90px; right: 90px; top: 264px; display: flex; justify-content: space-between; font: 500 27px "Spline Sans Mono", monospace; letter-spacing: 0.14em; text-transform: uppercase; color: #6E6888; }
+  .kick b { color: #4B3F8F; font-weight: 700; }
+  .title { position: absolute; left: 90px; width: 900px; top: 316px; font-weight: 800; text-transform: uppercase; line-height: 0.98; letter-spacing: 0.005em; }
+  .title .hl { background: #4B3F8F; color: #FBF9F4; padding: 0 14px 4px; box-decoration-break: clone; }
+  #desk { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  .bandwin { position: absolute; background: #FBF9F4; border: 4px solid #1F1F22; overflow: hidden; }
+  .bandwin .d { font: 700 58px "Spline Sans Mono", monospace; color: #4B3F8F; letter-spacing: 0.06em; text-align: center; line-height: 74px; white-space: nowrap; }
+  .page { position: absolute; width: 560px; height: 104px; background: #FBF9F4; box-shadow: 0 12px 26px rgba(31,31,34,0.18); border: 1.5px solid #D8D2C4; }
+  .page .lb { position: absolute; left: 26px; top: 16px; font: 700 40px "Sofia Sans Extra Condensed", sans-serif; text-transform: uppercase; letter-spacing: 0.02em; color: #1F1F22; white-space: nowrap; overflow: hidden; max-width: 380px; }
+  .page .dt { position: absolute; right: 20px; top: 26px; font: 600 32px "Spline Sans Mono", monospace; color: #4B3F8F; letter-spacing: 0.04em; }
+  .page .dt.old { color: #B7B2A2; text-decoration: line-through; text-decoration-color: #C8402F; text-decoration-thickness: 4px; }
+  .cap { position: absolute; left: 90px; width: 830px; font: 600 42px "Sofia Sans Extra Condensed", sans-serif; line-height: 1.16; color: #1F1F22; letter-spacing: 0.01em; }
+  .cap .w.on { background: #C8402F; color: #FBF9F4; padding: 0 12px 4px; box-decoration-break: clone; }
+  .meta { position: absolute; left: 90px; width: 900px; font: 500 27px "Spline Sans Mono", monospace; color: #6E6888; white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="kick"><span id="kick"></span><span>MEJA REDAKSI</span></div>
+<div class="title" id="title"></div>
+<svg id="desk" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div id="pages"></div>
+<div class="cap" id="cap" data-slot="caption"></div>
+<div class="meta" id="meta"></div>
+<script>
+  // Fallback sample so the file also opens standalone in a browser.
+  const D = window.D || { series_id: "ai-news", series: "Berita AI", ep: "#01", kicker: "Berita AI · #01",
+    title: "AI masih hidup di tanggal ini.", hl: "tanggal ini",
+    sub: "Tanya apa pun setelahnya, dia membubuhkan tanggal lama.",
+    items: [{ label: "Berita hari ini", value: "14.10.26", old: true }, { label: "Peluncuran model", value: "14.10.26" }, { label: "Regulasi baru", value: "14.10.26" }, { label: "Gosop riset", value: "14.10.26" }],
+    caption: "Semua kabar baru dapat cap yang sama: tanggal potong.",
+    source: "ilustrasi — knowledge cutoff model", date: "per 14 Okt 2026" };
+
+  Promise.all(['800 100px "Sofia Sans Extra Condensed"', '700 42px "Sofia Sans Extra Condensed"', '600 42px "Sofia Sans Extra Condensed"', '700 58px "Spline Sans Mono"', '600 32px "Spline Sans Mono"', '600 42px "Sofia Sans Extra Condensed"'].map(f => document.fonts.load(f))).catch(() => {}).then(() => document.fonts.ready).then(render);
+
+  function render() {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const INK = "#1F1F22", VIO = "#4B3F8F", RED = "#C8402F", PAPER = "#FBF9F4";
+  const items = (D.items || []).slice(0, 5);
+  const n = items.length;
+  const h01 = (a, b) => { let h = Math.imul(2166136261 ^ a, 16777619) ^ Math.imul(b * 57 + 11, 2246822519); h = Math.imul(h ^ (h >>> 13), 3266489917); return ((h ^ (h >>> 15)) >>> 0) / 4294967296; };
+
+  // kicker + title (largest, auto-fit)
+  const ep = String(D.ep || "#01").replace(/^#/, "");
+  $("kick").innerHTML = "<b>" + esc(D.series || "") + " " + esc(ep) + "</b>";
+  const t = String(D.title || ""), hl = String(D.hl || "");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const titleEl = $("title");
+  titleEl.innerHTML = at < 0 ? esc(t) : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  for (let fs = 118; fs >= 64; fs -= 2) { titleEl.style.fontSize = fs + "px"; if (titleEl.offsetHeight <= fs * 1.04 * 3) break; }
+
+  // ---------- desk: soft shadow pool + pencil + paperclips (fixed decor) ----------
+  const svg = $("desk");
+  let g = "";
+  g += '<ellipse cx="620" cy="1060" rx="480" ry="360" fill="#D9D2E8" opacity="0.55"/>';
+  g += '<rect x="60" y="1150" width="500" height="12" rx="6" fill="#C9B23A" transform="rotate(-4 60 1156)"/>';
+  g += '<path d="M548,1178 l26,-12 -8,22 z" fill="#D9CBA0"/>';
+  g += '<circle cx="120" cy="700" r="0" fill="none"/>';
+  svg.innerHTML = g;
+
+  // ---------- the stamp, mid-press (2.5D, slight tilt) ----------
+  const SY = Math.max(680, titleEl.offsetTop + titleEl.offsetHeight + 236);
+  const cx = 540;
+  let s = '<g transform="translate(' + cx + "," + SY + ') rotate(-2)">';
+  // knob handle
+  s += '<rect x="-56" y="-166" width="112" height="30" rx="6" fill="#33313B"/>';
+  s += '<rect x="-104" y="-138" width="208" height="46" rx="12" fill="#4A4753"/>';
+  s += '<rect x="-104" y="-138" width="208" height="14" rx="7" fill="#5C5866"/>';
+  // frame arms down to the body
+  s += '<rect x="-88" y="-92" width="24" height="94" fill="#33313B"/>';
+  s += '<rect x="64" y="-92" width="24" height="94" fill="#33313B"/>';
+  // date band window with the set date
+  s += '<rect x="-172" y="-70" width="344" height="76" rx="9" fill="#26242E"/>';
+  s += '<rect x="-160" y="-59" width="320" height="54" fill="' + PAPER + '"/>';
+  s += '<text id="banddate" x="0" y="-18" text-anchor="middle" font-family="Spline Sans Mono" font-weight="700" font-size="38" fill="' + VIO + '" letter-spacing="3"></text>';
+  // violet body with bevel
+  s += '<rect x="-150" y="6" width="300" height="110" rx="16" fill="' + VIO + '"/>';
+  s += '<rect x="-150" y="6" width="300" height="22" rx="11" fill="#5C50A8"/>';
+  s += '<text x="0" y="98" text-anchor="middle" font-family="Spline Sans Mono" font-weight="600" font-size="23" letter-spacing="1" fill="#E6E1F0">PENGLING TANGGAL</text>';
+  // base plate + rubber die, pressed onto the top page
+  s += '<rect x="-214" y="120" width="428" height="22" rx="7" fill="#33313B"/>';
+  s += '<rect x="-184" y="142" width="368" height="16" fill="#26242E"/>';
+  s += "</g>";
+  svg.innerHTML = g + s;
+
+  // band date text (shorten to fit the window)
+  const bandTxt = String(D.date || "").replace(/^per\s+/i, "").replace(/20(\d\d)/, "$1");
+  const bd = document.getElementById("banddate");
+  bd.textContent = bandTxt.toUpperCase();
+  let bfs = 46;
+  while (bd.getComputedTextLength && bd.getComputedTextLength() > 330 && bfs > 30) { bfs -= 2; bd.setAttribute("font-size", bfs); }
+
+  // ---------- the freshly stamped impression on the top page ----------
+  const IMPY = SY + 222;
+  svg.innerHTML += '<g transform="translate(' + cx + "," + IMPY + ') rotate(-1.5)" opacity="0.88">' +
+    '<rect x="-244" y="-42" width="488" height="84" fill="none" stroke="' + VIO + '" stroke-width="6" opacity="0.5"/>' +
+    '<text x="0" y="20" text-anchor="middle" font-family="Spline Sans Mono" font-weight="700" font-size="52" letter-spacing="9" fill="' + VIO + '">' + bandTxt.toUpperCase() + "</text></g>";
+
+  // ---------- fanned pages = items (below the impression) ----------
+  const pages = $("pages");
+  const FY0 = IMPY + 118;
+  const rowH = Math.min(118, (1462 - FY0) / n);
+  let ph = "";
+  items.forEach((it, i) => {
+    const y = FY0 + i * rowH;
+    const rot = -2.4 + i * 1.5 + (h01(i, 2) - 0.5) * 0.8;
+    const x = 250 + (i % 2) * 54;
+    const pgH = Math.min(104, rowH - 8);
+    ph += '<div class="page" style="left:' + x + "px;top:" + y + "px;height:" + pgH + "px;transform:rotate(" + rot.toFixed(2) + 'deg)"><span class="lb" style="top:' + Math.round(pgH * 0.18) + 'px">' + esc(it.label) + '</span><span class="dt' + (it.old ? " old" : "") + '" style="top:' + Math.round(pgH * 0.5 - 18) + 'px">' + esc(it.value) + "</span>";
+    if (i === 0) ph += '<span style="position:absolute;right:-48px;top:-40px;width:88px;height:88px;border:6px solid ' + RED + ';border-radius:50%;transform:rotate(12deg);display:flex;align-items:center;justify-content:center;font:800 64px \'Sofia Sans Extra Condensed\';color:' + RED + ';">?</span>';
+    ph += "</div>";
+  });
+  pages.innerHTML = ph;
+  // shrink labels that do not fit
+  pages.querySelectorAll(".page").forEach(el => {
+    const lb = el.querySelector(".lb"), dt = el.querySelector(".dt");
+    const maxW = el.offsetWidth - dt.offsetWidth - 70;
+    let fs = 40; lb.style.fontSize = fs + "px";
+    while (lb.offsetWidth > maxW && fs > 30) { fs -= 2; lb.style.fontSize = fs + "px"; }
+    if (lb.offsetWidth > maxW) { let t2 = lb.textContent; while (t2.length > 1 && lb.offsetWidth > maxW) t2 = t2.slice(0, -1); lb.textContent = t2 + "…"; }
+  });
+
+  // ---------- caption karaoke + meta ----------
+  const cap = String(D.caption || D.sub || "").trim();
+  const words = cap.split(/\s+/).filter(Boolean);
+  const norm = w => w.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+  const hws = hl ? hl.split(/\s+/).map(norm).filter(Boolean) : [];
+  let a0 = -1, a1 = -1;
+  if (hws.length) {
+    for (let i = 0; i + hws.length <= words.length && a0 < 0; i++) if (hws.every((h2, k) => norm(words[i + k]) === h2)) { a0 = i; a1 = i + hws.length - 1; }
+    if (a0 < 0 && hws.length === 1) { const j = words.findIndex(w => norm(w).includes(hws[0])); if (j >= 0) a0 = a1 = j; }
+  }
+  if (a0 < 0) a0 = a1 = 0;
+  const parts = [];
+  for (let i = 0; i < words.length; i++) {
+    if (i === a0) { parts.push('<span class="w on">' + esc(words.slice(a0, a1 + 1).join(" ")) + "</span>"); i = a1; }
+    else parts.push('<span class="w">' + esc(words[i]) + "</span>");
+  }
+  const capEl = $("cap");
+  capEl.innerHTML = parts.join(" ");
+  let cfs = 46;
+  for (; cfs >= 42; cfs -= 2) { capEl.style.fontSize = cfs + "px"; if (capEl.offsetHeight <= cfs * 1.2 * 2) break; }
+  if (capEl.offsetHeight > 42 * 1.2 * 2) {
+    capEl.style.fontSize = "42px";
+    const fits = () => capEl.offsetHeight <= 42 * 1.2 * 2 + 2;
+    let ws = Array.from(capEl.querySelectorAll(".w"));
+    while (ws.length > 1 && !ws[ws.length - 1].classList.contains("on")) {
+      const w = ws[ws.length - 1], keep = w.textContent;
+      w.textContent = keep.replace(/[.,;:!?]*$/, "") + "…";
+      if (fits()) break;
+      w.textContent = keep;
+      const prev = w.previousSibling; w.remove(); if (prev && prev.nodeType === 3) prev.remove();
+      ws.pop();
+    }
+  }
+  capEl.style.top = (1616 - capEl.offsetHeight) + "px";
+  const m = $("meta");
+  const dateTxt = String(D.date || "");
+  let srcTxt = D.source ? "Sumber: " + D.source : "";
+  const mcv = document.createElement("canvas").getContext("2d");
+  mcv.font = '500 27px "Spline Sans Mono", monospace';
+  const W = 900;
+  if (mcv.measureText((srcTxt + " · " + dateTxt).trim()).width > W && srcTxt) {
+    const ws2 = srcTxt.split(/\s+/);
+    while (ws2.length > 1 && mcv.measureText(ws2.join(" ") + "… · " + dateTxt).width > W) ws2.pop();
+    srcTxt = ws2.join(" ") + "…";
+  }
+  m.innerHTML = esc((srcTxt + " · " + dateTxt).trim());
+  m.style.top = "1622px";
+  }
+</script>
+</body>
+</html>
