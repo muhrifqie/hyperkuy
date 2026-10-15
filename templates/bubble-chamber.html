@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Bubble Chamber: a chamber photograph on black. Fine white dotted tracks
+    fan from one vertex at lower-left; two tight spirals curl in the field;
+    fiducial crosses and a frame number make it read as lab evidence.
+    D.items are the scanner's yellow grease-pencil tags pinned to tracks:
+    feature name + strength. D.hl is the spiral circled twice in grease pencil.
+    Deterministic: every track is a hard-coded angle/length/curvature tuple;
+    spirals are parametric with fixed constants. No randomness, no clock.
+    Video: hook #9 — unlabelled spray at frame 0; at 1 s the grease pencil
+    circles one spiral and writes its name. Loop D: tracks retract into the
+    vertex, labels lift, the clean photograph returns.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #050608; }
+  body { position: relative; color: #E9E7E1; font-family: "Instrument Sans", sans-serif; }
+
+  #chamber { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  .kick { position: absolute; left: 90px; right: 90px; top: 288px; display: flex; justify-content: space-between;
+          font: 500 27px "Azeret Mono", monospace; letter-spacing: 0.14em; color: #F2C14E; }
+  .kick .dim { color: #8C93A3; }
+  .title { position: absolute; left: 90px; width: 900px; top: 336px;
+           font: 700 92px/1.12 "Azeret Mono", monospace; letter-spacing: -0.03em; color: #E9E7E1; }
+  .title .hl { color: #F2C14E; }
+
+  .tag { position: absolute; display: flex; align-items: baseline; gap: 14px; white-space: nowrap;
+         font-family: "Instrument Sans", sans-serif; }
+  .tag .lb { font: 600 31px/1.1 "Instrument Sans", sans-serif; color: #F2C14E; }
+  .tag .vl { font: 700 42px/1 "Azeret Mono", monospace; letter-spacing: -0.02em; color: #F2C14E; }
+
+  #cap { position: absolute; left: 90px; width: 860px; top: 1466px;
+         font: 500 44px/1.22 "Instrument Sans", sans-serif; color: #E9E7E1; }
+  #cap .w.on { font-weight: 700; color: #050608; background: #F2C14E; padding: 0 0.18em; border-radius: 3px; }
+  .foot { position: absolute; left: 90px; right: 90px; top: 1590px; display: flex; justify-content: space-between; gap: 40px;
+          font: 400 26px "Azeret Mono", monospace; color: #8C93A3; }
+  .foot span:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg id="chamber" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" data-layout-allow-overlap></svg>
+<div class="kick"><span id="kickL"></span><span class="dim" id="frameNo"></span></div>
+<div class="title" id="title"></div>
+<div id="tags"></div>
+<div id="cap" data-slot="caption"></div>
+<div class="foot"><span id="src"></span><span id="date"></span></div>
+<script>
+const D = window.D || {
+  series_id: "how-ai-works",
+  series: "Cara kerja AI",
+  ep: "#02",
+  kicker: "Cara kerja AI · #02",
+  title: "Kita tidak pernah lihat isi AI. Hanya jejaknya.",
+  hl: "jejak",
+  sub: "Peneliti membaca fitur dalam yang menyala untuk menjelaskan jawaban model.",
+  items: [
+    { label: "fitur lengkung", value: "kuat" },
+    { label: "fitur angka", value: "sedang" },
+    { label: "fitur nada sarkas", value: "lemah" }
+  ],
+  source: "ilustrasi — cara baca jejak interpretability",
+  date: "per 14 Okt 2026",
+  caption: "Jejak di dalam model dibaca seperti foto kabut partikel."
+};
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const P2 = n => n.toFixed(2);
+
+const VX = 330, VY = 1030;               /* the vertex */
+const YEL = "#F2C14E", WHT = "#E9E7E1", GRY = "#8C93A3", RED = "#B23A3A";
+
+/* hard-coded track table: [angleDeg, len, curve, dottedGap, color, opacity] */
+const TRACKS = [
+  [ 12, 620, 0.00016, 16, WHT, 0.9], [ 28, 540, -0.00022, 15, WHT, 0.8],
+  [ 47, 640, 0.00018, 14, WHT, 0.95], [ 66, 470, -0.00028, 15, GRY, 0.7],
+  [ 84, 590, 0.00024, 13, WHT, 0.9], [103, 430, -0.00020, 16, GRY, 0.6],
+  [121, 610, 0.00022, 14, WHT, 0.85], [139, 520, -0.00026, 15, RED, 0.95],
+  [157, 560, 0.00019, 14, WHT, 0.8], [174, 470, -0.00023, 16, WHT, 0.7],
+  [-9, 500, 0.00021, 15, WHT, 0.8], [-27, 430, -0.00025, 16, GRY, 0.65],
+  [-46, 540, 0.00020, 14, WHT, 0.85], [-63, 380, -0.00027, 17, WHT, 0.6],
+  [-81, 300, 0.00018, 15, GRY, 0.55]
+];
+/* two tight spirals: [startAngleDeg, dir, turns, color] */
+const SPIRALS = [
+  [640, 960, -20, 1, 2.1, 128, WHT],
+  [252, 1310, 40, -1, 1.8, 92, WHT]
+];
+
+function trackPath(a0, len, curve) {
+  const a = a0 * Math.PI / 180;
+  let d = "", x = VX, y = VY, ang = a, step = 10;
+  for (let s = 0; s < len; s += step) {
+    const nx = x + Math.cos(ang) * step, ny = y - Math.sin(ang) * step;
+    d += (s === 0 ? "M" : "L") + P2(nx) + " " + P2(ny);
+    ang += curve * step; x = nx; y = ny;
+  }
+  return d;
+}
+function spiralPath(cx, cy, a0, dir, turns, r0) {
+  const a = a0 * Math.PI / 180;
+  let d = "", r = r0, ang = a;
+  const steps = Math.round(turns * 36);
+  for (let i = 0; i <= steps; i++) {
+    const x = cx + Math.cos(ang) * r, y = cy - Math.sin(ang) * r;
+    d += (i === 0 ? "M" : "L") + P2(x) + " " + P2(y);
+    ang += dir * (Math.PI * 2 / 36); r *= 0.955;
+  }
+  return d;
+}
+
+(function () {
+  let s = '<rect x="0" y="0" width="1080" height="1920" fill="#050608"/>';
+  /* faint photographic mottle: fixed blobs */
+  for (let i = 0; i < 26; i++) {
+    const h = (i * 2654435761 >>> 0);
+    const x = h % 1080, y = (h >>> 7) % 1920, r = 60 + (h >>> 14) % 160;
+    s += '<circle cx="' + x + '" cy="' + y + '" r="' + r + '" fill="#E9E7E1" opacity="0.016"/>';
+  }
+  /* fiducial crosses */
+  for (let gx = 0; gx <= 5; gx++) for (let gy = 0; gy <= 8; gy++) {
+    const x = 90 + gx * 225, y = 300 + gy * 200;
+    s += '<path d="M' + (x - 10) + ' ' + y + 'H' + (x + 10) + 'M' + x + ' ' + (y - 10) + 'V' + (y + 10) +
+         '" stroke="#8C93A3" stroke-width="2" opacity="0.4"/>';
+  }
+  /* tracks: dotted strokes */
+  TRACKS.forEach(([a, l, c, g, col, op]) => {
+    s += '<path d="' + trackPath(a, l, c) + '" fill="none" stroke="' + col + '" stroke-opacity="' + op +
+         '" stroke-width="4" stroke-linecap="round" stroke-dasharray="0.1 ' + g + '"/>';
+  });
+  SPIRALS.forEach(([cx, cy, a, dir, t, r0, col]) => {
+    s += '<path d="' + spiralPath(cx, cy, a, dir, t, r0) + '" fill="none" stroke="' + col +
+         '" stroke-width="4" stroke-linecap="round" stroke-dasharray="0.1 12"/>';
+  });
+  /* the vertex: denser burst of short tracks */
+  for (let i = 0; i < 8; i++) {
+    const a = (i * 45 + 8) * Math.PI / 180;
+    s += '<line x1="' + VX + '" y1="' + VY + '" x2="' + (VX + Math.cos(a) * 46) + '" y2="' + (VY - Math.sin(a) * 46) +
+         '" stroke="#E9E7E1" stroke-width="3.5" opacity="0.9"/>';
+  }
+  s += '<circle cx="' + VX + '" cy="' + VY + '" r="14" fill="#E9E7E1" opacity="0.95"/>';
+  /* hl: grease pencil circles (twice) around the first spiral, hard-coded centre */
+  s += '<ellipse cx="648" cy="952" rx="158" ry="140" fill="none" stroke="' + YEL + '" stroke-width="6" opacity="0.95" transform="rotate(-12 648 952)"/>';
+  s += '<ellipse cx="654" cy="946" rx="168" ry="150" fill="none" stroke="' + YEL + '" stroke-width="4" opacity="0.75" transform="rotate(-8 654 946)"/>';
+  $("chamber").innerHTML = s;
+})();
+
+$("kickL").textContent = D.kicker || (D.series + " · " + D.ep);
+$("frameNo").textContent = "FR 2026-10-14 / 0347";
+
+/* title, auto-fit 92 -> 64 (mono runs wide) */
+(function () {
+  const t = String(D.title || ""), hl = D.hl ? String(D.hl) : "";
+  let html = esc(t);
+  if (hl) {
+    const i = t.indexOf(hl) >= 0 ? t.indexOf(hl) : t.toLowerCase().indexOf(hl.toLowerCase());
+    if (i >= 0) html = esc(t.slice(0, i)) + '<span class="hl">' + esc(t.slice(i, i + hl.length)) + "</span>" + esc(t.slice(i + hl.length));
+  }
+  const el = $("title");
+  const fit = () => { el.style.fontSize = "92px"; let z = 92; while (el.offsetHeight > 236 && z > 64) { z -= 4; el.style.fontSize = z + "px"; } };
+  el.innerHTML = html; fit();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+})();
+
+/* grease-pencil tags pinned near tracks (hard-coded anchor points) */
+(function () {
+  const anchors = [ [560, 700, -5], [700, 780, 4], [430, 1240, -4], [720, 1180, 5], [560, 1370, -3] ];
+  $("tags").innerHTML = D.items.map((it, i) => {
+    const [x, y, rot] = anchors[i % anchors.length];
+    return '<div class="tag" style="left:' + x + 'px;top:' + y + 'px;transform:rotate(' + rot + 'deg)">' +
+      '<span class="lb">' + esc(it.label) + '</span><span class="vl">' + esc(it.value) + "</span></div>";
+  }).join("");
+})();
+
+/* karaoke caption */
+(function () {
+  const txt = String(D.caption || D.sub || "");
+  const norm = w => w.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+  const hl = norm(D.hl || "");
+  const words = txt.split(/\s+/).filter(Boolean);
+  let ai = 0;
+  if (hl) { const i = words.findIndex(w => norm(w) === hl); if (i >= 0) ai = i; }
+  $("cap").innerHTML = words.map((w, i) => '<span class="w' + (i === ai ? " on" : "") + '">' + esc(w) + "</span>").join(" ");
+})();
+
+$("src").textContent = D.source || "";
+$("date").textContent = D.date || "";
+</script>
+</body>
+</html>

@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Antonio:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Rally Sheet: a badminton umpire's score sheet clipped to an aluminium
+    board. Two anonymous rows, MODEL A vs MODEL B; each D.item is one rally
+    column — the reason written on top, the running score below, one tick in
+    the A or B cell. The deciding rally is circled in red pencil with the
+    rating change written in the margin (labelled ilustrasi). A feather
+    shuttlecock lies across the corner. Deterministic: ticks from a fixed
+    hash, shuttle is a hard-coded SVG path.
+    Video: hook #5 — sheet at 19-19, two blank answer boxes; the shuttle
+    drops, a pencil tick marks one box: "Kamu pilih jawaban yang mana?"
+    Loop G: the sheet flips over the clipboard; a fresh 0-0 sheet with the
+    same two blank boxes sits exactly as in frame 0.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: linear-gradient(160deg, #C6CAD0 0%, #AEB3BA 60%, #9CA1A9 100%); }
+  body { position: relative; color: #1B2A4A; font-family: "IBM Plex Mono", monospace; }
+
+  #clipart { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  .kick { position: absolute; left: 90px; right: 90px; top: 252px; display: flex; justify-content: space-between;
+          font: 600 27px "IBM Plex Mono", monospace; letter-spacing: 0.14em; text-transform: uppercase; color: #3D4B66; }
+  .sheet { position: absolute; left: 90px; top: 316px; width: 900px; height: 1188px;
+           background: #F7F5EF; border-radius: 6px; box-shadow: 0 24px 50px rgba(27,42,74,.28);
+           border: 1px solid #D8D4C8; padding: 34px 40px 30px; }
+  .title { font-family: "Antonio", sans-serif; font-weight: 700; line-height: 1.02; letter-spacing: 0.005em; color: #1B2A4A; }
+  .title .hl { box-shadow: inset 0 -0.16em 0 0 #D23C2F; }
+  .game { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; row-gap: 4px; margin-top: 18px;
+          font: 600 30px "IBM Plex Mono", monospace; letter-spacing: 0.1em; color: #55607A; }
+  .game > span { white-space: nowrap; }
+  .game b { color: #1B2A4A; font-size: 40px; letter-spacing: 0.04em; }
+
+  #grid { position: absolute; left: 40px; right: 40px; top: 0; bottom: 0; }
+
+  .mrow { position: absolute; left: 0; width: 100%; height: 74px; display: flex; align-items: center; gap: 16px; }
+  .mrow .who { flex: none; width: 210px; font: 700 40px "Antonio", sans-serif; letter-spacing: 0.06em; }
+  .mrow.A .who { color: #1B2A4A; }
+  .mrow.B .who { color: #D23C2F; }
+  .mrow .line { flex: 1; height: 0; border-top: 2px dashed #C9C4B6; }
+
+  #cap { position: absolute; left: 132px; width: 820px; top: 1352px;
+         font: 500 40px/1.22 "IBM Plex Mono", monospace; color: #1B2A4A; }
+  #cap .w.on { font-weight: 700; color: #F7F5EF; background: #D23C2F; padding: 0 0.18em; }
+  .foot { position: absolute; left: 90px; right: 90px; top: 1592px; display: flex; justify-content: space-between; gap: 40px;
+          font: 600 26px "IBM Plex Mono", monospace; letter-spacing: 0.04em; color: #4A5670; }
+  .foot span:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg id="clipart" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" data-layout-allow-overlap></svg>
+<div class="kick"><span id="kickL"></span><span class="kickR">LAPORAN WASIT · GAME 3</span></div>
+<div class="sheet" id="sheet">
+  <div class="title" id="title"></div>
+  <div class="game"><span>SKOR GAME: <b>19 – 19</b></span><span id="decNote"></span></div>
+  <div id="grid"></div>
+</div>
+<div id="cap" data-slot="caption"></div>
+<div class="foot"><span id="src"></span><span id="date"></span></div>
+<script>
+const D = window.D || {
+  series_id: "ai-news",
+  series: "Berita AI",
+  ep: "#03",
+  kicker: "Berita AI · #03",
+  title: "Model dinilai satu ralli, bukan ujian besar.",
+  hl: "satu ralli",
+  sub: "Jutaan pertandingan dua jawaban membangun peringkat arena model.",
+  items: [
+    { label: "lebih jelas", value: "1 – 0" },
+    { label: "format rapi", value: "1 – 1" },
+    { label: "faktanya nempel", value: "2 – 1" }
+  ],
+  source: "ilustrasi — skema arena bergaya Elo",
+  date: "per 14 Okt 2026",
+  caption: "Peringkat model lahir dari ralli demi ralli pilihan manusia."
+};
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function hash(n) { let x = (n | 0) * 2654435761 % 4294967296; x ^= x >>> 13; x = (x * 1274126177) % 4294967296; return (x ^ (x >>> 16)) >>> 0; }
+
+/* clipboard + shuttlecock, hard-coded geometry */
+$("clipart").innerHTML =
+  '<rect x="30" y="120" width="1020" height="1680" rx="26" fill="url(#alu)"/>' +
+  '<defs><linearGradient id="alu" x1="0" y1="0" x2="1" y2="1">' +
+  '<stop offset="0" stop-color="#D3D7DC"/><stop offset="0.5" stop-color="#B8BCC2"/><stop offset="1" stop-color="#A6ABB3"/></linearGradient></defs>' +
+  '<rect x="30" y="120" width="1020" height="1680" rx="26" fill="none" stroke="#8F949D" stroke-width="3"/>' +
+  /* clamp */
+  '<rect x="380" y="82" width="320" height="84" rx="18" fill="#5E6672"/>' +
+  '<rect x="404" y="100" width="272" height="20" rx="10" fill="#7A828E"/>' +
+  '<circle cx="540" cy="146" r="16" fill="#3E454F"/>' +
+  /* shuttlecock across the bottom-right corner of the sheet */
+  '<g transform="translate(900 1508) rotate(-18)">' +
+  '<ellipse cx="0" cy="0" rx="64" ry="46" fill="#EFE9DB"/>' +
+  '<path d="M-58 -6 C-30 -52 30 -52 58 -6 C30 -22 -30 -22 -58 -6 Z" fill="#F7F5EF" stroke="#C9C4B6" stroke-width="3"/>' +
+  '<path d="M-44 -22 L-20 -34 M-14 -34 L14 -40 M22 -36 L44 -26" stroke="#C9C4B6" stroke-width="3" fill="none"/>' +
+  '<circle cx="52" cy="6" r="26" fill="#D23C2F"/>' +
+  '<circle cx="52" cy="6" r="26" fill="none" stroke="#A32A22" stroke-width="3"/>' +
+  '<path d="M40 -4 Q52 4 44 18" stroke="#F7F5EF" stroke-width="4" fill="none" opacity="0.7"/>' +
+  '</g>';
+
+$("kickL").textContent = D.kicker || (D.series + " · " + D.ep);
+
+/* title on the sheet, auto-fit 88 -> 64 */
+(function () {
+  const t = String(D.title || ""), hl = D.hl ? String(D.hl) : "";
+  let html = esc(t);
+  if (hl) {
+    const i = t.indexOf(hl) >= 0 ? t.indexOf(hl) : t.toLowerCase().indexOf(hl.toLowerCase());
+    if (i >= 0) html = esc(t.slice(0, i)) + '<span class="hl">' + esc(t.slice(i, i + hl.length)) + "</span>" + esc(t.slice(i + hl.length));
+  }
+  const el = $("title");
+  const fit = () => { el.style.fontSize = "88px"; let z = 88; while (el.offsetHeight > 200 && z > 64) { z -= 4; el.style.fontSize = z + "px"; } };
+  el.innerHTML = html; fit();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+})();
+
+/* rally columns */
+(function () {
+  const items = D.items;
+  const n = items.length;
+  const num = v => { const m = String(v).replace(",", ".").match(/\d+(\.\d+)?/g); return m ? parseFloat(m[m.length - 1]) : NaN; };
+  /* deciding rally = the column whose second number is the max (the running score leader change) */
+  let bi = 0, bv = -Infinity;
+  items.forEach((it, i) => { const v = num(it.value); if (!isNaN(v) && v > bv) { bv = v; bi = i; } });
+  const top = 596, height = 396, cw = 820 / n;
+  const LB = 78, VB = 130, TB = height - LB - VB;
+  let html = "";
+  /* MODEL A rail; the columns themselves carry both the A and the B tick cells */
+  html += '<div class="mrow A" style="top:' + (top - 84) + 'px"><span class="who">MODEL A</span><span class="line"></span></div>';
+  items.forEach((it, i) => {
+    const x = i * cw, w = cw - 18;
+    const winA = hash(i * 31 + 7) % 2 === 0;
+    html += '<div style="position:absolute;left:' + x + 'px;top:' + top + 'px;width:' + w + 'px;height:' + height + 'px">' +
+      '<div style="height:' + LB + 'px;border:2px solid #1B2A4A;background:#EFEDE4;display:flex;align-items:center;justify-content:center;text-align:center;padding:4px 8px;overflow:hidden;">' +
+      '<span class="rl" style="font:600 27px/1.15 \'IBM Plex Mono\',monospace;color:#3D4B66;">' + esc(it.label) + '</span></div>' +
+      '<div style="border:2px solid #1B2A4A;border-top:0;height:' + VB + 'px;display:flex;align-items:center;justify-content:center;background:#F7F5EF;overflow:hidden;padding:0 8px;">' +
+      '<span class="rv" style="font:700 64px/1 \'Antonio\',sans-serif;color:#1B2A4A;white-space:nowrap;">' + esc(it.value) + '</span></div>' +
+      '<div style="border:2px solid #1B2A4A;border-top:0;height:' + TB + 'px;position:relative;background:#F7F5EF;">' +
+      '<span style="position:absolute;left:12px;top:8px;font:700 30px \'Antonio\',sans-serif;color:#1B2A4A;">A</span>' +
+      '<span style="position:absolute;right:12px;bottom:8px;font:700 30px \'Antonio\',sans-serif;color:#D23C2F;">B</span>' +
+      (winA
+        ? '<svg viewBox="0 0 100 100" style="position:absolute;left:24px;top:calc(50% - 52px);width:104px;height:104px;"><path d="M22 52 L44 76 L82 26" fill="none" stroke="#1B2A4A" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+        : '<svg viewBox="0 0 100 100" style="position:absolute;right:24px;bottom:calc(50% - 52px);width:104px;height:104px;"><path d="M22 52 L44 76 L82 26" fill="none" stroke="#D23C2F" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/></svg>') +
+      '</div></div>';
+  });
+  /* red pencil circle hugging the deciding column's tick cell, nothing wider */
+  const x0 = bi * cw, w0 = cw - 18;
+  html += '<div style="position:absolute;left:' + (x0 - 14) + 'px;top:' + (top + LB + VB - 16) + 'px;width:' + (w0 + 28) + 'px;height:' + (TB + 34) + 'px;pointer-events:none;">' +
+    '<svg viewBox="0 0 100 100" preserveAspectRatio="none" style="width:100%;height:100%"><ellipse cx="50" cy="50" rx="48" ry="47" fill="none" stroke="#D23C2F" stroke-width="1.6" vector-effect="non-scaling-stroke" transform="rotate(-3 50 50)"/></svg></div>';
+  $("grid").innerHTML = html;
+  /* fit: shrink the value, then gently condense, so no numeral ever leaves its cell */
+  document.querySelectorAll("#grid .rv").forEach(el => {
+    const box = el.parentElement.clientWidth - 16;
+    let fs = 64;
+    while (fs > 40 && el.offsetWidth > box) { fs -= 4; el.style.fontSize = fs + "px"; }
+    if (el.offsetWidth > box) el.style.transform = "scaleX(" + (box / el.offsetWidth).toFixed(3) + ")";
+  });
+  document.querySelectorAll("#grid .rl").forEach(el => {
+    let fs = 27;
+    while (fs > 26 && el.offsetHeight > LB - 10) { fs -= 2; el.style.fontSize = fs + "px"; }
+  });
+  $("decNote").innerHTML = 'RALLI PENENTU: <b>+' + (bi + 1) + ' ELO</b> <span style="color:#6B7690">(ilustrasi)</span>';
+})();
+
+/* karaoke caption */
+(function () {
+  const txt = String(D.caption || D.sub || "");
+  const norm = w => w.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+  const hl = norm(D.hl || "");
+  const words = txt.split(/\s+/).filter(Boolean);
+  let ai = 0;
+  if (hl) { const i = words.findIndex(w => norm(w) === hl); if (i >= 0) ai = i; }
+  $("cap").innerHTML = words.map((w, i) => '<span class="w' + (i === ai ? " on" : "") + '">' + esc(w) + "</span>").join(" ");
+})();
+
+$("src").textContent = D.source || "";
+$("date").textContent = D.date || "";
+</script>
+</body>
+</html>

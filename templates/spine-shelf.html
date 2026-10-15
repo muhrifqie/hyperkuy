@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Spine Shelf: a library wall of cloth spines, dark aisle at the left fading
+    to a lit reading area at the right. The wall is the bar chart: one shelf
+    (bracketed, first row) = one person's lifetime of reading; the whole wall
+    = what a model reads in training. D.items sit as brass shelf-label plates
+    on the first shelves, each carrying a number from the data. Spines are
+    drawn from a fixed integer hash — identical every render.
+    Video: hook #2 — close on one spine, single pull-back reveals the wall
+    running out of frame; loop B pushes back into that same spine.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #1A1714; }
+  body { position: relative; color: #E8DFCC; font-family: "Libre Baskerville", serif; }
+
+  .kick { position: absolute; left: 90px; right: 90px; top: 288px; display: flex; justify-content: space-between;
+          font: 500 27px "Oswald", sans-serif; letter-spacing: 0.2em; text-transform: uppercase; color: #C9A55C; }
+  .kick .dim { color: #9A8F7A; }
+  .title { position: absolute; left: 90px; width: 900px; top: 336px;
+           font-family: "Oswald", sans-serif; font-weight: 600; line-height: 1.08; letter-spacing: 0.005em; color: #E8DFCC; }
+  .title .hl { color: #C9A55C; }
+
+  #wall { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  .scale { position: absolute; left: 90px; width: 900px; top: 556px; display: flex; gap: 18px; align-items: center;
+           font: 500 29px "Oswald", sans-serif; letter-spacing: 0.06em; white-space: nowrap; text-transform: uppercase; color: #C9A55C; }
+  .scale .rule { flex: 1; height: 2px; background: #C9A55C; opacity: 0.6; }
+
+  .plate { position: absolute; left: 110px; background: #241E19; border: 2px solid #C9A55C; border-radius: 6px;
+           padding: 18px 20px 14px; box-shadow: 0 8px 18px rgba(0,0,0,.5); display: flex; align-items: baseline; gap: 18px; }
+  .plate .lb { font: 400 30px/1.15 "Libre Baskerville", serif; color: #CFC5AE; max-width: 480px; }
+  .plate .vl { font: 700 42px/1 "Oswald", sans-serif; letter-spacing: 0.02em; color: #C9A55C; white-space: nowrap; }
+  .plate .tag { position: absolute; top: -15px; left: 14px; background: #C9A55C; color: #1A1714;
+                font: 600 26px/1 "Oswald", sans-serif; letter-spacing: 0.18em; padding: 4px 10px 5px; }
+
+  .brk { position: absolute; font: 400 28px/1.2 "Libre Baskerville", serif; font-style: italic; color: #B9AE95; }
+  .brk .bar { position: absolute; background: #B9AE95; }
+
+  #cap { position: absolute; left: 90px; width: 860px; top: 1466px;
+         font: 400 44px/1.22 "Libre Baskerville", serif; color: #E8DFCC; }
+  #cap .w.on { font-weight: 700; font-style: normal; color: #1A1714; background: #C9A55C; padding: 0 0.18em; border-radius: 3px; }
+  .foot { position: absolute; left: 90px; right: 90px; top: 1590px; display: flex; justify-content: space-between; gap: 40px;
+          font: 400 26px "Oswald", sans-serif; letter-spacing: 0.06em; color: #9A8F7A; }
+  .foot span:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<svg id="wall" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" data-layout-allow-overlap></svg>
+<div class="kick"><span id="kickL"></span><span class="dim">RAK 000–004 · SISI TIMUR</span></div>
+<div class="title" id="title"></div>
+<div class="scale"><span>1 rak = seumur hidup pembaca</span><span class="rule"></span><span>dinding = data latih</span></div>
+<div id="plates"></div>
+<div class="brk" id="brk1"></div>
+<div class="brk" id="brk2"></div>
+<div id="cap" data-slot="caption"></div>
+<div class="foot"><span id="src"></span><span id="date"></span></div>
+<script>
+const D = window.D || {
+  series_id: "ai-in-numbers",
+  series: "AI dalam angka",
+  ep: "#01",
+  kicker: "AI dalam angka · #01",
+  title: "AI baca seluruh perpustakaan. Kamu satu rak.",
+  hl: "satu rak",
+  sub: "Seumur hidup pembaca manusia kalah jauh dari korpus latih model.",
+  items: [
+    { label: "Pembaca rajin, 60 tahun", value: "±700 buku" },
+    { label: "Korpus latih model", value: "jutaan buku" },
+    { label: "Perbedaan skala", value: "±10.000×" }
+  ],
+  source: "estimasi korpus publik, 2024",
+  date: "per 14 Okt 2026",
+  caption: "Satu rak untuk kamu, satu gedung untuk mesin."
+};
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+/* fixed integer hash for deterministic variety */
+function hash(n) { let x = (n | 0) * 2654435761 % 4294967296; x ^= x >>> 13; x = (x * 1274126177) % 4294967296; return (x ^ (x >>> 16)) >>> 0; }
+
+/* --- the wall: frontal elevation of 6 shelves of cloth spines --- */
+(function () {
+  const TOP = 596, BOT = 1448, N = 6, rowH = (BOT - TOP) / N;
+  const cloth = ["#8C2F25", "#2E3D5C", "#5A241F", "#26303F", "#3C2B1E", "#703A2B", "#22304A"];
+  let s = '<rect x="0" y="0" width="1080" height="1920" fill="url(#aisle)"/>';
+  s += '<defs><linearGradient id="aisle" x1="0" y1="0" x2="1" y2="0">' +
+       '<stop offset="0" stop-color="#141110"/><stop offset="0.55" stop-color="#1A1714"/>' +
+       '<stop offset="1" stop-color="#33301F"/></linearGradient></defs>';
+  for (let r = 0; r < N; r++) {
+    const y = TOP + r * rowH, shelfY = y + rowH - 14;
+    let x = -10 + (hash(r * 7 + 3) % 26);
+    const books = [];
+    while (x < 1090) {
+      const h1 = hash(r * 131 + x * 17 + 5);
+      const bw = 34 + (h1 % 58);
+      const bh = rowH - 30 - (h1 % 34);
+      const lean = (h1 % 9 === 0) ? 1 : 0; /* occasional leaning book: draw as parallelogram */
+      const c = cloth[h1 % cloth.length];
+      const top = shelfY - bh;
+      if (lean) {
+        books.push('<polygon points="' + (x + 8) + ',' + shelfY + ' ' + (x + 8 + bw) + ',' + shelfY + ' ' +
+          (x + bw) + ',' + (shelfY - bh - 6) + ' ' + (x - 4) + ',' + (shelfY - bh - 6) + '" fill="' + c + '"/>');
+      } else {
+        books.push('<rect x="' + x + '" y="' + top + '" width="' + bw + '" height="' + bh + '" fill="' + c + '"/>');
+        /* gilt bands + panel, drawn as paths (no tiny text) */
+        if (h1 % 3 === 0) books.push('<rect x="' + (x + 5) + '" y="' + (top + 12) + '" width="' + (bw - 10) + '" height="3" fill="#C9A55C" opacity="0.85"/>');
+        if (h1 % 4 === 1) books.push('<rect x="' + (x + 5) + '" y="' + (shelfY - 22) + '" width="' + (bw - 10) + '" height="3" fill="#C9A55C" opacity="0.7"/>');
+        if (h1 % 5 === 2) books.push('<rect x="' + (x + 6) + '" y="' + (top + 24) + '" width="' + (bw - 12) + '" height="' + (bh - 54) + '" fill="none" stroke="#C9A55C" stroke-width="2" opacity="0.5"/>');
+        /* right-edge shading for depth */
+        books.push('<rect x="' + (x + bw - 6) + '" y="' + top + '" width="6" height="' + bh + '" fill="#000" opacity="0.28"/>');
+      }
+      x += bw + (lean ? 12 : 4);
+    }
+    s += '<g>' + books.join("") + '</g>';
+    s += '<rect x="0" y="' + shelfY + '" width="1080" height="14" fill="#0F0D0B"/>';
+    s += '<rect x="0" y="' + (shelfY + 14) + '" width="1080" height="4" fill="#C9A55C" opacity="0.22"/>';
+    s += '<rect x="0" y="' + y + '" width="1080" height="10" fill="#000" opacity="0.35"/>';
+  }
+  $("wall").innerHTML = s;
+})();
+
+$("kickL").textContent = D.kicker || (D.series + " · " + D.ep);
+
+/* title, auto-fit 92 -> 64 */
+(function () {
+  const t = String(D.title || ""), hl = D.hl ? String(D.hl) : "";
+  let html = esc(t);
+  if (hl) {
+    const i = t.indexOf(hl) >= 0 ? t.indexOf(hl) : t.toLowerCase().indexOf(hl.toLowerCase());
+    if (i >= 0) html = esc(t.slice(0, i)) + '<span class="hl">' + esc(t.slice(i, i + hl.length)) + "</span>" + esc(t.slice(i + hl.length));
+  }
+  const el = $("title");
+  el.innerHTML = html;
+  let f = s => { el.style.fontSize = s + "px"; return el.offsetHeight; };
+  let sz = 92; f(sz);
+  while (el.offsetHeight > 200 && sz > 64) { sz -= 4; f(sz); }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { f(92); let z = 92; while (el.offsetHeight > 200 && z > 64) { z -= 4; f(z); } });
+})();
+
+/* brass plates on the first shelves + italic brackets */
+(function () {
+  const TOP = 596, N = 6, rowH = (1448 - TOP) / N;
+  const n = D.items.length;
+  let html = "";
+  D.items.forEach((it, i) => {
+    const y = TOP + i * rowH + rowH / 2 - 34;
+    html += '<div class="plate" style="top:' + y + 'px">' +
+      '<span class="tag">RAK ' + String(i + 1).padStart(2, "0") + '</span>' +
+      '<span class="lb">' + esc(it.label) + '</span><span class="vl">' + esc(it.value) + "</span></div>";
+  });
+  $("plates").innerHTML = html;
+  /* bracket over the first shelf row */
+  const b1 = $("brk1");
+  b1.style.cssText = "left:966px;top:" + (TOP + 8) + "px;width:112px;";
+  b1.innerHTML = '<span style="display:block;padding-left:12px">kamu</span>';
+  /* bracket over the rest of the wall */
+  const b2 = $("brk2");
+  b2.style.cssText = "left:966px;top:" + (TOP + rowH + rowH / 2 - 30) + "px;width:112px;";
+  b2.innerHTML = '<span style="display:block;padding-left:12px">mesin</span>';
+  for (const [el, y0, y1] of [[b1, TOP + 6, TOP + rowH - 6], [b2, TOP + rowH + 6, 1442]]) {
+    el.insertAdjacentHTML("beforeend",
+      '<span class="bar" style="left:0;top:' + (y0 - parseFloat(el.style.top)) + 'px;width:4px;height:' + (y1 - y0) + 'px"></span>' +
+      '<span class="bar" style="left:0;top:' + (y0 - parseFloat(el.style.top)) + 'px;width:14px;height:4px"></span>' +
+      '<span class="bar" style="left:0;top:' + (y1 - 4 - parseFloat(el.style.top)) + 'px;width:14px;height:4px"></span>');
+  }
+})();
+
+/* karaoke caption */
+(function () {
+  const txt = String(D.caption || D.sub || "");
+  const norm = w => w.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+  const hl = norm(D.hl || "");
+  const words = txt.split(/\s+/).filter(Boolean);
+  let ai = 0;
+  if (hl) { const i = words.findIndex(w => norm(w) === hl); if (i >= 0) ai = i; }
+  $("cap").innerHTML = words.map((w, i) => '<span class="w' + (i === ai ? " on" : "") + '">' + esc(w) + "</span>").join(" ");
+})();
+
+$("src").textContent = D.source || "";
+$("date").textContent = D.date || "";
+</script>
+</body>
+</html>

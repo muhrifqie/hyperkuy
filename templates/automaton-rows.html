@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Automaton Rows: Rule 30 printed on a long ivory paper strip. On top, a
+    dark rule card carries the title (serif, like a specimen plate) and the
+    eight neighbourhood icons of the rule — the whole program fits in one row.
+    Below, the strip: row after row of black cells growing from one seed,
+    chaotic as a cone shell. D.items are specimen callouts pinned to specific
+    rows; the newest row prints in vermilion with its three parent cells
+    outlined. Deterministic: Rule 30 is computed, no randomness.
+    Video: hook #2 — the card and a huge triangle at frame 0; a new row prints
+    at 0.3 s and the parents flash. Loop E: the strip keeps feeding upward,
+    the last section re-entering as frame 0.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: linear-gradient(180deg, #121212 0px, #121212 660px, #F2ECDF 660px, #F2ECDF 1446px, #121212 1446px, #26221E 1920px); }
+  body { position: relative; color: #121212; font-family: "DM Mono", monospace; }
+
+  .kick { position: absolute; left: 90px; right: 90px; top: 240px; display: flex; justify-content: space-between; white-space: nowrap;
+          font: 500 27px "DM Mono", monospace; letter-spacing: 0.09em; color: #8F8A80; }
+  .kick b { color: #F2ECDF; font-weight: 500; }
+
+  #card { position: absolute; left: 90px; top: 300px; width: 900px; background: #121212;
+          border: 1px solid #2A2724; border-radius: 10px; padding: 30px 44px 24px; color: #F2ECDF; }
+  .title { font: 400 88px/1.08 "Instrument Serif", serif; letter-spacing: 0.005em; color: #F2ECDF; }
+  .title .hl { color: #D1462F; }
+  #ruleline { margin-top: 16px; padding-top: 14px; border-top: 1px solid #3A362F;
+              display: flex; align-items: center; gap: 20px; }
+  #ruleline .lbl { font: 500 27px "DM Mono", monospace; letter-spacing: 0.14em; color: #8F8A80; flex: none; }
+  #icons { display: flex; gap: 12px; }
+
+  #strip { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  .pin { position: absolute; background: #F2ECDF; border: 2px solid #121212; border-radius: 6px;
+         padding: 10px 18px 12px; box-shadow: 3px 5px 0 rgba(18,18,18,0.22); display: flex; align-items: baseline; gap: 14px; }
+  .pin .lb { font: 400 29px/1.2 "DM Mono", monospace; color: #2A2724; max-width: 420px; }
+  .pin .vl { font: 500 40px/1 "DM Mono", monospace; color: #121212; white-space: nowrap; }
+  .pin .dot { position: absolute; left: 50%; margin-left: -7px; }
+
+  #cap { position: absolute; left: 90px; width: 880px; top: 1480px;
+         font: 400 46px/1.24 "Instrument Serif", serif; color: #F2ECDF; }
+  #cap .w.on { font-weight: 400; color: #F2ECDF; background: #D1462F; padding: 0 0.2em; }
+  .foot { position: absolute; left: 90px; right: 90px; top: 1596px; display: flex; justify-content: space-between; gap: 40px;
+          font: 400 26px "DM Mono", monospace; color: #8F8A80; }
+  .foot span:last-child { white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="kick"><b id="kickL"></b><span>LEMBAR PENGAMATAN · R=30</span></div>
+<div id="card">
+  <div class="title" id="title"></div>
+  <div id="ruleline"><span class="lbl">8 ATURAN:</span><span id="icons"></span></div>
+</div>
+<svg id="strip" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" data-layout-allow-overlap></svg>
+<div id="pins"></div>
+<div id="cap" data-slot="caption"></div>
+<div class="foot"><span id="src"></span><span id="date"></span></div>
+<script>
+const D = window.D || {
+  series_id: "how-ai-works",
+  series: "Cara kerja AI",
+  ep: "#03",
+  kicker: "Cara kerja AI · #03",
+  title: "Aturannya delapan. Hasilnya tak terduga.",
+  hl: "delapan",
+  sub: "Aturan kecil yang diulang bisa menumbuhkan perilaku yang kaya.",
+  items: [
+    { label: "baris awal", value: "1 sel" },
+    { label: "baris 12", value: "mulus" },
+    { label: "baris 40", value: "kacau" },
+    { label: "baris terakhir", value: "baru" }
+  ],
+  source: "ilustrasi — Rule 30, Wolfram",
+  date: "per 14 Okt 2026",
+  caption: "Aturan sederhana yang diulang jutaan kali bisa jadi rumit."
+};
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+/* ---- Rule 30 evolution, computed deterministically ---- */
+const COLS = 63, ROWS = 48, CELL = 14;
+const TOP = 736, LEFT = (1080 - COLS * CELL) / 2;
+function rule30() {
+  const rows = [];
+  let r = new Array(COLS).fill(0); r[COLS >> 1] = 1; rows.push(r);
+  for (let i = 1; i < ROWS; i++) {
+    const nr = new Array(COLS).fill(0);
+    for (let c = 0; c < COLS; c++) {
+      const l = rows[i - 1][(c - 1 + COLS) % COLS], m = rows[i - 1][c], rr = rows[i - 1][(c + 1) % COLS];
+      nr[c] = (l === 1 ? 1 : 0) ^ (m | rr); /* rule 30: 111,110,101 ->0; 100,010,001,000 pattern */
+      nr[c] = ((l << 2) | (m << 1) | rr); nr[c] = [0,1,1,1,1,0,0,0][nr[c]];
+    }
+    rows.push(nr);
+  }
+  return rows;
+}
+
+/* rule card: eight neighbourhood icons (pattern 111..000 -> centre outcome) */
+(function () {
+  const ink = "#F2ECDF", red = "#D1462F";
+  let s = "";
+  for (let p = 7; p >= 0; p--) {
+    const out = [0,1,1,1,1,0,0,0][p];
+    let g = '<svg width="44" height="49" viewBox="0 0 52 58">';
+    for (let k = 0; k < 3; k++) {
+      const on = (p >> (2 - k)) & 1;
+      g += '<rect x="' + (4 + k * 16) + '" y="4" width="12" height="12" fill="' + (on ? ink : "none") + '" stroke="' + ink + '" stroke-opacity="0.55"/>';
+    }
+    g += '<path d="M26 22 v10" stroke="' + ink + '" stroke-opacity="0.55"/>';
+    g += '<rect x="18" y="38" width="16" height="16" fill="' + (out ? red : "none") + '" stroke="' + (out ? red : ink) + '" stroke-opacity="0.8"/>';
+    g += "</svg>";
+    s += g;
+  }
+  $("icons").innerHTML = s;
+})();
+
+/* the strip */
+(function () {
+  const rows = rule30();
+  let s = '<rect x="0" y="620" width="1080" height="830" fill="#F2ECDF"/>';
+  s += '<rect x="0" y="660" width="1080" height="6" fill="#2A2724"/>';
+  s += '<rect x="0" y="1440" width="1080" height="6" fill="#2A2724"/>';
+  /* punched tractor-feed holes along both edges (fixed pattern) */
+  for (let y = 692; y < 1434; y += 42) {
+    s += '<circle cx="34" cy="' + y + '" r="7" fill="#121212" opacity="0.85"/>';
+    s += '<circle cx="1046" cy="' + y + '" r="7" fill="#121212" opacity="0.85"/>';
+  }
+  const last = ROWS - 1;
+  rows.forEach((row, ri) => {
+    const y = TOP + ri * 14;
+    row.forEach((c, ci) => {
+      if (!c) return;
+      const isNew = ri === last;
+      s += '<rect x="' + (LEFT + ci * CELL) + '" y="' + y + '" width="' + (CELL - 1.5) + '" height="' + (CELL - 1.5) +
+           '" fill="' + (isNew ? "#D1462F" : "#121212") + '"/>';
+    });
+  });
+  /* parents of the newest row outlined in vermilion (centre column) */
+  const pc = COLS >> 1;
+  for (let k = -1; k <= 1; k++) {
+    s += '<rect x="' + (LEFT + (pc + k) * CELL - 2) + '" y="' + (TOP + (last - 1) * 14 - 2) + '" width="' + (CELL + 2.5) + '" height="' + (CELL + 2.5) +
+         '" fill="none" stroke="#D1462F" stroke-width="3"/>';
+  }
+  /* feed arrows at the top edge of the strip */
+  s += '<path d="M500 688 l20 -0 m-8 -8 l8 8 l-8 8" stroke="#D1462F" stroke-width="4" fill="none"/>';
+  $("strip").innerHTML = s;
+})();
+
+$("kickL").textContent = D.kicker || (D.series + " · " + D.ep);
+
+/* title auto-fit 84 -> 64 on the dark card */
+(function () {
+  const t = String(D.title || ""), hl = D.hl ? String(D.hl) : "";
+  let html = esc(t);
+  if (hl) {
+    const i = t.indexOf(hl) >= 0 ? t.indexOf(hl) : t.toLowerCase().indexOf(hl.toLowerCase());
+    if (i >= 0) html = esc(t.slice(0, i)) + '<span class="hl">' + esc(t.slice(i, i + hl.length)) + "</span>" + esc(t.slice(i + hl.length));
+  }
+  const el = $("title");
+  const fit = () => { el.style.fontSize = "84px"; let z = 84; while (el.offsetHeight > 200 && z > 64) { z -= 4; el.style.fontSize = z + "px"; } };
+  el.innerHTML = html; fit();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+})();
+
+/* callout pins on chosen rows, alternating sides */
+(function () {
+  const rows = ROWS - 1;
+  const n = D.items.length;
+  let html = "";
+  D.items.forEach((it, i) => {
+    const ri = Math.round((i + 0.6) * (rows - 1) / Math.max(1, n - 0.2));
+    const y = TOP + ri * 14;
+    const leftSide = i % 2 === 0;
+    const px = leftSide ? 96 : 610, py = Math.min(1408, y - 26);
+    const tipx = leftSide ? 566 : 586;
+    html += '<div class="pin" style="left:' + px + 'px;top:' + py + 'px">' +
+      '<span class="lb">' + esc(it.label) + '</span><span class="vl">' + esc(it.value) + "</span>" +
+      '<svg class="dot" style="top:50%;margin-top:-9px;' + (leftSide ? "right:-56px;left:auto;" : "left:-56px;") +
+      '" width="56" height="18" viewBox="0 0 56 18"><path d="' + (leftSide ? "M0 9 H50 M42 3 L52 9 L42 15" : "M56 9 H6 M14 3 L4 9 L14 15") +
+      '" stroke="#121212" stroke-width="2.5" fill="none"/></svg></div>';
+  });
+  $("pins").innerHTML = html;
+})();
+
+/* karaoke caption */
+(function () {
+  const txt = String(D.caption || D.sub || "");
+  const norm = w => w.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+  const hl = norm(D.hl || "");
+  const words = txt.split(/\s+/).filter(Boolean);
+  let ai = 0;
+  if (hl) { const i = words.findIndex(w => norm(w) === hl); if (i >= 0) ai = i; }
+  $("cap").innerHTML = words.map((w, i) => '<span class="w' + (i === ai ? " on" : "") + '">' + esc(w) + "</span>").join(" ");
+})();
+
+$("src").textContent = D.source || "";
+$("date").textContent = D.date || "";
+</script>
+</body>
+</html>
