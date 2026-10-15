@@ -37,7 +37,22 @@
         "bubble-test",
         "unpaid-clicks",
         "margin-bell",
-        "face-to-face"
+        "face-to-face",
+        "quiz-podium",
+        "bubble-chamber",
+        "automaton-rows",
+        "molecule-string",
+        "sablon-pass",
+        "cowrie-board",
+        "cuff-checklist",
+        "survey-meter",
+        "neuron-ink",
+        "camera-obscura",
+        "cutoff-dater",
+        "well-plate",
+        "spirit-level",
+        "split-tally",
+        "tempeh-culture"
       ]
     },
     "ai-in-numbers": {
@@ -66,7 +81,15 @@
         "woodcut",
         "live-spreadsheet",
         "bubble-test",
-        "lab-report"
+        "lab-report",
+        "spine-shelf",
+        "rally-sheet",
+        "counted-figures",
+        "cowrie-board",
+        "eye-chart",
+        "survey-meter",
+        "well-plate",
+        "tempeh-culture"
       ]
     },
     "ai-news": {
@@ -89,7 +112,17 @@
         "fingerpost",
         "woodcut",
         "periodic-elements",
-        "seal-chop"
+        "seal-chop",
+        "quiz-podium",
+        "bubble-chamber",
+        "rally-sheet",
+        "molecule-string",
+        "counted-figures",
+        "eye-chart",
+        "cutoff-dater",
+        "handling-marks",
+        "spirit-level",
+        "split-tally"
       ]
     },
     "ai-tools": {
@@ -119,7 +152,9 @@
         "sewing-pattern",
         "margin-bell",
         "seal-chop",
-        "face-to-face"
+        "face-to-face",
+        "cuff-checklist",
+        "handling-marks"
       ]
     }
   },
@@ -1876,6 +1911,601 @@
       "cover": "covers/face-to-face.jpg",
       "template": "templates/face-to-face.html",
       "spec": "spec/face-to-face.md"
+    },
+    {
+      "id": "quiz-podium",
+      "name": "Quiz Podium",
+      "author": "opus",
+      "origin": "Batch 100 (built by GLM-5.3)",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "dark",
+        "type": "grotesque",
+        "depth": "3D",
+        "visual": "physical-object"
+      },
+      "series": [
+        "ai-news",
+        "how-ai-works"
+      ],
+      "metaphor": "A 1950s TV quiz set with flip-board scores. Metaphor: benchmark contamination, a perfect score can be memorisation when questions and answers leaked into training data.",
+      "signature": "Score rows flip in one by one and a red 'leaked?' flag stamps onto the top score as the spotlight sweeps.",
+      "palette": [
+        "#101318",
+        "#E9E3D6",
+        "#D9A441",
+        "#C2392E",
+        "#3F6DB5"
+      ],
+      "cover": "covers/quiz-podium.jpg",
+      "template": "templates/quiz-podium.html",
+      "spec": "spec/quiz-podium.md"
+    },
+    {
+      "id": "spine-shelf",
+      "name": "Spine Shelf",
+      "author": "opus",
+      "origin": "Batch 100 (built by GLM-5.3)",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "dark-to-light",
+        "type": "condensed",
+        "depth": "3D",
+        "visual": "data"
+      },
+      "series": [
+        "ai-in-numbers"
+      ],
+      "metaphor": "A wall of library shelves. Metaphor: training-data scale, one shelf is a lifetime of one person's reading, the whole wall is a model's corpus.",
+      "signature": "One pull-back reveals the shelf wall running off frame while gilt number plates build in sequence.",
+      "palette": [
+        "#1A1714",
+        "#8C2F25",
+        "#2E3D5C",
+        "#C9A55C",
+        "#E8DFCC"
+      ],
+      "cover": "covers/spine-shelf.jpg",
+      "template": "templates/spine-shelf.html",
+      "spec": "spec/spine-shelf.md"
+    },
+    {
+      "id": "bubble-chamber",
+      "name": "Bubble Chamber",
+      "author": "opus",
+      "origin": "Batch 100 (built by GLM-5.3)",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "dark",
+        "type": "mono",
+        "depth": "2D",
+        "visual": "diagram"
+      },
+      "series": [
+        "how-ai-works",
+        "ai-news"
+      ],
+      "metaphor": "A bubble-chamber photograph of particle tracks. Metaphor: interpretability, researchers never see the model's features directly, only the traces they leave when they fire.",
+      "signature": "A yellow grease pencil circles a spiral track twice, then writes its name beside it.",
+      "palette": [
+        "#050608",
+        "#E9E7E1",
+        "#F2C14E",
+        "#8C93A3",
+        "#B23A3A"
+      ],
+      "cover": "covers/bubble-chamber.jpg",
+      "template": "templates/bubble-chamber.html",
+      "spec": "spec/bubble-chamber.md"
+    },
+    {
+      "id": "rally-sheet",
+      "name": "Rally Sheet",
+      "author": "opus",
+      "origin": "Batch 100 (built by GLM-5.3)",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "light",
+        "type": "condensed",
+        "depth": "2.5D",
+        "visual": "code"
+      },
+      "series": [
+        "ai-in-numbers",
+        "ai-news"
+      ],
+      "metaphor": "A badminton umpire's score sheet on an aluminium clipboard. Metaphor: model arenas, two anonymous answers duel, people pick one, and millions of rallies build an Elo rating.",
+      "signature": "A shuttlecock drops onto the sheet and a pencil tick lands in the box for the winning model.",
+      "palette": [
+        "#F7F5EF",
+        "#1B2A4A",
+        "#D23C2F",
+        "#C9A27A",
+        "#B8BCC2"
+      ],
+      "cover": "covers/rally-sheet.jpg",
+      "template": "templates/rally-sheet.html",
+      "spec": "spec/rally-sheet.md"
+    },
+    {
+      "id": "automaton-rows",
+      "name": "Automaton Rows",
+      "author": "opus",
+      "origin": "Batch 100 (built by GLM-5.3)",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "dark-to-light",
+        "type": "mono",
+        "depth": "2D",
+        "visual": "code"
+      },
+      "series": [
+        "how-ai-works"
+      ],
+      "metaphor": "Rule 30 printed row by row on tractor-feed paper beside its 8-rule card. Metaphor: emergence, a tiny next-token rule repeated gives rich, surprising output.",
+      "signature": "Each new row prints under the last while its three parent cells flash vermilion.",
+      "palette": [
+        "#121212",
+        "#F2ECDF",
+        "#2A2724",
+        "#D1462F",
+        "#8F8A80"
+      ],
+      "cover": "covers/automaton-rows.jpg",
+      "template": "templates/automaton-rows.html",
+      "spec": "spec/automaton-rows.md"
+    },
+    {
+      "id": "molecule-string",
+      "name": "Molecule String",
+      "author": "opus",
+      "origin": "Batch 100 (built by GLM-5.3)",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "dark-to-light",
+        "type": "mono",
+        "depth": "2.5D",
+        "visual": "code"
+      },
+      "series": [
+        "ai-news",
+        "how-ai-works"
+      ],
+      "metaphor": "A chemistry bench where a SMILES label strip unrolls and folds into a ball-and-stick model. Metaphor: a molecule is one line of text, so a language model writes drug candidates with the same next-token trick.",
+      "signature": "Parentheses in the string flash, then branches click onto the model atom by atom.",
+      "palette": [
+        "#14161A",
+        "#F4F1EA",
+        "#2E5BD0",
+        "#D2462F",
+        "#8A8F98"
+      ],
+      "cover": "covers/molecule-string.jpg",
+      "template": "templates/molecule-string.html",
+      "spec": "spec/molecule-string.md"
+    },
+    {
+      "id": "counted-figures",
+      "name": "Counted Figures",
+      "author": "opus",
+      "origin": "Batch 100 (built by GLM-5.3)",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "light",
+        "type": "grotesque",
+        "depth": "2D",
+        "visual": "data"
+      },
+      "series": [
+        "ai-in-numbers",
+        "ai-news"
+      ],
+      "metaphor": "A 1930s Isotype pictorial-statistics board. Metaphor: AI scale you literally count, a bigger number means more identical figures, never a bigger icon.",
+      "signature": "Figures stamp in one by one and the overflow row keeps stamping off the edge of the board.",
+      "palette": [
+        "#F1EAD8",
+        "#1C1C1C",
+        "#C2412D",
+        "#2F4F8F",
+        "#B9A88A"
+      ],
+      "cover": "covers/counted-figures.jpg",
+      "template": "templates/counted-figures.html",
+      "spec": "spec/counted-figures.md"
+    },
+    {
+      "id": "sablon-pass",
+      "name": "Sablon Pass",
+      "author": "opus",
+      "origin": "Batch 100 (built by GLM-5.3)",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "full-colour",
+        "type": "condensed",
+        "depth": "2.5D",
+        "visual": "poster"
+      },
+      "series": [
+        "how-ai-works"
+      ],
+      "metaphor": "An Indonesian t-shirt screen-printing bench with hinge clamps and a squeegee. Metaphor: neural-network layers, each print pass adds one kind of feature until the full picture appears.",
+      "signature": "The squeegee pulls and each pass floods a new ink layer, filling the numbered pass tickets 1/3 to 3/3.",
+      "palette": [
+        "#E85D2A",
+        "#2440A8",
+        "#EDE6D8",
+        "#2B2A28",
+        "#F2C230"
+      ],
+      "cover": "covers/sablon-pass.jpg",
+      "template": "templates/sablon-pass.html",
+      "spec": "spec/sablon-pass.md"
+    },
+    {
+      "id": "cowrie-board",
+      "name": "Cowrie Board",
+      "author": "opus",
+      "origin": "Batch 100 (built by GLM-5.3)",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "light",
+        "type": "serif",
+        "depth": "3D",
+        "visual": "physical-object"
+      },
+      "series": [
+        "how-ai-works",
+        "ai-in-numbers"
+      ],
+      "metaphor": "A carved congklak board in low 3/4 view on linen. Metaphor: self-play reinforcement learning, the AI plays both sides, keeps what wins and improves without copying human games.",
+      "signature": "Shells sow cup to cup while both sides swap tint each turn and a game counter races.",
+      "palette": [
+        "#E9E1D2",
+        "#7A4B2A",
+        "#B47C48",
+        "#F2E9D7",
+        "#2C3F8F"
+      ],
+      "cover": "covers/cowrie-board.jpg",
+      "template": "templates/cowrie-board.html",
+      "spec": "spec/cowrie-board.md"
+    },
+    {
+      "id": "cuff-checklist",
+      "name": "Cuff Checklist",
+      "author": "opus",
+      "origin": "Batch 100 (built by GLM-5.3)",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "dark",
+        "type": "mono",
+        "depth": "3D",
+        "visual": "physical-object"
+      },
+      "series": [
+        "ai-tools",
+        "how-ai-works"
+      ],
+      "metaphor": "A ring-bound mission checklist on a pressure-suit cuff, shot against black. Metaphor: an AI agent's plan, terse steps, one tool call per line, ticked off one by one.",
+      "signature": "A gloved thumb flips the orange phase tab and the next box draws its tick.",
+      "palette": [
+        "#0B0D10",
+        "#E9E6DD",
+        "#F5F1E6",
+        "#E0662B",
+        "#2F5DA8"
+      ],
+      "cover": "covers/cuff-checklist.jpg",
+      "template": "templates/cuff-checklist.html",
+      "spec": "spec/cuff-checklist.md"
+    },
+    {
+      "id": "eye-chart",
+      "name": "Eye Chart",
+      "author": "opus",
+      "origin": "Batch 100 (built by GLM-5.3)",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "light",
+        "type": "grotesque",
+        "depth": "2D",
+        "visual": "poster"
+      },
+      "series": [
+        "ai-in-numbers",
+        "ai-news"
+      ],
+      "metaphor": "A backlit Snellen eye chart. Metaphor: benchmarks, each row is a harder test and a model's score is the smallest row it can still read.",
+      "signature": "A pointer slides down row by row until the optotypes blur past the model's acuity chip.",
+      "palette": [
+        "#F7F6F2",
+        "#121212",
+        "#C9302C",
+        "#2F5FB3",
+        "#DDDAD2"
+      ],
+      "cover": "covers/eye-chart.jpg",
+      "template": "templates/eye-chart.html",
+      "spec": "spec/eye-chart.md"
+    },
+    {
+      "id": "survey-meter",
+      "name": "Survey Meter",
+      "author": "opus",
+      "origin": "Batch 100 (built by GLM-5.3)",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "full-colour",
+        "type": "condensed",
+        "depth": "3D",
+        "visual": "physical-object"
+      },
+      "series": [
+        "how-ai-works",
+        "ai-in-numbers"
+      ],
+      "metaphor": "A yellow civil-defence radiation survey meter. Metaphor: sampling, every word is a weighted dice roll, yet the needle's average stays steady.",
+      "signature": "The needle twitches and settles on the highlighted reading while click ticks stamp onto the tally tag.",
+      "palette": [
+        "#E8B820",
+        "#1B1B1A",
+        "#F3EEDF",
+        "#C8322B",
+        "#6F6A5E"
+      ],
+      "cover": "covers/survey-meter.jpg",
+      "template": "templates/survey-meter.html",
+      "spec": "spec/survey-meter.md"
+    },
+    {
+      "id": "neuron-ink",
+      "name": "Neuron Ink",
+      "author": "opus",
+      "origin": "Batch 100 (built by GLM-5.3)",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "pastel",
+        "type": "serif",
+        "depth": "2D",
+        "visual": "diagram"
+      },
+      "series": [
+        "how-ai-works"
+      ],
+      "metaphor": "A scientist's pen-and-ink sketch of one neuron with a blue catalogue stamp. Metaphor: where 'neural network' comes from, the artificial neuron copies only this sum-and-fire sketch.",
+      "signature": "'Human brain' is struck through in rust and 'this sketch' is written in above the arrow.",
+      "palette": [
+        "#EDE3CC",
+        "#1A1714",
+        "#3B5BA0",
+        "#A6402E",
+        "#CFC2A3"
+      ],
+      "cover": "covers/neuron-ink.jpg",
+      "template": "templates/neuron-ink.html",
+      "spec": "spec/neuron-ink.md"
+    },
+    {
+      "id": "camera-obscura",
+      "name": "Camera Obscura",
+      "author": "opus",
+      "origin": "Batch 100 (built by GLM-5.3)",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "dark-to-light",
+        "type": "grotesque",
+        "depth": "2.5D",
+        "visual": "poster"
+      },
+      "series": [
+        "how-ai-works"
+      ],
+      "metaphor": "A blacked-out room turned camera obscura, a skyline projected upside down on a table. Metaphor: a language model only sees a dim projection of the world, text written about it.",
+      "signature": "'The real world' is struck through and 'its shadow' types in amber beside the projection.",
+      "palette": [
+        "#0F0E0D",
+        "#EDE6D8",
+        "#8D7A63",
+        "#D6A64B",
+        "#33475E"
+      ],
+      "cover": "covers/camera-obscura.jpg",
+      "template": "templates/camera-obscura.html",
+      "spec": "spec/camera-obscura.md"
+    },
+    {
+      "id": "cutoff-dater",
+      "name": "Cutoff Dater",
+      "author": "opus",
+      "origin": "Batch 100 (built by GLM-5.3)",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "pastel",
+        "type": "condensed",
+        "depth": "2.5D",
+        "visual": "physical-object"
+      },
+      "series": [
+        "ai-news",
+        "how-ai-works"
+      ],
+      "metaphor": "A self-inking date stamp over a fan of pages on a lavender desk. Metaphor: knowledge cutoff, everything the model knows carries one date, and later questions still get the old stamp.",
+      "signature": "The stamp slams down, ink settles, and each later page gets the same old date plus a red '?'.",
+      "palette": [
+        "#E6E1F0",
+        "#4B3F8F",
+        "#1F1F22",
+        "#FBF9F4",
+        "#C8402F"
+      ],
+      "cover": "covers/cutoff-dater.jpg",
+      "template": "templates/cutoff-dater.html",
+      "spec": "spec/cutoff-dater.md"
+    },
+    {
+      "id": "handling-marks",
+      "name": "Handling Marks",
+      "author": "opus",
+      "origin": "Batch 100 (built by GLM-5.3)",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "full-colour",
+        "type": "condensed",
+        "depth": "3D",
+        "visual": "physical-object"
+      },
+      "series": [
+        "ai-tools",
+        "ai-news"
+      ],
+      "metaphor": "A full-bleed kraft shipping crate with ISO handling pictograms and a waybill. Metaphor: guardrails, a model ships with handling rules every app that holds it must respect.",
+      "signature": "A tight crop on the fragile-glass pictogram opens to the full crate and the 'AI MODEL' waybill lifts into view.",
+      "palette": [
+        "#B98A57",
+        "#E8DCC4",
+        "#1E1B18",
+        "#C83A2B",
+        "#6E5236"
+      ],
+      "cover": "covers/handling-marks.jpg",
+      "template": "templates/handling-marks.html",
+      "spec": "spec/handling-marks.md"
+    },
+    {
+      "id": "well-plate",
+      "name": "Well Plate",
+      "author": "opus",
+      "origin": "Batch 100 (built by GLM-5.3)",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "pastel",
+        "type": "mono",
+        "depth": "3D",
+        "visual": "data"
+      },
+      "series": [
+        "ai-in-numbers",
+        "how-ai-works"
+      ],
+      "metaphor": "A 96-well microplate in 3D fed by an 8-channel pipette. Metaphor: why AI needs GPUs, a CPU fills one well per move, a GPU fills thousands of identical small sums at once.",
+      "signature": "The pipette drops once and a whole column fills together while rim chips light in sequence.",
+      "palette": [
+        "#E8EEF2",
+        "#1C2A3A",
+        "#E86F5A",
+        "#F2C46D",
+        "#7C8FB7"
+      ],
+      "cover": "covers/well-plate.jpg",
+      "template": "templates/well-plate.html",
+      "spec": "spec/well-plate.md"
+    },
+    {
+      "id": "spirit-level",
+      "name": "Spirit Level",
+      "author": "opus",
+      "origin": "Batch 100 (built by GLM-5.3)",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "light",
+        "type": "grotesque",
+        "depth": "3D",
+        "visual": "physical-object"
+      },
+      "series": [
+        "how-ai-works",
+        "ai-news"
+      ],
+      "metaphor": "An aluminium spirit level on a concrete wall. Metaphor: alignment, tilt one way and the model refuses everything, the other way it obeys anything; tuning re-centres the bubble.",
+      "signature": "The tilted level swings true and the bubble glides onto the highlighted tick.",
+      "palette": [
+        "#E4E2DD",
+        "#B9BDC3",
+        "#E2B33C",
+        "#1C1D20",
+        "#2F5FD0"
+      ],
+      "cover": "covers/spirit-level.jpg",
+      "template": "templates/spirit-level.html",
+      "spec": "spec/spirit-level.md"
+    },
+    {
+      "id": "split-tally",
+      "name": "Split Tally",
+      "author": "opus",
+      "origin": "Batch 100 (built by GLM-5.3)",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "pastel",
+        "type": "serif",
+        "depth": "3D",
+        "visual": "code"
+      },
+      "series": [
+        "ai-news",
+        "how-ai-works"
+      ],
+      "metaphor": "A split hazel tally stick (stock and foil) on vellum with a red wax seal. Metaphor: AI provenance and watermarks, only the matching half lines up exactly; copies and edits don't.",
+      "signature": "The two genuine halves slide together and click flush while the counterfeit stays one notch off.",
+      "palette": [
+        "#EDE4D3",
+        "#B88A57",
+        "#8C6239",
+        "#2A2118",
+        "#9E2B25"
+      ],
+      "cover": "covers/split-tally.jpg",
+      "template": "templates/split-tally.html",
+      "spec": "spec/split-tally.md"
+    },
+    {
+      "id": "tempeh-culture",
+      "name": "Tempeh Culture",
+      "author": "opus",
+      "origin": "Batch 100 (built by GLM-5.3)",
+      "type": "template",
+      "tier": "new",
+      "axes": {
+        "background": "dark",
+        "type": "mono",
+        "depth": "3D",
+        "visual": "abstract"
+      },
+      "series": [
+        "how-ai-works",
+        "ai-in-numbers"
+      ],
+      "metaphor": "Cross-sections of tempeh blocks on a dark cutting board, stamped by hour. Metaphor: training builds connections, loose beans (data) get bound by mycelium (weights) into one solid model.",
+      "signature": "An 'hour 0 to 36' counter runs as mycelium threads draw themselves across each slice, tying the beans into a block.",
+      "palette": [
+        "#1B1A17",
+        "#D7C399",
+        "#A78D5B",
+        "#F6F3EC",
+        "#3B5BA9"
+      ],
+      "cover": "covers/tempeh-culture.jpg",
+      "template": "templates/tempeh-culture.html",
+      "spec": "spec/tempeh-culture.md"
     }
   ]
 }
