@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,600&family=Instrument+Sans:wght@500;600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Cowrie Board: a carved boat-shaped congklak board in low 3/4 perspective on
+    linen — two rows of seven cups, a store at each end, cowrie shells mid-sow.
+    Self-play RL: the AI plays both sides against itself; the item cups of
+    D.items sit on the NEAR row (shells = the value, engraved label + value chip
+    under the cup), the far row holds decorative mid-game cups, and the blue
+    store at the right is the one filling as the AI wins (the hook payoff).
+    Shells are placed from a fixed offset table — no randomness.
+    Video: a hand sows shell by shell, the game counter races, sides swap tint
+    (hook #5 tebak dulu); loop = shells scooped back to seven each (ending D).
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #E9E1D2; }
+  body { position: relative; font-family: "Instrument Sans", sans-serif; color: #7A4B2A; }
+
+  .kick { position: absolute; left: 90px; top: 296px; font: 700 28px "Instrument Sans", sans-serif; letter-spacing: 0.22em; text-transform: uppercase; color: #2C3F8F; }
+  .title { position: absolute; left: 90px; width: 900px; top: 348px; font-family: "Fraunces", serif; font-weight: 700; line-height: 1.05; color: #4A2E17; }
+  .title .hl { font-style: italic; color: #2C3F8F; box-shadow: inset 0 -0.16em #B47C48; }
+
+  #boardsvg { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  .pv { font: 700 40px "Instrument Sans", sans-serif; color: #F2E9D7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pl { font: 600 30px/1.12 "Instrument Sans", sans-serif; letter-spacing: 0.04em; text-transform: uppercase; color: #E8D2AE; margin-top: 2px; }
+
+  .cap { position: absolute; left: 90px; width: 850px; font: 600 44px "Instrument Sans", sans-serif; line-height: 1.24; color: #4A2E17; }
+  .cap .w.on { color: #F2E9D7; background: #2C3F8F; padding: 0 0.16em; font-weight: 700; }
+  .foot { position: absolute; left: 90px; right: 90px; top: 1660px; display: flex; justify-content: space-between; gap: 40px; font: 500 26px "Instrument Sans", sans-serif; color: #9A7B5A; }
+</style>
+</head>
+<body>
+<div class="kick" id="kick"></div>
+<div class="title" id="title"></div>
+<svg id="boardsvg" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="cap" id="cap" data-slot="caption"></div>
+<div class="foot"><span id="src"></span><span id="date"></span></div>
+<script>
+  // Fallback sample (Cara kerja AI) shaped like data/sample-tokens.json.
+  const D = window.D || { series_id: "how-ai-works", series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI lawan AI: latihan tanpa guru.", hl: "tanpa guru",
+    sub: "Dua sisi papan dimainkan AI sendiri, jutaan kali tiap jam.",
+    items: [
+      { label: "game 1", value: "2 langkah" },
+      { label: "game 1.000", value: "5 langkah" },
+      { label: "game 1 juta", value: "9 langkah" }
+    ],
+    source: "AlphaZero — belajar murni self-play", date: "per 14 Okt 2026" };
+
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const norm = w => w.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+  const $ = id => document.getElementById(id);
+  const BROWN = "#7A4B2A", RIM = "#B47C48", CREAM = "#F2E9D7", LINEN = "#E9E1D2", BLUE = "#2C3F8F";
+
+  // fixed shell scatter table (dx, dy, rot) — deterministic
+  const SHELL_OFF = [[-26, -8, 10], [14, -14, -25], [-4, 12, 55], [30, 6, 80], [-30, 14, -45], [4, -2, 140], [24, 18, -100], [-12, 22, 30], [38, -12, 15], [-40, -2, -70]];
+
+  Promise.all(["700 96px 'Fraunces'", "600 44px 'Instrument Sans'", "600 30px 'Instrument Sans'"].map(f => document.fonts.load(f))).catch(() => {}).then(render);
+
+  function render() {
+  $("kick").textContent = D.kicker || (D.series + " · " + (D.ep || ""));
+  $("src").textContent = D.source ? "Sumber: " + D.source : "";
+  $("date").textContent = D.date || "";
+
+  const tEl = $("title");
+  const title = String(D.title || "");
+  const at = D.hl ? title.indexOf(D.hl) : -1;
+  tEl.innerHTML = at < 0 ? esc(title) : esc(title.slice(0, at)) + '<span class="hl">' + esc(title.slice(at, at + D.hl.length)) + "</span>" + esc(title.slice(at + D.hl.length));
+  let tfs = 100;
+  for (; tfs >= 72; tfs -= 2) { tEl.style.fontSize = tfs + "px"; if (tEl.offsetHeight <= 250) break; }
+  const tBottom = 348 + tEl.offsetHeight;
+
+  // ---- board geometry ----
+  const svg = $("boardsvg");
+  const bTop = Math.max(620, tBottom + 56);
+  const midY = bTop + 250, nearY = bTop + 450;
+  const n = D.items.length;
+  const colX = n <= 2 ? [320, 760] : n === 3 ? [320, 540, 760] : n === 4 ? [300, 460, 620, 780] : [300, 420, 540, 660, 780];
+  let g = "";
+
+  // boat body: dark brown deck, lighter rim, cream cups
+  const bBot = nearY + 355;
+  g += '<path d="M96 ' + (midY - 60) + " C96 " + (midY - 260) + " 984 " + (midY - 260) + " 984 " + (midY - 60) + " L964 " + (bBot - 20) + " C900 " + bBot + " 180 " + bBot + " 116 " + (bBot - 20) + " Z\" fill='" + BROWN + "'/>";
+  g += '<path d="M120 ' + (midY - 40) + " C130 " + (midY - 220) + " 950 " + (midY - 220) + " 960 " + (midY - 40) + "\" fill='none' stroke='" + RIM + "' stroke-width='10' opacity='0.85'/>";
+  g += '<path d="M126 ' + (bBot - 30) + " C190 " + (bBot - 90) + " 890 " + (bBot - 90) + " 954 " + (bBot - 30) + "\" fill='none' stroke='" + RIM + "' stroke-width='10' opacity='0.85'/>";
+
+  const shell = (x, y, r) => '<g transform="translate(' + x + " " + y + ") rotate(" + r + ')"><ellipse rx="17" ry="12" fill="' + CREAM + '" stroke="#8A6A45" stroke-width="3"/><path d="M-13 0 Q0 -7 13 0" stroke="#8A6A45" stroke-width="2.5" fill="none"/></g>';
+
+  const cup = (cx, cy, rx, ry, count, rimCol) => {
+    let s = '<ellipse cx="' + cx + '" cy="' + cy + '" rx="' + rx + '" ry="' + ry + '" fill="#5E3A1E"/>' +
+            '<ellipse cx="' + cx + '" cy="' + (cy - 8) + '" rx="' + rx + '" ry="' + ry + '" fill="' + CREAM + '" stroke="' + (rimCol || "#5E3A1E") + '" stroke-width="4"/>';
+    const k = Math.max(0, Math.min(SHELL_OFF.length, count));
+    for (let i = 0; i < k; i++) s += shell(cx + SHELL_OFF[i][0] * (rx / 44), cy - 12 + SHELL_OFF[i][1] * (ry / 30), SHELL_OFF[i][2]);
+    return s;
+  };
+  function countOf(v) {
+    const m = String(v).replace(/\./g, "").match(/\d+/);
+    return m ? Math.max(1, Math.min(10, parseInt(m[0], 10))) : 3;
+  }
+
+  // far row: 7 decorative cups, mid-game counts (fixed 2..5 pattern)
+  for (let i = 0; i < 7; i++) g += cup(205 + i * 112, midY, 44, 26, 2 + ((i * 5 + 3) % 4));
+  // near row: 7 small background cups + the n counted cups pulled forward
+  for (let i = 0; i < 7; i++) g += cup(205 + i * 112, nearY - 30, 44, 26, 2 + ((i * 3 + 1) % 3));
+  D.items.forEach((it, i) => {
+    g += cup(colX[i], nearY + 56, 52, 32, countOf(it.value), BLUE);
+  });
+
+  // left store: still nearly empty (human side losing)
+  g += '<ellipse cx="180" cy="' + (midY + 110) + '" rx="74" ry="140" fill="#5E3A1E"/>' +
+       '<ellipse cx="180" cy="' + (midY + 100) + '" rx="74" ry="140" fill="' + CREAM + '" stroke="#5E3A1E" stroke-width="5"/>';
+  for (let i = 0; i < 2; i++) g += shell(166 + i * 28, midY + 130, i * 40);
+
+  // right store: the winner's store, tinted blue and full
+  g += '<ellipse cx="900" cy="' + (midY + 110) + '" rx="74" ry="140" fill="#1E2C66"/>' +
+       '<ellipse cx="900" cy="' + (midY + 100) + '" rx="74" ry="140" fill="' + BLUE + '" stroke="#1E2C66" stroke-width="5"/>';
+  for (let i = 0; i < 10; i++) g += shell(868 + (i % 3) * 30, midY + 10 + Math.floor(i / 3) * 58, (i * 37) % 120);
+
+  // linen texture: faint weave lines top and bottom (decorative, not text)
+  let tex = "";
+  for (let y = 60; y < 260; y += 22) tex += '<line x1="0" y1="' + y + '" x2="1080" y2="' + (y + 10) + '" stroke="#DFD3BC" stroke-width="2"/>';
+  for (let y = bBot + 40; y < 1560; y += 22) tex += '<line x1="0" y1="' + y + '" x2="1080" y2="' + (y - 10) + '" stroke="#DFD3BC" stroke-width="2"/>';
+  svg.innerHTML = tex + g;
+
+  // engraved labels + value chips, HTML pills aligned under the counted cups
+  const pillW = n <= 2 ? 400 : n === 3 ? 210 : n === 4 ? 220 : 180;
+  const pillHost = document.createElement("div");
+  pillHost.style.cssText = "position:absolute;left:0;top:0;width:1080px;height:1920px;pointer-events:none";
+  document.body.appendChild(pillHost);
+  D.items.forEach((it, i) => {
+    const el = document.createElement("div");
+    el.style.cssText = "position:absolute;width:" + pillW + "px;text-align:center";
+    el.innerHTML = '<div class="pv">' + esc(it.value) + '</div><div class="pl">' + esc(it.label) + "</div>";
+    pillHost.appendChild(el);
+    const x = Math.max(90, Math.min(990 - pillW, colX[i] - pillW / 2));
+    const y = nearY + 126;
+    el.style.left = x + "px"; el.style.top = y + "px";
+  });
+
+  // caption karaoke
+  const cap = String(D.caption || D.sub || "").trim();
+  const words = cap.split(/\s+/).filter(Boolean);
+  const hws = D.hl ? D.hl.split(/\s+/).map(norm).filter(Boolean) : [];
+  let a0 = -1, a1 = -1;
+  if (hws.length) {
+    for (let i = 0; i + hws.length <= words.length && a0 < 0; i++) if (hws.every((h2, k) => norm(words[i + k]) === h2)) { a0 = i; a1 = i + hws.length - 1; }
+    if (a0 < 0 && hws.length === 1) { const j = words.findIndex(w => norm(w).includes(hws[0])); if (j >= 0) a0 = a1 = j; }
+  }
+  if (a0 < 0) a0 = a1 = 0;
+  const parts = [];
+  for (let i = 0; i < words.length; i++) {
+    if (i === a0) { parts.push('<span class="w on">' + esc(words.slice(a0, a1 + 1).join(" ")) + "</span>"); i = a1; }
+    else parts.push('<span class="w">' + esc(words[i]) + "</span>");
+  }
+  const capEl = $("cap");
+  capEl.innerHTML = parts.join(" ");
+  let cfs = 46;
+  for (; cfs >= 40; cfs -= 2) { capEl.style.fontSize = cfs + "px"; if (capEl.offsetHeight <= cfs * 1.24 * 2 + 4) break; }
+  capEl.style.top = (1600 - capEl.offsetHeight) + "px";
+  }
+</script>
+</body>
+</html>

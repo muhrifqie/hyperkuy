@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Work+Sans:wght@500;600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Sablon Pass: an Indonesian t-shirt screen-printing bench (sablon). A wooden
+    screen frame with mesh hangs on hinge clamps above the shirt, squeegee
+    loaded; each item of D.items is one squeegee PASS printed on the shirt as a
+    solid ink bar in its own colour (one colour per screen), with registration
+    marks under the shirt. Deterministic: fixed geometry, no randomness.
+    Video: the squeegee pulls, each pass bar floods with ink one by one
+    (stagger build), slots 1/3 2/3 3/3 fill (hook #11); loop = shirt pulled
+    off, blank laid down, slots empty again (ending G).
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #EDE6D8; }
+  body { position: relative; font-family: "Work Sans", sans-serif; color: #2B2A28; }
+
+  .kick { position: absolute; left: 90px; top: 296px; font: 600 28px "Work Sans", sans-serif; letter-spacing: 0.2em; text-transform: uppercase; color: #2440A8; }
+  .title { position: absolute; left: 90px; width: 900px; top: 348px; font-family: "Bebas Neue", sans-serif; line-height: 0.96; letter-spacing: 0.01em; }
+  .title .hl { color: #EDE6D8; background: #C64314; padding: 0 0.12em; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+
+  #bench { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  .passes { position: absolute; left: 90px; right: 90px; display: flex; justify-content: space-between; gap: 18px; }
+  .pass { flex: 1; border: 3px solid #2B2A28; background: #F7F2E7; padding: 10px 16px 12px; position: relative; }
+  .pass .pn { position: absolute; top: -16px; left: 12px; font: 400 30px "Bebas Neue", sans-serif; letter-spacing: 0.06em; color: #EDE6D8; background: #2B2A28; padding: 1px 12px 2px; }
+  .pass .lb { font: 600 30px "Work Sans", sans-serif; line-height: 1.1; margin-top: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pass .vl { font: 400 46px "Bebas Neue", sans-serif; line-height: 1; letter-spacing: 0.03em; }
+  .pass .inkdot { position: absolute; right: 12px; top: 14px; width: 26px; height: 26px; border-radius: 50%; border: 3px solid #2B2A28; }
+
+  .cap { position: absolute; left: 90px; width: 840px; font: 600 44px "Work Sans", sans-serif; line-height: 1.24; color: #2B2A28; }
+  .cap .w.on { color: #EDE6D8; background: #2440A8; padding: 0 0.16em; font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="kick" id="kick"></div>
+<div class="title" id="title"></div>
+<svg id="bench" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="passes" id="passes"></div>
+<div class="cap" id="cap" data-slot="caption"></div>
+<script>
+  // Fallback sample (Cara kerja AI) shaped like data/sample-tokens.json.
+  const D = window.D || { series_id: "how-ai-works", series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI menyusun jawaban lapis demi lapis.", hl: "lapis",
+    sub: "Tiap lapis jaringan menambah satu jenis fitur, sampai gambar utuh.",
+    items: [
+      { label: "Garis tepi", value: "lapis 1" },
+      { label: "Bentuk dasar", value: "lapis 2" },
+      { label: "Warna", value: "lapis 3" }
+    ],
+    source: "ilustrasi — lapisan jaringan saraf", date: "per 14 Okt 2026" };
+
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const norm = w => w.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+  const $ = id => document.getElementById(id);
+  const INK = "#2B2A28", CREAM = "#EDE6D8", PAPER = "#F7F2E7", ORANGE = "#E85D2A", BLUE = "#2440A8", YELLOW = "#F2C230";
+  const PASS_INK = [BLUE, ORANGE, YELLOW, INK];       // one colour per screen
+
+  Promise.all(["400 120px 'Bebas Neue'", "400 46px 'Bebas Neue'", "600 30px 'Work Sans'", "600 44px 'Work Sans'"].map(f => document.fonts.load(f))).catch(() => {}).then(render);
+
+  function render() {
+  $("kick").textContent = D.kicker || (D.series + " · " + (D.ep || ""));
+
+  const tEl = $("title");
+  const title = String(D.title || "").toUpperCase();
+  const hlU = D.hl ? String(D.hl).toUpperCase() : "";
+  const at = hlU ? title.indexOf(hlU) : -1;
+  tEl.innerHTML = at < 0 ? esc(title) : esc(title.slice(0, at)) + '<span class="hl">' + esc(title.slice(at, at + hlU.length)) + "</span>" + esc(title.slice(at + hlU.length));
+  // title space budget: screen frame (290px) + shirt (>=200 + 80/item) + pass strip must fit above y 1345
+  const n = D.items.length;
+  const passY = 1345;
+  const maxTitleH = Math.min(357, passY - 30 - (200 + n * 80) - 290 - 348);
+  let tfs = 124;
+  for (; tfs >= 84; tfs -= 2) { tEl.style.fontSize = tfs + "px"; if (tEl.offsetHeight <= maxTitleH) break; }
+  const tBottom = 348 + tEl.offsetHeight;
+
+  // pass ticket strip under the shirt
+  document.getElementById("passes").style.top = passY + "px";
+  $("passes").innerHTML = D.items.map((it, i) => {
+    const c = PASS_INK[i % PASS_INK.length];
+    return '<div class="pass"><span class="pn">' + (i + 1) + "/" + n + '</span>' +
+      '<div class="inkdot" style="background:' + c + '"></div>' +
+      '<div class="lb">' + esc(it.label) + '</div>' +
+      '<div class="vl" style="color:' + (c === YELLOW ? INK : (c === ORANGE ? "#C64314" : c)) + '">' + esc(it.value) + "</div></div>";
+  }).join("");
+
+  // ---- bench drawing: screen frame + shirt with printed pass bars ----
+  const frameTop = tBottom + 44;
+  const shirtTop = frameTop + 254;
+  const shirtH = passY - 30 - shirtTop;
+  const barH = Math.max(78, Math.min(112, Math.floor((shirtH - 210) / n)));
+  const barsTop = shirtTop + 140;
+  const barGap = n > 1 ? Math.max(14, Math.min(30, Math.floor((shirtH - 210 - barH * n) / (n - 1)))) : 0;
+
+  let g = "";
+  // hinge clamps + wooden screen frame with mesh, tilted 2deg, above the shirt
+  const fy = frameTop;
+  g += '<g transform="rotate(-2 540 ' + (fy + 90) + ')">';
+  g += '<line x1="120" y1="' + (fy - 40) + '" x2="960" y2="' + (fy - 40) + '" stroke="' + INK + '" stroke-width="8"/>';   // wall rail
+  g += '<line x1="220" y1="' + (fy - 40) + '" x2="240" y2="' + (fy + 30) + '" stroke="' + INK + '" stroke-width="10"/>';
+  g += '<line x1="860" y1="' + (fy - 40) + '" x2="840" y2="' + (fy + 30) + '" stroke="' + INK + '" stroke-width="10"/>';
+  g += '<rect x="140" y="' + (fy + 30) + '" width="800" height="180" fill="none" stroke="' + INK + '" stroke-width="14"/>';
+  g += '<rect x="154" y="' + (fy + 44) + '" width="772" height="152" fill="' + PAPER + '"/>';
+  for (let x = 160; x < 926; x += 14) g += '<line x1="' + x + '" y1="' + (fy + 44) + '" x2="' + (x - 40) + '" y2="' + (fy + 196) + '" stroke="#B9B2A2" stroke-width="2"/>';
+  // loaded squeegee across the frame
+  g += '<rect x="150" y="' + (fy + 60) + '" width="780" height="26" rx="6" fill="' + ORANGE + '" stroke="' + INK + '" stroke-width="6"/>';
+  g += '<rect x="420" y="' + (fy + 84) + '" width="240" height="90" rx="10" fill="' + INK + '"/>';
+  g += "</g>";
+
+  // shirt: body + sleeves + collar (cream tee on the bench)
+  const bx = 250, bw = 580;
+  g += '<path d="M' + (bx + 150) + " " + shirtTop + " l-120 70 60 110 60 -34 v" + (shirtH - 150) + " h" + bw + " v-" + (shirtH - 150) + " l60 34 60 -110 -120 -70 a150 60 0 0 1 -" + bw + " 0 Z\" fill='" + PAPER + "' stroke='" + INK + "' stroke-width='8'/>";
+  g += '<path d="M' + (bx + 150) + " " + shirtTop + " a150 60 0 0 0 " + bw + " 0\" fill='none' stroke='" + INK + "' stroke-width='8'/>";
+
+  // printed pass bars on the chest (each pass = one ink colour)
+  const printed = Math.min(n, 4);
+  for (let i = 0; i < printed; i++) {
+    const it = D.items[i];
+    const c = PASS_INK[i % PASS_INK.length];
+    const txt = c === YELLOW ? INK : PAPER;
+    const y = barsTop + i * (barH + barGap);
+    g += '<rect x="' + (bx + 60) + '" y="' + y + '" width="' + (bw - 120) + '" height="' + barH + '" fill="' + c + '" stroke="' + INK + '" stroke-width="5"/>';
+    if (barH >= 100) {
+      g += '<text x="' + (bx + 92) + '" y="' + (y + barH / 2 - 8) + '" font-family="Work Sans" font-weight="600" font-size="34" fill="' + txt + '">' + esc(it.label) + "</text>";
+      g += '<text x="' + (bx + bw - 92) + '" y="' + (y + barH / 2 + 34) + '" text-anchor="end" font-family="Bebas Neue" font-size="56" fill="' + txt + '">' + esc(it.value) + "</text>";
+    } else {
+      g += '<text x="' + (bx + 92) + '" y="' + (y + barH / 2 + 12) + '" font-family="Work Sans" font-weight="600" font-size="32" fill="' + txt + '">' + esc(it.label) + "</text>";
+      g += '<text x="' + (bx + bw - 92) + '" y="' + (y + barH / 2 + 20) + '" text-anchor="end" font-family="Bebas Neue" font-size="52" fill="' + txt + '">' + esc(it.value) + "</text>";
+    }
+    // squeegee stroke sheen: one hard-edged highlight band, sablon style
+    g += '<rect x="' + (bx + 60) + '" y="' + y + '" width="26" height="' + barH + '" fill="' + INK + '" opacity="0.18"/>';
+  }
+  // registration marks under the print area
+  const ry = barsTop + printed * (barH + barGap) + 24;
+  for (const rx of [bx + 40, bx + bw / 2, bx + bw - 40]) {
+    g += '<circle cx="' + rx + '" cy="' + ry + '" r="14" fill="none" stroke="' + INK + '" stroke-width="4"/>' +
+         '<line x1="' + (rx - 22) + '" y1="' + ry + '" x2="' + (rx + 22) + '" y2="' + ry + '" stroke="' + INK + '" stroke-width="4"/>' +
+         '<line x1="' + rx + '" y1="' + (ry - 22) + '" x2="' + rx + '" y2="' + (ry + 22) + '" stroke="' + INK + '" stroke-width="4"/>';
+  }
+  $("bench").innerHTML = g;
+
+  // caption karaoke
+  const cap = String(D.caption || D.sub || "").trim();
+  const words = cap.split(/\s+/).filter(Boolean);
+  const hws = D.hl ? D.hl.split(/\s+/).map(norm).filter(Boolean) : [];
+  let a0 = -1, a1 = -1;
+  if (hws.length) {
+    for (let i = 0; i + hws.length <= words.length && a0 < 0; i++) if (hws.every((h2, k) => norm(words[i + k]) === h2)) { a0 = i; a1 = i + hws.length - 1; }
+    if (a0 < 0 && hws.length === 1) { const j = words.findIndex(w => norm(w).includes(hws[0])); if (j >= 0) a0 = a1 = j; }
+  }
+  if (a0 < 0) a0 = a1 = 0;
+  const parts = [];
+  for (let i = 0; i < words.length; i++) {
+    if (i === a0) { parts.push('<span class="w on">' + esc(words.slice(a0, a1 + 1).join(" ")) + "</span>"); i = a1; }
+    else parts.push('<span class="w">' + esc(words[i]) + "</span>");
+  }
+  const capEl = $("cap");
+  capEl.innerHTML = parts.join(" ");
+  let cfs = 46;
+  for (; cfs >= 40; cfs -= 2) { capEl.style.fontSize = cfs + "px"; if (capEl.offsetHeight <= cfs * 1.24 * 2 + 4) break; }
+  capEl.style.top = (1616 - capEl.offsetHeight) + "px";
+  }
+</script>
+</body>
+</html>

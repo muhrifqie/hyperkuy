@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=B612+Mono:wght@400;700&family=Archivo+Narrow:wght@500;600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Cuff Checklist: a tiny ring-bound mission checklist strapped to the white
+    fabric cuff of a pressure suit, shot close against black. Each item of
+    D.items is one terse checklist line — tick box, shorthand step, tool +
+    elapsed time as the value; orange/blue edge tabs mark phases; a small
+    pencil sketch sits in the margin. Deterministic; fixed geometry.
+    Video: gloved thumb flips the orange tab (tilt settle), tick boxes fill one
+    by one as steps finish (hook #11 daftar bernomor); loop = page flips round
+    the ring binding back to the empty page (ending G progres reset).
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #0B0D10; }
+  body { position: relative; font-family: "B612 Mono", monospace; color: #E9E6DD; }
+
+  .kick { position: absolute; left: 90px; top: 296px; font: 400 27px "B612 Mono", monospace; letter-spacing: 0.2em; text-transform: uppercase; color: #E0662B; }
+  .title { position: absolute; left: 90px; width: 900px; top: 348px; font: 700 88px "B612 Mono", monospace; line-height: 1.14; letter-spacing: -0.01em; color: #F5F1E6; }
+  .title .hl { color: #F0793F; }
+
+  #scene { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+
+  .line { position: absolute; display: flex; align-items: center; gap: 20px; }
+  .line .box { width: 56px; height: 56px; border: 5px solid #3A3F47; background: #F5F1E6; flex: none; }
+  .line .lb { font: 700 34px "B612 Mono", monospace; letter-spacing: 0.02em; color: #2B2A26; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .line .vl { font: 400 32px "B612 Mono", monospace; color: #2F5DA8; margin-left: auto; padding-left: 18px; white-space: nowrap; }
+  .line.done .box { border-color: #2B2A26; background: #E0662B; }
+  .line.done .lb { color: #2B2A26; }
+
+  .cap { position: absolute; left: 90px; width: 820px; font: 400 42px "B612 Mono", monospace; line-height: 1.3; color: #E9E6DD; }
+  .cap .w.on { font-weight: 700; color: #0B0D10; background: #E9E6DD; padding: 0 0.16em; }
+  .foot { position: absolute; left: 90px; right: 90px; top: 1668px; display: flex; justify-content: space-between; gap: 40px; font: 400 26px "B612 Mono", monospace; color: #8A8F98; }
+</style>
+</head>
+<body>
+<div class="kick" id="kick"></div>
+<div class="title" id="title"></div>
+<svg id="scene" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div id="lines"></div>
+<div class="cap" id="cap" data-slot="caption"></div>
+<div class="foot"><span id="src"></span><span id="date"></span></div>
+<script>
+  // Fallback sample (Tools AI) shaped like data/sample-tokens.json.
+  const D = window.D || { series_id: "ai-tools", series: "Tools AI", ep: "#01", kicker: "Tools AI · #01",
+    title: "Agen AI kerja pakai daftar.", hl: "daftar",
+    sub: "Pecah tujuan jadi langkah pendek, panggil satu alat per langkah.",
+    items: [
+      { label: "CARI DATA", value: "web · 4 dtk" },
+      { label: "URUTKAN", value: "kode · 2 dtk" },
+      { label: "TULIS DRAFT", value: "editor · 6 dtk" }
+    ],
+    source: "ilustrasi — siklus agen AI", date: "per 14 Okt 2026" };
+
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const norm = w => w.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+  const $ = id => document.getElementById(id);
+  const INK = "#2B2A26", PAPER = "#F5F1E6", PAPER2 = "#EDE8DA", ORANGE = "#E0662B", BLUE = "#2F5DA8", GREY = "#3A3F47";
+
+  Promise.all(["700 88px 'B612 Mono'", "700 34px 'B612 Mono'", "400 30px 'B612 Mono'", "400 42px 'B612 Mono'"].map(f => document.fonts.load(f))).catch(() => {}).then(render);
+
+  function render() {
+  $("kick").textContent = D.kicker || (D.series + " · " + (D.ep || ""));
+  $("src").textContent = D.source ? "SUMBER: " + D.source : "";
+  $("date").textContent = D.date || "";
+
+  const tEl = $("title");
+  const title = String(D.title || "");
+  const at = D.hl ? title.indexOf(D.hl) : -1;
+  tEl.innerHTML = at < 0 ? esc(title) : esc(title.slice(0, at)) + '<span class="hl">' + esc(title.slice(at, at + D.hl.length)) + "</span>" + esc(title.slice(at + D.hl.length));
+  let tfs = 88;
+  for (; tfs >= 64; tfs -= 2) { tEl.style.fontSize = tfs + "px"; if (tEl.offsetHeight <= tfs * 1.14 * 3 + 8) break; }
+  const tBottom = 348 + tEl.offsetHeight;
+
+  // ---- scene: black suit torso + white cuff + ring-bound booklet ----
+  const n = D.items.length;
+  const pageTop = Math.max(800, tBottom + 56);
+  const pageH = Math.min(560, 1540 - pageTop);
+  const rowH = Math.min(96, Math.floor((pageH - 130) / n));
+  const pageW = 760, pageX = 170;
+  const pageBottom = pageTop + pageH;
+
+  let g = "";
+  // cuff fabric: white band diagonally behind the booklet, soft folds
+  g += '<g transform="rotate(-4 540 ' + (pageTop + pageH / 2) + ')">';
+  g += '<rect x="-60" y="' + (pageTop - 90) + '" width="1200" height="' + (pageH + 180) + '" fill="#D8D3C6"/>';
+  g += '<rect x="-60" y="' + (pageTop - 90) + '" width="1200" height="26" fill="#BDB7A8"/>';
+  for (let i = 0; i < 5; i++) {
+    const fy = pageTop + 40 + i * (pageH / 4.2);
+    g += '<path d="M-60 ' + fy + " Q 300 " + (fy + 26) + " 1140 " + (fy - 8) + '" stroke="#C6C0B1" stroke-width="10" fill="none" opacity="0.7"/>';
+  }
+  g += "</g>";
+
+  // booklet page with slight rotation, drop shadow on the fabric
+  g += '<g transform="rotate(-3 540 ' + (pageTop + pageH / 2) + ')">';
+  g += '<rect x="' + (pageX + 16) + '" y="' + (pageTop + 18) + '" width="' + pageW + '" height="' + pageH + '" fill="#101216" opacity="0.55"/>';
+  g += '<rect x="' + pageX + '" y="' + pageTop + '" width="' + pageW + '" height="' + pageH + '" fill="' + PAPER + '"/>';
+  g += '<rect x="' + pageX + '" y="' + pageTop + '" width="' + pageW + '" height="' + pageH + '" fill="none" stroke="#CBC5B4" stroke-width="3"/>';
+  // binding edge + rings on the left
+  g += '<rect x="' + pageX + '" y="' + pageTop + '" width="34" height="' + pageH + '" fill="' + PAPER2 + '"/>';
+  for (let i = 0; i < 4; i++) {
+    const ry = pageTop + 40 + i * ((pageH - 80) / 3);
+    g += '<circle cx="' + (pageX + 4) + '" cy="' + ry + '" r="15" fill="none" stroke="#8A8578" stroke-width="7"/>';
+  }
+  // phase edge tabs on the right (orange = current phase, blue = next)
+  g += '<rect x="' + (pageX + pageW) + '" y="' + (pageTop + 40) + '" width="30" height="110" fill="' + ORANGE + '"/>';
+  g += '<rect x="' + (pageX + pageW) + '" y="' + (pageTop + 170) + '" width="22" height="90" fill="' + BLUE + '"/>';
+  // mission header strip on the page
+  g += '<rect x="' + (pageX + 50) + '" y="' + (pageTop + 26) + '" width="' + (pageW - 80) + '" height="4" fill="' + INK + '"/>';
+  // pencil sketch in the margin: little arrow path + box
+  g += '<g transform="translate(' + (pageX + pageW - 150) + " " + (pageTop + pageH - 120) + ')" opacity="0.75">' +
+       '<path d="M8 70 C 30 20, 70 10, 96 34" stroke="#6B675C" stroke-width="5" fill="none" stroke-linecap="round"/>' +
+       '<path d="M96 34 l-18 -4 m18 4 l-6 16" stroke="#6B675C" stroke-width="5" fill="none" stroke-linecap="round"/>' +
+       '<rect x="0" y="0" width="30" height="30" fill="none" stroke="#6B675C" stroke-width="4"/></g>';
+  // checklist rows (unfilled boxes); the DOM overlays text/ticks
+  for (let i = 0; i < n; i++) {
+    const y = pageTop + 66 + i * rowH;
+    g += '<line x1="' + (pageX + 50) + '" y1="' + (y + rowH - 14) + '" x2="' + (pageX + pageW - 30) + '" y2="' + (y + rowH - 14) + '" stroke="#D8D2C1" stroke-width="3"/>';
+  }
+  g += "</g>";
+  $("scene").innerHTML = g;
+
+  // checklist lines as DOM (crisp text), aligned to the rotated page visually
+  const host = $("lines");
+  host.style.cssText = "position:absolute;left:0;top:0;width:1080px;height:1920px";
+  const rot = -3 * Math.PI / 180;
+  D.items.forEach((it, i) => {
+    const el = document.createElement("div");
+    el.className = "line" + (i === 0 ? " done" : "");
+    el.innerHTML = '<span class="box">' + (i === 0 ? '<svg viewBox="0 0 56 56" width="46" height="46"><path d="M10 30 L24 44 L48 12" stroke="' + INK + '" stroke-width="9" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>' : "") + '</span><span class="lb">' + esc(it.label) + '</span><span class="vl">' + esc(it.value) + "</span>";
+    host.appendChild(el);
+    // position: rotate the page-local point around the page centre
+    const px = pageX + 62, py = pageTop + 74 + i * rowH;
+    const cx0 = pageX + pageW / 2, cy0 = pageTop + pageH / 2;
+    const dx = px - cx0, dy = py - cy0;
+    const x = cx0 + dx * Math.cos(rot) - dy * Math.sin(rot);
+    const y = cy0 + dx * Math.sin(rot) + dy * Math.cos(rot);
+    el.style.left = x + "px";
+    el.style.top = y - 30 + "px";
+    el.style.width = (pageW - 112) + "px";
+    el.style.transform = "rotate(-3deg)";
+    el.style.transformOrigin = "0 50%";
+  });
+
+  // caption karaoke
+  const cap = String(D.caption || D.sub || "").trim();
+  const words = cap.split(/\s+/).filter(Boolean);
+  const hws = D.hl ? D.hl.split(/\s+/).map(norm).filter(Boolean) : [];
+  let a0 = -1, a1 = -1;
+  if (hws.length) {
+    for (let i = 0; i + hws.length <= words.length && a0 < 0; i++) if (hws.every((h2, k) => norm(words[i + k]) === h2)) { a0 = i; a1 = i + hws.length - 1; }
+    if (a0 < 0 && hws.length === 1) { const j = words.findIndex(w => norm(w).includes(hws[0])); if (j >= 0) a0 = a1 = j; }
+  }
+  if (a0 < 0) a0 = a1 = 0;
+  const parts = [];
+  for (let i = 0; i < words.length; i++) {
+    if (i === a0) { parts.push('<span class="w on">' + esc(words.slice(a0, a1 + 1).join(" ")) + "</span>"); i = a1; }
+    else parts.push('<span class="w">' + esc(words[i]) + "</span>");
+  }
+  const capEl = $("cap");
+  capEl.innerHTML = parts.join(" ");
+  let cfs = 44;
+  for (; cfs >= 40; cfs -= 2) { capEl.style.fontSize = cfs + "px"; if (capEl.offsetHeight <= cfs * 1.3 * 2 + 4) break; }
+  capEl.style.top = (1616 - capEl.offsetHeight) + "px";
+  }
+</script>
+</body>
+</html>

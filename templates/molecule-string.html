@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Martian+Mono:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Molecule String: a chemistry bench. A dark label strip at the top carries a
+    SMILES line printed in mono (letters, parentheses, ring digits); the strip
+    unrolls onto white bench paper where the string folds into a ball-and-stick
+    molecular model. Each item of D.items is one SEGMENT of the string, drawn as
+    a boxed segment along the strip with a hairline leader down to the atoms it
+    builds; the segment matching D.hl is underlined in red and its atoms are
+    drawn solid. Deterministic: fixed atom coordinates, no randomness.
+    Video: parentheses flash, branches click onto the model one by one (draw-in).
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #F4F1EA; }
+  body { position: relative; font-family: "Martian Mono", monospace; color: #14161A; }
+
+  .strip { position: absolute; left: 0; top: 0; width: 1080px; height: 400px; background: #14161A; }
+  .strip::after { content: ""; position: absolute; left: 0; right: 0; bottom: -14px; height: 14px; background: #0D0F12; }
+  .kick { position: absolute; left: 90px; top: 64px; font: 500 27px "Martian Mono", monospace; letter-spacing: 0.18em; text-transform: uppercase; color: #8A8F98; }
+  .ep { position: absolute; right: 90px; top: 64px; font: 700 27px "Martian Mono", monospace; letter-spacing: 0.14em; color: #F4F1EA; border: 2px solid #3A3F47; padding: 4px 14px; }
+  .smiles { position: absolute; left: 90px; right: 90px; top: 150px; font: 500 44px "Martian Mono", monospace; color: #F4F1EA; white-space: nowrap; overflow: hidden; letter-spacing: 0.02em; }
+  .smiles .par { color: #8A8F98; }
+  .smiles .ring { color: #2E5BD0; }
+  .smiles .sep { color: #A9AEB6; }
+
+  .title { position: absolute; left: 90px; width: 900px; top: 470px; font-family: "Instrument Serif", serif; font-weight: 400; line-height: 1.04; color: #14161A; }
+  .title .hl { color: #D2462F; font-style: italic; border-bottom: 5px solid #D2462F; }
+
+  #mol { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; }
+  .seg { position: absolute; background: #F4F1EA; border: 2.5px solid #14161A; padding: 7px 13px 9px; white-space: nowrap; box-shadow: 4px 4px 0 #14161A; }
+  .seg .cd { font: 700 40px "Martian Mono", monospace; line-height: 1.1; color: #14161A; }
+  .seg .nm { font: 400 28px "Martian Mono", monospace; line-height: 1.25; color: #55595F; margin-top: 3px; }
+  .seg.hlseg { border-color: #D2462F; }
+  .seg.hlseg .cd { color: #D2462F; text-decoration: underline; text-decoration-thickness: 4px; text-underline-offset: 5px; }
+
+  .cap { position: absolute; left: 90px; width: 810px; font: 400 44px "Instrument Serif", serif; line-height: 1.26; color: #14161A; }
+  .cap .w.on { font-weight: 700; font-style: italic; color: #F4F1EA; background: #2E5BD0; padding: 0 0.16em; }
+  .foot { position: absolute; left: 90px; right: 90px; bottom: 46px; display: flex; justify-content: space-between; gap: 40px; font: 400 26px "Martian Mono", monospace; color: #55595F; }
+</style>
+</head>
+<body>
+<div class="strip"></div>
+<div class="kick" id="kick"></div>
+<div class="ep" id="ep"></div>
+<div class="smiles" id="smiles"></div>
+<div class="title" id="title"></div>
+<svg id="mol" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg"></svg>
+<div class="cap" id="cap" data-slot="caption"></div>
+<div class="foot"><span id="src"></span><span id="date"></span></div>
+<script>
+  // Fallback sample (Berita AI) shaped like data/sample-tokens.json.
+  const D = window.D || { series_id: "ai-news", series: "Berita AI", ep: "#01", kicker: "Berita AI · #01",
+    title: "Obat baru ditulis AI dalam 1 baris teks.", hl: "1 baris",
+    sub: "SMILES: molekul bisa jadi satu kalimat, jadi AI bisa menulis obat baru.",
+    items: [
+      { label: "c1ccccc1", value: "cincin benzena" },
+      { label: "C(=O)O", value: "gugus asam" },
+      { label: "NCC", value: "ranti amina" },
+      { label: "Cl", value: "atom klorin" }
+    ],
+    source: "arXiv:1701.01329 — molekul dari teks", date: "per 14 Okt 2026" };
+
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const norm = w => w.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+  const $ = id => document.getElementById(id);
+
+  Promise.all(["500 44px 'Martian Mono'", "700 40px 'Martian Mono'", "italic 400 90px 'Instrument Serif'", "400 44px 'Instrument Serif'"].map(f => document.fonts.load(f))).catch(() => {}).then(render);
+
+  function render() {
+  $("kick").textContent = D.kicker || (D.series + " · " + (D.ep || ""));
+  $("ep").textContent = D.ep || "";
+  $("src").textContent = D.source ? "SUMBER: " + D.source : "";
+  $("date").textContent = (D.date || "").toUpperCase();
+
+  // The printed string on the dark strip: the item labels chained like one
+  // SMILES line (segments joined by a dash), shrink-to-fit.
+  const sm = $("smiles");
+  sm.innerHTML = D.items.map(it => esc(it.label)).join('<span class="sep">-</span>')
+    .replace(/([()])/g, '<span class="par">$1</span>').replace(/([02-9])/g, '<span class="ring">$1</span>');
+  let sfs = 44;
+  for (; sfs >= 26; sfs -= 2) { sm.style.fontSize = sfs + "px"; if (sm.scrollWidth <= 900) break; }
+  sm.style.paddingTop = ((250 - sm.offsetHeight) / 2 - 20) + "px";
+
+  // Title: largest element, auto-fit 96 -> 72 px then let it wrap to 3 lines.
+  const title = String(D.title || "");
+  const tEl = $("title");
+  const at = D.hl ? title.indexOf(D.hl) : -1;
+  tEl.innerHTML = at < 0 ? esc(title) : esc(title.slice(0, at)) + '<span class="hl">' + esc(title.slice(at, at + D.hl.length)) + "</span>" + esc(title.slice(at + D.hl.length));
+  let tfs = 96;
+  for (; tfs >= 72; tfs -= 2) { tEl.style.fontSize = tfs + "px"; if (tEl.offsetHeight <= tfs * 1.04 * 3 + 6) break; }
+  const tBottom = 470 + tEl.offsetHeight;
+
+  // ---- molecule bench: ball-and-stick model + segment boxes with leaders ----
+  const svg = $("mol");
+  const MY0 = Math.max(760, tBottom + 60), MB = 1470;
+  const cy = (MY0 + MB) / 2;
+  const ink = "#14161A", paper = "#F4F1EA", blue = "#2E5BD0", red = "#D2462F", grey = "#8A8F98";
+
+  // Fixed skeleton, explicit coordinates: benzene ring (R0..R5) on the left,
+  // a branch chain A-B-C-D and an up-stub E. Segment groups reference points,
+  // bonds only drawn when both endpoints exist.
+  const RX = 330, RY = 30;
+  const ring = [];
+  for (let k = 0; k < 6; k++) { const a = -Math.PI / 2 + k * Math.PI / 3; ring.push([RX + 170 * Math.cos(a), cy + RY + 140 * Math.sin(a)]); }
+  const A = [ring[2][0] + 90, ring[2][1] - 60], B = [A[0] + 110, A[1] - 45], C = [B[0] + 115, B[1] - 30], Dp = [C[0] + 90, C[1] + 70], E = [A[0] - 15, A[1] - 120];
+  const groups = [ring, [A, B], [C, Dp], [E]];               // per item (up to 4)
+  const bonds = [[ring[0], ring[1]], [ring[1], ring[2]], [ring[2], ring[3]], [ring[3], ring[4]], [ring[4], ring[5]], [ring[5], ring[0]],
+                 [ring[2], A], [A, B], [B, C], [C, Dp], [A, E]];
+  const nItems = Math.min(D.items.length, 4);
+
+  let g = "";
+  // faint bench paper rules (decorative SVG lines, not text)
+  for (let y = MY0 - 40; y < MB + 60; y += 66) g += '<line x1="60" y1="' + y + '" x2="1020" y2="' + y + '" stroke="#E3DDCF" stroke-width="2"/>';
+  // bonds (chain bonds only if both items exist)
+  const chainBonds = [[ring[2], A]].concat(nItems >= 2 ? [[A, B]] : []).concat(nItems >= 3 ? [[B, C]] : []).concat(nItems >= 4 ? [[C, Dp], [A, E]] : []);
+  for (const [p, q] of ring[0] ? bonds.slice(0, 6).concat(chainBonds) : []) {
+    g += '<line x1="' + Math.round(p[0]) + '" y1="' + Math.round(p[1]) + '" x2="' + Math.round(q[0]) + '" y2="' + Math.round(q[1]) + '" stroke="' + ink + '" stroke-width="7" stroke-linecap="round"/>';
+  }
+  // atoms: item i's atoms solid blue (ring = paper with ink stroke); hl item red
+  const hln = D.hl ? norm(D.hl) : "";
+  let hlIdx = -1;
+  if (hln) hlIdx = D.items.slice(0, 4).findIndex(it => norm(it.label).includes(hln) || norm(it.value).includes(hln));
+  for (let i = 0; i < nItems; i++) {
+    const hot = i === hlIdx;
+    const fill = hot ? red : (i === 0 ? paper : blue);
+    for (const [x, y] of groups[i]) {
+      g += '<circle cx="' + Math.round(x) + '" cy="' + Math.round(y) + '" r="' + (hot ? 30 : 24) + '" fill="' + fill + '" stroke="' + ink + '" stroke-width="6"/>';
+      if (i === 0) g += '<circle cx="' + Math.round(x - 8) + '" cy="' + Math.round(y - 8) + '" r="6" fill="' + ink + '" opacity="0.7"/>';
+    }
+  }
+  svg.innerHTML = g;
+
+  // Segment boxes: rows ABOVE the model for even items, BELOW for odd, always
+  // clear of the title (top) and caption (bottom); leader to the group's atoms.
+  const boxes = [];
+  D.items.slice(0, 4).forEach((it, i) => {
+    const el = document.createElement("div");
+    el.className = "seg" + (i === hlIdx ? " hlseg" : "");
+    el.innerHTML = '<div class="cd">' + esc(it.label) + '</div><div class="nm">' + esc(it.value) + "</div>";
+    document.body.appendChild(el);
+    boxes.push(el);
+  });
+  const placed = [];
+  boxes.forEach((el, i) => {
+    const grp = groups[i];
+    const [ax, ay] = [grp[grp.length - 1][0], grp[grp.length - 1][1]];
+    const bw = el.offsetWidth, bh = el.offsetHeight;
+    const above = i % 2 === 0;
+    let x = Math.max(90, Math.min(990 - bw, ax - bw / 2 + (i === 0 ? -160 : 120)));
+    let y = above ? MY0 + 10 + (i === 0 ? 0 : bh + 26) : MB - bh - (i === 1 ? 0 : bh + 26);
+    for (let k = 0; k < 10 && placed.some(p => Math.abs(p.x - x) < Math.max(p.bw, bw) && Math.abs(p.y - y) < Math.max(p.bh, bh) + 12); k++) x = 90 + (k * 137) % Math.max(60, 900 - bw);
+    el.style.left = x + "px"; el.style.top = y + "px";
+    placed.push({ x, y, bw, bh });
+    const lx = Math.min(Math.max(ax, x + 10), x + bw - 10);
+    const ly = above ? y + bh : y;
+    svg.insertAdjacentHTML("beforeend", '<line x1="' + lx + '" y1="' + ly + '" x2="' + Math.round(ax) + '" y2="' + Math.round(ay) + '" stroke="' + (i === hlIdx ? red : grey) + '" stroke-width="3" stroke-dasharray="2 7" stroke-linecap="round"/>');
+  });
+
+  // caption karaoke (see disorder-plot pattern)
+  const cap = String(D.caption || D.sub || "").trim();
+  const words = cap.split(/\s+/).filter(Boolean);
+  const hws = D.hl ? D.hl.split(/\s+/).map(norm).filter(Boolean) : [];
+  let a0 = -1, a1 = -1;
+  if (hws.length) {
+    for (let i = 0; i + hws.length <= words.length && a0 < 0; i++) if (hws.every((h2, k) => norm(words[i + k]) === h2)) { a0 = i; a1 = i + hws.length - 1; }
+    if (a0 < 0 && hws.length === 1) { const j = words.findIndex(w => norm(w).includes(hws[0])); if (j >= 0) a0 = a1 = j; }
+  }
+  if (a0 < 0) a0 = a1 = 0;
+  const parts = [];
+  for (let i = 0; i < words.length; i++) {
+    if (i === a0) { parts.push('<span class="w on">' + esc(words.slice(a0, a1 + 1).join(" ")) + "</span>"); i = a1; }
+    else parts.push('<span class="w">' + esc(words[i]) + "</span>");
+  }
+  const capEl = $("cap");
+  capEl.innerHTML = parts.join(" ");
+  let cfs = 46;
+  for (; cfs >= 40; cfs -= 2) { capEl.style.fontSize = cfs + "px"; if (capEl.offsetHeight <= cfs * 1.26 * 2 + 4) break; }
+  capEl.style.top = (1616 - capEl.offsetHeight) + "px";
+  }
+</script>
+</body>
+</html>
