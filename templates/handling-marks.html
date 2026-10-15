@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Saira+Stencil+One&family=Archivo+Narrow:wght@500;600;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Handling Marks (handling-marks): sisi peti kardus korugasi yang dikirim,
+    distensil aturan penanganan — metafora guardrail model AI.
+    Latar penuh kraft dengan alur gelombang (flute), strapping baja vertikal
+    di kanan, sakata waybill (kertas terima) di atas berisi nama model,
+    sumber dan tanggal. Item = blok stensil aturan: piktogram ISO merah +
+    nomor aturan + teksnya. Judul distensil langsung di kardus.
+    Deterministik: semua bentuk hard-coded, tanpa random.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #B98A57; }
+  body { position: relative; font-family: "Archivo Narrow", sans-serif; color: #1E1B18; }
+
+  .flute { position: absolute; inset: 0; background:
+    repeating-linear-gradient(90deg, rgba(110,82,54,.16) 0 7px, rgba(255,244,220,.10) 7px 16px, rgba(110,82,54,.06) 16px 26px); }
+  .tilt { position: absolute; inset: 0; transform: rotate(-1.6deg) scale(1.06); }
+  .side { position: absolute; right: 0; top: 0; bottom: 0; width: 148px;
+    background: linear-gradient(90deg, #6E5236 0, #63492F 60%, #56402A 100%);
+    box-shadow: -18px 0 30px rgba(30,27,24,.35); }
+  .side svg { position: absolute; inset: 0; }
+  .strap { position: absolute; right: 168px; top: -40px; bottom: -40px; width: 58px;
+    background: linear-gradient(90deg, #3A3632, #57524C 30%, #2E2B27 70%, #45413B);
+    box-shadow: -8px 0 16px rgba(30,27,24,.30); z-index: 3; }
+  .strap i { position: absolute; left: 0; right: 0; height: 8px; background: #B98A57; }
+  .strap i.a { top: 300px; } .strap i.b { top: 1500px; }
+
+  .way { position: absolute; left: 96px; top: 288px; width: 620px; background: #E8DCC4;
+    border: 3px solid #1E1B18; padding: 20px 26px 18px; transform: rotate(-1.2deg);
+    box-shadow: 8px 10px 0 rgba(30,27,24,.28); z-index: 4; }
+  .way .rt { font: 700 26px "Archivo Narrow"; letter-spacing: .22em; color: #6E5236; }
+  .way .nm { font-family: "Saira Stencil One"; font-size: 44px; line-height: 1.05; margin-top: 2px; }
+  .way .mt { font: 600 27px "Archivo Narrow"; color: #4A3A28; margin-top: 6px; display: flex; justify-content: space-between; gap: 18px; }
+
+  .title { position: absolute; left: 96px; top: 500px; width: 700px; z-index: 4;
+    font-family: "Saira Stencil One"; line-height: 1.22; padding-top: .14em; letter-spacing: .005em;
+    text-transform: uppercase; color: #1E1B18; }
+  .title .hl { color: #1E1B18; background: #E8DCC4; box-shadow: 0 0 0 6px #E8DCC4; }
+
+  #rules { position: absolute; left: 96px; top: 0; width: 700px; z-index: 4; }
+  .rule { display: flex; align-items: center; gap: 24px; border: 4px solid #1E1B18;
+    background: rgba(232,220,196,.07); padding: 16px 24px; margin-bottom: 22px;
+    box-shadow: 7px 8px 0 rgba(30,27,24,.30); }
+  .rule .pic { flex: 0 0 96px; height: 96px; }
+  .rule .tx { min-width: 0; }
+  .rule .no { font: 700 27px "Archivo Narrow"; letter-spacing: .2em; color: #6E5236; background: #E8DCC4; display: inline-block; padding: 0 8px; }
+  .rule .lb { font: 700 33px "Archivo Narrow"; text-transform: uppercase; line-height: 1.16; margin-top: 2px; }
+  .rule .vl { font-family: "Saira Stencil One"; font-size: 42px; line-height: 1.05; margin-top: 2px; white-space: nowrap; }
+  .rule.on { border-color: #C83A2B; background: #E8DCC4; }
+
+  .tape { position: absolute; left: 96px; width: 720px; z-index: 4; background: #E8DCC4;
+    border-left: 14px solid #C83A2B; padding: 16px 26px; transform: rotate(-.8deg);
+    box-shadow: 8px 9px 0 rgba(30,27,24,.28); font: 600 42px/1.28 "Archivo Narrow"; }
+  .tape .w { color: #4A3A28; }
+  .tape .w.on { color: #E8DCC4; background: #C83A2B; padding: 0 8px; font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="tilt"><div class="flute"></div><div class="strap"><i class="a"></i><i class="b"></i></div></div>
+<div class="side">
+  <svg viewBox="0 0 148 1920" preserveAspectRatio="none">
+    <g stroke="#4A3722" stroke-width="5" opacity=".55">
+      <path d="M20 120 l40 40 M20 400 l40 40 M20 700 l40 40 M20 1000 l40 40 M20 1300 l40 40 M20 1600 l40 40"/>
+    </g>
+    <g stroke="#8A6B44" stroke-width="4" opacity=".5" fill="none">
+      <path d="M118 200 l-38 38 M118 560 l-38 38 M118 900 l-38 38 M118 1240 l-38 38 M118 1560 l-38 38"/>
+    </g>
+  </svg>
+</div>
+<div class="way">
+  <div class="rt">WAYBILL · <span id="ep"></span></div>
+  <div class="nm" id="kick"></div>
+  <div class="mt"><span id="src"></span><span id="date"></span></div>
+</div>
+<div class="title" id="title"></div>
+<div id="rules"></div>
+<div class="tape" id="cap" data-slot="caption"></div>
+<script>
+  // Fallback sample shaped like data/sample-tokens.json (guardrail metaphor).
+  const D = window.D || { series_id: "ai-tools", series: "Tools AI", ep: "#01", kicker: "Tools AI · #01",
+    title: "Guardrail AI ditulis di kotaknya.", hl: "Guardrail",
+    sub: "Aturan penanganan model: apa yang ditolak, apa yang tak boleh dibocorkan.",
+    items: [{ label: "Tolak perintah berbahaya", value: "ATURAN 01" }, { label: "Jangan bocorkan data pribadi", value: "ATURAN 02" }, { label: "Wajib sertakan sumber", value: "ATURAN 03" }, { label: "Jangan ditumpuk tanpa cek", value: "ATURAN 04" }],
+    source: "ilustrasi — kebijakan pemakaian model", date: "per 14 Okt 2026" };
+
+  Promise.all(['400 42px "Saira Stencil One"', '700 33px "Archivo Narrow"', '600 42px "Archivo Narrow"'].map(f => document.fonts.load(f))).catch(() => {}).then(render);
+  function render() {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const items = (D.items || []).slice(0, 5), n = items.length;
+  const hl = (D.hl || "").trim();
+
+  // waybill pocket: series + ep + source + date
+  $("ep").textContent = String(D.ep || "#01");
+  $("kick").textContent = "MODEL AI — " + (D.series || D.kicker || "");
+  $("src").textContent = "sumber: " + (D.source || "");
+  $("date").textContent = D.date || "";
+
+  // title: stencil on the crate, highlight = cream paint patch (D.hl)
+  const wayEl = document.querySelector(".way");
+  const t = String(D.title || "");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const tl = $("title");
+  tl.style.top = Math.max(470, wayEl.offsetTop + wayEl.offsetHeight + 36) + "px";
+  let hlEnd = at + hl.length;
+  if (at >= 0 && /^[.,!?;:]/.test(t.slice(hlEnd))) hlEnd++;   // keep trailing punctuation inside the paint patch
+  tl.innerHTML = at < 0 ? esc(t)
+    : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, hlEnd)) + "</span>" + esc(t.slice(hlEnd));
+  for (let fs = 92; fs >= 72; fs -= 2) { tl.style.fontSize = fs + "px"; if (tl.offsetHeight <= fs * 1.3 * 2 + 8) break; }
+
+  // pictograms (ISO 780 flavour), hard-coded paths
+  const PICS = [
+    // umbrella — keep dry: data privat
+    '<path d="M48 12 C24 12 10 30 8 46 C16 40 24 40 30 46 C36 40 44 40 48 46 C52 40 60 40 66 46 C72 40 80 40 88 46 C86 30 72 12 48 12 Z" fill="#C83A2B"/><path d="M46 50 L46 76 C46 86 38 88 34 82" stroke="#C83A2B" stroke-width="7" fill="none" stroke-linecap="round"/>',
+    // broken glass — fragile: mudah bocor
+    '<path d="M20 14 h56 l-8 44 c-6 8 -6 20 0 28 l-40 0 c6 -8 6 -20 0 -28 Z" fill="none" stroke="#C83A2B" stroke-width="7"/><path d="M40 22 l8 14 -10 8 12 12" fill="none" stroke="#C83A2B" stroke-width="6" stroke-linejoin="round"/>',
+    // this way up — cite sumbernya
+    '<path d="M48 84 V26 M48 20 l-14 16 M48 20 l14 16" stroke="#C83A2B" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 96 h64" stroke="#C83A2B" stroke-width="7"/>',
+    // do not stack — jangan ditumpuk
+    '<rect x="12" y="16" width="72" height="26" fill="none" stroke="#C83A2B" stroke-width="7"/><rect x="12" y="58" width="72" height="26" fill="none" stroke="#C83A2B" stroke-width="7"/><path d="M10 92 L86 12" stroke="#C83A2B" stroke-width="8" stroke-linecap="round"/>'
+  ];
+
+  // rule blocks
+  const box = $("rules");
+  let h = "";
+  items.forEach((it, i) => {
+    const on = hl && (norm(it.value).includes(norm(hl)) || norm(it.label).includes(norm(hl)));
+    h += '<div class="rule' + (on ? " on" : "") + '"><div class="pic"><svg viewBox="0 0 96 96">' + PICS[i % 4] + "</svg></div>"
+      + '<div class="tx"><div class="no">ATURAN ' + pad2(i + 1) + "</div>"
+      + '<div class="lb" id="lb' + i + '">' + esc(it.label) + "</div>"
+      + '<div class="vl" id="vl' + i + '">' + esc(it.value) + "</div></div></div>";
+  });
+  box.innerHTML = h;
+  // fit: shrink labels that overflow, then compress block padding so n=5 fits
+  items.forEach((it, i) => {
+    const lb = $("lb" + i), vl = $("vl" + i);
+    let fs = 33; for (; fs >= 30; fs -= 1) { lb.style.fontSize = fs + "px"; if (lb.offsetHeight <= fs * 1.1 * 2 + 2) break; }
+    let vs = 42; for (; vs >= 36; vs -= 2) { vl.style.fontSize = vs + "px"; if (vl.scrollWidth <= 470) break; }
+  });
+  // caption tape (karaoke), anchored above the bottom band — measure first
+  const capEl = capRender();
+  const rulesTop = tl.offsetTop + tl.offsetHeight + 36, rulesBottom = 1620 - capEl.offsetHeight - 26;
+  // place with default spacing, then fit using REAL measured rule heights
+  const lay = () => box.querySelectorAll(".rule").forEach(r => { r.style.padding = pad + "px 24px"; r.style.marginBottom = gap + "px"; r.querySelector(".pic").style.height = ph + "px"; });
+  let pad = 16, gap = 22, ph = 96;
+  const need = () => { lay(); let h = 0; box.querySelectorAll(".rule").forEach(r => h += r.offsetHeight + gap); return h; };
+  let it = 0;
+  while (need() > rulesBottom - rulesTop && it++ < 30 && (pad > 6 || gap > 6 || ph > 60)) { if (pad > 6) pad -= 2; if (gap > 6) gap -= 4; if (ph > 60) ph -= 6; }
+  let extra = rulesBottom - rulesTop - need();
+  if (extra > 60) gap += Math.min(extra / Math.max(1, n - 1), 120);
+  box.style.top = rulesTop + "px";
+  lay();
+
+  function norm(w) { return String(w).toLowerCase().replace(/[^a-z0-9а-яёæøå]/gi, ""); }
+  function pad2(x) { return String(x).padStart(2, "0"); }
+
+  function capRender() {
+    const capEl = $("cap");
+    const cap = String(D.caption || D.sub || "").trim();
+    const words = cap.split(/\s+/).filter(Boolean);
+    const nrm = w => w.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+    const hws = hl ? hl.split(/\s+/).map(nrm).filter(Boolean) : [];
+    let a0 = -1, a1 = -1;
+    if (hws.length) {
+      for (let i = 0; i + hws.length <= words.length && a0 < 0; i++) if (hws.every((h2, k) => nrm(words[i + k]) === h2)) { a0 = i; a1 = i + hws.length - 1; }
+      if (a0 < 0 && hws.length === 1) { const j = words.findIndex(w => nrm(w).includes(hws[0])); if (j >= 0) a0 = a1 = j; }
+    }
+    if (a0 < 0) a0 = a1 = 0;
+    const parts = [];
+    for (let i = 0; i < words.length; i++) {
+      if (i === a0) { parts.push('<span class="w on">' + esc(words.slice(a0, a1 + 1).join(" ")) + "</span>"); i = a1; }
+      else parts.push('<span class="w">' + esc(words[i]) + "</span>");
+    }
+    capEl.innerHTML = parts.join(" ");
+    let cfs = 46; for (; cfs >= 40; cfs -= 2) { capEl.style.fontSize = cfs + "px"; if (capEl.offsetHeight <= cfs * 1.28 * 2 + 4) break; }
+    capEl.style.top = (1620 - capEl.offsetHeight) + "px";
+    return capEl;
+  }
+  }
+</script>
+</body>
+</html>

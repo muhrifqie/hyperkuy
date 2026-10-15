@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Sometype+Mono:wght@400;500;700&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Spirit Level (spirit-level): waterpass aluminium di dinding beton —
+    metafora alignment AI: menjaga model tetap "level" antara membantu dan
+    aman; gelembungnya = keadaan model sekarang, skala tick = rentang
+    perilaku. Item = tick label di sepanjang vial utama; gelembung duduk di
+    tick hl. Sumber + tanggal sebagai lempeng terukir di badan level.
+    Deterministik: semua bentuk hard-coded.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #E4E2DD; }
+  body { position: relative; font-family: "Bricolage Grotesque", sans-serif; color: #1C1D20; }
+  .grain { position: absolute; inset: 0; opacity: .5;
+    background: repeating-linear-gradient(2deg, rgba(28,29,32,.028) 0 3px, transparent 3px 9px); }
+
+  .kick { position: absolute; left: 90px; top: 296px; width: 600px; font: 500 27px "Sometype Mono"; letter-spacing: .08em; color: #55585E; }
+  .kick b { color: #1C1D20; }
+  .title { position: absolute; left: 90px; top: 352px; width: 596px;
+    font-weight: 800; line-height: 1.06; letter-spacing: -.015em; }
+  .title .hl { box-shadow: inset 0 -.16em #2F5FD0; padding: 0 .04em; }
+
+  .tag { position: absolute; right: 84px; top: 290px; width: 300px; background: #F2F0E9;
+    border: 3px solid #1C1D20; padding: 12px 16px; transform: rotate(2.2deg);
+    box-shadow: 7px 8px 0 rgba(28,29,32,.16); font: 500 26px/1.35 "Sometype Mono"; color: #55585E; z-index: 5; }
+  .tag b { color: #1C1D20; }
+  .tag .perf { border-top: 3px dashed #B9BDC3; margin: 7px -16px; }
+  .pencil { position: absolute; left: 150px; width: 720px; font: 400 40px/1.3 "Sometype Mono"; color: #55585E; z-index: 5; }
+  .pencil::before { content: ""; display: inline-block; width: 46px; height: 4px; background: #1C1D20; margin-right: 14px; vertical-align: 10px; }
+
+  .rig { position: absolute; left: 20px; top: 0; width: 1040px; z-index: 3; transform: rotate(-6.5deg); }
+  .body { position: relative; width: 1000px; height: 470px; margin: 0 auto;
+    background: linear-gradient(180deg, #D4D8DD 0, #B9BDC3 38%, #A7ACB3 70%, #9CA1A8 100%);
+    border: 4px solid #1C1D20; border-radius: 22px;
+    box-shadow: 0 26px 34px rgba(28,29,32,.28), inset 0 6px 0 rgba(255,255,255,.55); }
+  .endsvg { position: absolute; width: 170px; height: 170px; }
+
+  .vial { position: absolute; left: 150px; right: 150px; top: 58px; height: 130px; border-radius: 65px;
+    background: linear-gradient(180deg, #F0C96B, #E2B33C 55%, #C99A26); border: 4px solid #1C1D20;
+    box-shadow: inset 0 10px 12px rgba(255,255,255,.5), inset 0 -12px 14px rgba(120,86,10,.45); overflow: hidden; }
+  .vial .ring { position: absolute; top: 8px; bottom: 8px; width: 4px; background: rgba(28,29,32,.55); }
+  .bubble { position: absolute; top: 18px; height: 86px; width: 120px; border-radius: 40px;
+    background: linear-gradient(180deg, #FBF7EA, #EFE7CE); border: 4px solid #1C1D20;
+    box-shadow: 0 4px 8px rgba(120,86,10,.35); }
+  .bubble::after { content: ""; position: absolute; left: 18px; top: 10px; width: 30px; height: 12px;
+    border-radius: 10px; background: rgba(255,255,255,.85); transform: rotate(-14deg); }
+
+  .ticks { position: absolute; left: 150px; right: 150px; top: 208px; height: 240px; }
+  .tick { position: absolute; transform: translateX(-50%); text-align: center; width: 148px; }
+  .tick .lb { font: 700 30px/1.1 "Bricolage Grotesque"; color: #1C1D20; }
+  .tick .vl { font: 500 34px/1.15 "Sometype Mono"; color: #2A2C30; margin-top: 9px; }
+  .tick .stem { width: 3px; height: 12px; background: #1C1D20; margin: 0 auto 5px; }
+  .tick.on .lb { background: #2F5FD0; color: #F4F3EF; padding: 1px 10px; border-radius: 6px; }
+
+  .etch { position: absolute; right: 190px; top: 40px; width: 4px; height: 166px; background: rgba(28,29,32,.25); }
+
+  .square { position: absolute; left: -18px; bottom: -14px; z-index: 2; }
+
+  .tape { position: absolute; left: 90px; width: 860px; z-index: 6;
+    font: 600 44px/1.3 "Bricolage Grotesque"; }
+  .tape .w { color: #3F4247; }
+  .tape .w.on { color: #1C1D20; box-shadow: inset 0 -.3em #E2B33C; font-weight: 800; padding: 0 6px; }
+</style>
+</head>
+<body>
+<div class="grain"></div>
+<div class="kick" id="kick"></div>
+<div class="title" id="title"></div>
+<div class="tag"><div id="src"></div><div class="perf"></div><div id="date"></div></div>
+<div class="rig" id="rig">
+  <div class="body">
+    <svg class="endsvg" style="left:14px;top:110px" viewBox="0 0 150 150">
+      <circle cx="75" cy="75" r="58" fill="#C99A26" stroke="#1C1D20" stroke-width="5"/>
+      <circle cx="75" cy="75" r="58" fill="url(#none)"/>
+      <circle cx="75" cy="75" r="24" fill="#FBF7EA" stroke="#1C1D20" stroke-width="4"/>
+      <path d="M75 8v26M75 116v26M8 75h26M116 75h26" stroke="#1C1D20" stroke-width="5"/>
+    </svg>
+    <svg class="endsvg" style="right:14px;top:150px" viewBox="0 0 150 150">
+      <circle cx="75" cy="75" r="58" fill="#C99A26" stroke="#1C1D20" stroke-width="5"/>
+      <circle cx="75" cy="75" r="24" fill="#FBF7EA" stroke="#1C1D20" stroke-width="4"/>
+      <path d="M75 8v26M75 116v26M8 75h26M116 75h26" stroke="#1C1D20" stroke-width="5"/>
+    </svg>
+    <div class="vial" id="vial"></div>
+    <div class="etch"><div id="src"></div><div style="border-top:3px solid #6E7177;margin:6px 0"></div><div id="date"></div></div>
+    <div class="ticks" id="ticks"></div>
+  </div>
+</div>
+<svg class="square" width="330" height="330" viewBox="0 0 330 330">
+  <path d="M14 14 h60 v252 h242 v50 H14 Z" fill="#B9BDC3" stroke="#1C1D20" stroke-width="6"/>
+  <path d="M44 44 v210 h210" fill="none" stroke="#6E7177" stroke-width="4" stroke-dasharray="14 10"/>
+</svg>
+<div class="pencil" id="sub"></div>
+<div class="tape" id="cap" data-slot="caption"></div>
+<script>
+  // Fallback sample shaped like data/sample-tokens.json (alignment metaphor).
+  const D = window.D || { series_id: "how-ai-works", series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "AI selaras itu maksudnya apa?", hl: "selaras",
+    sub: "Terlalu patuh = gampang disalahgunakan. Terlalu bebas = berbahaya.",
+    items: [{ label: "Menolak semua", value: "kaku" }, { label: "Hati-hati", value: "waduh" }, { label: "Selaras", value: "pas" }, { label: "Nurut", value: "loyo" }, { label: "Asal nurut", value: "bahaya" }],
+    source: "ilustrasi — spektrum alignment", date: "per 14 Okt 2026" };
+
+  Promise.all(['800 84px "Bricolage Grotesque"', '700 30px "Bricolage Grotesque"', '500 34px "Sometype Mono"', '600 44px "Bricolage Grotesque"'].map(f => document.fonts.load(f))).catch(() => {}).then(render);
+  function render() {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const items = (D.items || []).slice(0, 5), n = items.length;
+  const hl = (D.hl || "").trim();
+
+  $("kick").innerHTML = "WATERPASS · <b>" + esc(String(D.ep || "#01")) + "</b> · " + esc(D.series || D.kicker || "");
+  $("src").textContent = "sumber: " + (D.source || "");
+  $("date").textContent = D.date || "";
+  $("sub").textContent = D.sub || "";
+
+  // title
+  const t = String(D.title || "");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const tl = $("title");
+  tl.innerHTML = at < 0 ? esc(t)
+    : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  const lineOver = () => {  // true if any rendered text line sticks out past the column
+    const r = document.createRange(); r.selectNodeContents(tl);
+    const rects = Array.from(r.getClientRects());
+    return rects.some(rc => rc.width > 5 && rc.right - tl.getBoundingClientRect().left > 604);
+  };
+  for (let fs = 92; fs >= 64; fs -= 2) { tl.style.fontSize = fs + "px"; if (tl.offsetHeight <= fs * 1.16 * 2 + 6 && !lineOver()) break; }
+
+  // which tick holds the bubble
+  let hi = -1;
+  for (let i = 0; i < items.length && hi < 0; i++) { const it = items[i];
+    if (hl && (norm(it.label).includes(norm(hl)) || norm(it.value).includes(norm(hl)))) hi = i; }
+  if (hi < 0) hi = Math.min(items.length - 1, 2);
+
+  // ticks + bubble along the main vial
+  const vial = $("vial"), ticks = $("ticks");
+  let vh = "", ringN = Math.min(4, Math.max(2, n - 1));
+  for (let k = 0; k < ringN; k++) vh += '<div class="ring" style="left:' + (14 + k * 32) + '%"></div>';
+  const bw = Math.min(120, 640 / n);
+  const bx = 40 + (620 - bw) * (n === 1 ? 0.5 : hi / (n - 1));
+  vh += '<div class="bubble" style="left:' + bx.toFixed(0) + 'px;width:' + bw.toFixed(0) + 'px"></div>';
+  vial.innerHTML = vh;
+  let th = "";
+  items.forEach((it, i) => {
+    const x = 85 + (n === 1 ? 0 : i / (n - 1) * (560 - 170)) ;
+    th += '<div class="tick' + (i === hi ? " on" : "") + '" style="left:' + (x + 85).toFixed(0) + 'px">'
+      + '<div class="stem"></div><div class="lb" id="tl' + i + '">' + esc(it.label) + '</div><div class="vl" id="tv' + i + '">' + esc(it.value) + "</div></div>";
+  });
+  ticks.innerHTML = th;
+  items.forEach((it, i) => {
+    const lb = $("tl" + i), vl = $("tv" + i);
+    for (let fs = 30; fs >= 26; fs -= 1) { lb.style.fontSize = fs + "px"; if (lb.scrollWidth <= 146) break; }
+    for (let fs = 34; fs >= 26; fs -= 1) { vl.style.fontSize = fs + "px"; if (vl.scrollWidth <= 146) break; }
+  });
+
+  // vertical placement: level sits below title, bubble row above caption/pencil
+  const rig = $("rig"), capEl = capRender(), sub = $("sub");
+  rig.style.top = Math.max(700, tl.offsetTop + tl.offsetHeight + 80) + "px";
+  // pencil note only when the caption slot carries different copy (D.caption)
+  if (D.caption) { sub.style.top = (rig.offsetTop + 620) + "px"; }
+  else sub.style.display = "none";
+
+  function norm(w) { return String(w).toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, ""); }
+
+  function capRender() {
+    const capEl = $("cap");
+    const cap = String(D.caption || D.sub || "").trim();
+    const words = cap.split(/\s+/).filter(Boolean);
+    const nrm = w => w.toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+    const hws = hl ? hl.split(/\s+/).map(nrm).filter(Boolean) : [];
+    let a0 = -1, a1 = -1;
+    if (hws.length) {
+      for (let i = 0; i + hws.length <= words.length && a0 < 0; i++) if (hws.every((h2, k) => nrm(words[i + k]) === h2)) { a0 = i; a1 = i + hws.length - 1; }
+      if (a0 < 0 && hws.length === 1) { const j = words.findIndex(w => nrm(w).includes(hws[0])); if (j >= 0) a0 = a1 = j; }
+    }
+    if (a0 < 0) a0 = a1 = 0;
+    const parts = [];
+    for (let i = 0; i < words.length; i++) {
+      if (i === a0) { parts.push('<span class="w on">' + esc(words.slice(a0, a1 + 1).join(" ")) + "</span>"); i = a1; }
+      else parts.push('<span class="w">' + esc(words[i]) + "</span>");
+    }
+    capEl.innerHTML = parts.join(" ");
+    let cfs = 46; for (; cfs >= 40; cfs -= 2) { capEl.style.fontSize = cfs + "px"; if (capEl.offsetHeight <= cfs * 1.34 * 2 + 4) break; }
+    capEl.style.top = (1614 - capEl.offsetHeight) + "px";
+    return capEl;
+  }
+  }
+</script>
+</body>
+</html>

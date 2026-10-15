@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=DM+Mono:wght@400;500&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Split Tally (split-tally): tongkat tally hazel belah dua (stock & foil)
+    di atas vellum, disegel lilin merah — metafora provenance/watermark AI:
+    tanda tak terlihat di dalam konten, dan hanya "broang" sebelahnya
+    (kunci pemeriksa) yang cocok persis; tiruan tidak akan sejajar.
+    Item = takaran pada kedua belahan; hl = takaran tempat kedua belahan
+    bertemu pas, diberi ring merah segel. Separuh palsu tergeletak terpisah
+    dengan satu takaran yang tidak cocok.
+    Deterministik: lebar takaran hard-coded, tanpa random.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #EDE4D3; }
+  body { position: relative; font-family: "EB Garamond", serif; color: #2A2118; }
+  body::before { content: ""; position: absolute; inset: 0; opacity: .55; pointer-events: none;
+    background: repeating-linear-gradient(91deg, rgba(140,98,57,.05) 0 2px, transparent 2px 7px),
+                radial-gradient(120% 90% at 50% 40%, rgba(255,250,238,.7), transparent 70%); }
+  .vellum { position: absolute; inset: 0; opacity: .6;
+    background: repeating-linear-gradient(91deg, rgba(140,98,57,.05) 0 2px, transparent 2px 7px),
+                radial-gradient(120% 90% at 50% 40%, rgba(255,250,238,.7), transparent 70%); }
+
+  .kick { position: absolute; left: 90px; top: 296px; font: 400 27px "DM Mono"; letter-spacing: .1em; color: #6E5A44; }
+  .kick b { color: #2A2118; }
+  .title { position: absolute; left: 90px; top: 352px; width: 860px;
+    font-weight: 600; line-height: 1.08; letter-spacing: -.005em; }
+  .title .hl { font-style: italic; box-shadow: inset 0 -.14em #9E2B25; padding: 0 .05em; }
+  .subline { position: absolute; left: 90px; width: 860px; font: italic 500 40px/1.3 "EB Garamond"; color: #5C4A36; }
+
+  .rig { position: absolute; left: -30px; top: 0; width: 1140px; z-index: 3; transform: rotate(9deg); }
+  .stick { position: relative; height: 96px; border-radius: 14px/48px; margin: 0 auto 34px;
+    background: linear-gradient(180deg, #C89B67, #B88A57 45%, #9A6F41);
+    border: 3px solid #2A2118; box-shadow: 0 18px 26px rgba(42,33,24,.3), inset 0 -10px 14px rgba(80,52,24,.4); }
+  .stick.foil { margin-bottom: 0; background: linear-gradient(180deg, #D3A873, #BE9260 45%, #A27747); }
+  .face { position: absolute; left: 14px; right: 14px; top: 8px; height: 34px; border-radius: 12px/18px;
+    background: linear-gradient(180deg, #EBD9B4, #DEC89A); border: 2px solid #2A2118; overflow: hidden; }
+  .notch { position: absolute; top: 2px; height: 28px; background: #4A3216; border: 2px solid #2A2118; border-radius: 3px; }
+  .notch.miss { background: #9E2B25; }
+  .tagrow { position: absolute; left: 90px; width: 900px; display: flex; flex-wrap: wrap; gap: 16px 18px; z-index: 4; }
+  .tag { text-align: left; background: #F3EAD6; border: 2px solid #2A2118; border-radius: 8px;
+    padding: 10px 16px 8px; box-shadow: 4px 5px 0 rgba(42,33,24,.18); }
+  .tag:nth-child(even) { transform: rotate(1.1deg); }
+  .tag:nth-child(odd) { transform: rotate(-.8deg); }
+  .tag .lb { font: italic 600 29px/1.15 "EB Garamond"; color: #2A2118; }
+  .tag .vl { font: 500 36px/1.15 "DM Mono"; color: #3D2E1C; margin-top: 4px; white-space: nowrap; }
+  .tag.on { background: #EDE4D3; border: 3px solid #9E2B25; box-shadow: 4px 5px 0 rgba(158,43,37,.25); }
+  .tag.on .lb { color: #9E2B25; font-weight: 700; }
+  .tag .lb { line-height: 1.2; }
+  .tag .vl { margin-top: 6px; }
+  .ring { position: absolute; border: 5px solid #9E2B25; border-radius: 50%; z-index: 4; }
+
+  .forge { position: absolute; right: 60px; z-index: 2; width: 560px; transform: rotate(-9deg); }
+  .forge .stick { height: 84px; margin: 0; }
+  .forgeb { position: absolute; right: 30px; font: 500 27px "DM Mono"; color: #9E2B25;
+    border: 3px solid #9E2B25; border-radius: 8px; padding: 4px 16px; background: #EDE4D3; transform: rotate(-9deg); z-index: 3; }
+
+  .seal { position: absolute; z-index: 5; }
+
+  .tape { position: absolute; left: 90px; width: 880px; z-index: 6;
+    font: 600 44px/1.3 "EB Garamond"; }
+  .tape .w { color: #5C4A36; }
+  .tape .w.on { color: #EDE4D3; background: #9E2B25; padding: 0 12px; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div class="kick" id="kick"></div>
+<div class="title" id="title"></div>
+<div class="subline" id="sub"></div>
+<div class="rig" id="rig">
+  <div class="stick stock" id="stock"><div class="face" id="face1"></div></div>
+  <div class="stick foil" id="foil"><div class="face" id="face2"></div></div>
+</div>
+<div class="forge" id="forge">
+  <div class="stick"><div class="face" id="face3"></div></div>
+</div>
+<div class="forgeb" id="forgeb">tiruan — takaran tidak cocok</div>
+<svg class="seal" id="seal" width="190" height="190" viewBox="0 0 190 190">
+  <path d="M95 12 c34 -10 66 8 74 38 c26 6 34 40 18 60 c10 26 -8 56 -38 60 c-10 26 -48 34 -68 16 c-28 8 -56 -10 -60 -38 c-22 -14 -22 -48 -2 -62 c-4 -30 22 -52 48 -46 c8 -14 20 -24 28 -28 Z" fill="#9E2B25" stroke="#6E1C18" stroke-width="5"/>
+  <path d="M60 70 h70 M60 96 h70 M60 122 h46" stroke="#EDE4D3" stroke-width="9" stroke-linecap="round" opacity=".85"/>
+</svg>
+<div class="tape" id="cap" data-slot="caption"></div>
+<script>
+  // Fallback sample shaped like data/sample-tokens.json (provenance metaphor).
+  const D = window.D || { series_id: "ai-news", series: "Berita AI", ep: "#01", kicker: "Berita AI · #01",
+    title: "Asli atau buatan AI? Cek broangnya.", hl: "broang",
+    sub: "Tanda air digital hanya bisa dicek dengan kunci yang cocok.",
+    items: [{ label: "tanda tak terlihat", value: "di dalam" }, { label: "kunci pemeriksa", value: "pas 1:1" }, { label: "salinan yang diedit", value: "geser" }, { label: "tiruan tanpa tanda", value: "kosong" }],
+    source: "ilustrasi — watermark konten AI", date: "per 14 Okt 2026" };
+
+  Promise.all(['600 84px "EB Garamond"', 'italic 600 29px "EB Garamond"', '500 36px "DM Mono"', '500 27px "DM Mono"'].map(f => document.fonts.load(f))).catch(() => {}).then(render);
+  function render() {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const items = (D.items || []).slice(0, 5), n = items.length;
+  const hl = (D.hl || "").trim();
+
+  $("kick").innerHTML = "TALLY BELAH DUA · <b>" + esc(String(D.ep || "#01")) + "</b> · " + esc(D.series || D.kicker || "");
+  if (!D.caption) $("sub").style.display = "none"; else $("sub").textContent = D.caption;
+
+  // title (measure line overflow for real)
+  const t = String(D.title || "");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const tl = $("title");
+  tl.innerHTML = at < 0 ? esc(t)
+    : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  const lineOver = () => {
+    const r = document.createRange(); r.selectNodeContents(tl);
+    return Array.from(r.getClientRects()).some(rc => rc.width > 5 && rc.right - tl.getBoundingClientRect().left > 866);
+  };
+  for (let fs = 96; fs >= 64; fs -= 2) { tl.style.fontSize = fs + "px"; if (tl.offsetHeight <= fs * 1.16 * 2 + 6 && !lineOver()) break; }
+  const titleBottom = tl.offsetTop + tl.offsetHeight;
+
+  // hl item index (first match)
+  let hi = -1;
+  const norm = w => String(w).toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+  for (let i = 0; i < items.length && hi < 0; i++) {
+    if (hl && (norm(items[i].label).includes(norm(hl)) || norm(items[i].value).includes(norm(hl)))) hi = i;
+  }
+
+  // sticks: notches at fixed irregular widths (palm, thumb, little finger, hairline…)
+  const NW = [64, 40, 26, 14, 34], NX = [];
+  { let x = 150; const span = 820;
+    for (let i = 0; i < n; i++) { NX.push(x); x += span / n; } }
+  let f1 = "", f2 = "", tags = "";
+  items.forEach((it, i) => {
+    const w = NW[i % NW.length];
+    f1 += '<div class="notch" style="left:' + NX[i] + 'px;width:' + w + 'px"></div>';
+    f2 += '<div class="notch' + (i === hi ? " miss" : "") + '" style="left:' + (NX[i] + 4) + 'px;width:' + (w - 8) + 'px"></div>';
+    tags += '<div class="tag' + (i === hi ? " on" : "") + '" id="tag' + i + '"">'
+      + '<div class="stem"></div><div class="lb">' + esc(it.label) + '</div><div class="vl" id="vl' + i + '">' + esc(it.value) + "</div></div>";
+  });
+  $("face1").innerHTML = f1;
+  $("face2").innerHTML = f2;
+  const rig = $("rig");
+  rig.style.top = (titleBottom + 118) + "px";
+  const row = document.createElement("div"); row.className = "tagrow"; row.innerHTML = tags;
+  rig.insertAdjacentElement("afterend", row);
+  items.forEach((it, i) => {
+    const vl = $("vl" + i), lb = row.querySelector("#tag" + i + " .lb");
+    let fs = 36; for (; fs >= 26; fs -= 1) { vl.style.fontSize = fs + "px"; if (vl.scrollWidth <= 250) break; }
+    let ls = 29; for (; ls >= 26; ls -= 1) { lb.style.fontSize = ls + "px"; if (lb.scrollWidth <= 260) break; }
+  });
+  const rowH = () => { row.style.top = (rig.offsetTop + 330) + "px"; return row.offsetHeight; };
+  rowH();
+
+  // red ring where the halves meet = hl notch
+  if (hi < 0) hi = n > 2 ? 1 : 0;   // no data match: point at the second notch
+  if (hi >= 0) {
+    rig.insertAdjacentHTML("beforeend",
+      '<div class="ring" style="left:' + (NX[hi] - 14) + 'px;top:-14px;width:' + (NW[hi % NW.length] + 52) + 'px;height:124px"></div>');
+  }
+
+  // forged half: one notch visibly off-register
+  let f3 = "";
+  const fw = NW[0], fx = 90;
+  f3 += '<div class="notch" style="left:' + fx + 'px;width:' + fw + 'px"></div>';
+  f3 += '<div class="notch miss" style="left:' + (fx + fw + 120) + 'px;width:' + (fw - 26) + 'px"></div>';
+  $("face3").innerHTML = f3;
+
+  // forged stick + seal placement below the real pair, above the caption
+  capRender();
+  const capEl = $("cap");
+  const capTop = capEl.offsetTop;
+  const fy = Math.min(row.offsetTop + rowH() + 90, capTop - 250);
+  $("forge").style.top = fy + "px";
+  $("forgeb").style.top = (fy + 120) + "px";
+  $("forgeb").style.right = "150px";
+  $("seal").style.left = "86px";
+  $("seal").style.top = (fy - 20) + "px";
+  $("seal").style.zIndex = 3;
+
+  function capRender() {
+    const capEl = $("cap");
+    const cap = String(D.caption || D.sub || "").trim();
+    const words = cap.split(/\s+/).filter(Boolean);
+    const hws = hl ? hl.split(/\s+/).map(norm).filter(Boolean) : [];
+    let a0 = -1, a1 = -1;
+    if (hws.length) {
+      for (let i = 0; i + hws.length <= words.length && a0 < 0; i++) if (hws.every((h2, k) => norm(words[i + k]) === h2)) { a0 = i; a1 = i + hws.length - 1; }
+      if (a0 < 0 && hws.length === 1) { const j = words.findIndex(w => norm(w).includes(hws[0])); if (j >= 0) a0 = a1 = j; }
+    }
+    if (a0 < 0) a0 = a1 = 0;
+    const parts = [];
+    for (let i = 0; i < words.length; i++) {
+      if (i === a0) { parts.push('<span class="w on">' + esc(words.slice(a0, a1 + 1).join(" ")) + "</span>"); i = a1; }
+      else parts.push('<span class="w">' + esc(words[i]) + "</span>");
+    }
+    capEl.innerHTML = parts.join(" ");
+    let cfs = 46; for (; cfs >= 40; cfs -= 2) { capEl.style.fontSize = cfs + "px"; if (capEl.offsetHeight <= cfs * 1.34 * 2 + 4) break; }
+    capEl.style.top = (1614 - capEl.offsetHeight) + "px";
+    return capEl;
+  }
+  }
+</script>
+</body>
+</html>

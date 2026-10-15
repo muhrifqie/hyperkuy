@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1080, height=1920" />
+<link href="https://fonts.googleapis.com/css2?family=Fragment+Mono:ital@0;1&family=Work+Sans:wght@500;600;700;800&display=block" rel="stylesheet" />
+<!--DATA-->
+<style>
+  /*
+    Tempeh Culture (tempeh-culture): iritan melintang blok tempe di talenan
+    gelap — metafora training: data mulai sebagai kecapai lepas; selama
+    run, benang (bobot) tumbuh di antaranya sampai semuanya terikat jadi
+    satu model padat. Item = iritan berstempel waktu (jam 0, 12, 24, 36);
+    hl = iritan tempat benang pertama kali menghubungkan semua kecapai.
+    Deterministik: posisi kecapai & benang dari tabel hash integer tetap.
+  */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1080px; height: 1920px; overflow: hidden; background: #1B1A17; }
+  body { position: relative; font-family: "Work Sans", sans-serif; color: #F6F3EC; }
+  .board { position: absolute; inset: 0;
+    background: radial-gradient(130% 100% at 50% 30%, #262420, #1B1A17 60%, #141310);
+  }
+  .kick { position: absolute; left: 90px; top: 296px; font: 400 27px "Fragment Mono"; letter-spacing: .1em; color: #A78D5B; }
+  .kick b { color: #F6F3EC; }
+  .title { position: absolute; left: 90px; top: 352px; width: 880px;
+    font-weight: 800; line-height: 1.08; letter-spacing: -.01em; }
+  .title .hl { color: #1B1A17; background: #D7C399; box-shadow: 0 0 0 8px #D7C399; }
+
+  .row { position: absolute; left: 90px; width: 900px; display: flex; gap: 22px; z-index: 3; }
+  .slice { position: relative; flex: 1 1 0; }
+  .slice svg { display: block; width: 100%; height: auto; border: 3px solid #A78D5B; border-radius: 10px;
+    background: #211F1B; box-shadow: 0 16px 26px rgba(0,0,0,.5); }
+  .slice.on svg { border-color: #3B5BA9; box-shadow: 0 0 0 4px rgba(59,91,169,.4), 0 16px 26px rgba(0,0,0,.5); }
+  .slice .clock { position: absolute; left: 10px; top: 10px; font: 400 27px "Fragment Mono";
+    color: #1B1A17; background: #D7C399; border-radius: 6px; padding: 1px 10px; }
+  .slice.on .clock { background: #3B5BA9; color: #F6F3EC; }
+  .meta { margin-top: 16px; }
+  .meta .vl { font: 400 40px/1.15 "Fragment Mono"; color: #F6F3EC; }
+  .meta .lb { font: 600 30px/1.2 "Work Sans"; color: #A78D5B; margin-top: 4px; }
+  .slice.on .meta .vl { color: #9FB4E8; }
+
+  .knife { position: absolute; z-index: 2; }
+
+  .tape { position: absolute; left: 90px; width: 880px; z-index: 6;
+    font: 600 44px/1.32 "Work Sans"; }
+  .tape .w { color: #B9A781; }
+  .tape .w.on { color: #F6F3EC; background: #3B5BA9; padding: 0 12px; font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="board"></div>
+<div class="kick" id="kick"></div>
+<div class="title" id="title"></div>
+<div class="row" id="row"></div>
+<svg class="knife" id="knife" width="560" height="90" viewBox="0 0 560 90">
+  <path d="M8 52 C60 18 180 14 300 20 L520 30 C544 32 548 52 522 56 L300 62 C170 66 60 62 8 52 Z" fill="#B9A781" stroke="#141310" stroke-width="4"/>
+  <rect x="500" y="24" width="52" height="34" rx="8" fill="#3B3A35" stroke="#141310" stroke-width="4"/>
+  <path d="M40 46 C120 26 220 24 320 28" stroke="#F6F3EC" stroke-width="5" fill="none" opacity=".7"/>
+</svg>
+<div class="tape" id="cap" data-slot="caption"></div>
+<script>
+  // Fallback sample shaped like data/sample-tokens.json (training-as-ferment metaphor).
+  const D = window.D || { series_id: "how-ai-works", series: "Cara kerja AI", ep: "#01", kicker: "Cara kerja AI · #01",
+    title: "Model AI itu tumbuh, bukan jadi.", hl: "tumbuh",
+    sub: "Kecapai lepas diikat benang sampai jadi satu blok padat.",
+    items: [{ label: "kacau lepas", value: "0%" }, { label: "benang pertama", value: "35%" }, { label: "semua terhubung", value: "75%" }, { label: "blok padat", value: "100%" }],
+    source: "ilustrasi — fermentasi sebagai metafora training", date: "per 14 Okt 2026" };
+
+  Promise.all(['800 80px "Work Sans"', '600 30px "Work Sans"', '400 40px "Fragment Mono"', '600 44px "Work Sans"'].map(f => document.fonts.load(f))).catch(() => {}).then(render);
+  function render() {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const items = (D.items || []).slice(0, 5), n = items.length;
+  const hl = (D.hl || "").trim();
+
+  $("kick").innerHTML = "IRITAN TEMPE · <b>" + esc(String(D.ep || "#01")) + "</b> · " + esc(D.series || D.kicker || "");
+
+  // title
+  const t = String(D.title || "");
+  const at = hl ? t.toLowerCase().indexOf(hl.toLowerCase()) : -1;
+  const tl = $("title");
+  tl.innerHTML = at < 0 ? esc(t)
+    : esc(t.slice(0, at)) + '<span class="hl">' + esc(t.slice(at, at + hl.length)) + "</span>" + esc(t.slice(at + hl.length));
+  const lineOver = () => {
+    const r = document.createRange(); r.selectNodeContents(tl);
+    return Array.from(r.getClientRects()).some(rc => rc.width > 5 && rc.right - tl.getBoundingClientRect().left > 886);
+  };
+  for (let fs = 88; fs >= 64; fs -= 2) { tl.style.fontSize = fs + "px"; if (tl.offsetHeight <= fs * 1.14 * 2 + 6 && !lineOver()) break; }
+
+  // hl slice: first match, else the "everything connects" slice (index n-2 of 4+)
+  let hi = -1;
+  const norm = w => String(w).toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, "");
+  for (let i = 0; i < items.length && hi < 0; i++) {
+    if (hl && (norm(items[i].label).includes(norm(hl)) || norm(items[i].value).includes(norm(hl)))) hi = i;
+  }
+  if (hi < 0) hi = Math.max(1, n - 2);
+
+  // slices: deterministic bean positions + thread growth
+  const row = $("row");
+  const W = 214, H = 380, COLS = 4, ROWS = 7;
+  const jit = (r, c, k) => (((r * 7 + c * 13 + k * 29) % 11) - 5);
+  let html = "";
+  items.forEach((it, i) => {
+    const dens = n === 1 ? 9 : Math.round(9 * i / (n - 1));          // 0..9 thread threshold
+    let beans = "", threads = "";
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+      const x = 34 + c * ((W - 68) / (COLS - 1)) + jit(r, c, 1);
+      const y = 40 + r * ((H - 80) / (ROWS - 1)) + jit(r, c, 2);
+      if (c + 1 < COLS && ((r * 31 + c * 17 + i * 7) % 10) < dens) {
+        const x2 = 34 + (c + 1) * ((W - 68) / (COLS - 1)) + jit(r, c + 1, 1);
+        threads += '<line x1="' + x.toFixed(1) + '" y1="' + y.toFixed(1) + '" x2="' + x2.toFixed(1) + '" y2="' + y.toFixed(1) + '" stroke="#F6F3EC" stroke-width="2.4" opacity=".92"/>';
+      }
+      if (r + 1 < ROWS && ((r * 13 + c * 41 + i * 3) % 10) < dens) {
+        const y2 = 36 + (r + 1) * ((H - 72) / (ROWS - 1)) + jit(r + 1, c, 2);
+        threads += '<line x1="' + x.toFixed(1) + '" y1="' + y.toFixed(1) + '" x2="' + x.toFixed(1) + '" y2="' + y2.toFixed(1) + '" stroke="#F6F3EC" stroke-width="2.4" opacity=".92"/>';
+      }
+      beans += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="15" fill="#D7C399" stroke="#141310" stroke-width="3"/>' +
+               '<circle cx="' + (x - 4).toFixed(1) + '" cy="' + (y - 4).toFixed(1) + '" r="4.5" fill="#F6F3EC" opacity=".55"/>';
+    }
+    const jam = n === 1 ? 0 : Math.round(36 * i / (n - 1));
+    html += '<div class="slice' + (i === hi ? " on" : "") + '">'
+      + '<svg viewBox="0 0 ' + W + ' ' + H + '"><rect width="' + W + '" height="' + H + '" rx="8" fill="#211F1B"/>'
+      + threads + beans + '</svg>'
+      + '<div class="clock">JAM ' + jam + '</div>'
+      + '<div class="meta"><div class="vl">' + esc(it.value) + '</div><div class="lb">' + esc(it.label) + "</div></div></div>";
+  });
+  row.innerHTML = html;
+
+  // vertical placement
+  capRender();
+  const capEl = $("cap");
+  row.style.top = Math.max(640, tl.offsetTop + tl.offsetHeight + 70) + "px";
+  const svgH = row.querySelector("svg").getBoundingClientRect().height;
+  const rowBottom = row.offsetTop + svgH + 150;
+  $("knife").style.top = Math.min(rowBottom + 60, capEl.offsetTop - 130) + "px";
+  $("knife").style.right = "90px";
+
+  function capRender() {
+    const capEl = $("cap");
+    const cap = String(D.caption || D.sub || "").trim();
+    const words = cap.split(/\s+/).filter(Boolean);
+    const hws = hl ? hl.split(/\s+/).map(norm).filter(Boolean) : [];
+    let a0 = -1, a1 = -1;
+    if (hws.length) {
+      for (let i = 0; i + hws.length <= words.length && a0 < 0; i++) if (hws.every((h2, k) => norm(words[i + k]) === h2)) { a0 = i; a1 = i + hws.length - 1; }
+      if (a0 < 0 && hws.length === 1) { const j = words.findIndex(w => norm(w).includes(hws[0])); if (j >= 0) a0 = a1 = j; }
+    }
+    if (a0 < 0) a0 = a1 = 0;
+    const parts = [];
+    for (let i = 0; i < words.length; i++) {
+      if (i === a0) { parts.push('<span class="w on">' + esc(words.slice(a0, a1 + 1).join(" ")) + "</span>"); i = a1; }
+      else parts.push('<span class="w">' + esc(words[i]) + "</span>");
+    }
+    capEl.innerHTML = parts.join(" ");
+    let cfs = 46; for (; cfs >= 40; cfs -= 2) { capEl.style.fontSize = cfs + "px"; if (capEl.offsetHeight <= cfs * 1.36 * 2 + 4) break; }
+    capEl.style.top = (1614 - capEl.offsetHeight) + "px";
+    return capEl;
+  }
+  }
+</script>
+</body>
+</html>
